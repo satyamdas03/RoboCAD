@@ -1,0 +1,21 @@
+# Phase 0 dependencies for RoboCAD
+# Install with: python -m pip install -r requirements.txt
+
+# Parametric CAD kernel (OpenCASCADE via Python)
+build123d>=0.9.0
+
+# AI client for code generation
+anthropic>=0.30.0
+
+# Geometry validation and mesh handling
+trimesh>=4.0.0
+manifold3d>=2.0.0
+numpy>=1.26.0
+
+# Optional: image thumbnails for generated models
+# pillow>=10.0.0
+
+# Web backend (Phase 2)
+# fastapi>=0.110.0
+# uvicorn>=0.29.0
+# pydantic>=2.0.0

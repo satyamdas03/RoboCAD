@@ -1,0 +1,14 @@
+[
+  {
+    "prompt": "A 120 mm × 80 mm × 3 mm rectangular plate with four M3 mounting holes on a 100 mm × 60 mm grid.",
+    "code": "from build123d import *\n\nlength = 120.0\nwidth = 80.0\nthickness = 3.0\nhole_diameter = 3.2\nhole_spacing_x = 100.0\nhole_spacing_y = 60.0\n\nwith BuildPart() as plate:\n    Box(length, width, thickness)\n    top_face = plate.faces().filter_by(Axis.Z).sort_by(Axis.Z)[-1]\n    with BuildPart(top_face.location):\n        with GridLocations(hole_spacing_x, hole_spacing_y, 2, 2):\n            Cylinder(radius=hole_diameter/2, height=thickness + 0.2, mode=Mode.SUBTRACT)\n\nresult = plate.part"
+  },
+  {
+    "prompt": "An L-bracket 40 mm tall, 40 mm wide, 30 mm deep, 3 mm thick, with four 4 mm mounting holes on one face.",
+    "code": "from build123d import *\n\nheight = 40.0\nwidth = 40.0\ndepth = 30.0\nthickness = 3.0\nhole_diameter = 4.2\n\nwith BuildPart() as bracket:\n    # vertical leg\n    Box(thickness, depth, height)\n    # horizontal leg\n    with Locations((0, 0, -height/2)):\n        Box(width, depth, thickness)\n    # mounting holes on vertical leg\n    vert_face = bracket.faces().filter_by(Axis.X).sort_by(Axis.X)[-1]\n    with BuildPart(vert_face.location):\n        with GridLocations(25.0, 20.0, 2, 2):\n            Cylinder(radius=hole_diameter/2, height=thickness + 0.2, mode=Mode.SUBTRACT)\n\nresult = bracket.part"
+  },
+  {
+    "prompt": "A simple wheel hub for a 6 mm D-shaft with four M3 bolt holes on a 30 mm PCD.",
+    "code": "from build123d import *\n\nouter_diameter = 40.0\ninner_diameter = 6.0\nhub_thickness = 8.0\nbolt_diameter = 3.2\nbolt_pcd = 30.0\n\nwith BuildPart() as hub:\n    Cylinder(radius=outer_diameter/2, height=hub_thickness)\n    # central bore\n    Cylinder(radius=inner_diameter/2, height=hub_thickness + 0.2, mode=Mode.SUBTRACT)\n    # bolt holes on PCD\n    top_face = hub.faces().filter_by(Axis.Z).sort_by(Axis.Z)[-1]\n    with BuildPart(top_face.location):\n        with PolarLocations(radius=bolt_pcd/2, count=4, start_angle=0):\n            Cylinder(radius=bolt_diameter/2, height=hub_thickness + 0.2, mode=Mode.SUBTRACT)\n\nresult = hub.part"
+  }
+]
