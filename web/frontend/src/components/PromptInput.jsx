@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 const SUGGESTIONS = [
   'A 120 mm x 80 mm x 3 mm base plate with four M3 holes on a 100 mm x 60 mm grid.',
@@ -6,10 +6,16 @@ const SUGGESTIONS = [
   'A wheel hub with a 6 mm D-shaft bore and four M3 holes on a 30 mm PCD.',
 ]
 
-export default function PromptInput({ onGenerate, loading }) {
+export default function PromptInput({ onGenerate, loading, seedPrompt }) {
   const [prompt, setPrompt] = useState('')
   const [maxRetries, setMaxRetries] = useState(2)
   const [model, setModel] = useState('')
+
+  useEffect(() => {
+    if (seedPrompt) {
+      setPrompt(seedPrompt)
+    }
+  }, [seedPrompt])
 
   const handleSubmit = (e) => {
     e.preventDefault()

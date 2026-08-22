@@ -32,6 +32,27 @@ export async function loadDesign(id) {
   return apiFetch(`/designs/${id}`)
 }
 
+export async function regenerateDesign(id, parameterUpdates) {
+  return apiFetch(`/designs/${id}/regenerate`, {
+    method: 'POST',
+    body: JSON.stringify({ parameter_updates: parameterUpdates }),
+  })
+}
+
+export async function updateDesignTags(id, tags) {
+  return apiFetch(`/designs/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ tags }),
+  })
+}
+
+export async function remixDesign(id, { prompt, max_retries = 2, model = null }) {
+  return apiFetch(`/designs/${id}/remix`, {
+    method: 'POST',
+    body: JSON.stringify({ prompt, max_retries, model }),
+  })
+}
+
 export function exportUrl(path) {
   return `${API_BASE}${path}`
 }

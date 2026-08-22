@@ -1,0 +1,108 @@
+{
+  "categories": [
+    {
+      "name": "Structural",
+      "items": [
+        {
+          "id": "bracket",
+          "name": "Mounting Bracket",
+          "description": "A flat L- or U-shaped bracket with configurable length, width, thickness, hole diameter, and hole spacing.",
+          "prompt": "Build123d parametric mounting bracket with length 80 mm, width 40 mm, thickness 3 mm, two M4 mounting holes centered on each side, and 2 mm fillets on all edges. Export STL and STEP.",
+          "tags": ["structural", "bracket", "mounting"]
+        },
+        {
+          "id": "plate",
+          "name": "Base Plate",
+          "description": "A rectangular plate with optional grid mounting holes and corner fillets.",
+          "prompt": "Build123d rectangular base plate 120 mm x 80 mm x 5 mm with a 4x3 grid of M3 mounting holes on 20 mm spacing and 3 mm corner fillets. Export STL and STEP.",
+          "tags": ["structural", "plate", "base"]
+        },
+        {
+          "id": "beam",
+          "name": "Square Beam",
+          "description": "A simple extruded square or rectangular beam with configurable cross-section and length.",
+          "prompt": "Build123d square aluminum beam 20 mm x 20 mm cross-section and 200 mm length with hollow center 16 mm x 16 mm. Export STL and STEP.",
+          "tags": ["structural", "beam", "extrusion"]
+        }
+      ]
+    },
+    {
+      "name": "Motion",
+      "items": [
+        {
+          "id": "pulley",
+          "name": "GT2 Pulley",
+          "description": "A 20-tooth GT2 timing pulley with configurable bore diameter, hub size, and belt flange.",
+          "prompt": "Build123d GT2 timing pulley with 20 teeth, pitch 2 mm, bore 5 mm, hub diameter 16 mm, hub width 8 mm, total width 7 mm, and 1 mm belt flanges. Export STL and STEP.",
+          "tags": ["motion", "pulley", "gt2", "timing-belt"]
+        },
+        {
+          "id": "coupler",
+          "name": "Rigid Shaft Coupler",
+          "description": "A cylindrical coupler with two set-screw holes for joining two shafts.",
+          "prompt": "Build123d rigid shaft coupler 25 mm outer diameter, 30 mm length, 5 mm through-bore, and two perpendicular M3 set-screw holes. Export STL and STEP.",
+          "tags": ["motion", "coupler", "shaft"]
+        },
+        {
+          "id": "spacer",
+          "name": "Bushing Spacer",
+          "description": "A cylindrical spacer or bushing with configurable inner and outer diameters and length.",
+          "prompt": "Build123d bushing spacer with outer diameter 10 mm, inner diameter 5 mm, and length 8 mm. Export STL and STEP.",
+          "tags": ["motion", "spacer", "bushing"]
+        }
+      ]
+    },
+    {
+      "name": "Electronics",
+      "items": [
+        {
+          "id": "enclosure",
+          "name": "Split Electronics Enclosure",
+          "description": "A two-part box with lid, mounting bosses, and ventilation slots.",
+          "prompt": "Build123d split electronics enclosure bottom shell 100 mm x 60 mm x 30 mm wall thickness 2 mm, four M3 mounting bosses in corners 4 mm diameter 6 mm tall, and ventilation slots on one long side. Export STL and STEP.",
+          "tags": ["electronics", "enclosure", "box"]
+        },
+        {
+          "id": "fan_shroud",
+          "name": "40 mm Fan Shroud",
+          "description": "A shroud or duct adapter for a standard 40 mm cooling fan.",
+          "prompt": "Build123d 40 mm cooling fan shroud with mounting pattern 32 mm x 32 mm for M3 screws, central 38 mm airflow hole, and 5 mm tall duct wall. Export STL and STEP.",
+          "tags": ["electronics", "fan", "shroud", "cooling"]
+        },
+        {
+          "id": "pcb_spacer",
+          "name": "PCB Standoff",
+          "description": "A stackable PCB spacer with M3 internal thread clearance.",
+          "prompt": "Build123d PCB standoff spacer 5 mm outer diameter, 10 mm height, with 3.2 mm through-hole for M3 screw and a small lip at top. Export STL and STEP.",
+          "tags": ["electronics", "pcb", "standoff"]
+        }
+      ]
+    },
+    {
+      "name": "Robotics",
+      "items": [
+        {
+          "id": "gripper_jaw",
+          "name": "Parallel Gripper Jaw",
+          "description": "A single jaw for a parallel-jaw gripper with a V-groove and mounting holes.",
+          "prompt": "Build123d parallel gripper jaw 50 mm x 20 mm x 10 mm with a 45 degree V-groove on the gripping face, two M2 mounting holes on the back face, and 2 mm fillets. Export STL and STEP.",
+          "tags": ["robotics", "gripper", "end-effector"]
+        },
+        {
+          "id": "wheel_hub",
+          "name": "Wheel Hub",
+          "description": "A hub for attaching a wheel to a motor shaft with set-screw and bolt pattern.",
+          "prompt": "Build123d wheel hub with 6 mm bore, 30 mm outer diameter, 10 mm height, four M3 bolt holes on 20 mm PCD, and a perpendicular M3 set-screw hole. Export STL and STEP.",
+          "tags": ["robotics", "wheel", "hub", "mobility"]
+        },
+        {
+          "id": "camera_mount",
+          "name": "Camera Mount",
+          "description": "A swivel camera mount with a fixed base, pivot hole, and strap slot.",
+          "prompt": "Build123d camera mount with 40 mm x 30 mm base, 2 mm wall thickness, 6 mm pivot hole centered, and a 20 mm wide strap slot. Export STL and STEP.",
+          "tags": ["robotics", "camera", "mount", "sensor"]
+        }
+      ]
+    }
+  ]
+}
