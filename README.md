@@ -3,6 +3,8 @@
 > **Mission:** Let robotics builders design real, editable, manufacturable hardware parts by describing them in plain language — no months of sketch-extrude-mate training required.
 >
 > **Core bet:** The AI writes **parametric CAD code** (build123d / FeatureScript), not throwaway meshes. The model you get is editable, versionable, and exportable for 3D printing, machining, or Onshape.
+>
+> **Latest milestone:** Phase 0 benchmark passes **8/8 (100%)** — the AI → build123d → STL loop is validated.
 
 ---
 
@@ -118,8 +120,8 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 
 | Phase | Goal | Status |
 |---|---|---|
-| **0** | Validate the AI → parametric-code loop in Python | 🔄 In progress |
-| 1 | Robust generation + self-correction backend | ⏳ Planned |
+| **0** | Validate the AI → parametric-code loop in Python | ✅ **Complete — 8/8 prompts pass** |
+| 1 | Robust generation + self-correction backend | 🔄 In progress |
 | 2 | Minimal web app (prompt + viewer + export) | ⏳ Planned |
 | 3 | Parameter / stylus editing layer | ⏳ Planned |
 | 4 | Design library + remix | ⏳ Planned |
@@ -206,6 +208,20 @@ and receive a folder of editable parts ready for printing, assembly in Onshape, 
 ---
 
 ## 📝 Changelog
+
+### 2026-08-22 — Phase 0 validation complete (8/8 pass)
+
+* Ran `validate.py` against 8 robotics-flavored prompts; **100% produced valid STL/STEP** on first attempt.
+* Fixed runtime issues discovered during validation:
+  * `ai_cad/generator.py` — added Anthropic Python SDK ≥1.0 compatibility (`temperature` via `extra_body`) and `ROBOCAD_MODEL` env override.
+  * `ai_cad/executor.py` — fixed f-string escaping for volume metadata in generated scripts.
+  * `validate.py` — fixed error-message extraction when validation returns empty warnings.
+* Rewrote `ai_cad/prompts/system_prompt.txt` and `ai_cad/prompts/examples.json` with working build123d patterns:
+  * Pattern A: `Locations`/`GridLocations`/`PolarLocations` + `Cylinder(..., mode=Mode.SUBTRACT)` inside one `BuildPart`.
+  * Pattern B: `BuildSketch(face)` + `Circle` + `extrude(amount=-depth, mode=Mode.SUBTRACT)` for side-face holes.
+  * Pattern C: explicit solid subtraction (`part.part = part.part - bore`) for central bores.
+  * Pattern D: raised bosses/mounts to avoid coplanar non-manifold geometry.
+* Phase 0 success criteria exceeded: target was ≥90% after self-correction; achieved 100% on first attempt.
 
 ### 2026-08-21 — Repo created, Phase 0 scaffold
 

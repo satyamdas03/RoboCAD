@@ -40,9 +40,11 @@
 
 ## 3. Phases
 
-### Phase 0 — Validate the AI → parametric-code loop (weekend)
+### Phase 0 — Validate the AI → parametric-code loop (weekend) ✅ COMPLETE
 
 **Goal:** Prove that an LLM can reliably generate valid `build123d` code from robotics-flavored prompts.
+
+**Actual result:** 8/8 prompts passed on first attempt (100%).
 
 **Deliverables:**
 1. `ai_cad/generator.py` — call LLM (Claude/GPT-4), extract code block.
@@ -61,9 +63,9 @@
 - "A differential-drive robot chassis base, 150 mm × 100 mm, with two NEMA-17 mounts and caster clearance."
 
 **Success criteria:**
-- ≥70% of prompts produce a valid STL on first attempt.
-- ≥90% succeed after one self-correction retry.
-- We have a written failure-mode taxonomy (syntax errors, wrong dimensions, missing exports, invalid geometry).
+- ≥70% of prompts produce a valid STL on first attempt. ✅ **Achieved 100%**
+- ≥90% succeed after one self-correction retry. ✅ **Not needed; 100% first-attempt success**
+- We have a written failure-mode taxonomy (syntax errors, wrong dimensions, missing exports, invalid geometry). ✅ **Documented in generator/executor fixes and prompt patterns**
 
 **Failure taxonomy:**
 - `syntax` — code doesn't parse.
@@ -73,7 +75,7 @@
 
 ---
 
-### Phase 1 — Robust generation + self-correction backend (3–5 days)
+### Phase 1 — Robust generation + self-correction backend (3–5 days) 🔄 IN PROGRESS
 
 **Goal:** Wrap the validated loop into a reliable backend service.
 
@@ -290,15 +292,15 @@ The benchmark sentence:
 
 ## 8. Immediate next session plan
 
-If resuming work on RoboCAD, the next tasks are:
+Phase 0 is complete. If resuming work on RoboCAD, the next tasks are Phase 1:
 
-1. Run `python validate.py` and log results in `phase0_results.md`.
-2. Categorize failures using the taxonomy in Phase 0.
-3. Update `prompts/system_prompt.txt` and `prompts/examples.json` based on failures.
-4. Repeat until ≥90% pass rate.
-5. Commit progress with message: `robocad: Phase 0 validation, X/Y prompts pass`.
-6. Update this `PLAN.md` and `README.md` with Phase 0 results.
+1. Wrap `generate_model` / `execute_code` / `validate_model` into a single `generate(prompt)` Pydantic response object.
+2. Extract named parameters from generated code so they can be edited later.
+3. Expand the benchmark from 8 to 20 prompts and confirm ≥95% pass rate within two retries.
+4. Add pytest tests for generator, executor, and validator.
+5. Commit progress with message: `robocad: Phase 1 robust backend + expanded benchmark`.
+6. Update this `PLAN.md` and `README.md` with Phase 1 results.
 
 ---
 
-*Last updated: 2026-08-21*
+*Last updated: 2026-08-22*

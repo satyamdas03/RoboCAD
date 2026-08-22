@@ -10,8 +10,29 @@ from typing import Optional
 import anthropic
 
 
-DEFAULT_MODEL = "claude-3-5-sonnet-20241022"
+DEFAULT_MODEL = os.environ.get("ROBOCAD_MODEL", "claude-3-5-sonnet-20241022")
 PROMPTS_DIR = Path(__file__).parent / "prompts"
+
+
+def _anthropic_create(client, *, model, max_tokens, messages, system, temperature):
+    """Compatibility wrapper for Anthropic SDK temperature handling.
+
+    Anthropic SDK >=1.0 removed the top-level ``temperature`` parameter from
+    ``Messages.create``; it must be passed via ``extra_body``. Older SDKs
+    accepted it as a top-level argument. This helper works with both.
+    """
+    major = int(getattr(anthropic, "__version__", "0.0.0").split(".")[0])
+    kwargs = {
+        "model": model,
+        "max_tokens": max_tokens,
+        "messages": messages,
+        "system": system,
+    }
+    if major >= 1:
+        kwargs["extra_body"] = {"temperature": temperature}
+    else:
+        kwargs["temperature"] = temperature
+    return client.messages.create(**kwargs)
 
 
 def _load_system_prompt() -> str:
@@ -82,7 +103,8 @@ def generate_model(
 
     client = anthropic.Anthropic(api_key=api_key)
     try:
-        response = client.messages.create(
+        response = _anthropic_create(
+            client,
             model=model,
             max_tokens=max_tokens,
             temperature=temperature,
@@ -156,7 +178,8 @@ def self_correct(
     last_raw = ""
     for attempt in range(max_retries):
         try:
-            response = client.messages.create(
+            response = _anthropic_create(
+                client,
                 model=model,
                 max_tokens=2048,
                 temperature=0.0,

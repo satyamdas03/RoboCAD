@@ -28,6 +28,8 @@ def main() -> int:
         print("Error: set ANTHROPIC_API_KEY environment variable.")
         return 1
 
+    model = os.environ.get("ROBOCAD_MODEL")
+
     output_dir = Path("output") / "phase0"
     output_dir.mkdir(parents=True, exist_ok=True)
     results: list[dict] = []
@@ -38,7 +40,7 @@ def main() -> int:
         print(f"[{idx}/{len(PROMPTS)}] {prompt}")
 
         # First attempt
-        gen = generate_model(prompt, api_key=api_key)
+        gen = generate_model(prompt, model=model, api_key=api_key)
         attempt = 1
 
         while not gen["success"] or (gen["success"] and gen.get("code")):
@@ -54,6 +56,7 @@ def main() -> int:
                         prompt,
                         gen["code"],
                         exec_result.get("traceback", exec_result.get("error", "unknown error")),
+                        model=model,
                         api_key=api_key,
                     )
                     attempt += 1
@@ -71,11 +74,16 @@ def main() -> int:
             exec_result = {"success": False, "error": gen.get("error"), "traceback": gen.get("raw_response")}
             validation = {"valid": False, "errors": [gen.get("error", "Generation failed")]}
 
+        error = exec_result.get("error")
+        if not error:
+            errors = validation.get("errors", [])
+            error = errors[0] if errors else None
+
         entry = {
             "prompt": prompt,
             "success": exec_result.get("success", False),
             "attempts": attempt,
-            "error": exec_result.get("error") or validation.get("errors", [None])[0],
+            "error": error,
             "bounds": exec_result.get("bounds"),
             "volume": exec_result.get("volume"),
             "valid": validation.get("valid", False),

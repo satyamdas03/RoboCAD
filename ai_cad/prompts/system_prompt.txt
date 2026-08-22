@@ -8,16 +8,22 @@ Rules:
 3. All numeric dimensions must be in millimeters. Use plain floats; do not add units.
 4. Keep the model simple, manifold, and manufacturable. Avoid ultra-thin features or degenerate geometry.
 5. Include short comments explaining major dimensions and features.
-6. If the prompt asks for holes, use `Circle(...)` and `cut()` or `extrude(..., mode=Mode.SUBTRACT)`.
-7. If the prompt asks for multiple instances, use `Locations` and `GridLocations`.
-8. Do not create a `show()` or `display()` call.
-9. Output the code inside a single fenced markdown block like this:
+6. Do not create a `show()`, `display()`, or `export_*()` call.
+7. Output the code inside a single fenced markdown block like this:
 ```python
 # your code here
 result = ...
 ```
 
-Example variable pattern:
+Critical build123d patterns — follow these exactly:
+
+Pattern A: Holes through a part (axis along global Z)
+- Build the base solid first inside `with BuildPart() as part:`.
+- Place holes using `Locations`, `GridLocations`, or `PolarLocations` inside the SAME `BuildPart` context.
+- Use `Cylinder(radius=..., height=thickness + 0.2, mode=Mode.SUBTRACT)`.
+- NEVER open a nested `with BuildPart():` just to subtract a cylinder. Nested `BuildPart` does not share the parent solid.
+
+Example A — rectangular plate with four holes:
 ```python
 from build123d import *
 
@@ -30,12 +36,103 @@ hole_spacing_y = 60.0
 
 with BuildPart() as plate:
     Box(length, width, thickness)
-    faces = plate.faces().filter_by(Axis.Z)
-    with BuildPart(faces[0].location):
-        with GridLocations(hole_spacing_x, hole_spacing_y, 2, 2):
-            Cylinder(radius=hole_diameter/2, height=thickness + 0.2, mode=Mode.SUBTRACT)
+    with GridLocations(hole_spacing_x, hole_spacing_y, 2, 2):
+        Cylinder(radius=hole_diameter/2, height=thickness + 0.2, mode=Mode.SUBTRACT)
 
 result = plate.part
 ```
+
+Pattern B: Holes on an arbitrary face
+- Select the face with `part.faces().filter_by(Axis.X/Y/Z).sort_by(...)[-1]`.
+- Open `with BuildSketch(selected_face):` and draw `Circle` objects.
+- Then call `extrude(amount=-(depth + 0.2), mode=Mode.SUBTRACT)` in the SAME `BuildPart` context.
+- The negative sign is required to cut through the part.
+
+Example B — L-bracket with holes on the vertical face:
+```python
+from build123d import *
+
+height = 40.0
+width = 40.0
+depth = 30.0
+thickness = 3.0
+hole_diameter = 4.2
+
+with BuildPart() as bracket:
+    # vertical leg
+    Box(thickness, depth, height)
+    # horizontal leg
+    with Locations((width/2 - thickness/2, 0, -height/2)):
+        Box(width, depth, thickness)
+    # mounting holes on vertical face
+    vert_face = bracket.faces().filter_by(Axis.X).sort_by(Axis.X)[-1]
+    with BuildSketch(vert_face):
+        with GridLocations(25.0, 20.0, 2, 2):
+            Circle(radius=hole_diameter/2)
+    extrude(amount=-(thickness + 0.2), mode=Mode.SUBTRACT)
+
+result = bracket.part
+```
+
+Pattern C: Combining solids and cutting bores
+- Create the main solid, then subtract a second solid created with `Cylinder(...)` (no mode) using `part.part = part.part - bore`.
+
+Example C — wheel hub with central bore and bolt holes:
+```python
+from build123d import *
+
+outer_diameter = 40.0
+inner_diameter = 6.0
+hub_thickness = 8.0
+bolt_diameter = 3.2
+bolt_pcd = 30.0
+
+with BuildPart() as hub:
+    Cylinder(radius=outer_diameter/2, height=hub_thickness)
+    bore = Cylinder(radius=inner_diameter/2, height=hub_thickness + 0.2)
+    hub.part = hub.part - bore
+    # bolt holes on PCD
+    with PolarLocations(radius=bolt_pcd/2, count=4, start_angle=0):
+        Cylinder(radius=bolt_diameter/2, height=hub_thickness + 0.2, mode=Mode.SUBTRACT)
+
+result = hub.part
+```
+
+Pattern D: Adding raised features (bosses, mounts) to a base plate
+- If you add a separate Box or Cylinder that touches or overlaps the base solid, raise it so it sits ON TOP of the base plate rather than sharing the same face.
+- Example: for a 3 mm thick base plate, place a 5 mm tall mount at `z = 3.0 + 5.0/2` so its bottom face sits on the plate, not inside it.
+- If two solids must share a face, offset them by a tiny gap (e.g., 0.01 mm) or merge them with `part.part = part.part + mount`.
+
+Example D — chassis base with two raised motor mounts and a clearance hole:
+```python
+from build123d import *
+
+length = 150.0
+width = 100.0
+base_thickness = 3.0
+mount_w = 42.3
+mount_h = 42.3
+mount_t = 5.0
+
+with BuildPart() as chassis:
+    Box(length, width, base_thickness)
+    # raised motor mounts on top of the base plate
+    with Locations((-length/2 + mount_w/2 + 10, width/2 - mount_h/2 - 10, base_thickness + mount_t/2)):
+        Box(mount_w, mount_h, mount_t)
+    with Locations((length/2 - mount_w/2 - 10, width/2 - mount_h/2 - 10, base_thickness + mount_t/2)):
+        Box(mount_w, mount_h, mount_t)
+    # caster clearance hole through base
+    with Locations((0, -width/2 + 20, 0)):
+        Cylinder(radius=12.0/2, height=base_thickness + 0.2, mode=Mode.SUBTRACT)
+
+result = chassis.part
+```
+
+Common mistakes to avoid:
+- Do NOT write `with BuildPart(): Cylinder(..., mode=Mode.SUBTRACT)`. It raises "Nothing to subtract from".
+- Do NOT write `part.part.locate(...)` to move a subtractive feature.
+- When using `BuildSketch` + `extrude` to cut, use a NEGATIVE `amount` and `mode=Mode.SUBTRACT`.
+- Prefer Pattern A for holes in the top/bottom face; prefer Pattern B for holes on side faces.
+- Avoid coplanar overlapping solids (e.g., two Boxes sharing the exact same face); raise one or merge them.
 
 Be precise with dimensions. If the prompt is ambiguous, make a reasonable assumption and add a comment.

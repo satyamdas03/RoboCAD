@@ -15,7 +15,7 @@
 | **Mission** | AI-powered parametric CAD for robotics hardware: describe parts in language, get editable manufacturable models. |
 | **Owner** | Satyam Das (@satyamdas03, satyamdas03@gmail.com) |
 | **Start date** | 2026-08-21 |
-| **Current date** | 2026-08-21 |
+| **Current date** | 2026-08-22 |
 
 ---
 
@@ -93,7 +93,7 @@ Onshape export / sync (Phase 5)
 | Decision | Choice | Rationale |
 |---|---|---|
 | CAD kernel | **build123d** first | Python API; LLMs write it well; no API limits |
-| AI model | Claude 3.5 Sonnet / GPT-4o | Best code generation + self-correction |
+| AI model | Claude 3.5 Sonnet / GPT-4o / local `qwen3-coder:latest` | Best code generation + self-correction; local Ollama endpoint also works |
 | Output artifact | Python script + derived mesh | Script is the editable source of truth |
 | Execution | Subprocess sandbox | Isolates generated code; captures tracebacks |
 | Viewer (Phase 2) | React + three.js | Standard web 3D stack |
@@ -107,8 +107,8 @@ Onshape export / sync (Phase 5)
 
 | Phase | Goal | Status |
 |---|---|---|
-| **0** | Validate AI → build123d → STL loop | 🔄 In progress |
-| 1 | Robust generation + self-correction backend | ⏳ Planned |
+| **0** | Validate AI → build123d → STL loop | ✅ **Complete — 8/8 (100%)** |
+| 1 | Robust generation + self-correction backend | 🔄 In progress |
 | 2 | Minimal web app (prompt + viewer + export) | ⏳ Planned |
 | 3 | Parameter / stylus editing layer | ⏳ Planned |
 | 4 | Design library + remix | ⏳ Planned |
@@ -145,16 +145,23 @@ RoboCAD/
 ## 9. Current status snapshot
 
 - Repo created at `https://github.com/satyamdas03/RoboCAD`.
-- Phase 0 scaffold committed and pushed.
+- Phase 0 committed and pushed.
 - `ai_cad/` package implements: generator, executor, validator, exporter, few-shot prompts.
 - `validate.py` runs 8 prompts and reports pass/fail.
+- **Phase 0 result: 8/8 prompts passed (100%)** using local `qwen3-coder:latest` via an Anthropic-compatible Ollama endpoint.
+- Key fixes landed:
+  - `generator.py` — Anthropic SDK 1.0 compatibility (`temperature` via `extra_body`) + `ROBOCAD_MODEL` env override.
+  - `executor.py` — fixed f-string escaping for volume metadata.
+  - `validate.py` — robust error extraction.
+  - `prompts/system_prompt.txt` + `examples.json` — working build123d patterns A/B/C/D.
 - Unit tests for generator utilities in `tests/test_generator.py`.
 
-**Next work:**
-1. Run `validate.py` with `ANTHROPIC_API_KEY`.
-2. Categorize failures.
-3. Iterate on `prompts/system_prompt.txt` and `prompts/examples.json`.
-4. Repeat until ≥90% pass rate.
+**Next work (Phase 1):**
+1. Wrap generator/executor/validator into a single `generate(prompt)` Pydantic response.
+2. Extract named parameters from generated code for later editing.
+3. Expand benchmark to 20 prompts; confirm ≥95% pass rate within two retries.
+4. Add pytest tests for executor and validator.
+5. Commit and push progress.
 
 ---
 
@@ -167,7 +174,8 @@ cd C:\Users\point\projects\RoboCAD
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
-$env:ANTHROPIC_API_KEY = "..."
+$env:ANTHROPIC_API_KEY = "..."          # or key for Anthropic-compatible endpoint
+$env:ROBOCAD_MODEL = "qwen3-coder:latest"  # optional override
 python validate.py
 ```
 
@@ -229,8 +237,8 @@ To force a full sync at any time, type:
 
 If you are resuming this session with no other context:
 
-> We are building **RoboCAD**, an AI-powered parametric CAD tool for robotics hardware. The repo is at `https://github.com/satyamdas03/RoboCAD`. The core loop is prompt → LLM → `build123d` Python code → execution → STL/STEP export. Phase 0 (validation) is in progress. The sister project is `LearningRobotics` (robotics theory and PIBench benchmark). Say `:POINTBREAK` to force a full dossier sync.
+> We are building **RoboCAD**, an AI-powered parametric CAD tool for robotics hardware. The repo is at `https://github.com/satyamdas03/RoboCAD`. The core loop is prompt → LLM → `build123d` Python code → execution → STL/STEP export. **Phase 0 (validation) is complete at 8/8 (100%).** Phase 1 (robust backend + expanded benchmark) is in progress. The sister project is `LearningRobotics` (robotics theory and PIBench benchmark). Say `:POINTBREAK` to force a full dossier sync.
 
 ---
 
-*Last updated: 2026-08-21*
+*Last updated: 2026-08-22*

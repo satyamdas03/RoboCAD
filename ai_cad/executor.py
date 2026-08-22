@@ -71,7 +71,7 @@ try:
     print("__ROBOCAD_SUCCESS__")
     print(f"type={{shape_type}}")
     print(f"bounds={{' '.join(str(x) for x in bounds)}}" if bounds else "bounds=None")
-    print(f"volume={volume}" if volume is not None else "volume=None")
+    print(f"volume={{volume}}" if volume is not None else "volume=None")
 except Exception as exc:
     traceback.print_exc()
     sys.exit(1)
