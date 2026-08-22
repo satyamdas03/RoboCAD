@@ -26,7 +26,7 @@ export default function ParameterList({ parameters }) {
             </tr>
           ))}
         </tbody>
-      <table>
+      </table>
     </div>
   )
 }

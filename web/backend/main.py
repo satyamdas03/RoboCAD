@@ -33,14 +33,21 @@ from ai_cad.models import CADParameter, GenerationResult
 
 app = FastAPI(title="RoboCAD", version="0.2.0")
 
-# Allow the Vite dev server (and any local prod build served on 4173/3000).
+# Allow the Vite dev server and any local prod build.
+# In development we allow all localhost origins so the dev server can pick any port.
+_default_origins = [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:5175",
+    "http://localhost:4173",
+    "http://localhost:3000",
+]
+_cors_env = os.environ.get("ROBOCAD_CORS_ORIGINS")
+_allow_origins = _cors_env.split(",") if _cors_env else _default_origins
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:4173",
-        "http://localhost:3000",
-    ],
+    allow_origins=_allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
