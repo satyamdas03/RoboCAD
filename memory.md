@@ -170,7 +170,7 @@ RoboCAD/
   - `models.py` — Pydantic `GenerationResult`, `CADParameter`, `ValidationReport`, `ExportPaths`.
   - `api.py` — `RoboCADBackend.generate()` orchestrating generation, execution, validation, parameter extraction, and self-correction.
   - `parameters.py` — AST-based extraction of editable numeric parameters from generated code.
-  - `generator.py` — Anthropic SDK 1.0 compatibility + `ROBOCAD_MODEL` override.
+  - `generator.py` — Anthropic SDK 1.0 compatibility + `ROBOCAD_MODEL` override + Ollama / OpenAI-compatible local model support via `httpx`.
   - `executor.py` — subprocess sandbox with JSON metadata, script path tracking.
   - `validator.py` — manifold/watertight/bounds checks via `trimesh`.
   - `exporter.py` — STEP/STL export wrapper.
@@ -178,7 +178,8 @@ RoboCAD/
 - `web/backend/main.py` — FastAPI app with `/generate`, `/designs`, `/designs/{id}`, `/exports/{id}/{file}`.
 - `web/frontend/` — Vite + React + `react-three-fiber` STL viewer + history sidebar + download links.
 - `benchmarks/prompts.json` + `benchmarks/evaluate.py` — 20-prompt Phase 1 benchmark.
-- Test suite: **25 passing tests** across generator, executor, validator, parameters, API orchestration, and web backend.
+- Test suite: **26 passing tests** across generator, executor, validator, parameters, API orchestration, and web backend.
+- Live end-to-end verification 2026-08-22: backend + frontend running, `qwen3-coder:latest` via Ollama generated a 120×80×3 mm base plate with 4 M3 holes in 36.1 s; STL served via `/exports/{id}/model.stl`, design persisted to `designs/{uuid}/`.
 
 **Next work (Phase 3):**
 1. Interactive parameter editing: sliders/inputs update generated code and re-run build123d.

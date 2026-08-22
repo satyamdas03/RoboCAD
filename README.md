@@ -172,6 +172,7 @@ cd RoboCAD
 # 1. Start the FastAPI backend
 .venv\Scripts\Activate.ps1  # or: source .venv/bin/activate
 $env:ANTHROPIC_API_KEY=...   # or: export ANTHROPIC_API_KEY=...
+$env:ROBOCAD_MODEL="qwen3-coder:latest"  # optional: use local Ollama model
 python -m uvicorn web.backend.main:app --reload --port 8000
 
 # 2. In a second terminal, start the React frontend
@@ -272,8 +273,12 @@ and receive a folder of editable parts ready for printing, assembly in Onshape, 
 
 ## 📝 Changelog
 
-### 2026-08-22 — Phase 2 complete: minimal web app (FastAPI + React + three.js viewer)
+### 2026-08-22 — Phase 2 complete: minimal web app (FastAPI + React + three.js viewer) + live Ollama support
 
+* Added local model support in `ai_cad/generator.py`:
+  * Detects Ollama-style model names (e.g. `qwen3-coder:latest`, `mistral:latest`).
+  * Routes those models to an OpenAI-compatible local endpoint (`http://localhost:11434/v1` by default, override with `OLLAMA_BASE_URL`).
+  * Anthropic path remains for `claude-*` / `gpt-*` models; supports `ANTHROPIC_BASE_URL` override.
 * Added FastAPI backend in `web/backend/main.py`:
   * `POST /generate` — prompt → `RoboCADBackend.generate()` → persisted design.
   * `GET /designs` — list generation history.
@@ -290,7 +295,10 @@ and receive a folder of editable parts ready for printing, assembly in Onshape, 
 * Added design persistence under `designs/{uuid}/`:
   * `prompt.txt`, `code.py`, `parameters.json`, `metadata.json`, `exports/model.stl`, `exports/model.step`.
 * Added `tests/test_web_backend.py` covering `/health`, `/generate`, `/designs`, and `/exports`.
-* Total test suite: **25 passing tests**.
+* Total test suite: **26 passing tests**.
+* Verified live end-to-end run 2026-08-22 with `qwen3-coder:latest` via Ollama:
+  * Prompt: *"A 120 mm × 80 mm × 3 mm base plate with four M3 mounting holes on a 100 mm × 60 mm grid."*
+  * Result: success, manifold, watertight, 6 parameters extracted, STL served through `/exports/{id}/model.stl`.
 
 ### 2026-08-22 — Phase 1 complete: robust backend + 20-prompt benchmark (19/20 = 95%)
 

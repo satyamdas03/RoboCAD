@@ -8,9 +8,13 @@ from pathlib import Path
 from typing import Optional
 
 import anthropic
+import httpx
 
 
 DEFAULT_MODEL = os.environ.get("ROBOCAD_MODEL", "claude-3-5-sonnet-20241022")
+OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434/v1")
+
+
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 
 
@@ -49,6 +53,21 @@ def _load_examples() -> list[dict]:
     return []
 
 
+def _looks_like_local_model(model: str) -> bool:
+    """Return True for Ollama-style model names (e.g. qwen3-coder:latest)."""
+    return ":" in model and not model.startswith("claude-") and not model.startswith("gpt-")
+
+
+def _build_messages(prompt: str, examples: list[dict]) -> list[dict]:
+    """Build the chat message list used by both Anthropic and OpenAI paths."""
+    messages: list[dict] = []
+    for ex in examples:
+        messages.append({"role": "user", "content": f"Prompt: {ex['prompt']}\n\nWrite the build123d code."})
+        messages.append({"role": "assistant", "content": f"```python\n{ex['code']}\n```"})
+    messages.append({"role": "user", "content": f"Prompt: {prompt}\n\nWrite the build123d code."})
+    return messages
+
+
 def _extract_code_block(text: str) -> Optional[str]:
     """Extract the first fenced python code block from an LLM response."""
     # Try ```python ... ```
@@ -63,6 +82,74 @@ def _extract_code_block(text: str) -> Optional[str]:
     if "import" in text or "def " in text or "with BuildPart" in text:
         return text.strip()
     return None
+
+
+def _wrap_result(raw_response: str, model: str) -> dict:
+    """Package an extracted code block (or extraction failure) into the standard dict."""
+    code = _extract_code_block(raw_response)
+    if code is None:
+        return {
+            "success": False,
+            "code": None,
+            "raw_response": raw_response,
+            "model": model,
+            "error": "Could not extract a code block from the response.",
+        }
+    return {
+        "success": True,
+        "code": code,
+        "raw_response": raw_response,
+        "model": model,
+        "error": None,
+    }
+
+
+def _generate_with_openai_compatible(
+    messages: list[dict],
+    *,
+    model: str,
+    system: str,
+    max_tokens: int = 2048,
+    temperature: float = 0.0,
+    base_url: str,
+) -> dict:
+    """Call an OpenAI-compatible chat endpoint (Ollama, etc.) for local models."""
+    payload = {
+        "model": model,
+        "messages": [{"role": "system", "content": system}, *messages],
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+    }
+    try:
+        response = httpx.post(
+            f"{base_url}/chat/completions",
+            json=payload,
+            headers={"Authorization": "Bearer ollama"},
+            timeout=120,
+        )
+        response.raise_for_status()
+    except Exception as exc:
+        return {
+            "success": False,
+            "code": None,
+            "raw_response": "",
+            "model": model,
+            "error": f"Local model API error: {exc}",
+        }
+
+    try:
+        data = response.json()
+        raw = data["choices"][0]["message"]["content"]
+    except Exception as exc:
+        return {
+            "success": False,
+            "code": None,
+            "raw_response": response.text,
+            "model": model,
+            "error": f"Failed to parse local model response: {exc}",
+        }
+
+    return _wrap_result(raw, model)
 
 
 def generate_model(
@@ -81,6 +168,20 @@ def generate_model(
         - model: str
         - error: str or None
     """
+    system_prompt = _load_system_prompt()
+    examples = _load_examples()
+    messages = _build_messages(prompt, examples)
+
+    if _looks_like_local_model(model):
+        return _generate_with_openai_compatible(
+            messages,
+            model=model,
+            system=system_prompt,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            base_url=OLLAMA_BASE_URL,
+        )
+
     api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         return {
@@ -91,17 +192,10 @@ def generate_model(
             "error": "ANTHROPIC_API_KEY not set.",
         }
 
-    system_prompt = _load_system_prompt()
-    examples = _load_examples()
-
-    messages: list[dict] = []
-    for ex in examples:
-        messages.append({"role": "user", "content": f"Prompt: {ex['prompt']}\n\nWrite the build123d code."})
-        messages.append({"role": "assistant", "content": f"```python\n{ex['code']}\n```"})
-
-    messages.append({"role": "user", "content": f"Prompt: {prompt}\n\nWrite the build123d code."})
-
-    client = anthropic.Anthropic(api_key=api_key)
+    client = anthropic.Anthropic(
+        api_key=api_key,
+        base_url=os.environ.get("ANTHROPIC_BASE_URL"),
+    )
     try:
         response = _anthropic_create(
             client,
@@ -121,24 +215,7 @@ def generate_model(
         }
 
     raw_response = response.content[0].text
-    code = _extract_code_block(raw_response)
-
-    if code is None:
-        return {
-            "success": False,
-            "code": None,
-            "raw_response": raw_response,
-            "model": model,
-            "error": "Could not extract a code block from the response.",
-        }
-
-    return {
-        "success": True,
-        "code": code,
-        "raw_response": raw_response,
-        "model": model,
-        "error": None,
-    }
+    return _wrap_result(raw_response, model)
 
 
 def self_correct(
@@ -150,16 +227,6 @@ def self_correct(
     api_key: Optional[str] = None,
 ) -> dict:
     """Ask the LLM to fix code that failed to execute."""
-    api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        return {
-            "success": False,
-            "code": None,
-            "raw_response": "",
-            "model": model,
-            "error": "ANTHAPIC_API_KEY not set.",
-        }
-
     system_prompt = _load_system_prompt()
     messages = [
         {"role": "user", "content": f"Prompt: {prompt}\n\nWrite the build123d code."},
@@ -174,7 +241,57 @@ def self_correct(
         },
     ]
 
-    client = anthropic.Anthropic(api_key=api_key)
+    if _looks_like_local_model(model):
+        last_raw = ""
+        for attempt in range(max_retries):
+            result = _generate_with_openai_compatible(
+                messages,
+                model=model,
+                system=system_prompt,
+                max_tokens=2048,
+                temperature=0.0,
+                base_url=OLLAMA_BASE_URL,
+            )
+            if not result["success"]:
+                return {
+                    "success": False,
+                    "code": None,
+                    "raw_response": result.get("raw_response", ""),
+                    "model": model,
+                    "error": f"API error during self-correction attempt {attempt + 1}: {result['error']}",
+                }
+            last_raw = result["raw_response"]
+            fixed_code = _extract_code_block(last_raw)
+            if fixed_code:
+                return {
+                    "success": True,
+                    "code": fixed_code,
+                    "raw_response": last_raw,
+                    "model": model,
+                    "error": None,
+                }
+        return {
+            "success": False,
+            "code": None,
+            "raw_response": last_raw,
+            "model": model,
+            "error": f"Failed to extract corrected code after {max_retries} attempts.",
+        }
+
+    api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        return {
+            "success": False,
+            "code": None,
+            "raw_response": "",
+            "model": model,
+            "error": "ANTHROPIC_API_KEY not set.",
+        }
+
+    client = anthropic.Anthropic(
+        api_key=api_key,
+        base_url=os.environ.get("ANTHROPIC_BASE_URL"),
+    )
     last_raw = ""
     for attempt in range(max_retries):
         try:

@@ -5,7 +5,7 @@ import os
 
 import pytest
 
-from ai_cad.generator import _extract_code_block, generate_model
+from ai_cad.generator import _extract_code_block, _looks_like_local_model, generate_model
 
 
 EXAMPLE_RESPONSE = """
@@ -48,3 +48,10 @@ def test_generate_model_without_api_key():
     finally:
         if original:
             os.environ["ANTHROPIC_API_KEY"] = original
+
+
+def test_looks_like_local_model():
+    assert _looks_like_local_model("qwen3-coder:latest") is True
+    assert _looks_like_local_model("mistral:latest") is True
+    assert _looks_like_local_model("claude-3-5-sonnet-20240620") is False
+    assert _looks_like_local_model("gpt-4o") is False
