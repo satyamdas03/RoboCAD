@@ -108,7 +108,7 @@ Onshape export / sync (Phase 5)
 | Phase | Goal | Status |
 |---|---|---|
 | **0** | Validate AI → build123d → STL loop | ✅ **Complete — 8/8 (100%)** |
-| 1 | Robust generation + self-correction backend | 🔄 In progress |
+| **1** | Robust generation + self-correction backend | ✅ **Complete — 19/20 (95%)** |
 | 2 | Minimal web app (prompt + viewer + export) | ⏳ Planned |
 | 3 | Parameter / stylus editing layer | ⏳ Planned |
 | 4 | Design library + remix | ⏳ Planned |
@@ -126,14 +126,21 @@ RoboCAD/
 ├── README.md                 # Public project overview + changelog
 ├── PLAN.md                   # Detailed build plan
 ├── memory.md                 # This file — restart context
-├── requirements.txt          # Phase 0 dependencies
+├── requirements.txt          # Python dependencies
 ├── .gitignore
 ├── ai_cad/                   # Core package
+│   ├── __init__.py           # Public exports
+│   ├── models.py             # Pydantic response models
+│   ├── api.py                # Unified RoboCADBackend.generate()
 │   ├── generator.py          # prompt → code
 │   ├── executor.py           # run build123d safely
 │   ├── validator.py          # geometry sanity checks
 │   ├── exporter.py           # STL / STEP export
+│   ├── parameters.py         # AST-based parameter extraction
 │   └── prompts/              # system prompt + examples
+├── benchmarks/               # Phase 1 curated prompt set + runner
+│   ├── prompts.json
+│   └── evaluate.py
 ├── web/                      # (Phase 2) FastAPI + React
 ├── components/               # (Phase 6) robotics part library
 ├── designs/                  # (Phase 4) saved designs
@@ -145,23 +152,26 @@ RoboCAD/
 ## 9. Current status snapshot
 
 - Repo created at `https://github.com/satyamdas03/RoboCAD`.
-- Phase 0 committed and pushed.
-- `ai_cad/` package implements: generator, executor, validator, exporter, few-shot prompts.
-- `validate.py` runs 8 prompts and reports pass/fail.
-- **Phase 0 result: 8/8 prompts passed (100%)** using local `qwen3-coder:latest` via an Anthropic-compatible Ollama endpoint.
-- Key fixes landed:
-  - `generator.py` — Anthropic SDK 1.0 compatibility (`temperature` via `extra_body`) + `ROBOCAD_MODEL` env override.
-  - `executor.py` — fixed f-string escaping for volume metadata.
-  - `validate.py` — robust error extraction.
+- Phase 0 committed and pushed (8/8 prompts passed).
+- Phase 1 committed and pushed (19/20 prompts passed = 95%).
+- `ai_cad/` package now implements:
+  - `models.py` — Pydantic `GenerationResult`, `CADParameter`, `ValidationReport`, `ExportPaths`.
+  - `api.py` — `RoboCADBackend.generate()` orchestrating generation, execution, validation, parameter extraction, and self-correction.
+  - `parameters.py` — AST-based extraction of editable numeric parameters from generated code.
+  - `generator.py` — Anthropic SDK 1.0 compatibility + `ROBOCAD_MODEL` override.
+  - `executor.py` — subprocess sandbox with JSON metadata, script path tracking.
+  - `validator.py` — manifold/watertight/bounds checks via `trimesh`.
+  - `exporter.py` — STEP/STL export wrapper.
   - `prompts/system_prompt.txt` + `examples.json` — working build123d patterns A/B/C/D.
-- Unit tests for generator utilities in `tests/test_generator.py`.
+- `benchmarks/prompts.json` + `benchmarks/evaluate.py` — 20-prompt Phase 1 benchmark.
+- Test suite: **18 passing tests** across generator, executor, validator, parameters, and API orchestration.
 
-**Next work (Phase 1):**
-1. Wrap generator/executor/validator into a single `generate(prompt)` Pydantic response.
-2. Extract named parameters from generated code for later editing.
-3. Expand benchmark to 20 prompts; confirm ≥95% pass rate within two retries.
-4. Add pytest tests for executor and validator.
-5. Commit and push progress.
+**Next work (Phase 2):**
+1. Minimal web app: FastAPI backend + React frontend.
+2. `POST /generate` endpoint using `RoboCADBackend.generate()`.
+3. Three.js/react-three-fiber STL viewer.
+4. Design persistence to `designs/`.
+5. Commit and push Phase 2.
 
 ---
 

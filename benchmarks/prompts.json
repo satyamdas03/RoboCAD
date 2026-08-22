@@ -1,0 +1,122 @@
+[
+  {
+    "id": "plate_4holes",
+    "prompt": "A 120 mm × 80 mm × 3 mm rectangular plate with four M3 mounting holes on a 100 mm × 60 mm grid.",
+    "difficulty": "easy",
+    "concept": "plate"
+  },
+  {
+    "id": "l_bracket",
+    "prompt": "An L-bracket 40 mm tall, 40 mm wide, 30 mm deep, 3 mm thick, with four 4 mm mounting holes on one face.",
+    "difficulty": "easy",
+    "concept": "bracket"
+  },
+  {
+    "id": "wheel_hub",
+    "prompt": "A simple wheel hub for a 6 mm shaft with four M3 bolt holes on a 30 mm PCD.",
+    "difficulty": "easy",
+    "concept": "hub"
+  },
+  {
+    "id": "ne17_mount",
+    "prompt": "A motor mount bracket for a NEMA-17 with two M3 mounting holes and a 22 mm boss for the motor face.",
+    "difficulty": "medium",
+    "concept": "motor_mount"
+  },
+  {
+    "id": "diff_chassis",
+    "prompt": "A differential-drive robot chassis base, 150 mm × 100 mm, with two NEMA-17 motor mounts and a caster clearance hole.",
+    "difficulty": "hard",
+    "concept": "chassis"
+  },
+  {
+    "id": "gt2_pulley",
+    "prompt": "A 50-tooth GT2 pulley with 6 mm belt width and a 5 mm bore.",
+    "difficulty": "medium",
+    "concept": "pulley"
+  },
+  {
+    "id": "spacer",
+    "prompt": "A rectangular spacer, 10 mm OD, 5 mm ID, 8 mm long.",
+    "difficulty": "easy",
+    "concept": "spacer"
+  },
+  {
+    "id": "arm_link",
+    "prompt": "A simple robot arm link, 120 mm long, 20 mm wide, 5 mm thick, with a 6 mm hole at each end.",
+    "difficulty": "easy",
+    "concept": "link"
+  },
+  {
+    "id": "servo_horn_adapter",
+    "prompt": "A servo horn adapter for a 25-tooth spline with four M2 holes on a 16 mm PCD.",
+    "difficulty": "medium",
+    "concept": "adapter"
+  },
+  {
+    "id": "idler_bracket",
+    "prompt": "An idler pulley bracket for a GT2 belt with two M3 mounting holes 20 mm apart.",
+    "difficulty": "medium",
+    "concept": "bracket"
+  },
+  {
+    "id": "gripper_finger",
+    "prompt": "A parallel-jaw gripper finger, 60 mm long, 15 mm wide, 5 mm thick, with a 4 mm hole at the base.",
+    "difficulty": "medium",
+    "concept": "gripper"
+  },
+  {
+    "id": "camera_mount",
+    "prompt": "A camera mount bracket for a Raspberry Pi camera module with two 2 mm holes on 21 mm spacing.",
+    "difficulty": "medium",
+    "concept": "mount"
+  },
+  {
+    "id": "extrusion_endcap",
+    "prompt": "A 2020 aluminum extrusion end cap, 20 mm × 20 mm × 5 mm, with a 5 mm center hole.",
+    "difficulty": "easy",
+    "concept": "end_cap"
+  },
+  {
+    "id": "pcb_standoff",
+    "prompt": "A PCB standoff spacer, 10 mm OD, 3.2 mm ID, 6 mm long.",
+    "difficulty": "easy",
+    "concept": "spacer"
+  },
+  {
+    "id": "ball_caster",
+    "prompt": "A ball caster housing for a 16 mm sphere with a 6 mm mounting flange and three M3 holes.",
+    "difficulty": "hard",
+    "concept": "caster"
+  },
+  {
+    "id": "tensioner_arm",
+    "prompt": "A belt tensioner arm, 50 mm long, with a 5 mm bore at the pivot and an 8 mm idler axle hole.",
+    "difficulty": "medium",
+    "concept": "tensioner"
+  },
+  {
+    "id": "pendulum_bob",
+    "prompt": "A simple pendulum bob, 40 mm diameter sphere with a 4 mm threaded insert hole on top.",
+    "difficulty": "easy",
+    "concept": "bob"
+  },
+  {
+    "id": "lidar_mount",
+    "prompt": "A lidar mount adapter for RPLIDAR A1 with four M3 holes on a 50 mm square.",
+    "difficulty": "medium",
+    "concept": "mount"
+  },
+  {
+    "id": "microswitch_mount",
+    "prompt": "A microswitch mount with two 2 mm holes on 10 mm spacing and a central pocket for the switch body.",
+    "difficulty": "medium",
+    "concept": "mount"
+  },
+  {
+    "id": "shaft_coupler",
+    "prompt": "A shaft coupler, 6 mm to 8 mm bore, 20 mm OD, 25 mm long, with two M3 set screw holes.",
+    "difficulty": "hard",
+    "concept": "coupler"
+  }
+]

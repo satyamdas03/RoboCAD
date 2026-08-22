@@ -121,7 +121,7 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | Phase | Goal | Status |
 |---|---|---|
 | **0** | Validate the AI → parametric-code loop in Python | ✅ **Complete — 8/8 prompts pass** |
-| 1 | Robust generation + self-correction backend | 🔄 In progress |
+| **1** | Robust generation + self-correction backend | ✅ **Complete — 19/20 prompts pass (95%)** |
 | 2 | Minimal web app (prompt + viewer + export) | ⏳ Planned |
 | 3 | Parameter / stylus editing layer | ⏳ Planned |
 | 4 | Design library + remix | ⏳ Planned |
@@ -147,23 +147,55 @@ python validate.py
 
 ---
 
+## 🧪 Phase 1 quickstart — structured backend + 20-prompt benchmark
+
+```bash
+cd RoboCAD
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+export ANTHROPIC_API_KEY=...  # Windows: $env:ANTHROPIC_API_KEY=...
+export ROBOCAD_MODEL=qwen3-coder:latest  # optional; defaults to Claude
+
+# Run the pytest suite
+python -m pytest tests -q
+
+# Run the 20-prompt Phase 1 benchmark
+python benchmarks/evaluate.py
+```
+
+`ai_cad.api.generate()` returns a structured `GenerationResult` with:
+- `code` — the generated build123d script,
+- `parameters` — editable named numeric parameters extracted from the code,
+- `exports` — paths to STEP + STL files,
+- `validation` — watertight/manifold/bounds report,
+- `attempts_used` — how many LLM calls were needed.
+
+---
+
 ## 🧱 Repository layout
 
 ```
 RoboCAD/
 ├── README.md                 # This file — project overview + changelog
 ├── PLAN.md                   # Detailed build plan
-├── requirements.txt          # Phase 0 Python dependencies
+├── requirements.txt          # Python dependencies
 ├── .gitignore
 ├── ai_cad/                   # Core AI-CAD package
-│   ├── __init__.py
+│   ├── __init__.py           # Public exports
 │   ├── prompts/
 │   │   ├── system_prompt.txt # LLM system prompt
 │   │   └── examples.json     # Few-shot build123d examples
+│   ├── models.py             # Pydantic response models
+│   ├── api.py                # Unified RoboCADBackend.generate()
 │   ├── generator.py          # prompt → code
 │   ├── executor.py           # run build123d safely
 │   ├── validator.py          # geometry sanity checks
-│   └── exporter.py           # STL / STEP / 3MF export
+│   ├── exporter.py           # STL / STEP / 3MF export
+│   └── parameters.py         # AST-based parameter extraction
+├── benchmarks/               # Phase 1 curated prompt set + runner
+│   ├── prompts.json          # 20 robotics prompts
+│   └── evaluate.py           # python benchmarks/evaluate.py
 ├── web/                      # (Phase 2) FastAPI + React app
 ├── components/               # (Phase 6) robotics part library
 ├── designs/                  # (Phase 4) saved designs
@@ -208,6 +240,21 @@ and receive a folder of editable parts ready for printing, assembly in Onshape, 
 ---
 
 ## 📝 Changelog
+
+### 2026-08-22 — Phase 1 complete: robust backend + 20-prompt benchmark (19/20 = 95%)
+
+* Added structured response models in `ai_cad/models.py` (`GenerationResult`, `CADParameter`, `ValidationReport`, `ExportPaths`).
+* Added AST-based parameter extraction in `ai_cad/parameters.py` so generated dimensions can be edited later.
+* Added unified `ai_cad/api.py` with `RoboCADBackend.generate()` and `generate()` convenience function.
+  * Orchestrates `generate_model → execute_code → validate_model → extract_parameters`.
+  * Self-corrects on both execution/runtime failures and geometry validation failures, up to `max_retries`.
+* Hardened `ai_cad/executor.py` to write metadata as JSON (no stdout parsing), include `script_path` in results, and improve error capture.
+* Added `benchmarks/prompts.json` with 20 curated robotics prompts and `benchmarks/evaluate.py` runner.
+* Phase 1 benchmark result: **19/20 prompts passed (95.0%)** within two retries.
+  * 7/8 easy, 9/9 medium, 3/3 hard.
+  * Known failure: `pendulum_bob` (sphere with a blind threaded-insert hole) remains non-watertight after two self-correction retries.
+* Added pytest tests: `test_executor.py`, `test_validator.py`, `test_parameters.py`, `test_api.py`.
+* Total test suite: **18 passing tests**.
 
 ### 2026-08-22 — Phase 0 validation complete (8/8 pass)
 

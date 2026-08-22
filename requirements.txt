@@ -7,10 +7,16 @@ build123d>=0.9.0
 # AI client for code generation
 anthropic>=0.30.0
 
+# Structured data models (also a transitive dependency of anthropic)
+pydantic>=2.0.0
+
 # Geometry validation and mesh handling
 trimesh>=4.0.0
 manifold3d>=2.0.0
 numpy>=1.26.0
+
+# Testing
+pytest>=8.0.0
 
 # Optional: image thumbnails for generated models
 # pillow>=10.0.0
