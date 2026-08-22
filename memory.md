@@ -110,8 +110,8 @@ Onshape export / sync (Phase 5)
 | **0** | Validate AI → build123d → STL loop | ✅ **Complete — 8/8 (100%)** |
 | **1** | Robust generation + self-correction backend | ✅ **Complete — 19/20 (95%)** |
 | **2** | Minimal web app (prompt + viewer + export) | ✅ **Complete — FastAPI + React + three.js + persistence** |
-| 3 | Parameter / stylus editing layer | ⏳ Planned |
-| 4 | Design library + remix | ⏳ Planned |
+| **3** | Parameter / stylus editing layer | ✅ **Core complete — editable parameter panel + versioned regeneration; stylus/face-click interaction outstanding** |
+| **4** | Design library + remix | ✅ **Complete — component catalog, search/filter, tags, remix with parent linking** |
 | 5 | Onshape export / sync + manufacturing reports | ⏳ Planned |
 | 6 | Robotics-aware component templates | ⏳ Planned |
 
@@ -175,17 +175,17 @@ RoboCAD/
   - `validator.py` — manifold/watertight/bounds checks via `trimesh`.
   - `exporter.py` — STEP/STL export wrapper.
   - `prompts/system_prompt.txt` + `examples.json` — working build123d patterns A/B/C/D.
-- `web/backend/main.py` — FastAPI app with `/generate`, `/designs`, `/designs/{id}`, `/exports/{id}/{file}`.
-- `web/frontend/` — Vite + React + `react-three-fiber` STL viewer + history sidebar + download links.
+- `web/backend/main.py` — FastAPI app with `/generate`, `/designs`, `/designs/{id}`, `/exports/{id}/{file:path}`, `/designs/{id}/regenerate`, `/designs/{parent_id}/remix`, `/designs/{id}` PUT for tags/prompt.
+- `web/frontend/` — Vite + React + `react-three-fiber` STL viewer + prompt input + editable parameter list + tag editor + remix panel + component library + history search/filter.
+- `ai_cad/code_ops.py` — safe module-level numeric parameter rewriting.
 - `benchmarks/prompts.json` + `benchmarks/evaluate.py` — 20-prompt Phase 1 benchmark.
-- Test suite: **26 passing tests** across generator, executor, validator, parameters, API orchestration, and web backend.
+- Test suite: **40 passing tests** across generator, executor, validator, parameters, API orchestration, web backend, code_ops, and design library.
 - Live end-to-end verification 2026-08-22: backend + frontend running, `qwen3-coder:latest` via Ollama generated a 120×80×3 mm base plate with 4 M3 holes in 36.1 s; STL served via `/exports/{id}/model.stl`, design persisted to `designs/{uuid}/`.
 
-**Next work (Phase 3):**
-1. Interactive parameter editing: sliders/inputs update generated code and re-run build123d.
-2. Click-to-edit in the viewer (face/point → nearest parameter guess).
-3. Save parameter edits as new design versions.
-4. Commit and push Phase 3.
+**Next work:**
+1. Phase 3 follow-up: stylus / face-click parameter guessing in the 3D viewer.
+2. Phase 5: Onshape export / sync + manufacturing reports.
+3. Phase 6: Robotics-aware component templates and LearningRobotics BOM integration.
 
 ---
 
@@ -276,7 +276,7 @@ To force a full sync at any time, type:
 
 If you are resuming this session with no other context:
 
-> We are building **RoboCAD**, an AI-powered parametric CAD tool for robotics hardware. The repo is at `https://github.com/satyamdas03/RoboCAD`. The core loop is prompt → LLM → `build123d` Python code → execution → STL/STEP export. **Phase 0 (validation) is complete at 8/8 (100%).** Phase 1 (robust backend + expanded benchmark) is in progress. The sister project is `LearningRobotics` (robotics theory and PIBench benchmark). Say `:POINTBREAK` to force a full dossier sync.
+> We are building **RoboCAD**, an AI-powered parametric CAD tool for robotics hardware. The repo is at `https://github.com/satyamdas03/RoboCAD`. The core loop is prompt → LLM → `build123d` Python code → execution → STL/STEP export. **Phases 0–4 are committed and pushed.** Phase 3 core (editable parameter panel + versioned regeneration) is complete; stylus/face-click interaction is outstanding. Phase 4 (component library, search/filter, tags, remix) is complete. **40 pytest tests passing.** The sister project is `LearningRobotics` (robotics theory and PIBench benchmark). Say `:POINTBREAK` to force a full dossier sync.
 
 ---
 

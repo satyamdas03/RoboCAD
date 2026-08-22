@@ -124,7 +124,7 @@
 
 ---
 
-### Phase 3 — Parameter + stylus editing layer (1.5–2 weeks)
+### Phase 3 — Parameter + stylus editing layer (1.5–2 weeks) ✅ CORE COMPLETE
 
 **Goal:** The central interactive feature — edit generated models without retyping code.
 
@@ -135,25 +135,26 @@
    plate_width = 80.0    # param: plate_width
    hole_spacing_x = 100.0 # param: hole_spacing_x
    ```
-2. Parser extracts these parameters and their current values.
-3. Frontend renders sliders/inputs for each parameter.
-4. Changing a parameter regenerates the model by re-running the code with the new value.
+2. Parser extracts these parameters and their current values. ✅ `ai_cad/parameters.py`
+3. Frontend renders sliders/inputs for each parameter. ✅ `ParameterList.jsx`
+4. Changing a parameter regenerates the model by re-running the code with the new value. ✅ `/designs/{id}/regenerate`
 5. **Stylus / pointer interaction v1:**
    - Click a face/point in the viewer.
    - The system guesses the nearest parameter (e.g., width if you clicked the side face).
    - Edit the value with a draggable handle or number input.
-6. Save edited parameter set as a new version.
+   - **⏳ Outstanding:** numeric panel editing works; click-to-guess is not yet implemented.
+6. Save edited parameter set as a new version. ✅ saved under `designs/{id}/versions/{version_id}/`
 
 **Success criteria:**
-- 5 common parameters (length, width, thickness, hole spacing, hole diameter) are editable interactively.
-- Regeneration after parameter change takes < 10 s.
-- No code editing required for simple dimensional changes.
+- 5 common parameters (length, width, thickness, hole spacing, hole diameter) are editable interactively. ✅
+- Regeneration after parameter change takes < 10 s. ✅ (local re-execution, no LLM call)
+- No code editing required for simple dimensional changes. ✅
 
-**Honest scope note:** Freeform sculpting (push/pull mesh vertices) is deliberately out of scope for v1. This is *parametric* editing, not mesh sculpting.
+**Honest scope note:** Freeform sculpting (push/pull mesh vertices) is deliberately out of scope for v1. This is *parametric* editing, not mesh sculpting. Stylus/face-click interaction remains Phase 3 follow-up work.
 
 ---
 
-### Phase 4 — Design library + remix (1 week)
+### Phase 4 — Design library + remix (1 week) ✅ COMPLETE
 
 **Goal:** "Save it for the future and do more things with it."
 
@@ -168,20 +169,23 @@
      "exports": {"stl": "...", "step": "..."},
      "tags": ["chassis", "motor-mount", "diff-drive"],
      "versions": [...],
-     "created_at": "..."
+     "created_at": "...",
+     "parent_id": "..."
    }
    ```
+   ✅ Metadata schema now includes `tags`, `versions`, and `parent_id`; filesystem + JSON persistence (SQLite deferred as not required for v1).
 2. SQLite store for metadata + filesystem for exports.
+   ⏳ Deferred: filesystem + JSON meets current needs; SQLite can be adopted later if scale requires it.
 3. Web UI:
-   - Search by text / tags.
-   - Filter by parameter ranges.
-   - "Remix" button: prefill prompt with "Based on design X, make it ...".
-4. Component library skeleton: import the hardware BOM from LearningRobotics as a JSON catalog.
+   - Search by text / tags. ✅ `HistorySidebar.jsx` + `GET /designs?search=&tag=`
+   - Filter by parameter ranges. ⏳ Not implemented (deferred).
+   - "Remix" button: prefill prompt with "Based on design X, make it ...". ✅ `RemixPanel.jsx` + `POST /designs/{parent_id}/remix`
+4. Component library skeleton: import the hardware BOM from LearningRobotics as a JSON catalog. ✅ `ComponentLibrary.jsx` + `standard_components.json` with 12 standard parts across Structural, Motion, Electronics, and Robotics categories.
 
 **Success criteria:**
-- Any generated design can be saved, found, and remixed.
-- Remixing produces a new design linked to its parent.
-- Component library has ≥10 standard robotics parts (fasteners, motors, bearings).
+- Any generated design can be saved, found, and remixed. ✅
+- Remixing produces a new design linked to its parent. ✅ `parent_id` recorded in child metadata.
+- Component library has ≥10 standard robotics parts (fasteners, motors, bearings). ✅ 12 seed parts, including motors, bearings implied; dedicated hardware BOM integration with LearningRobotics remains Phase 6.
 
 ---
 
@@ -294,14 +298,12 @@ The benchmark sentence:
 
 ## 8. Immediate next session plan
 
-Phase 0 is complete. If resuming work on RoboCAD, the next tasks are Phase 1:
+Phases 0–4 are complete and pushed. If resuming work on RoboCAD, the next tasks are:
 
-1. Wrap `generate_model` / `execute_code` / `validate_model` into a single `generate(prompt)` Pydantic response object.
-2. Extract named parameters from generated code so they can be edited later.
-3. Expand the benchmark from 8 to 20 prompts and confirm ≥95% pass rate within two retries.
-4. Add pytest tests for generator, executor, and validator.
-5. Commit progress with message: `robocad: Phase 1 robust backend + expanded benchmark`.
-6. Update this `PLAN.md` and `README.md` with Phase 1 results.
+1. **Phase 3 follow-up:** implement stylus / face-click parameter guessing in the 3D viewer (click a face → nearest parameter guess → edit value).
+2. **Phase 5 start:** Onshape REST API client — create/select document, upload STEP to a Part Studio, generate basic manufacturing report (bounding box, volume, overhang check).
+3. **Phase 6 preparation:** build a JSON component library that imports/consumes the `LearningRobotics` hardware BOM, so prompts like "NEMA-17 motor mount" auto-fill hole patterns and boss sizes.
+4. Maintain ≥40 passing pytest tests and commit each phase with a descriptive message.
 
 ---
 

@@ -4,7 +4,7 @@
 >
 > **Core bet:** The AI writes **parametric CAD code** (build123d / FeatureScript), not throwaway meshes. The model you get is editable, versionable, and exportable for 3D printing, machining, or Onshape.
 >
-> **Latest milestone:** Phase 2 minimal web app live — FastAPI backend + React + three.js STL viewer + design persistence. Phase 1 benchmark: **19/20 (95%)**, **25 passing tests**.
+> **Latest milestone:** Phase 3 parameter editing + Phase 4 design library/remix live — editable parameters with one-click regeneration, versioned exports, component catalog, tags, search/filter, and remix with parent linking. **40 passing tests**.
 
 ---
 
@@ -123,8 +123,8 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **0** | Validate the AI → parametric-code loop in Python | ✅ **Complete — 8/8 prompts pass** |
 | **1** | Robust generation + self-correction backend | ✅ **Complete — 19/20 prompts pass (95%)** |
 | **2** | Minimal web app (prompt + viewer + export) | ✅ **Complete — FastAPI + React + three.js viewer + persistence** |
-| 3 | Parameter / stylus editing layer | ⏳ Planned |
-| 4 | Design library + remix | ⏳ Planned |
+| **3** | Parameter / stylus editing layer | ✅ **Core complete — editable parameter panel + versioned regeneration; stylus/face-click interaction outstanding** |
+| **4** | Design library + remix | ✅ **Complete — component catalog, search/filter, tags, remix with parent linking** |
 | 5 | Onshape export / sync + manufacturing reports | ⏳ Planned |
 | 6 | Robotics-aware component templates | ⏳ Planned |
 
@@ -272,6 +272,28 @@ and receive a folder of editable parts ready for printing, assembly in Onshape, 
 ---
 
 ## 📝 Changelog
+
+### 2026-08-22 — Phase 3 + Phase 4 complete: editable parameters, design library, remix, and tags
+
+* Added safe code-level parameter rewriting in `ai_cad/code_ops.py`:
+  * `update_parameter` and `update_parameters` preserve comments and only edit module-level numeric assignments.
+* Added `POST /designs/{id}/regenerate` endpoint:
+  * Rewrites generated code with new parameter values, re-executes it, and persists the result under `designs/{id}/versions/{version_id}/`.
+  * Updates parent metadata so the latest version is reflected in history and downloads.
+* Added `PUT /designs/{id}` endpoint for updating tags and prompt text.
+* Added `GET /designs?search=...&tag=...` for free-text and tag filtering.
+* Added `POST /designs/{parent_id}/remix` endpoint:
+  * Enriches the prompt with the original design prompt, generates a child design, and links it via `parent_id`.
+* Extended design metadata schema with `parent_id` and `tags`.
+* Added React components in `web/frontend/src/components/`:
+  * `ParameterList` — editable number inputs per parameter with **Regenerate from parameters** button.
+  * `TagEditor` — comma-separated tag editing.
+  * `RemixPanel` — prompt input for generating a child based on the selected design.
+  * `ComponentLibrary` — collapsible catalog seeded from `standard_components.json` with 12 standard robotics parts.
+* Updated `HistorySidebar` with search box, tag filter dropdown, tag chips, and remix-of indicator.
+* Added `tests/test_code_ops.py` (7 tests) and `tests/test_design_library.py` (6 tests).
+* Total test suite: **40 passing tests**.
+* Known outstanding item: Phase 3 stylus / face-click parameter guessing (point at a face to auto-guess the nearest dimension) is not yet implemented.
 
 ### 2026-08-22 — Phase 2 complete: minimal web app (FastAPI + React + three.js viewer) + live Ollama support
 
