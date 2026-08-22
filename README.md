@@ -4,7 +4,7 @@
 >
 > **Core bet:** The AI writes **parametric CAD code** (build123d / FeatureScript), not throwaway meshes. The model you get is editable, versionable, and exportable for 3D printing, machining, or Onshape.
 >
-> **Latest milestone:** Phase 3 parameter editing + Phase 4 design library/remix live — editable parameters with one-click regeneration, versioned exports, component catalog, tags, search/filter, and remix with parent linking. **40 passing tests**.
+> **Latest milestone:** Phase 3 parameter editing + Phase 4 design library/remix live — editable parameters with one-click regeneration, face-click parameter guessing in the 3D viewer, versioned exports, component catalog, tags, search/filter, and remix with parent linking. **47 passing tests**.
 
 ---
 
@@ -123,7 +123,7 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **0** | Validate the AI → parametric-code loop in Python | ✅ **Complete — 8/8 prompts pass** |
 | **1** | Robust generation + self-correction backend | ✅ **Complete — 19/20 prompts pass (95%)** |
 | **2** | Minimal web app (prompt + viewer + export) | ✅ **Complete — FastAPI + React + three.js viewer + persistence** |
-| **3** | Parameter / stylus editing layer | ✅ **Core complete — editable parameter panel + versioned regeneration; stylus/face-click interaction outstanding** |
+| **3** | Parameter / stylus editing layer | ✅ **Complete — editable parameter panel + face-click parameter guessing + versioned regeneration** |
 | **4** | Design library + remix | ✅ **Complete — component catalog, search/filter, tags, remix with parent linking** |
 | 5 | Onshape export / sync + manufacturing reports | ⏳ Planned |
 | 6 | Robotics-aware component templates | ⏳ Planned |
@@ -213,7 +213,8 @@ RoboCAD/
 │   ├── executor.py           # run build123d safely
 │   ├── validator.py          # geometry sanity checks
 │   ├── exporter.py           # STL / STEP / 3MF export
-│   └── parameters.py         # AST-based parameter extraction
+│   ├── parameters.py         # AST-based parameter extraction
+│   └── guess_parameter.py    # face-normal -> parameter heuristic
 ├── benchmarks/               # Phase 1 curated prompt set + runner
 │   ├── prompts.json          # 20 robotics prompts
 │   └── evaluate.py           # python benchmarks/evaluate.py
@@ -273,6 +274,20 @@ and receive a folder of editable parts ready for printing, assembly in Onshape, 
 
 ## 📝 Changelog
 
+### 2026-08-22 — Phase 3 stylus complete: face-click parameter guessing in the STL viewer
+
+* Added `ai_cad/guess_parameter.py` heuristic that maps a clicked face's dominant-axis normal and object bounding box to the most likely editable parameter.
+* Added `POST /designs/{id}/guess-parameter` endpoint; falls back to measuring the STL via `trimesh` if validation bounds are missing.
+* Updated `STLViewer.jsx`:
+  * Raycasts on pointer down to capture `faceIndex`, world-space face normal, and triangle centroid.
+  * Overlays a translucent highlight mesh on the selected triangle.
+  * Shows a transient hint banner naming the guessed parameter.
+* Updated `ParameterList.jsx` to scroll to, focus, and highlight the parameter row selected from a face click.
+* Wired face selection through `App.jsx` so clicking a face auto-selects the matching parameter input.
+* Added `tests/test_guess_parameter.py` with 7 axis-mapping tests.
+* Full pytest suite now **47 passing tests**.
+* Verified end-to-end with Playwright: clicking a face in the viewer focuses the `thickness` parameter and highlights its row.
+
 ### 2026-08-22 — Phase 3 + Phase 4 complete: editable parameters, design library, remix, and tags
 
 * Added safe code-level parameter rewriting in `ai_cad/code_ops.py`:
@@ -293,7 +308,6 @@ and receive a folder of editable parts ready for printing, assembly in Onshape, 
 * Updated `HistorySidebar` with search box, tag filter dropdown, tag chips, and remix-of indicator.
 * Added `tests/test_code_ops.py` (7 tests) and `tests/test_design_library.py` (6 tests).
 * Total test suite: **40 passing tests**.
-* Known outstanding item: Phase 3 stylus / face-click parameter guessing (point at a face to auto-guess the nearest dimension) is not yet implemented.
 
 ### 2026-08-22 — Phase 2 complete: minimal web app (FastAPI + React + three.js viewer) + live Ollama support
 

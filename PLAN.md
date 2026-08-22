@@ -124,7 +124,7 @@
 
 ---
 
-### Phase 3 — Parameter + stylus editing layer (1.5–2 weeks) ✅ CORE COMPLETE
+### Phase 3 — Parameter + stylus editing layer (1.5–2 weeks) ✅ COMPLETE
 
 **Goal:** The central interactive feature — edit generated models without retyping code.
 
@@ -139,18 +139,19 @@
 3. Frontend renders sliders/inputs for each parameter. ✅ `ParameterList.jsx`
 4. Changing a parameter regenerates the model by re-running the code with the new value. ✅ `/designs/{id}/regenerate`
 5. **Stylus / pointer interaction v1:**
-   - Click a face/point in the viewer.
-   - The system guesses the nearest parameter (e.g., width if you clicked the side face).
-   - Edit the value with a draggable handle or number input.
-   - **⏳ Outstanding:** numeric panel editing works; click-to-guess is not yet implemented.
+   - Click a face/point in the viewer. ✅ `STLViewer.jsx` raycasting
+   - The system guesses the nearest parameter (e.g., width if you clicked the side face). ✅ `ai_cad/guess_parameter.py` + `POST /designs/{id}/guess-parameter`
+   - Highlight the selected face and focus its parameter input. ✅ `HighlightedFace` overlay + `ParameterList` focus/scroll
+   - Edit the value with the numeric input and regenerate. ✅
 6. Save edited parameter set as a new version. ✅ saved under `designs/{id}/versions/{version_id}/`
 
 **Success criteria:**
 - 5 common parameters (length, width, thickness, hole spacing, hole diameter) are editable interactively. ✅
 - Regeneration after parameter change takes < 10 s. ✅ (local re-execution, no LLM call)
 - No code editing required for simple dimensional changes. ✅
+- Clicking a face in the viewer highlights the face and selects its most likely parameter. ✅
 
-**Honest scope note:** Freeform sculpting (push/pull mesh vertices) is deliberately out of scope for v1. This is *parametric* editing, not mesh sculpting. Stylus/face-click interaction remains Phase 3 follow-up work.
+**Honest scope note:** Freeform sculpting (push/pull mesh vertices) is deliberately out of scope for v1. This is *parametric* editing, not mesh sculpting.
 
 ---
 
@@ -300,11 +301,10 @@ The benchmark sentence:
 
 Phases 0–4 are complete and pushed. If resuming work on RoboCAD, the next tasks are:
 
-1. **Phase 3 follow-up:** implement stylus / face-click parameter guessing in the 3D viewer (click a face → nearest parameter guess → edit value).
-2. **Phase 5 start:** Onshape REST API client — create/select document, upload STEP to a Part Studio, generate basic manufacturing report (bounding box, volume, overhang check).
-3. **Phase 6 preparation:** build a JSON component library that imports/consumes the `LearningRobotics` hardware BOM, so prompts like "NEMA-17 motor mount" auto-fill hole patterns and boss sizes.
-4. Maintain ≥40 passing pytest tests and commit each phase with a descriptive message.
+1. **Phase 5 start:** Onshape REST API client — create/select document, upload STEP to a Part Studio, generate basic manufacturing report (bounding box, volume, overhang check).
+2. **Phase 6 preparation:** build a JSON component library that imports/consumes the `LearningRobotics` hardware BOM, so prompts like "NEMA-17 motor mount" auto-fill hole patterns and boss sizes.
+3. Maintain ≥47 passing pytest tests and commit each phase with a descriptive message.
 
 ---
 
-*Last updated: 2026-08-22*
+*Last updated: 2026-08-22 (Phase 3 stylus/face-click complete)*
