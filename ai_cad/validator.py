@@ -51,9 +51,9 @@ def validate_model(stl_path: Optional[Path]) -> dict[str, Any]:
 
     result["manifold"] = bool(mesh.is_watertight and mesh.is_winding_consistent)
     result["watertight"] = bool(mesh.is_watertight)
-    result["bounds_mm"] = tuple(float(x) for x in mesh.extents)
-    result["volume_mm3"] = float(mesh.volume)
-    result["surface_area_mm2"] = float(mesh.area)
+    result["bounds_mm"] = tuple(float(x) for x in mesh.extents) if mesh.extents is not None else None
+    result["volume_mm3"] = float(mesh.volume) if mesh.volume is not None else None
+    result["surface_area_mm2"] = float(mesh.area) if mesh.area is not None else None
 
     if not result["watertight"]:
         result["errors"].append("Model is not watertight.")
@@ -61,12 +61,15 @@ def validate_model(stl_path: Optional[Path]) -> dict[str, Any]:
         result["warnings"].append("Model may not be manifold.")
 
     # Sanity checks
-    if any(x <= 0 for x in result["bounds_mm"]):
-        result["errors"].append("Model has zero or negative extent in at least one dimension.")
+    if result["bounds_mm"] is not None:
+        if any(x <= 0 for x in result["bounds_mm"]):
+            result["errors"].append("Model has zero or negative extent in at least one dimension.")
 
-    min_dim = min(result["bounds_mm"])
-    if min_dim < 0.5:
-        result["warnings"].append(f"Smallest dimension is {min_dim:.2f} mm — very thin features may be hard to manufacture.")
+        min_dim = min(result["bounds_mm"])
+        if min_dim < 0.5:
+            result["warnings"].append(f"Smallest dimension is {min_dim:.2f} mm — very thin features may be hard to manufacture.")
+    else:
+        result["errors"].append("Could not compute model bounds.")
 
     if result["volume_mm3"] is not None and result["volume_mm3"] <= 0:
         result["errors"].append("Model has zero or negative volume.")

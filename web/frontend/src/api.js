@@ -53,6 +53,13 @@ export async function remixDesign(id, { prompt, max_retries = 2, model = null })
   })
 }
 
+export async function guessParameter(id, { faceNormal, faceCentroid }) {
+  return apiFetch(`/designs/${id}/guess-parameter`, {
+    method: 'POST',
+    body: JSON.stringify({ face_normal: faceNormal, face_centroid: faceCentroid }),
+  })
+}
+
 export function exportUrl(path) {
   return `${API_BASE}${path}`
 }

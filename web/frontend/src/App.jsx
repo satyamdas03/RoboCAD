@@ -8,7 +8,7 @@ import HistorySidebar from './components/HistorySidebar.jsx'
 import TagEditor from './components/TagEditor.jsx'
 import RemixPanel from './components/RemixPanel.jsx'
 import ComponentLibrary from './components/ComponentLibrary.jsx'
-import { checkHealth, generateDesign, listDesigns, loadDesign, regenerateDesign, remixDesign, updateDesignTags } from './api.js'
+import { checkHealth, generateDesign, listDesigns, loadDesign, regenerateDesign, remixDesign, updateDesignTags, guessParameter } from './api.js'
 
 export default function App() {
   const [result, setResult] = useState(null)
@@ -18,6 +18,10 @@ export default function App() {
   const [selectedId, setSelectedId] = useState(null)
   const [apiReady, setApiReady] = useState(false)
   const [seedPrompt, setSeedPrompt] = useState('')
+  const [selectedFace, setSelectedFace] = useState(null)
+  const [selectedParameter, setSelectedParameter] = useState(null)
+  const [guessResult, setGuessResult] = useState(null)
+  const [nudge, setNudge] = useState(null)
 
   useEffect(() => {
     checkHealth()
@@ -39,6 +43,7 @@ export default function App() {
     setLoading(true)
     setError(null)
     setResult(null)
+    clearFaceSelection()
     try {
       const data = await generateDesign({ prompt, max_retries, model })
       setResult(data)
@@ -54,6 +59,7 @@ export default function App() {
   async function handleSelect(id) {
     setLoading(true)
     setError(null)
+    clearFaceSelection()
     try {
       const data = await loadDesign(id)
       setResult({
@@ -73,6 +79,7 @@ export default function App() {
     if (!selectedId) return
     setLoading(true)
     setError(null)
+    clearFaceSelection()
     try {
       const data = await regenerateDesign(selectedId, updates)
       setResult({
@@ -107,6 +114,7 @@ export default function App() {
     setLoading(true)
     setError(null)
     setResult(null)
+    clearFaceSelection()
     try {
       const data = await remixDesign(selectedId, { prompt, max_retries, model })
       setResult(data)
@@ -116,6 +124,28 @@ export default function App() {
       setError(err.message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  function clearFaceSelection() {
+    setSelectedFace(null)
+    setSelectedParameter(null)
+    setGuessResult(null)
+    setNudge(null)
+  }
+
+  async function handleFaceClick({ faceIndex, faceNormal, centroid }) {
+    if (!selectedId) return
+    setSelectedFace(faceIndex)
+    try {
+      const guess = await guessParameter(selectedId, { faceNormal, faceCentroid: centroid })
+      setGuessResult(guess)
+      if (guess.guessed_parameter) {
+        setSelectedParameter(guess.guessed_parameter)
+      }
+    } catch (err) {
+      console.error('Failed to guess parameter from face', err)
+      setError('Could not guess parameter for that face.')
     }
   }
 
@@ -135,9 +165,20 @@ export default function App() {
         <div>
           <PromptInput onGenerate={handleGenerate} loading={loading} seedPrompt={seedPrompt} />
           <StatusPanel result={result} error={error} loading={loading} />
-          <STLViewer url={result?.export_urls?.stl} />
+          <STLViewer
+            url={result?.export_urls?.stl}
+            onFaceClick={handleFaceClick}
+            selectedFace={selectedFace}
+            guessResult={guessResult}
+          />
           <DownloadLinks exportUrls={result?.export_urls} />
-          <ParameterList parameters={result?.parameters} onRegenerate={handleRegenerate} loading={loading} />
+          <ParameterList
+            parameters={result?.parameters}
+            selectedParameter={selectedParameter}
+            onRegenerate={handleRegenerate}
+            loading={loading}
+            nudge={nudge}
+          />
           {selectedId && (
             <>
               <TagEditor tags={result?.tags || []} onUpdate={handleUpdateTags} />

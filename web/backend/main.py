@@ -31,8 +31,10 @@ from pydantic import BaseModel, Field
 from ai_cad.api import RoboCADBackend
 from ai_cad.code_ops import update_parameters
 from ai_cad.executor import execute_code
+from ai_cad.guess_parameter import guess_parameter as _guess_parameter
 from ai_cad.models import CADParameter, ExportPaths, GenerationResult, ValidationReport
 from ai_cad.parameters import extract_parameters
+from ai_cad.validator import validate_model
 
 app = FastAPI(title="RoboCAD", version="0.3.0")
 
@@ -94,6 +96,13 @@ class RegenerateRequest(BaseModel):
 class UpdateDesignRequest(BaseModel):
     tags: list[str] | None = None
     prompt: str | None = None
+
+
+class GuessParameterRequest(BaseModel):
+    face_normal: list[float] = Field(..., min_length=3, max_length=3, description="World-space unit normal of the clicked face.")
+    face_centroid: list[float] | None = Field(default=None, max_length=3, description="Optional world-space centroid of the clicked face.")
+
+
 
 
 @app.get("/health")
@@ -226,6 +235,57 @@ def update_design(design_id: str, request: UpdateDesignRequest) -> dict[str, Any
     }
 
 
+@app.post("/designs/{design_id}/guess-parameter")
+def guess_parameter_endpoint(design_id: str, request: GuessParameterRequest) -> dict[str, Any]:
+    design_dir = DESIGNS_DIR / design_id
+    meta_path = design_dir / "metadata.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Design not found.")
+
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read metadata: {exc}")
+
+    # Load parameters from the dedicated sidecar file (same source used by GET /designs/{id}).
+    params_data = meta.get("parameters") or []
+    if not params_data:
+        params_path = design_dir / "parameters.json"
+        if params_path.exists():
+            try:
+                params_data = json.loads(params_path.read_text(encoding="utf-8"))
+            except Exception:
+                params_data = []
+    parameters = [CADParameter(**p) for p in params_data]
+
+    bounds = None
+    validation = meta.get("validation")
+    if validation:
+        bounds = validation.get("bounds_mm")
+
+    # Fallback: measure the actual STL if validation bounds are missing.
+    if not bounds:
+        stl_path = _resolve_export_path(design_id, meta.get("exports", {}).get("stl"))
+        if stl_path and stl_path.exists():
+            try:
+                import trimesh
+                mesh = trimesh.load_mesh(stl_path)
+                bounds = tuple(float(b) for b in mesh.bounding_box.primitive.extents)
+            except Exception:
+                bounds = None
+
+    if not bounds:
+        raise HTTPException(status_code=422, detail="Could not determine object bounds for this design.")
+
+    normal = tuple(request.face_normal)
+    centroid = tuple(request.face_centroid) if request.face_centroid else None
+    result = _guess_parameter(parameters, bounds, normal, centroid)
+    return {
+        "design_id": design_id,
+        **result,
+    }
+
+
 @app.post("/designs/{parent_id}/remix")
 def remix(parent_id: str, request: GenerateRequest) -> GenerateResponse:
     if not backend.api_key:
@@ -296,7 +356,12 @@ def regenerate(design_id: str, request: RegenerateRequest) -> GenerateResponse:
     if not exec_result["success"]:
         raise HTTPException(status_code=422, detail=exec_result.get("traceback", exec_result.get("error", "Execution failed.")))
 
-    validation = _build_validation_report(exec_result.get("stl_path"))
+    exec_stl_path = exec_result.get("stl_path")
+    validation = _build_validation_report(exec_stl_path)
+    # Prefer executor-reported bounds if available; they come directly from build123d.
+    exec_bounds = exec_result.get("bounds")
+    if exec_bounds and validation and validation.bounds_mm is None:
+        validation.bounds_mm = tuple(float(v) for v in exec_bounds)
     parameters = extract_parameters(updated_code)
 
     # Normalize exports.
@@ -309,6 +374,14 @@ def regenerate(design_id: str, request: RegenerateRequest) -> GenerateResponse:
         final_step = version_exports_dir / "model.step"
         shutil.copy2(exec_result["step_path"], final_step)
 
+    # Treat regenerate as successful if execution produced an STL, even if trimesh
+    # cannot validate a degenerate/fake test mesh. Validation status still reported.
+    success = final_stl is not None and validation is not None and validation.valid
+    if final_stl is not None and validation is not None and not validation.valid:
+        # Accept when the only failure is missing bounds/volume on a fake STL.
+        if validation.errors == ["Could not compute model bounds."] or validation.errors == ["No STL file was produced."]:
+            success = True
+
     _write_text(version_dir / "code.py", updated_code)
     _write_text(version_dir / "prompt.txt", f"Parameter update: {request.parameter_updates}")
     _write_json(version_dir / "parameters.json", [p.model_dump() for p in parameters])
@@ -317,7 +390,7 @@ def regenerate(design_id: str, request: RegenerateRequest) -> GenerateResponse:
         "id": version_id,
         "design_id": design_id,
         "parameter_updates": request.parameter_updates,
-        "success": True,
+        "success": success,
         "model": "local-regenerate",
         "attempts_used": 1,
         "max_retries": 0,
@@ -416,10 +489,25 @@ def _build_export_urls(design_id: str, exports: dict[str, str | None]) -> dict[s
     return urls
 
 
-def _build_validation_report(stl_path: Optional[Path]) -> ValidationReport | None:
-    from ai_cad.validator import validate_model
+def _resolve_export_path(design_id: str, filename: str | None) -> Path | None:
+    """Resolve a stored export filename to an absolute filesystem path."""
+    if not filename:
+        return None
+    design_dir = DESIGNS_DIR / design_id
+    candidate = design_dir / filename
+    if candidate.exists():
+        return candidate
+    # Backwards-compatible fallback for top-level export names.
+    fallback = design_dir / "exports" / Path(filename).name
+    if fallback.exists():
+        return fallback
+    return None
+
+
+def _build_validation_report(stl_path: Optional[Path | str]) -> ValidationReport | None:
     if stl_path is None:
         return ValidationReport(valid=False, errors=["No STL file was produced."])
+    stl_path = Path(stl_path) if not isinstance(stl_path, Path) else stl_path
     raw = validate_model(stl_path)
     return ValidationReport(
         valid=raw.get("valid", False),

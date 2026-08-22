@@ -101,7 +101,7 @@ def test_regenerate_creates_version(sample_design, tmp_path: Path):
 
     with (
         mock.patch("web.backend.main.execute_code") as mock_exec,
-        mock.patch("ai_cad.validator.validate_model") as mock_validate,
+        mock.patch.object(main_module, "validate_model") as mock_validate,
     ):
         mock_exec.return_value = {
             "success": True,
