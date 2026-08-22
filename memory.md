@@ -109,7 +109,7 @@ Onshape export / sync (Phase 5)
 |---|---|---|
 | **0** | Validate AI → build123d → STL loop | ✅ **Complete — 8/8 (100%)** |
 | **1** | Robust generation + self-correction backend | ✅ **Complete — 19/20 (95%)** |
-| 2 | Minimal web app (prompt + viewer + export) | ⏳ Planned |
+| **2** | Minimal web app (prompt + viewer + export) | ✅ **Complete — FastAPI + React + three.js + persistence** |
 | 3 | Parameter / stylus editing layer | ⏳ Planned |
 | 4 | Design library + remix | ⏳ Planned |
 | 5 | Onshape export / sync + manufacturing reports | ⏳ Planned |
@@ -141,9 +141,20 @@ RoboCAD/
 ├── benchmarks/               # Phase 1 curated prompt set + runner
 │   ├── prompts.json
 │   └── evaluate.py
-├── web/                      # (Phase 2) FastAPI + React
+├── web/                      # Phase 2 FastAPI + React
+│   ├── backend/
+│   │   ├── main.py           # FastAPI endpoints
+│   │   └── __init__.py
+│   └── frontend/             # Vite + React + react-three-fiber
+│       ├── src/
+│       │   ├── App.jsx
+│       │   ├── api.js
+│       │   └── components/
+│       ├── index.html
+│       ├── package.json
+│       └── vite.config.js
 ├── components/               # (Phase 6) robotics part library
-├── designs/                  # (Phase 4) saved designs
+├── designs/                  # persisted generated designs (runtime)
 └── tests/                    # pytest suite
 ```
 
@@ -153,8 +164,9 @@ RoboCAD/
 
 - Repo created at `https://github.com/satyamdas03/RoboCAD`.
 - Phase 0 committed and pushed (8/8 prompts passed).
-- Phase 1 committed and pushed (19/20 prompts passed = 95%).
-- `ai_cad/` package now implements:
+- Phase 1 committed and pushed (19/20 prompts passed = 95%, commit `08c3b60`).
+- Phase 2 committed and pushed (FastAPI + React + three.js viewer, commit to be recorded).
+- `ai_cad/` package implements:
   - `models.py` — Pydantic `GenerationResult`, `CADParameter`, `ValidationReport`, `ExportPaths`.
   - `api.py` — `RoboCADBackend.generate()` orchestrating generation, execution, validation, parameter extraction, and self-correction.
   - `parameters.py` — AST-based extraction of editable numeric parameters from generated code.
@@ -163,15 +175,16 @@ RoboCAD/
   - `validator.py` — manifold/watertight/bounds checks via `trimesh`.
   - `exporter.py` — STEP/STL export wrapper.
   - `prompts/system_prompt.txt` + `examples.json` — working build123d patterns A/B/C/D.
+- `web/backend/main.py` — FastAPI app with `/generate`, `/designs`, `/designs/{id}`, `/exports/{id}/{file}`.
+- `web/frontend/` — Vite + React + `react-three-fiber` STL viewer + history sidebar + download links.
 - `benchmarks/prompts.json` + `benchmarks/evaluate.py` — 20-prompt Phase 1 benchmark.
-- Test suite: **18 passing tests** across generator, executor, validator, parameters, and API orchestration.
+- Test suite: **25 passing tests** across generator, executor, validator, parameters, API orchestration, and web backend.
 
-**Next work (Phase 2):**
-1. Minimal web app: FastAPI backend + React frontend.
-2. `POST /generate` endpoint using `RoboCADBackend.generate()`.
-3. Three.js/react-three-fiber STL viewer.
-4. Design persistence to `designs/`.
-5. Commit and push Phase 2.
+**Next work (Phase 3):**
+1. Interactive parameter editing: sliders/inputs update generated code and re-run build123d.
+2. Click-to-edit in the viewer (face/point → nearest parameter guess).
+3. Save parameter edits as new design versions.
+4. Commit and push Phase 3.
 
 ---
 
@@ -194,6 +207,21 @@ python validate.py
 ```powershell
 $env:PYTHONPATH = "C:\Users\point\projects\RoboCAD"
 python -m pytest tests -q
+```
+
+### Start the Phase 2 web app
+
+```powershell
+cd C:\Users\point\projects\RoboCAD
+.venv\Scripts\Activate.ps1
+$env:ANTHROPIC_API_KEY = "..."
+python -m uvicorn web.backend.main:app --reload --port 8000
+
+# Second terminal:
+cd C:\Users\point\projects\RoboCAD\web\frontend
+npm install
+npm run dev
+# Open http://localhost:5173
 ```
 
 ### Commit and push

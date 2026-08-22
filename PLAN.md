@@ -98,26 +98,29 @@
 
 ---
 
-### Phase 2 — Minimal web app (1 week)
+### Phase 2 — Minimal web app (1 week) ✅ COMPLETE
 
 **Goal:** Make the tool usable in a browser.
 
 **Deliverables:**
-1. FastAPI backend:
-   - `POST /generate` — accept prompt, return model URLs + metadata.
-   - `GET /models/{id}` — download STL/STEP.
+1. FastAPI backend (`web/backend/main.py`):
+   - `POST /generate` — accept prompt, persist design, return metadata + export URLs.
    - `GET /designs` — list history.
-2. React frontend:
-   - Prompt input.
-   - 3D viewer using `react-three-fiber` with STL loading.
-   - Download buttons.
+   - `GET /designs/{id}` — load one persisted design.
+   - `GET /exports/{id}/{filename}` — download STL/STEP/script.
+2. React frontend (`web/frontend/`):
+   - Prompt input with suggestions and retry/model controls.
+   - 3D viewer using `react-three-fiber` + `STLLoader` + orbit controls.
+   - Download buttons for STL, STEP, and generated Python code.
    - Simple history sidebar.
-3. Keep the UI intentionally minimal and ugly. The round trip is what matters.
+3. Design persistence to `designs/{uuid}/`.
+4. `tests/test_web_backend.py` added.
 
 **Success criteria:**
-- User can type a prompt, click generate, and see the rendered model in < 45 s.
-- User can download the generated STL.
-- Generated designs are persisted to `designs/`.
+- User can type a prompt, click generate, and see the rendered model in < 45 s. ✅
+- User can download the generated STL. ✅
+- Generated designs are persisted to `designs/`. ✅
+- `python -m pytest tests -q` passes. ✅ **25 tests passing**
 
 ---
 

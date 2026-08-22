@@ -21,6 +21,10 @@ designs/
 .envrc
 secrets/
 
+# Frontend
+node_modules/
+dist/
+
 # Editor
 .vscode/
 .idea/

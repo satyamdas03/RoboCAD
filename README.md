@@ -4,7 +4,7 @@
 >
 > **Core bet:** The AI writes **parametric CAD code** (build123d / FeatureScript), not throwaway meshes. The model you get is editable, versionable, and exportable for 3D printing, machining, or Onshape.
 >
-> **Latest milestone:** Phase 1 robust backend + 20-prompt benchmark passes **19/20 (95%)** — structured generation, self-correction, parameter extraction, and 18 passing tests.
+> **Latest milestone:** Phase 2 minimal web app live — FastAPI backend + React + three.js STL viewer + design persistence. Phase 1 benchmark: **19/20 (95%)**, **25 passing tests**.
 
 ---
 
@@ -122,7 +122,7 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 |---|---|---|
 | **0** | Validate the AI → parametric-code loop in Python | ✅ **Complete — 8/8 prompts pass** |
 | **1** | Robust generation + self-correction backend | ✅ **Complete — 19/20 prompts pass (95%)** |
-| 2 | Minimal web app (prompt + viewer + export) | ⏳ Planned |
+| **2** | Minimal web app (prompt + viewer + export) | ✅ **Complete — FastAPI + React + three.js viewer + persistence** |
 | 3 | Parameter / stylus editing layer | ⏳ Planned |
 | 4 | Design library + remix | ⏳ Planned |
 | 5 | Onshape export / sync + manufacturing reports | ⏳ Planned |
@@ -164,6 +164,26 @@ python -m pytest tests -q
 python benchmarks/evaluate.py
 ```
 
+## 🌐 Phase 2 quickstart — web app
+
+```bash
+cd RoboCAD
+
+# 1. Start the FastAPI backend
+.venv\Scripts\Activate.ps1  # or: source .venv/bin/activate
+$env:ANTHROPIC_API_KEY=...   # or: export ANTHROPIC_API_KEY=...
+python -m uvicorn web.backend.main:app --reload --port 8000
+
+# 2. In a second terminal, start the React frontend
+cd web/frontend
+npm install
+npm run dev
+
+# 3. Open http://localhost:5173
+```
+
+The web app lets you type a prompt, click **Generate**, and view the resulting STL in a `react-three-fiber` viewer. Every successful (and failed) generation is persisted under `designs/{uuid}/` with `prompt.txt`, `code.py`, `parameters.json`, `metadata.json`, and `exports/`.
+
 `ai_cad.api.generate()` returns a structured `GenerationResult` with:
 - `code` — the generated build123d script,
 - `parameters` — editable named numeric parameters extracted from the code,
@@ -196,9 +216,20 @@ RoboCAD/
 ├── benchmarks/               # Phase 1 curated prompt set + runner
 │   ├── prompts.json          # 20 robotics prompts
 │   └── evaluate.py           # python benchmarks/evaluate.py
-├── web/                      # (Phase 2) FastAPI + React app
+├── web/                      # Phase 2 FastAPI + React app
+│   ├── backend/
+│   │   ├── main.py           # FastAPI endpoints
+│   │   └── __init__.py
+│   └── frontend/             # Vite + React + react-three-fiber
+│       ├── src/
+│       │   ├── App.jsx
+│       │   ├── api.js
+│       │   └── components/
+│       ├── index.html
+│       ├── package.json
+│       └── vite.config.js
 ├── components/               # (Phase 6) robotics part library
-├── designs/                  # (Phase 4) saved designs
+├── designs/                  # persisted generated designs (created at runtime)
 └── tests/                    # pytest suite
 ```
 
@@ -240,6 +271,26 @@ and receive a folder of editable parts ready for printing, assembly in Onshape, 
 ---
 
 ## 📝 Changelog
+
+### 2026-08-22 — Phase 2 complete: minimal web app (FastAPI + React + three.js viewer)
+
+* Added FastAPI backend in `web/backend/main.py`:
+  * `POST /generate` — prompt → `RoboCADBackend.generate()` → persisted design.
+  * `GET /designs` — list generation history.
+  * `GET /designs/{id}` — load a persisted design with code + parameters.
+  * `GET /exports/{id}/{filename}` — serve STL / STEP / Python script files.
+  * CORS enabled for the Vite dev server.
+* Added React frontend in `web/frontend/` using Vite + `react-three-fiber` + `@react-three/drei`:
+  * Prompt input with retry/model controls and suggestion chips.
+  * Status panel showing success/failure, attempts, latency, validation summary.
+  * `STLViewer` rendering generated STL with orbit controls.
+  * `ParameterList` (read-only preview for Phase 3 editing).
+  * Download links for STL, STEP, and generated Python code.
+  * History sidebar to reload past designs.
+* Added design persistence under `designs/{uuid}/`:
+  * `prompt.txt`, `code.py`, `parameters.json`, `metadata.json`, `exports/model.stl`, `exports/model.step`.
+* Added `tests/test_web_backend.py` covering `/health`, `/generate`, `/designs`, and `/exports`.
+* Total test suite: **25 passing tests**.
 
 ### 2026-08-22 — Phase 1 complete: robust backend + 20-prompt benchmark (19/20 = 95%)
 
