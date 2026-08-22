@@ -337,15 +337,15 @@ def regenerate(design_id: str, request: RegenerateRequest) -> GenerateResponse:
     meta["parameters"] = [p.model_dump() for p in parameters]
     if final_stl:
         meta["exports"] = {
-            "stl": f"versions/{version_id}/model.stl",
-            "step": f"versions/{version_id}/model.step" if final_step else None,
+            "stl": f"versions/{version_id}/exports/model.stl",
+            "step": f"versions/{version_id}/exports/model.step" if final_step else None,
             "script": f"versions/{version_id}/code.py",
         }
     _write_json(meta_path, meta)
 
     exports_for_urls = {
-        "stl": f"versions/{version_id}/model.stl" if final_stl else None,
-        "step": f"versions/{version_id}/model.step" if final_step else None,
+        "stl": f"versions/{version_id}/exports/model.stl" if final_stl else None,
+        "step": f"versions/{version_id}/exports/model.step" if final_step else None,
         "script": f"versions/{version_id}/code.py",
     }
 

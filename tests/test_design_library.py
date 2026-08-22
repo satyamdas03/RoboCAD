@@ -130,6 +130,7 @@ def test_regenerate_creates_version(sample_design, tmp_path: Path):
     assert data["success"] is True
     assert data["design_id"] == sample_design
     assert data["export_urls"]["stl"].startswith(f"/exports/{sample_design}/versions/")
+    assert "/exports/model.stl" in data["export_urls"]["stl"]
 
     # Check version directory created.
     design_dir = main_module.DESIGNS_DIR / sample_design
@@ -140,9 +141,13 @@ def test_regenerate_creates_version(sample_design, tmp_path: Path):
     assert "length = 60.0" in updated_code
     assert "hole_diameter = 6" in updated_code
 
+    # The exported STL must actually exist at the versioned path.
+    assert (version_dir / "exports" / "model.stl").exists()
+
     # Parent metadata should point to version export.
     meta = json.loads((design_dir / "metadata.json").read_text())
     assert meta["exports"]["stl"].startswith("versions/")
+    assert "/exports/model.stl" in meta["exports"]["stl"]
 
 
 def test_regenerate_missing_parameter(sample_design):
