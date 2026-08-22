@@ -4,7 +4,7 @@
 >
 > **Core bet:** The AI writes **parametric CAD code** (build123d / FeatureScript), not throwaway meshes. The model you get is editable, versionable, and exportable for 3D printing, machining, or Onshape.
 >
-> **Latest milestone:** Phase 0 benchmark passes **8/8 (100%)** — the AI → build123d → STL loop is validated.
+> **Latest milestone:** Phase 1 robust backend + 20-prompt benchmark passes **19/20 (95%)** — structured generation, self-correction, parameter extraction, and 18 passing tests.
 
 ---
 
