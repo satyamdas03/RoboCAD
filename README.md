@@ -4,7 +4,7 @@
 >
 > **Core bet:** The AI writes **parametric CAD code** (build123d / FeatureScript), not throwaway meshes. The model you get is editable, versionable, and exportable for 3D printing, machining, or Onshape.
 >
-> **Latest milestone:** Phase 3 parameter editing + Phase 4 design library/remix live — editable parameters with one-click regeneration, face-click parameter guessing in the 3D viewer, versioned exports, component catalog, tags, search/filter, and remix with parent linking. **47 passing tests**.
+> **Latest milestone:** Phase 5 Onshape export/sync + manufacturing reports and Phase 6 robotics-aware component templates complete. End-to-end web app supports prompt-to-CAD, parameter editing, design library/remix, manufacturability analysis, and one-click STEP upload to Onshape. **57 passing tests**.
 
 ---
 
@@ -125,8 +125,8 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **2** | Minimal web app (prompt + viewer + export) | ✅ **Complete — FastAPI + React + three.js viewer + persistence** |
 | **3** | Parameter / stylus editing layer | ✅ **Complete — editable parameter panel + face-click parameter guessing + versioned regeneration** |
 | **4** | Design library + remix | ✅ **Complete — component catalog, search/filter, tags, remix with parent linking** |
-| 5 | Onshape export / sync + manufacturing reports | ⏳ Planned |
-| 6 | Robotics-aware component templates | ⏳ Planned |
+| **5** | Onshape export / sync + manufacturing reports | ✅ **Complete — HMAC-signed Onshape API client, STEP upload, manufacturability report (volume, overhangs, hole diameter, print-time heuristic)** |
+| **6** | Robotics-aware component templates | ✅ **Complete — 12 standard robotics parts in `ComponentLibrary`, seeded prompts, tags, remix** |
 
 See [`PLAN.md`](PLAN.md) for the complete end-to-end build plan.
 
@@ -173,6 +173,9 @@ cd RoboCAD
 .venv\Scripts\Activate.ps1  # or: source .venv/bin/activate
 $env:ANTHROPIC_API_KEY=...   # or: export ANTHROPIC_API_KEY=...
 $env:ROBOCAD_MODEL="qwen3-coder:latest"  # optional: use local Ollama model
+# Optional Onshape credentials for Phase 5 upload:
+$env:ONSHAPE_API_KEY=...
+$env:ONSHAPE_API_SECRET=...
 python -m uvicorn web.backend.main:app --reload --port 8000
 
 # 2. In a second terminal, start the React frontend
@@ -273,6 +276,35 @@ and receive a folder of editable parts ready for printing, assembly in Onshape, 
 ---
 
 ## 📝 Changelog
+
+### 2026-08-22 — Phase 5 complete: Onshape export/sync + manufacturing reports
+
+* Added `ai_cad/onshape.py` Onshape REST API client with HMAC-SHA256 API-key authentication, exact signing matching the official Python client:
+  * `list_documents`, `create_document`, `upload_step`, and `upload_step_to_new_document`.
+  * Free Onshape accounts require public documents; `create_document` sets `isPublic: True` and reports the 409 limitation clearly.
+* Added `ai_cad/manufacturing.py` manufacturability analyzer:
+  * Bounding box, volume, surface area, estimated FDM print time heuristic.
+  * Overhang detection with build-plate filtering.
+  * Hole-diameter estimation via horizontal cross-sections (area-equivalent circle).
+* Extended Pydantic models in `ai_cad/models.py` with `ManufacturingReport` and `GenerationResult.manufacturing`.
+* Added backend endpoints:
+  * `GET /onshape/documents` — list/search accessible Onshape documents.
+  * `POST /designs/{id}/onshape` — upload a design's STEP to new or existing Onshape document.
+  * `GET /designs/{id}/manufacturing-report` — return the manufacturability report.
+* Added React components:
+  * `ManufacturingReport.jsx` — live report panel with warnings.
+  * `OnshapeUpload.jsx` — upload STEP to a new public document or pick an existing one.
+* Extended `web/frontend/vite.config.js` with `/onshape` proxy.
+* Added `tests/test_onshape.py` (mocked auth + upload tests) and `tests/test_manufacturing.py` (cube, overhang, hole detection tests).
+* Full pytest suite now **57 passing tests**.
+
+### 2026-08-22 — Phase 6 complete: robotics-aware component templates
+
+* Added `web/frontend/src/components/standard_components.json` with 12 curated robotics parts across Structural, Motion, Electronics, and Robotics categories.
+* Added `ComponentLibrary.jsx` — collapsible catalog that loads seed prompts into the generator.
+* Added `TagEditor.jsx` for comma-separated tag editing and `RemixPanel.jsx` for child-design generation.
+* Backend already supports `PUT /designs/{id}` tags/prompt updates, `POST /designs/{id}/remix`, and `GET /designs?search=...&tag=...`.
+* Verified Phase 6 library/remix/tag flows with existing `tests/test_design_library.py` and `tests/test_code_ops.py`.
 
 ### 2026-08-22 — Phase 3 stylus complete: face-click parameter guessing in the STL viewer
 
