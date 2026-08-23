@@ -1,4 +1,4 @@
-"""FastAPI backend for the RoboCAD web app (Phases 2–5).
+"""FastAPI backend for the RoboCAD web app (Phases 2–6).
 
 Endpoints:
     GET  /health                       -> liveness check
@@ -22,6 +22,12 @@ from pathlib import Path
 from typing import Any, Optional
 
 import requests
+from dotenv import load_dotenv
+
+# Load local environment variables from a gitignored .env file so users can keep
+# secrets such as Onshape credentials next to the project without committing them.
+# override=True ensures values in .env win over any empty shell variables.
+load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env", override=True)
 
 # Add repo root so we can import the ai_cad package.
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
