@@ -306,14 +306,18 @@ The benchmark sentence:
 ## 9. Immediate next session plan
 
 1. **Polish the Stitch UI:** fix any visual glitches discovered during daily use, tune contrast in the 3D viewer, refine mobile/responsive drawer behavior, and add keyboard shortcuts (`Ctrl+Enter`, `Ctrl+K`, `Esc`).
-2. **End-to-end live demo:** generate a part from a component-library seed prompt, verify the manufacturing report, test face-click parameter guessing in the viewer, and optionally upload the STEP to Onshape.
-3. **Packaging / distribution:** decide between a desktop installer (PyInstaller/NSIS) and a one-command local launch script so users can run RoboCAD without setting up Python/Node manually.
-4. **Deferred Phase 5/6 follow-ups (optional):**
+2. **Packaging / distribution:** decide between a desktop installer (PyInstaller/NSIS) and a one-command local launch script so users can run RoboCAD without setting up Python/Node manually.
+3. **Deferred Phase 5/6 follow-ups (optional):**
    - Multi-part assembly upload with mate hints.
    - Hardware BOM integration with `LearningRobotics` for constraint-aware templates.
    - MuJoCo collision-mesh export.
-5. Maintain passing pytest tests and commit each milestone with a descriptive message.
+4. Maintain passing pytest tests and commit each milestone with a descriptive message.
+
+**Done this session:**
+- Recorded a full end-to-end demo (`assets/robocad_kinetic_precision_demo.webm`) covering component-library seed, generation, face-click parameter guessing, parameter edit/regeneration, and manufacturing report.
+- Added `scripts/record_demo.py` Playwright recorder so the demo can be re-created after future UI changes.
+- Embedded the demo in `README.md` with step-by-step written walkthrough and under-the-hood flow while preserving README structure.
 
 ---
 
-*Last updated: 2026-08-23 (Phases 5 + 6 complete; Google Stitch Kinetic Precision UI redesign integrated and live; 56/57 tests passing)*
+*Last updated: 2026-08-23 (Phases 5 + 6 complete; Google Stitch Kinetic Precision UI redesign integrated and live; README demo video added; 56/57 tests passing)*
