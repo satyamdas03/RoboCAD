@@ -174,8 +174,8 @@ cd RoboCAD
 $env:ANTHROPIC_API_KEY=...   # or: export ANTHROPIC_API_KEY=...
 $env:ROBOCAD_MODEL="qwen3-coder:latest"  # optional: use local Ollama model
 # Optional Onshape credentials for Phase 5 upload:
-$env:ONSHAPE_API_KEY=...
-$env:ONSHAPE_API_SECRET=...
+$env:ONSHAPE_ACCESS_KEY=...   # or ONSHAPE_API_KEY
+$env:ONSHAPE_SECRET_KEY=...   # or ONSHAPE_API_SECRET
 python -m uvicorn web.backend.main:app --reload --port 8000
 
 # 2. In a second terminal, start the React frontend

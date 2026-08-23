@@ -9,8 +9,8 @@ onshape_client.apikey_headers):
 - Authorization: "On " + access_key + ":HmacSHA256:" + signature
 
 Environment variables:
-    ONSHAPE_ACCESS_KEY
-    ONSHAPE_SECRET_KEY
+    ONSHAPE_ACCESS_KEY (or ONSHAPE_API_KEY)
+    ONSHAPE_SECRET_KEY (or ONSHAPE_API_SECRET)
     ONSHAPE_BASE_URL (default https://cad.onshape.com)
 """
 from __future__ import annotations
@@ -86,12 +86,15 @@ class OnshapeClient:
         secret_key: Optional[str] = None,
         base_url: Optional[str] = None,
     ) -> None:
-        self.access_key = access_key or os.environ.get("ONSHAPE_ACCESS_KEY")
-        self.secret_key = secret_key or os.environ.get("ONSHAPE_SECRET_KEY")
+        self.access_key = access_key or os.environ.get("ONSHAPE_ACCESS_KEY") or os.environ.get("ONSHAPE_API_KEY")
+        self.secret_key = secret_key or os.environ.get("ONSHAPE_SECRET_KEY") or os.environ.get("ONSHAPE_API_SECRET")
         self.base_url = (base_url or os.environ.get("ONSHAPE_BASE_URL", "https://cad.onshape.com")).rstrip("/")
 
         if not self.access_key or not self.secret_key:
-            raise RuntimeError("Onshape access_key and secret_key are required (env: ONSHAPE_ACCESS_KEY, ONSHAPE_SECRET_KEY).")
+            raise RuntimeError(
+                "Onshape access_key and secret_key are required "
+                "(env: ONSHAPE_ACCESS_KEY / ONSHAPE_API_KEY and ONSHAPE_SECRET_KEY / ONSHAPE_API_SECRET)."
+            )
 
         self.session = requests.Session()
         self.session.auth = OnshapeAuth(self.access_key, self.secret_key)
