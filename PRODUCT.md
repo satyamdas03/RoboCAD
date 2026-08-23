@@ -39,9 +39,14 @@ The meaningful difference is **parametric code, not mesh soup**. Most text-to-3D
 ## Brand Commitments
 
 - Product name is **RoboCAD**.
-- Visual direction: *Precision Lab Instrument* — light ground, teal functional accent (#0d9488), IBM Plex Sans type, instrument-grade panels and readouts.
+- Current visual direction: *Precision Lab Instrument* — light ground, teal functional accent (#0d9488), IBM Plex Sans type, instrument-grade panels and readouts.
+- Next visual direction (prepared in `STITCH_BRIEF.md` for Google Stitch): *Precision Engineering Workstation* — dark-first scientific instrument control software, near-black foundation (`#0B0C0F`), cool neutral panels (`#13151A`), disciplined blue accent (`#3B82F6`), `Inter` + `JetBrains Mono` typography.
 - No existing logo, palette, or typeface is binding beyond the redesign decisions above.
 - Anti-references from the user: avoid generic SaaS purple/blue gradients, card-on-card dashboard clichés, cartoon/childish UI, heavy cyberpunk neon, and military-industrial olive/steel tropes.
+
+## Design Context
+
+A comprehensive redesign brief for the next UI pass is captured in `STITCH_BRIEF.md`. It defines a dark, scientific, engineering-workstation aesthetic, the exact layout grid, component specifications, color tokens, motion design, accessibility rules, and API-preservation constraints so that Google Stitch can generate a complete replacement UI shell.
 
 ## Evidence on Hand
 

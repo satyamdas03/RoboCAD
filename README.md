@@ -140,6 +140,19 @@ Key files:
 - `web/frontend/src/styles/index.css` — complete design-token system.
 - `web/frontend/src/App.jsx` and all components — rebuilt in the new visual language.
 
+## 🎨 Next UI pass — Google Stitch scientific workstation
+
+The current light *Precision Lab Instrument* UI is being superseded by a darker, denser, scientific engineering-workstation design generated through Google Stitch. A comprehensive brief in `STITCH_BRIEF.md` gives Google Stitch the full application context, exact color tokens, layout grid, component specs, data models, API contracts, motion design, responsive rules, accessibility requirements, anti-patterns, and integration constraints so the generated UI preserves all existing backend/frontend contracts.
+
+Key requirements for the generated UI:
+- Dark-first palette (`#0B0C0F`, `#13151A`, `#3B82F6`, `#34D399`, `#F87171`).
+- `Inter` + `JetBrains Mono` typography.
+- 3D viewer centered as the primary workspace, flanked by prompt composer, parameter inspector, manufacturing report, Onshape export, history, and component library.
+- Desktop-first responsive collapse and full keyboard/accessibility coverage.
+- Preserve `api.js` exports, backend endpoints, STLViewer face-click logic, React component props, and `standard_components.json` schema.
+
+Once the generated UI is applied, the plan is to rebuild the frontend CSS/components, run `npm run build`, re-run the Impeccable detector or equivalent lint, and verify `pytest` still reports 56/57 passing tests.
+
 
 ---
 
@@ -287,6 +300,14 @@ and receive a folder of editable parts ready for printing, assembly in Onshape, 
 ---
 
 ## 📝 Changelog
+
+### 2026-08-22 — Google Stitch UI redesign brief prepared
+
+* Created `STITCH_BRIEF.md` — a complete design brief for Google Stitch to generate a dark, scientific, precision-engineering workstation UI.
+* Brief covers application description, user persona/daily workflow, exact color/type tokens, layout grid, component specs, data models, API contracts, motion design, responsive behavior, accessibility, anti-patterns, and developer integration notes.
+* Explicitly locks preservation of `api.js` exports, backend endpoints, STLViewer face-click parameter guessing, React component props, and `standard_components.json` schema.
+* Updated `PRODUCT.md`, `README.md`, `PLAN.md`, and memory files to record the new design direction and next steps.
+* `STITCH_BRIEF.md` committed and pushed to `origin/master`.
 
 ### 2026-08-22 — Phase 5 complete: Onshape export/sync + manufacturing reports
 

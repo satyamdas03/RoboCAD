@@ -295,21 +295,22 @@ The benchmark sentence:
 
 ## 8. Completed since last update
 
+- **Google Stitch UI redesign brief:** Prepared `STITCH_BRIEF.md` defining a dark-first *Precision Engineering Workstation* visual direction (near-black `#0B0C0F`, cool panels `#13151A`, blue accent `#3B82F6`, `Inter` + `JetBrains Mono`). The brief includes exact layout grid, component specs, data models/API contracts, motion design, responsive rules, accessibility requirements, anti-patterns, and integration notes that preserve all existing `api.js` exports, backend endpoints, STLViewer face-click logic, React component props, and `standard_components.json` schema.
+- **Dossier/memory update:** `PRODUCT.md`, `README.md`, `PLAN.md`, and `.claude/projects/.../memory/` updated to record the brief and planned redesign pass.
 - **Impeccable UI redesign:** Rebuilt the entire React frontend under a *Precision Lab Instrument* design world (light ground, teal accent, IBM Plex Sans, instrument-grade panels and readouts). Added `web/frontend/src/styles/index.css` token system, rewrote all components, and added `PRODUCT.md` for durable design context.
 - **Validation:** Frontend production build passes. Impeccable design detector reports no findings. Backend health check passes. Frontend preview and backend are running locally.
 - **Test status:** 56/57 pytest tests pass. The one failure (`test_generate_missing_api_key`) succeeds because `.env` configures `ROBOCAD_MODEL=qwen3-coder:latest`, causing the backend to use the local Ollama model rather than failing on a missing Anthropic key.
-- **Commit/push:** Redesign committed and pushed to `origin/master`.
+- **Commit/push:** `STITCH_BRIEF.md` and dossier updates committed and pushed to `origin/master`.
 
 ## 9. Immediate next session plan
 
-1. **End-to-end live demo:** generate a part from a component-library seed prompt, verify the manufacturing report, and optionally upload the STEP to Onshape.
-2. **Packaging / distribution:** decide between a desktop installer (PyInstaller/NSIS) and a one-command local launch script so users can run RoboCAD without setting up Python/Node manually.
-3. **Deferred Phase 5/6 follow-ups (optional):**
-   - Multi-part assembly upload with mate hints.
-   - Hardware BOM integration with `LearningRobotics` for constraint-aware templates.
-   - MuJoCo collision-mesh export.
-4. Maintain passing pytest tests and commit each milestone with a descriptive message.
+1. **Google Stitch UI generation:** feed `STITCH_BRIEF.md` into Google Stitch and generate the dark scientific-workstation React components + CSS.
+2. **Apply generated UI:** replace existing `index.css`/components while preserving `api.js` exports, backend endpoints, face-click logic, component props, and `standard_components.json`.
+3. **Validate the redesign:** run `npm run build`, check for lint/detector issues, run `pytest`, and test face-click parameter guessing end-to-end.
+4. **End-to-end live demo:** generate a part from a component-library seed prompt, verify the manufacturing report, and optionally upload the STEP to Onshape.
+5. **Packaging / distribution:** decide between a desktop installer (PyInstaller/NSIS) and a one-command local launch script so users can run RoboCAD without setting up Python/Node manually.
+6. Maintain passing pytest tests and commit each milestone with a descriptive message.
 
 ---
 
-*Last updated: 2026-08-22 (Phases 5 + 6 + Impeccable UI redesign complete; 56/57 tests passing)*
+*Last updated: 2026-08-22 (Phases 5 + 6 complete; Impeccable UI redesign complete; Google Stitch redesign brief prepared; 56/57 tests passing)*
