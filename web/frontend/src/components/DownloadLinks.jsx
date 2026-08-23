@@ -4,28 +4,28 @@ export default function DownloadLinks({ exportUrls }) {
   if (!exportUrls) return null
 
   const links = [
-    { key: 'stl', label: 'Download STL', ext: 'stl' },
-    { key: 'step', label: 'Download STEP', ext: 'step' },
-    { key: 'script', label: 'Download Python code', ext: 'py' },
+    { key: 'stl', label: 'STL', ext: 'stl', desc: '3D print' },
+    { key: 'step', label: 'STEP', ext: 'step', desc: 'machining / Onshape' },
+    { key: 'script', label: 'Code', ext: 'py', desc: 'build123d script' },
   ]
 
+  const visible = links.filter(({ key }) => exportUrls[key])
+  if (visible.length === 0) return null
+
   return (
-    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
-      {links.map(({ key, label, ext }) => {
-        const url = exportUrls[key]
-        if (!url) return null
-        return (
-          <a
-            key={key}
-            href={exportUrl(url)}
-            download={`model.${ext}`}
-            className="button"
-            style={{ textDecoration: 'none' }}
-          >
-            {label}
-          </a>
-        )
-      })}
-    </div>
+    <section className="rc-flex rc-align-center rc-gap-2 rc-flex-wrap" aria-label="Downloads">
+      <span className="rc-small rc-text-muted">Export:</span>
+      {visible.map(({ key, label, ext, desc }) => (
+        <a
+          key={key}
+          href={exportUrl(exportUrls[key])}
+          download={`model.${ext}`}
+          className="rc-button rc-button-small"
+          title={desc}
+        >
+          {label}
+        </a>
+      ))}
+    </section>
   )
 }

@@ -4,7 +4,6 @@ export default function ParameterList({ parameters, selectedParameter, onRegener
   const [edits, setEdits] = useState({})
   const inputRefs = useRef({})
 
-  // Apply a nudge from the viewer (Ctrl-drag) to the selected parameter.
   useEffect(() => {
     if (nudge == null || selectedParameter == null || !parameters) return
     const param = parameters.find((p) => p.name === selectedParameter)
@@ -16,7 +15,6 @@ export default function ParameterList({ parameters, selectedParameter, onRegener
     setEdits((prev) => ({ ...prev, [selectedParameter]: String(Number(newValue.toFixed(4))) }))
   }, [nudge, selectedParameter, parameters])
 
-  // Scroll to and focus the selected parameter when it changes.
   useEffect(() => {
     if (!selectedParameter || !inputRefs.current[selectedParameter]) return
     const input = inputRefs.current[selectedParameter]
@@ -53,47 +51,55 @@ export default function ParameterList({ parameters, selectedParameter, onRegener
   })
 
   return (
-    <div className="panel">
-      <h3>Parameters</h3>
-      <p style={{ fontSize: '0.85rem', color: '#666', marginTop: '-0.5rem' }}>
-        Edit values and click Regenerate, or click a face in the viewer to select its parameter.
+    <section className="rc-panel" aria-labelledby="parameters-heading">
+      <div className="rc-panel-header">
+        <h3 id="parameters-heading" className="rc-panel-title">Parameters</h3>
+        {selectedParameter && <span className="rc-badge rc-badge-accent">Selected: {selectedParameter}</span>}
+      </div>
+      <p className="rc-panel-subtitle">
+        Edit values and regenerate, or click a face in the viewer to select its parameter.
       </p>
-      <table style={{ width: '100%', fontSize: '0.9rem' }}>
-        <thead>
-          <tr>
-            <th style={{ textAlign: 'left' }}>Name</th>
-            <th style={{ textAlign: 'left' }}>Value</th>
-            <th style={{ textAlign: 'left' }}>Unit</th>
-            <th style={{ textAlign: 'left' }}>Description</th>
-          </tr>
-        </thead>
-        <tbody>
-          {parameters.map((p) => (
-            <tr key={p.name} style={{ background: selectedParameter === p.name ? '#fffbeb' : undefined }}>
-              <td><code>{p.name}</code></td>
-              <td>
-                <input
-                  ref={(el) => { inputRefs.current[p.name] = el }}
-                  type="number"
-                  value={edits[p.name] ?? p.value}
-                  onChange={(e) => handleChange(p.name, e.target.value)}
-                  disabled={loading}
-                  style={{ width: '80px' }}
-                />
-              </td>
-              <td>{p.unit || 'mm'}</td>
-              <td>{p.description || '—'}</td>
+
+      <div style={{ overflowX: 'auto' }}>
+        <table className="rc-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Value</th>
+              <th>Unit</th>
+              <th>Description</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {parameters.map((p) => (
+              <tr key={p.name} className={selectedParameter === p.name ? 'selected' : ''}>
+                <td className="rc-mono">{p.name}</td>
+                <td>
+                  <input
+                    ref={(el) => { inputRefs.current[p.name] = el }}
+                    className="rc-input"
+                    type="number"
+                    value={edits[p.name] ?? p.value}
+                    onChange={(e) => handleChange(p.name, e.target.value)}
+                    disabled={loading}
+                    style={{ width: '100px' }}
+                  />
+                </td>
+                <td className="rc-text-muted">{p.unit || 'mm'}</td>
+                <td className="rc-text-muted">{p.description || '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
       <button
         onClick={handleRegenerate}
         disabled={loading || !hasChanges}
-        style={{ marginTop: '0.5rem' }}
+        className="rc-button rc-button-primary rc-mt-3"
       >
-        {loading ? 'Regenerating...' : 'Regenerate from parameters'}
+        {loading ? 'Regenerating…' : 'Regenerate from parameters'}
       </button>
-    </div>
+    </section>
   )
 }

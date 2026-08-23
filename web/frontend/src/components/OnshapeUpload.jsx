@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { listOnshapeDocuments, uploadToOnshape } from '../api.js'
 
 export default function OnshapeUpload({ designId, prompt }) {
-  const [mode, setMode] = useState('new') // 'new' | 'existing'
+  const [mode, setMode] = useState('new')
   const [documentName, setDocumentName] = useState('')
   const [documents, setDocuments] = useState([])
   const [selectedDoc, setSelectedDoc] = useState('')
@@ -52,61 +52,61 @@ export default function OnshapeUpload({ designId, prompt }) {
   if (!designId) return null
 
   return (
-    <div className="panel">
-      <h3>Onshape</h3>
-      <p style={{ fontSize: '0.85rem', color: '#666', marginTop: '-0.5rem' }}>
-        Upload this design's STEP file to Onshape.
-      </p>
+    <section className="rc-panel" aria-labelledby="onshape-heading">
+      <h3 id="onshape-heading" className="rc-panel-title">Onshape</h3>
+      <p className="rc-panel-subtitle">Upload this design's STEP file to Onshape.</p>
 
-      <form onSubmit={handleSubmit} style={{ fontSize: '0.9rem' }}>
-        <div style={{ marginBottom: '0.5rem' }}>
-          <label style={{ marginRight: '0.5rem' }}>
+      <form onSubmit={handleSubmit}>
+        <div className="rc-flex rc-gap-4 rc-flex-wrap rc-mt-2">
+          <label className="rc-flex rc-align-center rc-gap-2">
             <input
               type="radio"
               value="new"
               checked={mode === 'new'}
               onChange={() => setMode('new')}
             />
-            New document
+            <span className="rc-text-muted">New document</span>
           </label>
-          <label>
+          <label className="rc-flex rc-align-center rc-gap-2">
             <input
               type="radio"
               value="existing"
               checked={mode === 'existing'}
               onChange={() => setMode('existing')}
             />
-            Existing document
+            <span className="rc-text-muted">Existing document</span>
           </label>
         </div>
 
         {mode === 'new' && (
-          <div style={{ marginBottom: '0.5rem' }}>
+          <div className="rc-field rc-mt-3">
+            <label htmlFor="doc-name" className="rc-label">Document name</label>
             <input
+              id="doc-name"
               type="text"
               value={documentName}
               onChange={(e) => setDocumentName(e.target.value)}
               placeholder="Onshape document name"
-              style={{ width: '100%' }}
+              className="rc-input"
               disabled={loading}
             />
-            <p style={{ fontSize: '0.75rem', color: '#64748b', margin: '0.2rem 0 0' }}>
-              Free Onshape accounts create public documents.
-            </p>
+            <p className="rc-small rc-text-subtle rc-mt-2">Free Onshape accounts create public documents.</p>
           </div>
         )}
 
         {mode === 'existing' && (
-          <div style={{ marginBottom: '0.5rem' }}>
-            {documents.length === 0 && loading && <p style={{ color: '#64748b' }}>Loading documents...</p>}
+          <div className="rc-field rc-mt-3">
+            <label htmlFor="existing-doc" className="rc-label">Select document</label>
+            {documents.length === 0 && loading && <p className="rc-text-muted">Loading documents…</p>}
             {documents.length > 0 && (
               <select
+                id="existing-doc"
                 value={selectedDoc}
                 onChange={(e) => setSelectedDoc(e.target.value)}
-                style={{ width: '100%' }}
+                className="rc-select"
                 disabled={loading}
               >
-                <option value="">Select a document...</option>
+                <option value="">Select a document…</option>
                 {documents.map((doc) => {
                   const wsId = doc.defaultWorkspace?.id || ''
                   return (
@@ -120,26 +120,34 @@ export default function OnshapeUpload({ designId, prompt }) {
           </div>
         )}
 
-        <button type="submit" disabled={loading || (mode === 'existing' && !selectedDoc)}>
-          {loading ? 'Uploading...' : 'Upload STEP to Onshape'}
+        <button
+          type="submit"
+          disabled={loading || (mode === 'existing' && !selectedDoc)}
+          className="rc-button rc-button-primary rc-mt-3"
+        >
+          {loading ? 'Uploading…' : 'Upload STEP to Onshape'}
         </button>
       </form>
 
-      {error && <p style={{ color: '#b00000', fontSize: '0.9rem', marginTop: '0.5rem' }}>{error}</p>}
+      {error && <div className="rc-alert rc-alert-error rc-mt-3">{error}</div>}
 
       {result && (
-        <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', background: '#f0fdf4', padding: '0.5rem', borderRadius: '4px' }}>
-          <p style={{ margin: 0 }}>✅ Uploaded to Onshape</p>
-          <a href={result.document_url} target="_blank" rel="noreferrer" style={{ wordBreak: 'break-all' }}>
-            {result.document_url}
-          </a>
+        <div className="rc-alert rc-alert-success rc-mt-3">
+          <p><strong>Uploaded to Onshape</strong></p>
+          <p className="rc-mt-2">
+            <a href={result.document_url} target="_blank" rel="noreferrer" className="rc-text-muted" style={{ wordBreak: 'break-all' }}>
+              {result.document_url}
+            </a>
+          </p>
           {result.element_url && (
-            <p style={{ margin: '0.25rem 0 0' }}>
-              <a href={result.element_url} target="_blank" rel="noreferrer">Open imported Part Studio {'->'}</a>
+            <p className="rc-mt-2">
+              <a href={result.element_url} target="_blank" rel="noreferrer" className="rc-button rc-button-small">
+                Open Part Studio →
+              </a>
             </p>
           )}
         </div>
       )}
-    </div>
+    </section>
   )
 }

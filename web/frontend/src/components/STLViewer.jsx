@@ -5,7 +5,7 @@ import { STLLoader } from 'three/examples/jsm/loaders/STLLoader'
 import * as THREE from 'three'
 import { exportUrl } from '../api.js'
 
-function HighlightedFace({ geometry, faceIndex, color = '#f59e0b' }) {
+function HighlightedFace({ geometry, faceIndex, color = '#0d9488' }) {
   const meshRef = useRef()
   const highlightGeom = useMemo(() => {
     if (faceIndex == null || !geometry || !geometry.index) return null
@@ -30,7 +30,7 @@ function HighlightedFace({ geometry, faceIndex, color = '#f59e0b' }) {
 
   return (
     <mesh ref={meshRef} geometry={highlightGeom}>
-      <meshBasicMaterial color={color} transparent opacity={0.6} side={THREE.DoubleSide} depthTest={false} />
+      <meshBasicMaterial color={color} transparent opacity={0.55} side={THREE.DoubleSide} depthTest={false} />
     </mesh>
   )
 }
@@ -38,7 +38,6 @@ function HighlightedFace({ geometry, faceIndex, color = '#f59e0b' }) {
 function Model({ url, onFaceClick, selectedFace }) {
   const meshRef = useRef()
   const geometry = useLoader(STLLoader, exportUrl(url))
-
   const { camera, raycaster, pointer } = useThree()
 
   const handlePointerDown = (event) => {
@@ -54,7 +53,6 @@ function Model({ url, onFaceClick, selectedFace }) {
     const faceNormal = hit.face?.normal?.clone()?.transformDirection(meshRef.current.matrixWorld)?.toArray() ?? [0, 0, 1]
     const point = hit.point?.toArray() ?? [0, 0, 0]
 
-    // Compute centroid of the intersected triangle.
     const posAttr = geometry.getAttribute('position')
     const indices = geometry.index?.array
     let centroid = point
@@ -87,7 +85,7 @@ function Model({ url, onFaceClick, selectedFace }) {
         receiveShadow
         onPointerDown={handlePointerDown}
       >
-        <meshStandardMaterial color="#3b82f6" roughness={0.4} metalness={0.1} />
+        <meshStandardMaterial color="#94a3b8" roughness={0.45} metalness={0.15} />
       </mesh>
       <HighlightedFace geometry={geometry} faceIndex={selectedFace} />
     </group>
@@ -102,7 +100,7 @@ export default function STLViewer({ url, onFaceClick, selectedFace, guessResult 
       const axisLabels = ['X', 'Y', 'Z']
       const axisLabel = axisLabels[guessResult.axis] ?? guessResult.axis
       setHint(
-        `Selected ${axisLabel}-facing face -> parameter "${guessResult.guessed_parameter}" (${guessResult.suggested_value}${guessResult.unit || 'mm'})`
+        `Selected ${axisLabel}-facing face → parameter "${guessResult.guessed_parameter}" (${guessResult.suggested_value}${guessResult.unit || 'mm'})`
       )
       const timer = setTimeout(() => setHint(null), 4000)
       return () => clearTimeout(timer)
@@ -111,40 +109,23 @@ export default function STLViewer({ url, onFaceClick, selectedFace, guessResult 
 
   if (!url) {
     return (
-      <div className="viewer-placeholder">
-        <p>No model to display yet.</p>
-      </div>
+      <section className="rc-viewer" aria-label="3D model viewer">
+        <div className="rc-viewer-placeholder">
+          <div className="rc-empty-icon" aria-hidden="true">◈</div>
+          <p>No model loaded yet. Generate a part to preview it here.</p>
+        </div>
+      </section>
     )
   }
 
   return (
-    <div className="viewer" style={{ height: '400px', border: '1px solid #ddd', borderRadius: '4px', position: 'relative' }}>
-      {hint && (
-        <div
-          style={{
-            position: 'absolute',
-            top: '0.5rem',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            background: '#fef3c7',
-            color: '#92400e',
-            padding: '0.4rem 0.8rem',
-            borderRadius: '4px',
-            fontSize: '0.85rem',
-            zIndex: 10,
-            pointerEvents: 'none',
-            border: '1px solid #f59e0b',
-          }}
-        >
-          {hint}
-        </div>
-      )}
-      <div style={{ position: 'absolute', bottom: '0.4rem', left: '0.5rem', color: '#64748b', fontSize: '0.75rem', zIndex: 10, pointerEvents: 'none' }}>
-        Click a face to guess its parameter
-      </div>
+    <section className="rc-viewer" aria-label="3D model viewer">
+      {hint && <div className="rc-viewer-hint">{hint}</div>}
+      <div className="rc-viewer-caption">Click a face to guess its parameter · drag to rotate · scroll to zoom</div>
       <Canvas shadows camera={{ position: [100, 100, 100], fov: 50 }}>
-        <ambientLight intensity={0.6} />
-        <directionalLight position={[50, 100, 50]} intensity={1} castShadow />
+        <ambientLight intensity={0.55} />
+        <directionalLight position={[50, 100, 50]} intensity={1.1} castShadow />
+        <directionalLight position={[-50, -50, -30]} intensity={0.35} />
         <Suspense fallback={null}>
           <Center>
             <Model url={url} onFaceClick={onFaceClick} selectedFace={selectedFace} />
@@ -152,6 +133,6 @@ export default function STLViewer({ url, onFaceClick, selectedFace, guessResult 
         </Suspense>
         <OrbitControls makeDefault />
       </Canvas>
-    </div>
+    </section>
   )
 }

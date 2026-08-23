@@ -152,28 +152,39 @@ export default function App() {
   }
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '1rem', fontFamily: 'system-ui, sans-serif' }}>
-      <header style={{ marginBottom: '1rem' }}>
-        <h1>🤖 RoboCAD</h1>
-        <p>AI-powered parametric CAD for robotics. Type a part, get a build123d model + STL viewer.</p>
-        {!apiReady && (
-          <p style={{ color: '#b00000' }}>
-            ⚠️ Backend not reachable. Make sure uvicorn is running on port 8000.
-          </p>
-        )}
+    <div className="rc-app">
+      <header className="rc-header">
+        <div className="rc-header-left">
+          <div className="rc-logo" aria-label="RoboCAD">
+            <span className="rc-logo-mark" aria-hidden="true">◈</span>
+            <span>RoboCAD</span>
+          </div>
+          <span className="rc-text-subtle rc-small">AI parametric CAD for robotics</span>
+        </div>
+        <div className="rc-header-right">
+          {apiReady ? (
+            <span className="rc-badge rc-badge-success">● Backend online</span>
+          ) : (
+            <span className="rc-badge rc-badge-error">● Backend offline — run uvicorn on port 8000</span>
+          )}
+        </div>
       </header>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '1rem' }}>
-        <div>
+      <div className="rc-workspace">
+        <main className="rc-main">
           <PromptInput onGenerate={handleGenerate} loading={loading} seedPrompt={seedPrompt} />
+
           <StatusPanel result={result} error={error} loading={loading} />
+
           <STLViewer
             url={result?.export_urls?.stl}
             onFaceClick={handleFaceClick}
             selectedFace={selectedFace}
             guessResult={guessResult}
           />
+
           <DownloadLinks exportUrls={result?.export_urls} />
+
           <ParameterList
             parameters={result?.parameters}
             selectedParameter={selectedParameter}
@@ -181,17 +192,18 @@ export default function App() {
             loading={loading}
             nudge={nudge}
           />
+
           {selectedId && (
-            <>
+            <div className="rc-panels-grid">
               <ManufacturingReport designId={selectedId} />
               <OnshapeUpload designId={selectedId} prompt={result?.prompt} />
               <TagEditor tags={result?.tags || []} onUpdate={handleUpdateTags} />
               <RemixPanel designId={selectedId} onRemix={handleRemix} loading={loading} />
-            </>
+            </div>
           )}
-        </div>
+        </main>
 
-        <div>
+        <aside className="rc-sidebar">
           <ComponentLibrary onPrompt={handleLoadComponentPrompt} loading={loading} />
           <HistorySidebar
             designs={designs}
@@ -199,7 +211,7 @@ export default function App() {
             onSelect={handleSelect}
             onRefresh={refreshHistory}
           />
-        </div>
+        </aside>
       </div>
     </div>
   )

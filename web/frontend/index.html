@@ -4,8 +4,23 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>RoboCAD — AI CAD for Robotics</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
   </head>
   <body>
+    <!--
+      DIRECTION CONTRACT — RoboCAD main app surface
+      THESIS: A precision lab instrument for turning language into editable, manufacturable robot parts; the 3D model is the hero, controls are instrument-grade, and every state is readable at a glance.
+      OWN-WORLD: Light laboratory ground (#f8fafc), pure white instrument surfaces, cool slate ink, one teal functional accent (#0d9488), technical sans (IBM Plex Sans) and mono for data, small corner radius, crisp 1px borders, soft directional shadows.
+      STORY: User describes a part → sees status build like an instrument warming up → model appears in a large viewport → parameters and manufacturing data sit nearby like readouts → export or send to Onshape in one click.
+      FIRST VIEWPORT: Top instrument bar with RoboCAD mark + backend status + model selector. Below, a full-width prompt control like a specimen input. Under it, the 3D viewer dominates the left workspace; the right sidebar holds component library and history. Status, parameters, manufacturing, Onshape, tags, and remix readouts stack beneath the viewer in a tidy instrument panel grid.
+      FORM: Precision lab instrument / desktop creative tool, index 1 of grounded candidates, seed key manual-direction-precision-lab.
+      FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance.
+    -->
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
