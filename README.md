@@ -145,6 +145,43 @@ Key files:
 - `web/frontend/src/App.jsx` and all components — rebuilt in the workstation layout.
 - `web/frontend/index.html` — `Inter` + `JetBrains Mono` font loading and direction contract.
 
+---
+
+## 🎬 UI demo — Base plate design, parameter edit, and manufacturing report
+
+The video below shows a complete end-to-end session in the new *Kinetic Precision* UI, recorded with Playwright against the running local backend and frontend.
+
+<video src="assets/robocad_kinetic_precision_demo.webm" controls width="100%"></video>
+
+*If the inline player does not load, download the demo directly: [`assets/robocad_kinetic_precision_demo.webm`](assets/robocad_kinetic_precision_demo.webm)*
+
+### What the demo shows
+
+**0:00 — Launch and component library**
+The app opens at `http://127.0.0.1:5173`. The instrument header shows the RoboCAD mark, a search shortcut, and a glowing cyan “Backend online” indicator confirming the FastAPI service on port 8000 is reachable. The left sidebar displays the component library. The demo expands the **Structural** category and selects the **Base Plate** template, which seeds the prompt composer with a full parametric base-plate description.
+
+**0:02 — Prompt composer and generation**
+The seeded prompt appears in the central “Specimen prompt” panel. The retries slider is set to `2` and the model override is left empty so the backend uses the default model configured in `.env` (`qwen3-coder:latest` in this run). Clicking **Generate** sends a `POST /generate` request. The status panel enters the running state with a cyan glow indicator and explains that RoboCAD is generating build123d code, executing it, and validating the geometry.
+
+**0:16 — 3D viewer and face-click parameter guessing**
+The generated STL appears in the central dark viewport. A grid floor helps read scale and orientation. The demo clicks a face on the model; the raycaster captures the face index, world-space normal, and centroid and sends them to `POST /designs/{id}/guess-parameter`. The backend returns the guessed parameter (`thickness`), a suggested value, the dominant axis, and a confidence score. The face is highlighted with a cyan outline and fill, and the matching parameter row in the right inspector and parameter panel is selected automatically.
+
+**0:19 — Parameter editing and regeneration**
+The view scrolls to the **Parameters** panel. The selected `thickness` row is highlighted with a cyan left border. The demo edits the value from `5` to `6 mm` and clicks **Regenerate from parameters**, which calls `POST /designs/{id}/regenerate` with `{parameter_updates: {thickness: 6}}`. The backend rewrites the generated Python code, re-executes it, and serves a new STL. The viewer refreshes to show the thicker plate while preserving all other dimensions.
+
+**0:28 — Manufacturing report**
+Finally, the view scrolls to the **Manufacturing Report** panel. It reads the manufacturability analysis from `GET /designs/{id}/manufacturing-report`, showing bounding box, volume, surface area, estimated print time, overhang ratio bar, minimum hole diameter, and a warning about the smallest detected feature size. The report is rendered as metric cards and a progress bar, keeping the high-density workstation style consistent.
+
+### How it works under the hood
+
+1. **Component library seed** — `ComponentLibrary.jsx` loads `standard_components.json`, renders accordion categories, and calls `onPrompt(item.prompt)` in `App.jsx`, which populates the `seedPrompt` state. `PromptInput.jsx` copies that seed into its local textarea.
+2. **Generate** — `PromptInput.jsx` calls `generateDesign({prompt, max_retries, model})` from `api.js`, which posts to `POST /generate`. `App.jsx` stores the returned `GenerationResult`, sets `selectedId`, and refreshes the history list.
+3. **3D viewer** — `STLViewer.jsx` receives `result.export_urls.stl` and renders it with `@react-three/fiber` + `@react-three/drei` `Center` and `Grid`. On pointer down it raycasts against the mesh, computes the face normal and centroid, and calls `onFaceClick` in `App.jsx`.
+4. **Face-click guess** — `App.jsx` calls `guessParameter(id, {faceNormal, faceCentroid})` (`api.js` → `POST /designs/{id}/guess-parameter`). The response sets `selectedParameter`, which `ParameterList.jsx` uses to scroll to, focus, and highlight the matching row.
+5. **Parameter regeneration** — `ParameterList.jsx` tracks local edits, computes a diff against original values, and calls `onRegenerate(updates)` in `App.jsx`, which calls `regenerateDesign` (`api.js` → `POST /designs/{id}/regenerate`). The backend rewrites the code with new values and returns a fresh `GenerationResult`.
+6. **Manufacturing report** — `ManufacturingReport.jsx` fetches `GET /designs/{id}/manufacturing-report` and renders the metrics as dense readout cards.
+
+All of this runs in the browser against the local FastAPI backend; no data leaves the machine except the optional Onshape upload when the user chooses to push a STEP file.
 
 ---
 
