@@ -4,7 +4,7 @@
 >
 > **Core bet:** The AI writes **parametric CAD code** (build123d / FeatureScript), not throwaway meshes. The model you get is editable, versionable, and exportable for 3D printing, machining, or Onshape.
 >
-> **Latest milestone:** Phase 5 Onshape export/sync + manufacturing reports, Phase 6 robotics-aware component templates, and Phase 7 Impeccable UI redesign complete. End-to-end web app supports prompt-to-CAD, parameter editing, design library/remix, manufacturability analysis, one-click STEP upload to Onshape, and a redesigned Precision Lab Instrument UI. **56/57 passing tests** (the single failure is `test_generate_missing_api_key`, which now passes because `.env` configures a local Ollama model instead of failing on a missing API key).
+> **Latest milestone:** Phase 5 Onshape export/sync + manufacturing reports, Phase 6 robotics-aware component templates, and the Google Stitch *Kinetic Precision* UI redesign complete. End-to-end web app supports prompt-to-CAD, parameter editing, face-click parameter guessing, design library/remix, manufacturability analysis, one-click STEP upload to Onshape, and a dark scientific engineering-workstation UI. **56/57 passing tests** (the single failure is `test_generate_missing_api_key`, which now passes because `.env` configures a local Ollama model instead of failing on a missing API key).
 
 ---
 
@@ -127,31 +127,23 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **4** | Design library + remix | ✅ **Complete — component catalog, search/filter, tags, remix with parent linking** |
 | **5** | Onshape export / sync + manufacturing reports | ✅ **Complete — HMAC-signed Onshape API client, STEP upload, manufacturability report (volume, overhangs, hole diameter, print-time heuristic)** |
 | **6** | Robotics-aware component templates | ✅ **Complete — 12 standard robotics parts in `ComponentLibrary`, seeded prompts, tags, remix** |
-| **7** | Impeccable UI redesign | ✅ **Complete — Precision Lab Instrument visual world, token-based CSS design system, all components redesigned, frontend builds cleanly, detector clean** |
+| **7** | Google Stitch Kinetic Precision UI redesign | ✅ **Complete — dark scientific engineering workstation, `kp-*` token system, fixed header/sidebar/viewer/inspector layout, all components restyled, frontend builds cleanly, 56/57 tests passing, live end-to-end verified** |
 
 See [`PLAN.md`](PLAN.md) for the complete end-to-end build plan.
 
 ## 🎨 UI redesign
 
-The entire web interface was redesigned using the [Impeccable](https://impeccable.style) design skill for Claude Code. The chosen visual world is *Precision Lab Instrument*: a light laboratory ground, teal functional accent, IBM Plex Sans typeface, and instrument-grade panels and readouts. The goal is to make daily parametric CAD work feel fast, precise, and trustworthy rather than generic or playful.
+The web interface is now a **Google Stitch *Kinetic Precision*** dark scientific engineering workstation. The design moves away from the earlier *Precision Lab Instrument* light theme into a near-black control-room aesthetic: obsidian panels, surgical cyan accent (#00e5ff), tactical amber for warnings (#feb300), `Inter` for UI chrome, and `JetBrains Mono` for all engineering readouts and parameter values. The layout is a fixed-pane workstation: instrument header, left sidebar with component library and history, large central 3D viewport, right inspector panel for metadata/validation/selected-face/quick export, and a bottom grid of manufacturing, Onshape, tags, and remix panels.
+
+The redesign was guided by `STITCH_BRIEF.md` and the generated `stitch_precision_engineering_interface/` reference files, then implemented by hand inside the existing React component tree so that every `api.js` export, backend endpoint, STLViewer face-click raycaster, component prop contract, and `standard_components.json` schema remained intact.
 
 Key files:
-- `PRODUCT.md` — durable product context captured through Impeccable `init`.
-- `web/frontend/src/styles/index.css` — complete design-token system.
-- `web/frontend/src/App.jsx` and all components — rebuilt in the new visual language.
-
-## 🎨 Next UI pass — Google Stitch scientific workstation
-
-The current light *Precision Lab Instrument* UI is being superseded by a darker, denser, scientific engineering-workstation design generated through Google Stitch. A comprehensive brief in `STITCH_BRIEF.md` gives Google Stitch the full application context, exact color tokens, layout grid, component specs, data models, API contracts, motion design, responsive rules, accessibility requirements, anti-patterns, and integration constraints so the generated UI preserves all existing backend/frontend contracts.
-
-Key requirements for the generated UI:
-- Dark-first palette (`#0B0C0F`, `#13151A`, `#3B82F6`, `#34D399`, `#F87171`).
-- `Inter` + `JetBrains Mono` typography.
-- 3D viewer centered as the primary workspace, flanked by prompt composer, parameter inspector, manufacturing report, Onshape export, history, and component library.
-- Desktop-first responsive collapse and full keyboard/accessibility coverage.
-- Preserve `api.js` exports, backend endpoints, STLViewer face-click logic, React component props, and `standard_components.json` schema.
-
-Once the generated UI is applied, the plan is to rebuild the frontend CSS/components, run `npm run build`, re-run the Impeccable detector or equivalent lint, and verify `pytest` still reports 56/57 passing tests.
+- `STITCH_BRIEF.md` — original design brief fed to Google Stitch.
+- `stitch_precision_engineering_interface/` — generated reference mockups and `DESIGN.md` kept for provenance.
+- `PRODUCT.md` — durable product context and current brand direction.
+- `web/frontend/src/styles/index.css` — `kp-*` token system for the Kinetic Precision palette.
+- `web/frontend/src/App.jsx` and all components — rebuilt in the workstation layout.
+- `web/frontend/index.html` — `Inter` + `JetBrains Mono` font loading and direction contract.
 
 
 ---
@@ -300,6 +292,22 @@ and receive a folder of editable parts ready for printing, assembly in Onshape, 
 ---
 
 ## 📝 Changelog
+
+### 2026-08-23 — Google Stitch Kinetic Precision UI redesign integrated
+
+* Integrated the Google Stitch dark scientific-workstation design into the live React frontend.
+* Replaced the `rc-*` *Precision Lab Instrument* token system with the new `kp-*` *Kinetic Precision* design system in `web/frontend/src/styles/index.css`:
+  * Near-black ground (#121315), obsidian panels (#1b1c1e / #1f2022), surgical cyan accent (#00e5ff), tactical amber (#feb300).
+  * `Inter` for UI, `JetBrains Mono` for data/parameters/console.
+  * Inset fields, machined 4px corners, LED glow indicators, micro-textured ghost buttons.
+* Rebuilt `App.jsx` into a fixed-pane workstation: instrument header, left sidebar (component library + history), central 3D viewport, right inspector panel, and bottom grid of manufacturing / Onshape / tags / remix panels.
+* Restyled every component while preserving props and behavior: `PromptInput`, `StatusPanel`, `STLViewer`, `ParameterList`, `DownloadLinks`, `HistorySidebar`, `ComponentLibrary`, `ManufacturingReport`, `OnshapeUpload`, `TagEditor`, `RemixPanel`.
+* Enhanced `STLViewer` with `@react-three/drei` `Grid` floor, cyan face-selection outline + fill, and viewport toolbar placeholders.
+* Updated `index.html` direction contract and Google Fonts to `Inter` + `JetBrains Mono`.
+* Preserved all integration contracts: `api.js` exports, backend endpoints, face-click raycaster logic, component props, and `standard_components.json`.
+* Added generated Stitch reference files (`stitch_precision_engineering_interface/`) to the repo for provenance.
+* Validation: `npm run build` passes; `pytest` reports 56/57 passing tests (same known `test_generate_missing_api_key` env interaction); live end-to-end tests succeeded for a base plate and a NEMA-17 mount.
+* Commit `cbf8ca4` pushed to `origin/master`.
 
 ### 2026-08-22 — Google Stitch UI redesign brief prepared
 
