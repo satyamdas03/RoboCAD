@@ -1,11 +1,11 @@
 import { Suspense, useMemo, useRef, useState, useEffect } from 'react'
 import { Canvas, useThree, useLoader } from '@react-three/fiber'
-import { OrbitControls, Center } from '@react-three/drei'
+import { OrbitControls, Center, Grid } from '@react-three/drei'
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader'
 import * as THREE from 'three'
 import { exportUrl } from '../api.js'
 
-function HighlightedFace({ geometry, faceIndex, color = '#0d9488' }) {
+function HighlightedFace({ geometry, faceIndex, color = '#00e5ff' }) {
   const meshRef = useRef()
   const highlightGeom = useMemo(() => {
     if (faceIndex == null || !geometry || !geometry.index) return null
@@ -30,8 +30,28 @@ function HighlightedFace({ geometry, faceIndex, color = '#0d9488' }) {
 
   return (
     <mesh ref={meshRef} geometry={highlightGeom}>
-      <meshBasicMaterial color={color} transparent opacity={0.55} side={THREE.DoubleSide} depthTest={false} />
+      <meshBasicMaterial color={color} transparent opacity={0.35} side={THREE.DoubleSide} depthTest={false} />
+      <lineSegments geometry={highlightGeom}>
+        <lineBasicMaterial color={color} transparent opacity={0.9} />
+      </lineSegments>
     </mesh>
+  )
+}
+
+function SceneGrid() {
+  return (
+    <Grid
+      position={[0, -0.01, 0]}
+      args={[200, 200]}
+      cellSize={10}
+      cellThickness={0.5}
+      cellColor="rgba(132,147,150,0.25)"
+      sectionSize={50}
+      sectionThickness={0.8}
+      sectionColor="rgba(132,147,150,0.35)"
+      fadeDistance={250}
+      infiniteGrid
+    />
   )
 }
 
@@ -78,6 +98,7 @@ function Model({ url, onFaceClick, selectedFace }) {
 
   return (
     <group>
+      <SceneGrid />
       <mesh
         ref={meshRef}
         geometry={geometry}
@@ -85,14 +106,14 @@ function Model({ url, onFaceClick, selectedFace }) {
         receiveShadow
         onPointerDown={handlePointerDown}
       >
-        <meshStandardMaterial color="#94a3b8" roughness={0.45} metalness={0.15} />
+        <meshStandardMaterial color="#d8dce5" roughness={0.55} metalness={0.15} />
       </mesh>
       <HighlightedFace geometry={geometry} faceIndex={selectedFace} />
     </group>
   )
 }
 
-export default function STLViewer({ url, onFaceClick, selectedFace, guessResult }) {
+export default function STLViewer({ url, onFaceClick, selectedFace, guessResult, designId }) {
   const [hint, setHint] = useState(null)
 
   useEffect(() => {
@@ -109,20 +130,40 @@ export default function STLViewer({ url, onFaceClick, selectedFace, guessResult 
 
   if (!url) {
     return (
-      <section className="rc-viewer" aria-label="3D model viewer">
-        <div className="rc-viewer-placeholder">
-          <div className="rc-empty-icon" aria-hidden="true">◈</div>
-          <p>No model loaded yet. Generate a part to preview it here.</p>
+      <section className="kp-viewer" aria-label="3D model viewer">
+        <div className="kp-viewer-overlay">
+          <span className="kp-mono kp-text-subtle" style={{ fontSize: '0.75rem' }}>
+            {designId ? `Design #${designId.slice(0, 8)}` : 'No model'}
+          </span>
+        </div>
+        <div className="kp-viewer-placeholder">
+          <div className="kp-empty-icon" aria-hidden="true">◈</div>
+          <p>Generated model will appear here.</p>
+          <p className="kp-small kp-text-muted">Type a prompt and click Generate to preview the part.</p>
         </div>
       </section>
     )
   }
 
   return (
-    <section className="rc-viewer" aria-label="3D model viewer">
-      {hint && <div className="rc-viewer-hint">{hint}</div>}
-      <div className="rc-viewer-caption">Click a face to guess its parameter · drag to rotate · scroll to zoom</div>
-      <Canvas shadows camera={{ position: [100, 100, 100], fov: 50 }}>
+    <section className="kp-viewer" aria-label="3D model viewer">
+      <div className="kp-viewer-overlay">
+        <span className="kp-mono kp-text-subtle" style={{ fontSize: '0.75rem' }}>
+          {designId ? `Design #${designId.slice(0, 8)}` : 'Generated model'}
+        </span>
+        <div className="kp-flex kp-gap-2">
+          <button type="button" className="kp-button kp-button-small kp-button-ghost" title="Reset view">
+            Reset
+          </button>
+          <button type="button" className="kp-button kp-button-small kp-button-ghost" title="Toggle grid">
+            Grid
+          </button>
+        </div>
+      </div>
+
+      {hint && <div className="kp-viewer-hint">{hint}</div>}
+      <div className="kp-viewer-caption">Click a face to guess its parameter · drag to rotate · scroll to zoom</div>
+      <Canvas shadows camera={{ position: [100, 100, 100], fov: 50 }} style={{ background: 'var(--kp-background)' }}>
         <ambientLight intensity={0.55} />
         <directionalLight position={[50, 100, 50]} intensity={1.1} castShadow />
         <directionalLight position={[-50, -50, -30]} intensity={0.35} />

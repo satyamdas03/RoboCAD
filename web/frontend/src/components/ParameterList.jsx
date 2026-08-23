@@ -51,17 +51,17 @@ export default function ParameterList({ parameters, selectedParameter, onRegener
   })
 
   return (
-    <section className="rc-panel" aria-labelledby="parameters-heading">
-      <div className="rc-panel-header">
-        <h3 id="parameters-heading" className="rc-panel-title">Parameters</h3>
-        {selectedParameter && <span className="rc-badge rc-badge-accent">Selected: {selectedParameter}</span>}
+    <section className="kp-panel" aria-labelledby="parameters-heading">
+      <div className="kp-panel-header">
+        <h3 id="parameters-heading" className="kp-panel-title">Parameters</h3>
+        {selectedParameter && <span className="kp-badge kp-badge-accent">Selected: {selectedParameter}</span>}
       </div>
-      <p className="rc-panel-subtitle">
+      <p className="kp-panel-subtitle">
         Edit values and regenerate, or click a face in the viewer to select its parameter.
       </p>
 
       <div style={{ overflowX: 'auto' }}>
-        <table className="rc-table">
+        <table className="kp-table">
           <thead>
             <tr>
               <th>Name</th>
@@ -71,24 +71,31 @@ export default function ParameterList({ parameters, selectedParameter, onRegener
             </tr>
           </thead>
           <tbody>
-            {parameters.map((p) => (
-              <tr key={p.name} className={selectedParameter === p.name ? 'selected' : ''}>
-                <td className="rc-mono">{p.name}</td>
-                <td>
-                  <input
-                    ref={(el) => { inputRefs.current[p.name] = el }}
-                    className="rc-input"
-                    type="number"
-                    value={edits[p.name] ?? p.value}
-                    onChange={(e) => handleChange(p.name, e.target.value)}
-                    disabled={loading}
-                    style={{ width: '100px' }}
-                  />
-                </td>
-                <td className="rc-text-muted">{p.unit || 'mm'}</td>
-                <td className="rc-text-muted">{p.description || '—'}</td>
-              </tr>
-            ))}
+            {parameters.map((p) => {
+              const isSelected = selectedParameter === p.name
+              const isChanged = String(edits[p.name]) !== String(p.value) && edits[p.name] !== undefined
+              return (
+                <tr
+                  key={p.name}
+                  className={`${isSelected ? 'selected' : ''} ${isChanged ? 'changed' : ''}`}
+                >
+                  <td className="kp-mono">{p.name}</td>
+                  <td>
+                    <input
+                      ref={(el) => { inputRefs.current[p.name] = el }}
+                      className="kp-input kp-mono"
+                      type="number"
+                      value={edits[p.name] ?? p.value}
+                      onChange={(e) => handleChange(p.name, e.target.value)}
+                      disabled={loading}
+                      style={{ width: '120px' }}
+                    />
+                  </td>
+                  <td className="kp-text-muted kp-mono">{p.unit || 'mm'}</td>
+                  <td className="kp-text-muted">{p.description || '—'}</td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
@@ -96,7 +103,7 @@ export default function ParameterList({ parameters, selectedParameter, onRegener
       <button
         onClick={handleRegenerate}
         disabled={loading || !hasChanges}
-        className="rc-button rc-button-primary rc-mt-3"
+        className="kp-button kp-button-primary kp-mt-3"
       >
         {loading ? 'Regenerating…' : 'Regenerate from parameters'}
       </button>

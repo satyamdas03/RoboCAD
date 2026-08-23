@@ -13,14 +13,14 @@ export default function DownloadLinks({ exportUrls }) {
   if (visible.length === 0) return null
 
   return (
-    <section className="rc-flex rc-align-center rc-gap-2 rc-flex-wrap" aria-label="Downloads">
-      <span className="rc-small rc-text-muted">Export:</span>
+    <section className="kp-flex kp-align-center kp-gap-2 kp-flex-wrap" aria-label="Downloads">
+      <span className="kp-small kp-text-muted">Export:</span>
       {visible.map(({ key, label, ext, desc }) => (
         <a
           key={key}
           href={exportUrl(exportUrls[key])}
           download={`model.${ext}`}
-          className="rc-button rc-button-small"
+          className="kp-button kp-button-small kp-textured"
           title={desc}
         >
           {label}

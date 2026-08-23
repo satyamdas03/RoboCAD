@@ -13,41 +13,45 @@ export default function ComponentLibrary({ onPrompt, loading }) {
   }
 
   return (
-    <section className="rc-panel" aria-labelledby="library-heading">
-      <h3 id="library-heading" className="rc-panel-title">Component Library</h3>
-      <p className="rc-panel-subtitle">
+    <section className="kp-flex-col" aria-labelledby="library-heading">
+      <div className="kp-panel-header" style={{ padding: 'var(--kp-space-2) var(--kp-space-3)', borderBottom: '1px solid var(--kp-border)' }}>
+        <h3 id="library-heading" className="kp-panel-title">Component Library</h3>
+      </div>
+      <p className="kp-panel-subtitle" style={{ padding: '0 var(--kp-space-3)', marginTop: 'var(--kp-space-2)' }}>
         Click a component to load its seed prompt into the generator.
       </p>
 
-      <div className="rc-flex-col rc-gap-2">
+      <div className="kp-flex-col kp-gap-2" style={{ padding: 'var(--kp-space-3)' }}>
         {catalog.categories.map((category) => (
-          <div key={category.name} className="rc-accordion">
+          <div key={category.name} className="kp-accordion">
             <button
               type="button"
               onClick={() => toggleCategory(category.name)}
-              className="rc-accordion-header"
+              className="kp-accordion-header"
               aria-expanded={expanded[category.name]}
             >
-              <span>{category.name}</span>
-              <span aria-hidden="true">{expanded[category.name] ? '−' : '+'}</span>
+              <span className="kp-flex kp-align-center kp-gap-2">
+                <span>{category.name}</span>
+              </span>
+              <span aria-hidden="true" className="kp-mono">{expanded[category.name] ? '−' : '+'}</span>
             </button>
 
             {expanded[category.name] && (
-              <div className="rc-accordion-body">
-                <ul className="rc-list">
+              <div className="kp-accordion-body">
+                <ul className="kp-list">
                   {category.items.map((item) => (
                     <li key={item.id}>
                       <button
                         type="button"
                         disabled={loading}
                         onClick={() => onPrompt(item.prompt)}
-                        className="rc-button rc-button-ghost"
-                        style={{ width: '100%', justifyContent: 'flex-start', textAlign: 'left' }}
+                        className="kp-button kp-button-ghost kp-textured"
+                        style={{ width: '100%', justifyContent: 'flex-start', textAlign: 'left', padding: 'var(--kp-space-3)' }}
                       >
-                        <span className="rc-flex-col rc-gap-1">
-                          <span style={{ fontWeight: 500 }}>{item.name}</span>
-                          <span className="rc-small rc-text-muted">{item.description}</span>
-                          <span className="rc-small rc-text-subtle">{item.tags.join(', ')}</span>
+                        <span className="kp-flex-col kp-gap-1">
+                          <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>{item.name}</span>
+                          <span className="kp-small kp-text-muted">{item.description}</span>
+                          <span className="kp-small kp-text-subtle">{item.tags.join(', ')}</span>
                         </span>
                       </button>
                     </li>

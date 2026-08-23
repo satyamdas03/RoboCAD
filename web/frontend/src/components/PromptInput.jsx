@@ -24,21 +24,21 @@ export default function PromptInput({ onGenerate, loading, seedPrompt }) {
   }
 
   return (
-    <section className="rc-panel" aria-labelledby="prompt-heading">
-      <div className="rc-panel-header">
-        <h2 id="prompt-heading" className="rc-panel-title">Specimen prompt</h2>
-        <span className="rc-badge rc-badge-accent">{loading ? 'Running…' : 'Ready'}</span>
+    <section className="kp-panel" aria-labelledby="prompt-heading">
+      <div className="kp-panel-header">
+        <h2 id="prompt-heading" className="kp-panel-title">Specimen prompt</h2>
+        <span className={`kp-badge ${loading ? 'kp-badge-warning' : 'kp-badge-accent'}`}>{loading ? 'Running…' : 'Ready'}</span>
       </div>
-      <p className="rc-panel-subtitle">
+      <p className="kp-panel-subtitle">
         Describe the robot part in plain language. RoboCAD writes parametric build123d code and validates the geometry.
       </p>
 
       <form onSubmit={handleSubmit}>
-        <div className="rc-field rc-mt-2">
-          <label htmlFor="prompt" className="rc-label">Part description</label>
+        <div className="kp-field kp-mt-2">
+          <label htmlFor="prompt" className="kp-label">Part description</label>
           <textarea
             id="prompt"
-            className="rc-textarea"
+            className="kp-textarea"
             rows={4}
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
@@ -47,12 +47,12 @@ export default function PromptInput({ onGenerate, loading, seedPrompt }) {
           />
         </div>
 
-        <div className="rc-flex rc-align-center rc-gap-4 rc-mt-3 rc-flex-wrap">
-          <div className="rc-field" style={{ minWidth: '160px', flex: '1 1 160px' }}>
-            <label htmlFor="retries" className="rc-label">Retries: {maxRetries}</label>
+        <div className="kp-flex kp-align-center kp-gap-4 kp-mt-3 kp-flex-wrap">
+          <div className="kp-field" style={{ minWidth: '160px', flex: '1 1 160px' }}>
+            <label htmlFor="retries" className="kp-label">Retries: {maxRetries}</label>
             <input
               id="retries"
-              className="rc-range"
+              className="kp-range"
               type="range"
               min={0}
               max={5}
@@ -62,11 +62,11 @@ export default function PromptInput({ onGenerate, loading, seedPrompt }) {
             />
           </div>
 
-          <div className="rc-field" style={{ minWidth: '180px', flex: '1 1 180px' }}>
-            <label htmlFor="model" className="rc-label">Model override</label>
+          <div className="kp-field" style={{ minWidth: '180px', flex: '1 1 180px' }}>
+            <label htmlFor="model" className="kp-label">Model override</label>
             <input
               id="model"
-              className="rc-input"
+              className="kp-input kp-mono"
               type="text"
               value={model}
               onChange={(e) => setModel(e.target.value)}
@@ -78,7 +78,7 @@ export default function PromptInput({ onGenerate, loading, seedPrompt }) {
           <button
             type="submit"
             disabled={loading || !prompt.trim()}
-            className="rc-button rc-button-primary rc-mt-3"
+            className="kp-button kp-button-primary"
             style={{ marginLeft: 'auto', minWidth: '140px' }}
           >
             {loading ? 'Generating…' : 'Generate'}
@@ -86,15 +86,15 @@ export default function PromptInput({ onGenerate, loading, seedPrompt }) {
         </div>
       </form>
 
-      <div className="rc-flex rc-align-center rc-gap-2 rc-mt-3 rc-flex-wrap">
-        <span className="rc-small rc-text-muted">Try:</span>
+      <div className="kp-flex kp-align-center kp-gap-2 kp-mt-3 kp-flex-wrap">
+        <span className="kp-small kp-text-muted">Try:</span>
         {SUGGESTIONS.map((s) => (
           <button
             key={s}
             type="button"
             onClick={() => setPrompt(s)}
             disabled={loading}
-            className="rc-button rc-button-small rc-button-ghost"
+            className="kp-button kp-button-small kp-button-ghost"
           >
             {s.length > 55 ? s.slice(0, 55) + '…' : s}
           </button>

@@ -10,28 +10,30 @@ export default function RemixPanel({ designId, onRemix, loading }) {
   }
 
   return (
-    <section className="rc-panel" aria-labelledby="remix-heading">
-      <h3 id="remix-heading" className="rc-panel-title">Remix</h3>
-      <p className="rc-panel-subtitle">
+    <section className="kp-panel" aria-labelledby="remix-heading">
+      <div className="kp-panel-header">
+        <h3 id="remix-heading" className="kp-panel-title">Remix</h3>
+      </div>
+      <p className="kp-panel-subtitle">
         Generate a new design based on #{designId.slice(0, 8)}.
       </p>
       <form onSubmit={handleSubmit}>
-        <div className="rc-field">
-          <label htmlFor="remix-prompt" className="rc-label">Variation prompt</label>
+        <div className="kp-field">
+          <label htmlFor="remix-prompt" className="kp-label">Variation prompt</label>
           <input
             id="remix-prompt"
             type="text"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             placeholder="Make it thicker and add two more holes"
-            className="rc-input"
+            className="kp-input"
             disabled={loading}
           />
         </div>
         <button
           type="submit"
           disabled={loading || !prompt.trim()}
-          className="rc-button rc-button-primary rc-mt-3"
+          className="kp-button kp-button-primary kp-mt-3"
         >
           {loading ? 'Remixing…' : 'Remix'}
         </button>

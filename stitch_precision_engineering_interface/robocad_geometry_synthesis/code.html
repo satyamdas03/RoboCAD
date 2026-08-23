@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>RoboCAD - Geometry Synthesis</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-fixed-dim": "#f3bf26",
+                        "surface-variant": "#343537",
+                        "on-surface": "#e3e2e5",
+                        "on-secondary": "#432c00",
+                        "inverse-surface": "#e3e2e5",
+                        "surface-container-high": "#292a2c",
+                        "on-primary-fixed-variant": "#004f58",
+                        "primary-fixed-dim": "#00daf3",
+                        "surface-container-lowest": "#0d0e10",
+                        "error-container": "#93000a",
+                        "on-secondary-fixed-variant": "#604100",
+                        "secondary": "#ffd799",
+                        "outline-variant": "#3b494c",
+                        "on-primary": "#00363d",
+                        "primary": "#c3f5ff",
+                        "surface-container-low": "#1b1c1e",
+                        "error": "#ffb4ab",
+                        "tertiary-container": "#fec931",
+                        "on-tertiary-container": "#6f5500",
+                        "on-background": "#e3e2e5",
+                        "primary-container": "#00e5ff",
+                        "background": "#121315",
+                        "on-error-container": "#ffdad6",
+                        "on-surface-variant": "#bac9cc",
+                        "surface-container-highest": "#343537",
+                        "inverse-on-surface": "#303033",
+                        "on-error": "#690005",
+                        "outline": "#849396",
+                        "secondary-fixed-dim": "#ffba38",
+                        "on-secondary-fixed": "#281900",
+                        "surface-dim": "#121315",
+                        "tertiary-fixed": "#ffdf96",
+                        "tertiary": "#ffeac0",
+                        "primary-fixed": "#9cf0ff",
+                        "secondary-container": "#feb300",
+                        "on-tertiary": "#3e2e00",
+                        "surface-tint": "#00daf3",
+                        "surface-bright": "#38393b",
+                        "inverse-primary": "#006875",
+                        "secondary-fixed": "#ffdeac",
+                        "on-primary-fixed": "#001f24",
+                        "surface": "#121315",
+                        "on-secondary-container": "#6a4800",
+                        "surface-container": "#1f2022",
+                        "on-primary-container": "#00626e",
+                        "on-tertiary-fixed": "#251a00",
+                        "on-tertiary-fixed-variant": "#594400"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "unit": "4px",
+                        "gutter": "12px",
+                        "margin": "16px",
+                        "panel-padding": "8px"
+                    },
+                    "fontFamily": {
+                        "label-xs": ["JetBrains Mono"],
+                        "display-lg": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "data-mono": ["JetBrains Mono"],
+                        "body-base": ["Inter"]
+                    },
+                    "fontSize": {
+                        "label-xs": ["11px", { "lineHeight": "14px", "fontWeight": "600" }],
+                        "display-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "data-mono": ["13px", { "lineHeight": "18px", "fontWeight": "500" }],
+                        "body-base": ["14px", { "lineHeight": "20px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: theme('colors.background');
+            color: theme('colors.on-background');
+        }
+        /* Grid background for 3D viewer area */
+        .grid-bg {
+            background-size: 40px 40px;
+            background-image:
+                linear-gradient(to right, #2D3139 1px, transparent 1px),
+                linear-gradient(to bottom, #2D3139 1px, transparent 1px);
+        }
+        /* Micro-texture for ghost buttons */
+        .micro-texture {
+            background-image: repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,255,255,0.05) 2px, rgba(255,255,255,0.05) 4px);
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: theme('colors.surface-container-low'); }
+        ::-webkit-scrollbar-thumb { background: theme('colors.surface-variant'); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: theme('colors.outline'); }
+    </style>
+</head>
+<body class="h-screen w-full overflow-hidden flex flex-col font-body-base text-body-base">
+<!-- TopAppBar -->
+<header class="docked full-width top-0 border-b border-outline-variant flex justify-between items-center w-full px-margin h-12 bg-background z-50">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-primary text-xl">precision_manufacturing</span>
+<div class="flex items-baseline gap-2">
+<span class="text-headline-md font-headline-md font-bold text-on-surface">RoboCAD</span>
+<span class="text-label-xs font-label-xs text-on-surface-variant">AI parametric CAD for robotics</span>
+</div>
+</div>
+<div class="flex-1 max-w-md mx-8">
+<div class="relative flex items-center w-full h-8 bg-surface-container rounded border border-outline-variant">
+<span class="material-symbols-outlined absolute left-2 text-on-surface-variant text-sm">search</span>
+<input class="w-full h-full bg-transparent border-none text-data-mono font-data-mono text-on-surface pl-8 pr-12 focus:ring-1 focus:ring-primary focus:outline-none placeholder-on-surface-variant text-sm rounded" placeholder="Search history and components" type="text"/>
+<span class="absolute right-2 text-label-xs font-label-xs text-on-surface-variant border border-outline-variant rounded px-1">Ctrl K</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-1.5 px-2 py-1 rounded bg-surface-container border border-outline-variant">
+<div class="w-2 h-2 rounded-full bg-primary-container shadow-[0_0_6px_rgba(0,229,255,0.4)]"></div>
+<span class="text-label-xs font-label-xs text-on-surface">Backend online</span>
+</div>
+<button class="text-on-surface-variant hover:text-primary transition-colors flex items-center justify-center w-8 h-8 rounded hover:bg-surface-variant">
+<span class="material-symbols-outlined text-[18px]">settings</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors flex items-center justify-center w-8 h-8 rounded hover:bg-surface-variant">
+<span class="material-symbols-outlined text-[18px]">light_mode</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors flex items-center justify-center w-8 h-8 rounded hover:bg-surface-variant">
+<span class="material-symbols-outlined text-[18px]">add</span>
+</button>
+</div>
+</header>
+<div class="flex flex-1 overflow-hidden h-[calc(100vh-32px-48px)]">
+<!-- SideNavBar -->
+<aside class="flex flex-col h-full border-r border-outline-variant w-64 overflow-y-auto bg-surface-container-low shrink-0">
+<div class="p-panel-padding border-b border-outline-variant flex flex-col gap-1">
+<span class="text-label-xs font-label-xs font-black text-on-surface-variant uppercase">COMPONENT LIBRARY</span>
+<span class="text-label-xs font-label-xs text-on-surface-variant opacity-70">v5.4-mini</span>
+</div>
+<nav class="flex flex-col py-2">
+<button class="flex items-center gap-3 px-panel-padding py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all text-left">
+<span class="material-symbols-outlined text-[16px]">category</span>
+<span class="text-label-xs font-label-xs">Structural</span>
+<span class="ml-auto text-label-xs font-label-xs opacity-50">3</span>
+</button>
+<button class="flex items-center gap-3 px-panel-padding py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all text-left">
+<span class="material-symbols-outlined text-[16px]">settings_input_component</span>
+<span class="text-label-xs font-label-xs">Motion</span>
+<span class="ml-auto text-label-xs font-label-xs opacity-50">3</span>
+</button>
+<button class="flex items-center gap-3 px-panel-padding py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all text-left">
+<span class="material-symbols-outlined text-[16px]">memory</span>
+<span class="text-label-xs font-label-xs">Electronics</span>
+<span class="ml-auto text-label-xs font-label-xs opacity-50">3</span>
+</button>
+<button class="flex items-center gap-3 px-panel-padding py-2 bg-surface-variant text-primary border-l-2 border-primary text-left">
+<span class="material-symbols-outlined text-[16px]">precision_manufacturing</span>
+<span class="text-label-xs font-label-xs">Robotics</span>
+<span class="ml-auto text-label-xs font-label-xs opacity-50">4</span>
+</button>
+</nav>
+<div class="px-panel-padding py-2 flex flex-col gap-2">
+<!-- Example Library Item -->
+<div class="border border-outline-variant rounded p-2 bg-surface-container hover:border-outline transition-colors cursor-pointer group">
+<h4 class="text-data-mono font-data-mono text-on-surface mb-1">NEMA-17 Mount</h4>
+<p class="text-[10px] leading-tight text-on-surface-variant mb-2">Motor mount bracket with boss and M3 holes.</p>
+<div class="flex justify-between items-center">
+<div class="flex gap-1">
+<span class="px-1 py-0.5 rounded bg-surface border border-outline-variant text-[9px] text-on-surface-variant">nema-17</span>
+<span class="px-1 py-0.5 rounded bg-surface border border-outline-variant text-[9px] text-on-surface-variant">mounting</span>
+</div>
+<button class="text-[10px] text-primary opacity-0 group-hover:opacity-100 transition-opacity">Use as seed</button>
+</div>
+</div>
+</div>
+<div class="mt-auto border-t border-outline-variant p-panel-padding flex justify-between items-center bg-surface-container-low">
+<span class="text-label-xs font-label-xs text-on-surface-variant uppercase">HISTORY</span>
+<button class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined text-[14px]">history</span></button>
+</div>
+<div class="p-panel-padding flex flex-col gap-2 bg-surface-container-lowest flex-1 overflow-y-auto">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[14px]">check_circle</span>
+<span class="text-label-xs font-label-xs text-on-surface">Ready - last run succeeded</span>
+</div>
+<div class="pl-5 flex flex-col gap-1 border-l border-outline-variant ml-1.5 mt-1 pb-2">
+<div class="flex items-center gap-2 text-on-surface-variant text-label-xs font-label-xs">
+<span class="material-symbols-outlined text-[12px] text-primary">check_circle</span> Parse prompt
+                    </div>
+<div class="flex items-center gap-2 text-on-surface-variant text-label-xs font-label-xs">
+<span class="material-symbols-outlined text-[12px] text-primary">check_circle</span> Generate code
+                    </div>
+<div class="flex items-center gap-2 text-on-surface-variant text-label-xs font-label-xs">
+<span class="material-symbols-outlined text-[12px] text-primary">check_circle</span> Validate geometry
+                    </div>
+<div class="flex items-center gap-2 text-on-surface-variant text-label-xs font-label-xs">
+<span class="material-symbols-outlined text-[12px] text-primary">check_circle</span> Export files
+                    </div>
+</div>
+</div>
+</aside>
+<!-- Main Workspace -->
+<main class="flex-1 flex flex-col relative bg-surface-dim grid-bg overflow-hidden">
+<!-- 3D Viewer Area Placeholder -->
+<div class="absolute inset-0 z-0 flex items-center justify-center">
+<img class="w-full h-full object-cover opacity-80 mix-blend-screen" data-alt="A dark themed industrial software interface showing a 3D view of a small grey mechanical bracket being synthesized on a dark grid. The UI has various technical panels, logs, and a prompt input at the top." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDIv3bw4jojsiLPOmxrwbRY3UqUVydTK5sOGNopudpKlWlwuXWkJ67rtGQwlycSDn-qBCqbSZs0zlj-iXtELfiBbBOmljX0kNRk7m6hvoPt5jXtb3PI-5GPYoYvEsQEEjvNT1whain8qjoWSAA_tslmCKEEInHE0yJpskTg4P407Fi-PTpUmZksc_TRUwLfZ0I4gogMsC1CtBZymvtTOtsRDrp9KXEi3hfUlZDYTUKqNmsRjz7SRjFaqZL7MZ46yoVpj_g"/>
+</div>
+<!-- Top Overlay: Prompt & Overrides -->
+<div class="z-10 p-margin flex flex-col gap-2 pointer-events-none">
+<div class="bg-surface/90 border border-outline-variant rounded-lg p-3 backdrop-blur-sm shadow-lg pointer-events-auto w-full max-w-3xl">
+<div class="flex justify-between items-center mb-2">
+<h3 class="text-label-xs font-label-xs text-on-surface-variant">Specimen prompt</h3>
+<div class="flex items-center gap-1.5 px-2 py-0.5 rounded border border-tertiary-fixed-dim text-tertiary-fixed-dim bg-tertiary-fixed-dim/10">
+<span class="material-symbols-outlined text-[12px] animate-spin">sync</span>
+<span class="text-label-xs font-label-xs">Running...</span>
+</div>
+</div>
+<p class="text-data-mono font-data-mono text-on-surface-variant mb-2 text-xs">RoboCAD synthesizes parametric Build123d code from plain language and validates the geometry before export.</p>
+<div class="w-full bg-background border border-outline-variant rounded p-2 text-data-mono font-data-mono text-on-surface">
+                        NEMA-17 motor mount bracket with two M3 holes and a 22 mm motor boss
+                    </div>
+</div>
+<div class="bg-surface/90 border border-outline-variant rounded-lg p-3 backdrop-blur-sm shadow-lg pointer-events-auto w-full max-w-4xl flex items-center gap-4">
+<div class="flex flex-col gap-1 w-32">
+<span class="text-label-xs font-label-xs text-on-surface-variant">Retries: <span class="text-on-surface">2</span></span>
+</div>
+<div class="flex-1 flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+<button class="shrink-0 px-3 py-1.5 border border-primary rounded bg-primary/10 text-primary text-label-xs font-label-xs micro-texture">
+                            Try: NEMA-17 motor mount bracket...
+                        </button>
+<button class="shrink-0 px-3 py-1.5 border border-outline-variant rounded bg-surface text-on-surface-variant text-label-xs font-label-xs hover:border-outline">
+                            GT2 timing pulley, 20 teeth...
+                        </button>
+<button class="shrink-0 px-3 py-1.5 border border-outline-variant rounded bg-surface text-on-surface-variant text-label-xs font-label-xs hover:border-outline">
+                            Raspberry Pi camera mount...
+                        </button>
+</div>
+<button class="shrink-0 px-4 py-1.5 bg-primary-container text-on-primary-container font-data-mono text-sm font-semibold rounded hover:brightness-110 shadow-[inset_0_1px_0_rgba(255,255,255,0.2)] flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] animate-spin">sync</span> Generating...
+                    </button>
+</div>
+</div>
+<!-- Bottom Overlay: Console -->
+<div class="absolute bottom-0 left-0 w-full z-10 bg-background/95 border-t border-outline-variant p-2 backdrop-blur-md font-data-mono text-[11px] leading-relaxed h-32 overflow-y-auto">
+<div class="text-on-surface-variant"><span class="text-outline">[02:58:40.136]</span> parsing prompt tokens...</div>
+<div class="text-on-surface-variant"><span class="text-outline">[02:58:40.548]</span> intent: parametric_bracket • slots detected</div>
+<div class="text-on-surface"><span class="text-outline">[02:58:40.548]</span> synthesizing Build123d script...</div>
+<div class="text-on-surface-variant"><span class="text-outline">[02:58:41.845]</span> code synthesized • 26 lines • attempt 1</div>
+<div class="text-on-surface-variant"><span class="text-outline">[02:58:41.845]</span> executing geometry kernel...</div>
+<div class="text-primary"><span class="text-outline">[02:58:42.455]</span> mesh: manifold ok, watertight ok</div>
+<div class="text-on-surface-variant"><span class="text-outline">[02:58:42.455]</span> checking overhangs and hole minimums...</div>
+<div class="text-on-surface-variant"><span class="text-outline">[02:58:43.444]</span> exports: model.stl • model.step • build_script.py</div>
+</div>
+<!-- Viewport controls -->
+<div class="absolute bottom-36 right-4 z-10 flex bg-surface/80 border border-outline-variant rounded backdrop-blur p-1 gap-1">
+<button class="w-6 h-6 flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-surface-variant rounded"><span class="material-symbols-outlined text-[14px]">rotate_right</span></button>
+<button class="w-6 h-6 flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-surface-variant rounded"><span class="material-symbols-outlined text-[14px]">grid_4x4</span></button>
+<button class="w-6 h-6 flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-surface-variant rounded bg-surface-variant"><span class="material-symbols-outlined text-[14px]">polyline</span></button>
+<button class="w-6 h-6 flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-surface-variant rounded"><span class="material-symbols-outlined text-[14px]">center_focus_strong</span></button>
+</div>
+</main>
+<!-- Right Property Inspector -->
+<aside class="flex flex-col h-full border-l border-outline-variant w-72 overflow-y-auto bg-surface-container-low shrink-0 z-20">
+<!-- Metadata -->
+<div class="p-panel-padding border-b border-outline-variant">
+<h3 class="text-label-xs font-label-xs text-on-surface-variant uppercase tracking-wider mb-3">DESIGN METADATA</h3>
+<div class="flex flex-col gap-2 text-data-mono font-data-mono text-[12px]">
+<div class="flex justify-between"><span class="text-on-surface-variant">Model</span><span class="text-on-surface">gpt-5.4-mini</span></div>
+<div class="flex justify-between"><span class="text-on-surface-variant">Latency</span><span class="text-on-surface">15.5s</span></div>
+<div class="flex justify-between"><span class="text-on-surface-variant">Attempts</span><span class="text-on-surface">1/2</span></div>
+<div class="flex justify-between"><span class="text-on-surface-variant">Created</span><span class="text-on-surface">23 Aug, 02:38</span></div>
+<div class="flex justify-between items-center"><span class="text-on-surface-variant">Status</span><span class="text-primary text-[11px] border border-primary/30 px-1 rounded bg-primary/10">success</span></div>
+</div>
+</div>
+<!-- Validation -->
+<div class="p-panel-padding border-b border-outline-variant">
+<h3 class="text-label-xs font-label-xs text-on-surface-variant uppercase tracking-wider mb-3">VALIDATION</h3>
+<div class="flex flex-col gap-2 text-data-mono font-data-mono text-[12px]">
+<div class="flex justify-between items-center"><span class="text-on-surface-variant">Manifold</span><span class="material-symbols-outlined text-primary text-[14px]">check</span></div>
+<div class="flex justify-between items-center"><span class="text-on-surface-variant">Watertight</span><span class="material-symbols-outlined text-primary text-[14px]">check</span></div>
+<div class="flex justify-between"><span class="text-on-surface-variant">Bounds</span><span class="text-on-surface">[0, 0, 0, 78, 34, 12]</span></div>
+<div class="flex justify-between"><span class="text-on-surface-variant">Volume</span><span class="text-on-surface">16,206 mm³</span></div>
+</div>
+</div>
+<!-- Export -->
+<div class="p-panel-padding border-b border-outline-variant">
+<h3 class="text-label-xs font-label-xs text-on-surface-variant uppercase tracking-wider mb-3 flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">download</span> EXPORT</h3>
+<div class="grid grid-cols-2 gap-2">
+<button class="border border-outline-variant rounded p-1.5 flex items-center justify-center gap-1 hover:border-primary hover:text-primary text-on-surface-variant text-label-xs font-label-xs bg-surface micro-texture transition-colors">
+<span class="material-symbols-outlined text-[14px]">box</span> STL
+                    </button>
+<button class="border border-outline-variant rounded p-1.5 flex items-center justify-center gap-1 hover:border-primary hover:text-primary text-on-surface-variant text-label-xs font-label-xs bg-surface micro-texture transition-colors">
+<span class="material-symbols-outlined text-[14px]">deployed_code</span> STEP
+                    </button>
+<button class="border border-outline-variant rounded p-1.5 flex items-center justify-center gap-1 hover:border-primary hover:text-primary text-on-surface-variant text-label-xs font-label-xs bg-surface micro-texture transition-colors">
+<span class="material-symbols-outlined text-[14px]">description</span> Script
+                    </button>
+<button class="border border-outline-variant rounded p-1.5 flex items-center justify-center gap-1 hover:border-primary hover:text-primary text-on-surface-variant text-label-xs font-label-xs bg-surface micro-texture transition-colors">
+<span class="material-symbols-outlined text-[14px]">cloud_upload</span> Onshape
+                    </button>
+</div>
+</div>
+<!-- Selected Face (Contextual) -->
+<div class="p-panel-padding flex-1 opacity-50 pointer-events-none">
+<h3 class="text-label-xs font-label-xs text-on-surface-variant uppercase tracking-wider mb-3 flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">ads_click</span> SELECTED FACE</h3>
+<p class="text-data-mono font-data-mono text-[11px] text-on-surface-variant">Click a face in the 3D viewer to guess its controlling parameter.</p>
+</div>
+</aside>
+</div>
+<!-- Footer -->
+<footer class="fixed bottom-0 left-0 w-full z-50 flex justify-end gap-gutter px-margin py-1 items-center h-8 bg-surface-container-lowest border-t border-outline-variant text-label-xs font-label-xs font-data-mono text-outline">
+<span class="border border-outline-variant/30 px-2 rounded bg-surface/50">manifold: true</span>
+<span class="border border-outline-variant/30 px-2 rounded bg-surface/50">watertight: true</span>
+<span class="border border-outline-variant/30 px-2 rounded bg-surface/50">bounds_mm [78, 34, 12]</span>
+<span class="border border-outline-variant/30 px-2 rounded bg-surface/50 text-primary">volume_mm3 16,230</span>
+</footer>
+</body></html>

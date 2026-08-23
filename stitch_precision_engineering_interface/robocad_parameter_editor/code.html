@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>RoboCAD - Parameter Editor</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "tertiary-fixed-dim": "#f3bf26",
+                      "surface-variant": "#343537",
+                      "on-surface": "#e3e2e5",
+                      "on-secondary": "#432c00",
+                      "inverse-surface": "#e3e2e5",
+                      "surface-container-high": "#292a2c",
+                      "on-primary-fixed-variant": "#004f58",
+                      "primary-fixed-dim": "#00daf3",
+                      "surface-container-lowest": "#0d0e10",
+                      "error-container": "#93000a",
+                      "on-secondary-fixed-variant": "#604100",
+                      "secondary": "#ffd799",
+                      "outline-variant": "#3b494c",
+                      "on-primary": "#00363d",
+                      "primary": "#c3f5ff",
+                      "surface-container-low": "#1b1c1e",
+                      "error": "#ffb4ab",
+                      "tertiary-container": "#fec931",
+                      "on-tertiary-container": "#6f5500",
+                      "on-background": "#e3e2e5",
+                      "primary-container": "#00e5ff",
+                      "background": "#121315",
+                      "on-error-container": "#ffdad6",
+                      "on-surface-variant": "#bac9cc",
+                      "surface-container-highest": "#343537",
+                      "inverse-on-surface": "#303033",
+                      "on-error": "#690005",
+                      "outline": "#849396",
+                      "secondary-fixed-dim": "#ffba38",
+                      "on-secondary-fixed": "#281900",
+                      "surface-dim": "#121315",
+                      "tertiary-fixed": "#ffdf96",
+                      "tertiary": "#ffeac0",
+                      "primary-fixed": "#9cf0ff",
+                      "secondary-container": "#feb300",
+                      "on-tertiary": "#3e2e00",
+                      "surface-tint": "#00daf3",
+                      "surface-bright": "#38393b",
+                      "inverse-primary": "#006875",
+                      "secondary-fixed": "#ffdeac",
+                      "on-primary-fixed": "#001f24",
+                      "surface": "#121315",
+                      "on-secondary-container": "#6a4800",
+                      "surface-container": "#1f2022",
+                      "on-primary-container": "#00626e",
+                      "on-tertiary-fixed": "#251a00",
+                      "on-tertiary-fixed-variant": "#594400"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "unit": "4px",
+                      "gutter": "12px",
+                      "margin": "16px",
+                      "panel-padding": "8px"
+              },
+              "fontFamily": {
+                      "label-xs": [
+                              "JetBrains Mono"
+                      ],
+                      "display-lg": [
+                              "Inter"
+                      ],
+                      "headline-md": [
+                              "Inter"
+                      ],
+                      "data-mono": [
+                              "JetBrains Mono"
+                      ],
+                      "body-base": [
+                              "Inter"
+                      ]
+              },
+              "fontSize": {
+                      "label-xs": [
+                              "11px",
+                              {
+                                      "lineHeight": "14px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "display-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "headline-md": [
+                              "20px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "data-mono": [
+                              "13px",
+                              {
+                                      "lineHeight": "18px",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "body-base": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "400"
+                              }
+                      ]
+              }
+            }
+          }
+        }
+    </script>
+<style>
+        /* Custom scrollbar for industrial look */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #121315;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3b494c;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #849396;
+        }
+        
+        /* Micro-texture for ghost buttons */
+        .bg-micro-texture {
+            background-image: repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 1px,
+                rgba(255, 255, 255, 0.05) 1px,
+                rgba(255, 255, 255, 0.05) 2px
+            );
+        }
+
+        /* Inset shadow for fields */
+        .shadow-inset-field {
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);
+        }
+
+        /* Glow effect */
+        .shadow-glow {
+            box-shadow: 0 0 8px rgba(0, 229, 255, 0.3);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface h-screen flex flex-col font-body-base overflow-hidden selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopAppBar -->
+<header class="flex justify-between items-center w-full px-margin h-12 bg-background border-b border-outline-variant shrink-0">
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary-container">precision_manufacturing</span>
+<span class="text-headline-md font-headline-md font-bold text-on-surface">RoboCAD</span>
+</div>
+<span class="text-on-surface-variant text-sm pl-4 border-l border-outline-variant">AI parametric CAD for robotics</span>
+</div>
+<div class="flex-1 max-w-xl px-8">
+<div class="relative flex items-center bg-surface-container rounded-DEFAULT border border-outline-variant shadow-inset-field px-3 py-1">
+<span class="material-symbols-outlined text-outline text-sm mr-2">search</span>
+<input class="w-full bg-transparent border-none focus:ring-0 text-sm font-data-mono text-on-surface placeholder:text-outline-variant outline-none" placeholder="Search history and components" type="text"/>
+<div class="flex items-center gap-1 ml-2">
+<kbd class="px-1.5 py-0.5 text-[10px] font-data-mono text-outline-variant bg-surface-container-high rounded border border-outline-variant">Ctrl</kbd>
+<kbd class="px-1.5 py-0.5 text-[10px] font-data-mono text-outline-variant bg-surface-container-high rounded border border-outline-variant">K</kbd>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 bg-surface-container px-2 py-1 rounded-DEFAULT border border-outline-variant">
+<div class="w-2 h-2 rounded-full bg-primary-container shadow-glow"></div>
+<span class="text-xs font-data-mono text-primary-container">Backend online</span>
+</div>
+<div class="flex items-center gap-2 border-l border-outline-variant pl-4">
+<button class="text-outline-variant hover:text-on-surface transition-colors p-1 rounded hover:bg-surface-variant">
+<span class="material-symbols-outlined text-sm">settings</span>
+</button>
+<button class="text-outline-variant hover:text-on-surface transition-colors p-1 rounded hover:bg-surface-variant">
+<span class="material-symbols-outlined text-sm">light_mode</span>
+</button>
+<button class="text-outline-variant hover:text-on-surface transition-colors p-1 rounded hover:bg-surface-variant">
+<span class="material-symbols-outlined text-sm">add</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="flex flex-1 overflow-hidden">
+<!-- SideNavBar -->
+<aside class="flex flex-col h-full border-r border-outline-variant w-64 overflow-y-auto bg-surface-container-low shrink-0">
+<div class="p-4 border-b border-outline-variant">
+<h2 class="text-label-xs font-label-xs uppercase tracking-wider text-on-surface-variant">COMPONENT LIBRARY</h2>
+</div>
+<nav class="flex-1 overflow-y-auto py-2">
+<!-- Accordion Items -->
+<div class="px-2 mb-1">
+<button class="flex items-center justify-between w-full px-2 py-1.5 rounded-DEFAULT text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all group">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] transition-transform group-hover:rotate-90">chevron_right</span>
+<span class="text-sm">Structural</span>
+</div>
+<span class="text-label-xs font-data-mono text-outline-variant">3</span>
+</button>
+</div>
+<div class="px-2 mb-1">
+<button class="flex items-center justify-between w-full px-2 py-1.5 rounded-DEFAULT text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all group">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] transition-transform group-hover:rotate-90">chevron_right</span>
+<span class="text-sm">Motion</span>
+</div>
+<span class="text-label-xs font-data-mono text-outline-variant">3</span>
+</button>
+</div>
+<div class="px-2 mb-1">
+<button class="flex items-center justify-between w-full px-2 py-1.5 rounded-DEFAULT text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all group">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] transition-transform group-hover:rotate-90">chevron_right</span>
+<span class="text-sm">Electronics</span>
+</div>
+<span class="text-label-xs font-data-mono text-outline-variant">3</span>
+</button>
+</div>
+<!-- Expanded Category -->
+<div class="px-2 mb-2">
+<button class="flex items-center justify-between w-full px-2 py-1.5 rounded-DEFAULT text-on-surface bg-surface-variant/50 transition-all">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] rotate-90 text-primary-container">chevron_right</span>
+<span class="text-sm font-semibold">Robotics</span>
+</div>
+<span class="text-label-xs font-data-mono text-outline-variant">4</span>
+</button>
+<div class="mt-2 pl-2 flex flex-col gap-2">
+<!-- Active Item -->
+<div class="bg-surface-variant text-on-surface border-l-2 border-primary-container rounded-r-DEFAULT p-3 flex flex-col gap-2 shadow-[inset_2px_0_0_0_rgba(0,229,255,0.2)]">
+<h3 class="text-sm font-semibold">NEMA-17 Mount</h3>
+<p class="text-xs text-on-surface-variant leading-tight">Motor mount bracket with boss and M3 holes.</p>
+<div class="flex items-center justify-between mt-1">
+<div class="flex gap-1">
+<span class="px-1.5 py-0.5 bg-surface-container text-outline rounded text-[10px] font-data-mono border border-outline-variant">nema-17</span>
+<span class="px-1.5 py-0.5 bg-surface-container text-outline rounded text-[10px] font-data-mono border border-outline-variant">mounting</span>
+</div>
+<button class="text-[10px] uppercase font-bold text-outline-variant hover:text-primary-container transition-colors border border-outline-variant px-2 py-1 rounded bg-surface-container-high hover:border-primary-container">Use as seed</button>
+</div>
+</div>
+<!-- Inactive Item -->
+<div class="hover:bg-surface-container-high text-on-surface-variant border-l-2 border-transparent rounded-r-DEFAULT p-3 flex flex-col gap-2 transition-colors cursor-pointer border border-outline-variant/30">
+<h3 class="text-sm font-semibold">Servo Horn Adapter</h3>
+<p class="text-xs text-outline leading-tight">MG996R horn to bolt-pattern adapter.</p>
+<div class="flex items-center justify-between mt-1">
+<div class="flex gap-1">
+<span class="px-1.5 py-0.5 bg-surface-container text-outline rounded text-[10px] font-data-mono border border-outline-variant">servo</span>
+<span class="px-1.5 py-0.5 bg-surface-container text-outline rounded text-[10px] font-data-mono border border-outline-variant">adapter</span>
+</div>
+<button class="text-[10px] uppercase font-bold text-outline-variant hover:text-on-surface transition-colors border border-outline-variant px-2 py-1 rounded bg-surface-container-high">Use as seed</button>
+</div>
+</div>
+</div>
+</div>
+</nav>
+<div class="border-t border-outline-variant p-2 flex flex-col gap-1">
+<button class="flex items-center gap-3 w-full px-3 py-2 rounded-DEFAULT text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all text-sm">
+<span class="material-symbols-outlined text-[18px]">history</span>
+<span>History</span>
+</button>
+<button class="flex items-center gap-3 w-full px-3 py-2 rounded-DEFAULT text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all text-sm">
+<span class="material-symbols-outlined text-[18px]">terminal</span>
+<span>Console</span>
+</button>
+</div>
+</aside>
+<!-- Center Workspace -->
+<section class="flex flex-col flex-1 min-w-0 bg-background relative z-0">
+<!-- 3D Viewer Background Placeholder -->
+<div class="absolute inset-0 z-[-1] opacity-20 pointer-events-none" style="background-image: radial-gradient(#3b494c 1px, transparent 1px); background-size: 20px 20px;"></div>
+<div class="flex-1 flex flex-col p-panel-padding gap-panel-padding overflow-y-auto">
+<!-- Parameters Panel -->
+<div class="bg-surface-container-low border border-outline-variant rounded-DEFAULT flex flex-col shadow-lg backdrop-blur-sm">
+<div class="px-4 py-3 border-b border-outline-variant flex justify-between items-center bg-surface-container-lowest/50 rounded-t-DEFAULT">
+<div>
+<h2 class="text-sm font-semibold text-on-surface">Parameters</h2>
+<p class="text-xs text-on-surface-variant mt-0.5">Edit values and regenerate, or click a face in the viewer to select its parameter.</p>
+</div>
+<div class="flex items-center gap-2 text-xs font-data-mono">
+<span class="text-outline">face -&gt;</span>
+<span class="px-2 py-1 bg-surface-variant rounded border border-primary-container/30 text-primary-container shadow-[inset_0_0_4px_rgba(0,229,255,0.2)]">plate_thickness</span>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="text-label-xs font-label-xs text-outline-variant uppercase tracking-wider border-b border-outline-variant bg-surface-container/50">
+<th class="px-4 py-2 font-medium">Name</th>
+<th class="px-4 py-2 font-medium">Value</th>
+<th class="px-4 py-2 font-medium">Unit</th>
+<th class="px-4 py-2 font-medium">Description</th>
+</tr>
+</thead>
+<tbody class="text-sm font-data-mono divide-y divide-outline-variant/30">
+<tr class="hover:bg-surface-variant/30 transition-colors group">
+<td class="px-4 py-2.5 text-primary-fixed-dim">plate_length</td>
+<td class="px-4 py-2.5">
+<input class="w-24 bg-surface-container border border-outline-variant rounded px-2 py-1 text-on-surface focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none shadow-inset-field transition-all font-data-mono" type="text" value="78"/>
+</td>
+<td class="px-4 py-2.5 text-outline">mm</td>
+<td class="px-4 py-2.5 text-on-surface-variant font-body-base text-xs">Overall plate length (X)</td>
+</tr>
+<tr class="hover:bg-surface-variant/30 transition-colors group">
+<td class="px-4 py-2.5 text-primary-fixed-dim">plate_width</td>
+<td class="px-4 py-2.5">
+<input class="w-24 bg-surface-container border border-outline-variant rounded px-2 py-1 text-on-surface focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none shadow-inset-field transition-all font-data-mono" type="text" value="34"/>
+</td>
+<td class="px-4 py-2.5 text-outline">mm</td>
+<td class="px-4 py-2.5 text-on-surface-variant font-body-base text-xs">Overall plate width (Z)</td>
+</tr>
+<tr class="bg-primary-container/5 border-l-2 border-primary-container group">
+<td class="px-4 py-2.5 text-primary-container font-bold">plate_thickness</td>
+<td class="px-4 py-2.5">
+<div class="relative w-24">
+<input class="w-full bg-surface-container-high border border-primary-container rounded px-2 py-1 text-on-surface outline-none shadow-[inset_0_1px_3px_rgba(0,0,0,0.5),0_0_0_1px_rgba(0,229,255,0.3)] transition-all font-data-mono pr-6" type="text" value="5"/>
+<span class="material-symbols-outlined absolute right-1.5 top-1.5 text-[14px] text-primary-container">unfold_more</span>
+</div>
+</td>
+<td class="px-4 py-2.5 text-outline">mm</td>
+<td class="px-4 py-2.5 text-on-surface font-body-base text-xs">Plate thickness (Y)</td>
+</tr>
+<tr class="hover:bg-surface-variant/30 transition-colors group">
+<td class="px-4 py-2.5 text-primary-fixed-dim">boss_diameter</td>
+<td class="px-4 py-2.5">
+<input class="w-24 bg-surface-container border border-outline-variant rounded px-2 py-1 text-on-surface focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none shadow-inset-field transition-all font-data-mono" type="text" value="22"/>
+</td>
+<td class="px-4 py-2.5 text-outline">mm</td>
+<td class="px-4 py-2.5 text-on-surface-variant font-body-base text-xs">Motor boss outer diameter</td>
+</tr>
+<tr class="hover:bg-surface-variant/30 transition-colors group">
+<td class="px-4 py-2.5 text-primary-fixed-dim">boss_height</td>
+<td class="px-4 py-2.5">
+<input class="w-24 bg-surface-container border border-outline-variant rounded px-2 py-1 text-on-surface focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none shadow-inset-field transition-all font-data-mono" type="text" value="8"/>
+</td>
+<td class="px-4 py-2.5 text-outline">mm</td>
+<td class="px-4 py-2.5 text-on-surface-variant font-body-base text-xs">Boss height above plate</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="p-3 border-t border-outline-variant bg-surface-container-lowest flex justify-end rounded-b-DEFAULT">
+<button class="bg-primary-container/10 border border-primary-container/50 text-primary-container hover:bg-primary-container hover:text-on-primary-container px-4 py-1.5 rounded text-xs font-bold transition-all shadow-[inset_0_0_10px_rgba(0,229,255,0.1)] hover:shadow-glow">
+                            Regenerate from parameters
+                        </button>
+</div>
+</div>
+<!-- Bottom Row Panels -->
+<div class="grid grid-cols-2 gap-panel-padding mt-auto">
+<!-- Manufacturing Report -->
+<div class="bg-surface-container-low border border-outline-variant rounded-DEFAULT p-4 flex flex-col gap-3">
+<h3 class="text-label-xs font-label-xs uppercase text-outline-variant tracking-wider">Manufacturing report</h3>
+<div class="grid grid-cols-2 gap-4">
+<div>
+<p class="text-[10px] text-outline font-data-mono uppercase mb-1">Bounds</p>
+<div class="flex items-baseline gap-1">
+<span class="text-lg font-data-mono text-on-surface">78×34×13</span>
+<span class="text-xs text-outline-variant">mm</span>
+</div>
+</div>
+<div>
+<p class="text-[10px] text-outline font-data-mono uppercase mb-1">Volume</p>
+<div class="flex items-baseline gap-1">
+<span class="text-lg font-data-mono text-on-surface">16.2</span>
+<span class="text-xs text-outline-variant">cm³</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Onshape Sync -->
+<div class="bg-surface-container-low border border-outline-variant rounded-DEFAULT p-4 flex flex-col gap-3">
+<h3 class="text-label-xs font-label-xs uppercase text-outline-variant tracking-wider">Onshape</h3>
+<div class="flex bg-surface-container-high rounded p-0.5 border border-outline-variant w-fit">
+<button class="px-3 py-1 text-xs bg-surface-variant rounded shadow-sm text-on-surface">New document</button>
+<button class="px-3 py-1 text-xs text-outline hover:text-on-surface">Existing document</button>
+</div>
+<div class="flex flex-col gap-1">
+<label class="text-[10px] text-outline font-data-mono uppercase">Document name</label>
+<input class="w-full bg-surface-container border border-outline-variant rounded px-2 py-1 text-on-surface text-sm focus:border-primary-container outline-none shadow-inset-field" type="text" value="NEMA-17 Bracket v2"/>
+</div>
+</div>
+</div>
+</div>
+<!-- Terminal Log Overlay -->
+<div class="absolute bottom-0 left-0 right-0 h-32 bg-black/90 border-t border-outline-variant p-2 font-data-mono text-[11px] overflow-y-auto leading-relaxed flex flex-col">
+<div class="text-outline"><span class="text-surface-variant">[02:58:40.548]</span> intent: parametric_bracket • slots detected</div>
+<div class="text-outline"><span class="text-surface-variant">[02:58:40.548]</span> synthesizing Build123d script…</div>
+<div class="text-on-surface"><span class="text-surface-variant">[02:58:41.845]</span> code synthesized • 26 lines • attempt 1</div>
+<div class="text-on-surface"><span class="text-surface-variant">[02:58:41.845]</span> executing geometry kernel…</div>
+<div class="text-primary-container"><span class="text-surface-variant">[02:58:42.455]</span> mesh: manifold ok, watertight ok</div>
+<div class="text-on-surface"><span class="text-surface-variant">[02:58:42.455]</span> checking overhangs and hole minimums…</div>
+<div class="text-primary-container"><span class="text-surface-variant">[02:58:43.444]</span> exports: model.stl • model.step • build_script.py</div>
+</div>
+</section>
+<!-- Right Property Inspector -->
+<aside class="flex flex-col w-72 border-l border-outline-variant bg-surface-container-low shrink-0 overflow-y-auto">
+<!-- Design Metadata -->
+<div class="p-4 border-b border-outline-variant flex flex-col gap-3">
+<h3 class="text-label-xs font-label-xs uppercase text-outline-variant tracking-wider">Design Metadata</h3>
+<div class="flex flex-col gap-2 text-xs">
+<div class="flex justify-between items-center">
+<span class="text-outline">Model</span>
+<span class="font-data-mono text-on-surface">gpt-5.4-mini</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-outline">Latency</span>
+<span class="font-data-mono text-on-surface">13s</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-outline">Attempts</span>
+<span class="font-data-mono text-on-surface">1/2</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-outline">Created</span>
+<span class="font-data-mono text-on-surface">23 Aug, 02:58</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-outline">Status</span>
+<span class="font-data-mono text-primary-container shadow-glow bg-primary-container/10 px-1.5 rounded">success</span>
+</div>
+</div>
+</div>
+<!-- Validation -->
+<div class="p-4 border-b border-outline-variant flex flex-col gap-3">
+<h3 class="text-label-xs font-label-xs uppercase text-outline-variant tracking-wider">Validation</h3>
+<div class="flex flex-col gap-2 text-xs">
+<div class="flex justify-between items-center">
+<span class="text-outline">Manifold</span>
+<span class="material-symbols-outlined text-[14px] text-primary-container">check</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-outline">Watertight</span>
+<span class="material-symbols-outlined text-[14px] text-primary-container">check</span>
+</div>
+<div class="flex justify-between items-baseline mt-1">
+<span class="text-outline">Bounds</span>
+<span class="font-data-mono text-on-surface-variant text-[10px]">[0, 0, 0, 78, 34, 13]</span>
+</div>
+<div class="flex justify-between items-baseline">
+<span class="text-outline">Volume</span>
+<span class="font-data-mono text-on-surface-variant text-[10px]">16,230 mm³</span>
+</div>
+</div>
+</div>
+<!-- Export -->
+<div class="p-4 border-b border-outline-variant flex flex-col gap-3">
+<h3 class="text-label-xs font-label-xs uppercase text-outline-variant tracking-wider flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">download</span> Export
+                </h3>
+<div class="grid grid-cols-2 gap-2">
+<button class="bg-micro-texture border border-outline-variant hover:border-primary-container text-on-surface hover:text-primary-container py-1.5 rounded text-xs font-semibold flex justify-center items-center gap-1 transition-all">
+<span class="material-symbols-outlined text-[14px]">view_in_ar</span> STL
+                    </button>
+<button class="bg-micro-texture border border-outline-variant hover:border-primary-container text-on-surface hover:text-primary-container py-1.5 rounded text-xs font-semibold flex justify-center items-center gap-1 transition-all">
+<span class="material-symbols-outlined text-[14px]">deployed_code</span> STEP
+                    </button>
+<button class="bg-micro-texture border border-outline-variant hover:border-primary-container text-on-surface hover:text-primary-container py-1.5 rounded text-xs font-semibold flex justify-center items-center gap-1 transition-all">
+<span class="material-symbols-outlined text-[14px]">description</span> Script
+                    </button>
+<button class="bg-micro-texture border border-outline-variant hover:border-primary-container text-on-surface hover:text-primary-container py-1.5 rounded text-xs font-semibold flex justify-center items-center gap-1 transition-all">
+<span class="material-symbols-outlined text-[14px]">cloud_sync</span> Onshape
+                    </button>
+</div>
+</div>
+<!-- Selected Face Info (Contextual) -->
+<div class="p-4 flex flex-col gap-3 bg-surface-container-high/30 flex-1">
+<h3 class="text-label-xs font-label-xs uppercase text-primary-container tracking-wider flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">my_location</span> Selected Face
+                </h3>
+<div class="text-lg font-data-mono text-primary-fixed-dim">plate_thickness</div>
+<div class="flex flex-col gap-2 text-xs mt-2 border-l-2 border-primary-container/30 pl-2">
+<div class="flex justify-between items-center">
+<span class="text-outline">Suggested</span>
+<span class="font-data-mono text-on-surface">5 mm</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-outline">Axis</span>
+<span class="font-data-mono text-on-surface">Y</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-outline">Confidence</span>
+<span class="font-data-mono text-primary-container">93%</span>
+</div>
+<div class="text-[10px] font-data-mono text-outline-variant mt-1">centroid [-4.9, 5.0, 11.7]</div>
+</div>
+<button class="mt-4 w-full bg-primary-container text-on-primary-container hover:bg-primary-fixed py-2 rounded text-xs font-bold transition-all shadow-glow">
+                    Apply suggested value
+                </button>
+</div>
+</aside>
+</main>
+<!-- Footer Status Bar -->
+<footer class="fixed bottom-0 left-0 w-full z-50 flex justify-end gap-gutter px-margin py-1 items-center h-8 bg-surface-container-lowest border-t border-outline-variant font-data-mono text-label-xs">
+<div class="flex items-center gap-4 text-outline">
+<span class="hover:text-on-surface cursor-default">manifold: true</span>
+<span class="hover:text-on-surface cursor-default">watertight: true</span>
+<span class="hover:text-on-surface cursor-default text-on-surface-variant">bounds_mm [78, 34, 12]</span>
+<span class="hover:text-on-surface cursor-default text-primary-container">volume_mm3 16,230</span>
+</div>
+</footer>
+</body></html>
