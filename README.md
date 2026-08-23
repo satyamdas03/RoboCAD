@@ -4,7 +4,7 @@
 >
 > **Core bet:** The AI writes **parametric CAD code** (build123d / FeatureScript), not throwaway meshes. The model you get is editable, versionable, and exportable for 3D printing, machining, or Onshape.
 >
-> **Latest milestone:** Phase 5 Onshape export/sync + manufacturing reports and Phase 6 robotics-aware component templates complete. End-to-end web app supports prompt-to-CAD, parameter editing, design library/remix, manufacturability analysis, and one-click STEP upload to Onshape. **57 passing tests**.
+> **Latest milestone:** Phase 5 Onshape export/sync + manufacturing reports, Phase 6 robotics-aware component templates, and Phase 7 Impeccable UI redesign complete. End-to-end web app supports prompt-to-CAD, parameter editing, design library/remix, manufacturability analysis, one-click STEP upload to Onshape, and a redesigned Precision Lab Instrument UI. **56/57 passing tests** (the single failure is `test_generate_missing_api_key`, which now passes because `.env` configures a local Ollama model instead of failing on a missing API key).
 
 ---
 
@@ -127,8 +127,19 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **4** | Design library + remix | ✅ **Complete — component catalog, search/filter, tags, remix with parent linking** |
 | **5** | Onshape export / sync + manufacturing reports | ✅ **Complete — HMAC-signed Onshape API client, STEP upload, manufacturability report (volume, overhangs, hole diameter, print-time heuristic)** |
 | **6** | Robotics-aware component templates | ✅ **Complete — 12 standard robotics parts in `ComponentLibrary`, seeded prompts, tags, remix** |
+| **7** | Impeccable UI redesign | ✅ **Complete — Precision Lab Instrument visual world, token-based CSS design system, all components redesigned, frontend builds cleanly, detector clean** |
 
 See [`PLAN.md`](PLAN.md) for the complete end-to-end build plan.
+
+## 🎨 UI redesign
+
+The entire web interface was redesigned using the [Impeccable](https://impeccable.style) design skill for Claude Code. The chosen visual world is *Precision Lab Instrument*: a light laboratory ground, teal functional accent, IBM Plex Sans typeface, and instrument-grade panels and readouts. The goal is to make daily parametric CAD work feel fast, precise, and trustworthy rather than generic or playful.
+
+Key files:
+- `PRODUCT.md` — durable product context captured through Impeccable `init`.
+- `web/frontend/src/styles/index.css` — complete design-token system.
+- `web/frontend/src/App.jsx` and all components — rebuilt in the new visual language.
+
 
 ---
 

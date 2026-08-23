@@ -34,20 +34,21 @@ The meaningful difference is **parametric code, not mesh soup**. Most text-to-3D
 - **Capabilities:** natural-language prompt-to-CAD, parameter editing via sliders and face-click guessing, design history with search/filter/tags, component library with seeded robotics templates, remix from any prior design, manufacturing report (volume, overhangs, hole diameter, print-time heuristic), one-click STEP upload to Onshape.
 - **Constraints:** backend runs locally (FastAPI + build123d + optional Ollama); the 3D viewer is three.js / react-three-fiber; exports are STL/STEP/3MF; local SQLite is the source of truth for history; Onshape integration requires user-provided HMAC credentials stored in `.env`.
 - **Terminology:** prompt, design, parameters, export, regeneration, remix, face/parameter guessing, component library, manufacturing report, Onshape upload.
-- **Undecided:** brand name may be kept as “RoboCAD” or evolved by the chosen visual direction; no existing color or typography commitments.
+- **Brand:** name kept as **RoboCAD**; visual direction is *Precision Lab Instrument* with a teal accent (#0d9488), light laboratory ground, and IBM Plex Sans type. No future redesign may revert to generic SaaS gradients, cartoon UI, cyberpunk neon, or military-industrial steel tropes without a new user decision.
 
 ## Brand Commitments
 
-- Product name is currently **RoboCAD**; visual direction has authority to refine or replace it if the world demands it, but the functional promise stays the same.
-- No existing logo, palette, or typeface is binding.
+- Product name is **RoboCAD**.
+- Visual direction: *Precision Lab Instrument* — light ground, teal functional accent (#0d9488), IBM Plex Sans type, instrument-grade panels and readouts.
+- No existing logo, palette, or typeface is binding beyond the redesign decisions above.
 - Anti-references from the user: avoid generic SaaS purple/blue gradients, card-on-card dashboard clichés, cartoon/childish UI, heavy cyberpunk neon, and military-industrial olive/steel tropes.
 
 ## Evidence on Hand
 
-- Working end-to-end web app with FastAPI backend and React frontend.
-- 57 passing pytest tests covering generation, regeneration, parameter editing, design library, manufacturing, and Onshape upload.
+- Working end-to-end web app with FastAPI backend and redesigned React frontend.
+- 56/57 pytest tests passing. The single failure (`test_generate_missing_api_key`) passes because `.env` configures a local Ollama model (`ROBOCAD_MODEL=qwen3-coder:latest`), so the backend no longer fails on a missing Anthropic key.
 - 12 standard robotics component templates in `ComponentLibrary`.
-- README and PLAN.md document current phases and architecture.
+- README, PLAN.md, and PRODUCT.md document current phases, architecture, and design context.
 
 ## Product Principles
 
