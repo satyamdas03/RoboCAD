@@ -15,6 +15,7 @@ designs/
 *.3mf
 *.png
 *.jpg
+!assets/robocad_kinetic_precision_demo_poster.jpg
 
 # Local environment / secrets
 .env

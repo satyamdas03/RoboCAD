@@ -149,11 +149,11 @@ Key files:
 
 ## 🎬 UI demo — Base plate design, parameter edit, and manufacturing report
 
-The video below shows a complete end-to-end session in the new *Kinetic Precision* UI, recorded with Playwright against the running local backend and frontend.
+The video/GIF below shows a complete end-to-end session in the new *Kinetic Precision* UI, recorded with Playwright against the running local backend and frontend.
 
-<video src="assets/robocad_kinetic_precision_demo.webm" controls width="100%"></video>
+![RoboCAD Kinetic Precision UI demo — base plate generation, face-click parameter guessing, thickness edit, and manufacturing report](assets/robocad_kinetic_precision_demo.gif)
 
-*If the inline player does not load, download the demo directly: [`assets/robocad_kinetic_precision_demo.webm`](assets/robocad_kinetic_precision_demo.webm)*
+*Click the GIF to open the full-quality WebM version, or download it directly: [`assets/robocad_kinetic_precision_demo.webm`](assets/robocad_kinetic_precision_demo.webm)*
 
 ### What the demo shows
 
