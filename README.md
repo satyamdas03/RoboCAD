@@ -128,6 +128,15 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **5** | Onshape export / sync + manufacturing reports | ✅ **Complete — HMAC-signed Onshape API client, STEP upload, manufacturability report (volume, overhangs, hole diameter, print-time heuristic)** |
 | **6** | Robotics-aware component templates | ✅ **Complete — 12 standard robotics parts in `ComponentLibrary`, seeded prompts, tags, remix** |
 | **7** | Google Stitch Kinetic Precision UI redesign | ✅ **Complete — dark scientific engineering workstation, `kp-*` token system, fixed header/sidebar/viewer/inspector layout, all components restyled, frontend builds cleanly, 56/57 tests passing, live end-to-end verified** |
+| **8** | Complexity benchmark + feature-tree spec | 🚧 **Next — define structured feature-tree schema and measure current pipeline limits** |
+| **9** | Feature-tree backend | ⏳ Planned — replace monolithic `code.py` with versioned, editable feature tree |
+| **10** | Sketch + 2D constraint solver | ⏳ Planned — true parametric sketches with geometric constraints |
+| **11** | Assembly system | ⏳ Planned — multi-part designs with LCS-based mates |
+| **12** | Verification + physics layer | ⏳ Planned — DFM rules, FEA, tolerance/fit checks |
+| **13** | Model specialization / fine-tuning | ⏳ Planned — LoRA fine-tune local model on RoboCAD feature trees |
+| **14** | Distribution + packaging | ⏳ Planned — one-command launcher / desktop installer |
+
+Phases 0–7 proved the **AI → parametric-code loop** for single-part robotics hardware. Phases 8–14 turn that loop into an **engineer-grade CAD system** with feature trees, constraints, assemblies, and verification. See [`PLAN.md`](PLAN.md) for the full roadmap and the new **🎯 Engineer-grade roadmap** section below for the narrative.
 
 See [`PLAN.md`](PLAN.md) for the complete end-to-end build plan.
 
@@ -182,6 +191,43 @@ Finally, the view scrolls to the **Manufacturing Report** panel. It reads the ma
 6. **Manufacturing report** — `ManufacturingReport.jsx` fetches `GET /designs/{id}/manufacturing-report` and renders the metrics as dense readout cards.
 
 All of this runs in the browser against the local FastAPI backend; no data leaves the machine except the optional Onshape upload when the user chooses to push a STEP file.
+
+---
+
+## 🎯 Engineer-grade roadmap
+
+RoboCAD's first seven phases proved that an LLM can write executable **build123d** code from a plain-language prompt and that the resulting part can be edited, regenerated, validated, exported, and pushed to Onshape. The parts that work well today are single-body, prismatic robotics hardware: base plates, brackets, pulleys, hubs, mounts, and simple enclosures.
+
+To make RoboCAD usable by **real mechanical engineers** for complex, high-precision, multi-part designs, the next leap is not a bigger prompt or a better model. It is a change in the underlying representation:
+
+> **From:** `prompt → one Python script → one STL`  
+> **To:** `prompt → structured feature tree + 2D constraints + assembly mates → verified CAD → manufacturing/FEA report`
+
+This mirrors where the CAD industry itself is heading. PTC's August 2026 [Onshape FeatureScript MCP Server](https://www.ptc.com/en/news/2026/onshape-launches-featurescript-mcp-server) and recent research such as [CADFS](https://arxiv.org/html/2605.01925) both treat executable parametric feature histories — not static meshes — as the correct target for AI-generated CAD. RoboCAD already generates parametric code; the roadmap below adds the symbolic CAD infrastructure around that code.
+
+### Why this is the right next step
+
+| Limit of Phases 0–7 | What Phases 8–14 add |
+|---|---|
+| One monolithic `code.py` per design | A versioned **feature tree** where each extrude, cut, fillet, and pattern is a separate node |
+| Dimensions are raw coordinates the LLM guessed | **2D sketch constraints** (distance, concentric, parallel, tangent) solved by a constraint engine |
+| Only single parts | **Assemblies** with local-coordinate-system mates and multi-body STEP export |
+| Validation = manifold/watertight only | **DFM rules**, optional **FEA** stress/deflection, and **tolerance/fit** checks |
+| Generic model prompt engineering | **Fine-tuned local model** specialized for RoboCAD feature trees |
+
+### Phases 8–14 at a glance
+
+| Phase | Goal | Why it matters |
+|---|---|---|
+| **8 — Complexity benchmark + feature-tree spec** | Measure exactly where the current pipeline breaks; define the JSON schema for features, sketches, constraints, and assemblies | Without a baseline, every later phase is guesswork. |
+| **9 — Feature-tree backend** | Store designs as structured feature trees and transpile them to build123d | Enables rollback, partial regeneration, and a human-readable design history. |
+| **10 — Sketch + 2D constraint solver** | Add constrained 2D sketches as a first-class feature type | Real precision lives in sketches; constraints keep holes centered and aligned when dimensions change. |
+| **11 — Assembly system** | Multi-part designs with LCS-based mates and exploded views | Robotics is assemblies of motors, bearings, brackets, and wheels — not isolated parts. |
+| **12 — Verification + physics layer** | DFM rule engine, optional FEA, and tolerance/fit checks | Gives engineers confidence that the part can be made and will survive loads. |
+| **13 — Model specialization / fine-tuning** | Fine-tune a local model on successful RoboCAD feature trees | Higher success rate on complex parts without relying solely on prompt engineering. |
+| **14 — Distribution + packaging** | One-command launcher or desktop installer | Real users cannot be expected to set up Python/Node manually. |
+
+The recommended first step is **Phase 8**: run a complexity benchmark against the current local model, publish the baseline, and then use that data to guide Phase 9 and beyond. See [`PLAN.md`](PLAN.md) for the detailed phase definitions, acceptance criteria, and risks.
 
 ---
 

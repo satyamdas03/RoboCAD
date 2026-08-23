@@ -276,10 +276,16 @@ Every phase ends with:
 | LLM can't reason about 3D constraints well | Start with simple extruded parts; use robotics templates; limit prompt complexity |
 | Generated code has side effects | Run in subprocess with timeout; no network/filesystem access except output directory |
 | Viewer becomes a heavy frontend | Use three.js + progressive STL loading; keep v1 minimal |
-| Onshape API is too restrictive for arbitrary feature trees | Defer to Phase 5; prove local loop first; use STEP export as fallback |
+| Onshape API is too restrictive for arbitrary feature trees | Defer feature-tree Onshape integration; use STEP export as fallback; later add FeatureScript transpiler |
 | Designs become an unversioned mess | Save code + parameters as text; use Git from day one |
-| Scope creep into full CAD app | Stay parametric-code-first; never build a sketcher |
+| Scope creep into full CAD app | Stay parametric-code-first; never build a manual sketcher; AI generates constraints, humans edit parameter values |
 | Cost of LLM API calls | Cache results; use cheaper models for retries; local open-source LLM optional later |
+| 2D constraint solver integration is hard / unstable | Start with minimal constraint subset; add full solver only after benchmark proves need |
+| Feature-tree transpiler cannot express some build123d patterns | Keep raw `code.py` fallback; extend schema incrementally |
+| LLM cannot generate feature trees reliably | Phase 8 benchmark measures this; add human-in-the-loop feature editor before fine-tuning if needed |
+| Assembly solver blows up on complex mates | Use LCS/expression-based mating, not full physics solver |
+| FEA adds heavy dependencies | Make FEA optional; graceful degrade if CalculiX/ElmerFEM not installed |
+| Fine-tuning does not improve results | Fall back to base model + better prompting; treat fine-tuning as an experiment, not a requirement |
 
 ---
 
@@ -290,6 +296,10 @@ RoboCAD becomes extraordinary when a user can describe a multi-part robot subsys
 The benchmark sentence:
 
 > *"Design a differential-drive robot base for two NEMA-17 motors with a 100 mm wheelbase, a 20 mm caster clearance, and four M3 mounting holes for a Raspberry Pi 5."*
+
+### Engineer-grade benchmark sentence (Phases 8–14)
+
+> *"Design a differential-drive robot chassis assembly: two NEMA-17 motor mounts constrained to a 100 mm wheelbase, a 20 mm caster clearance, a Raspberry Pi 5 mounting plate with four M3 holes, and wheel hubs with 6 mm shaft bores. Ensure all parts are editable parametric features, validate the assembly mates, and run a static load check on the base plate."*
 
 ---
 
@@ -303,22 +313,147 @@ The benchmark sentence:
 - **Test status:** 56/57 pytest tests pass. The one failure (`test_generate_missing_api_key`) succeeds because `.env` configures `ROBOCAD_MODEL=qwen3-coder:latest`, causing the backend to use the local Ollama model rather than failing on a missing Anthropic key.
 - **Commit/push:** `STITCH_BRIEF.md` and dossier updates committed and pushed to `origin/master`.
 
-## 9. Immediate next session plan
+## 9. Immediate next session plan (Phase 8)
 
-1. **Polish the Stitch UI:** fix any visual glitches discovered during daily use, tune contrast in the 3D viewer, refine mobile/responsive drawer behavior, and add keyboard shortcuts (`Ctrl+Enter`, `Ctrl+K`, `Esc`).
-2. **Packaging / distribution:** decide between a desktop installer (PyInstaller/NSIS) and a one-command local launch script so users can run RoboCAD without setting up Python/Node manually.
-3. **Deferred Phase 5/6 follow-ups (optional):**
-   - Multi-part assembly upload with mate hints.
-   - Hardware BOM integration with `LearningRobotics` for constraint-aware templates.
-   - MuJoCo collision-mesh export.
-4. Maintain passing pytest tests and commit each milestone with a descriptive message.
+1. **Complexity benchmark:** create `benchmarks/complexity_ladder.json` with 30 prompts from trivial to hard, and `benchmarks/evaluate_complexity.py` to run them against the current local model.
+2. **Feature-tree specification:** write `docs/feature_tree_schema.md` defining the JSON schema for features, sketches, constraints, and assemblies.
+3. **Run baseline:** execute the benchmark, categorize failures, and publish the report in `benchmarks/complexity_baseline_YYYY-MM-DD.md`.
+4. **Update dossiers:** refresh `README.md`, `PLAN.md`, and memory files to mark the transition from foundation work to engineer-grade phases.
+5. **Tests:** add `tests/test_complexity_benchmark.py` and `tests/test_feature_tree_schema.py`.
+6. Commit and push all Phase 8 planning/baseline artifacts.
 
-**Done this session:**
-- Recorded a full end-to-end demo (`assets/robocad_kinetic_precision_demo.webm`) covering component-library seed, generation, face-click parameter guessing, parameter edit/regeneration, and manufacturing report.
-- Added `scripts/record_demo.py` Playwright recorder so the demo can be re-created after future UI changes.
-- Embedded the demo in `README.md` with step-by-step written walkthrough and under-the-hood flow while preserving README structure.
-- Fixed README demo visibility: GitHub does not reliably render inline `<video>` tags with relative src, so generated a 720×450 GIF (`assets/robocad_kinetic_precision_demo.gif`) and poster JPG, updated `README.md` to use the GIF embed, and whitelisted the poster in `.gitignore`.
+**Deferred but noted:**
+- UI polish (keyboard shortcuts, mobile drawer) moves to Phase 14 packaging window or fits-and-starts work.
+- Packaging / distribution is explicitly Phase 14 now.
+- Multi-part assembly upload with mate hints is Phase 11.
+- Hardware BOM integration with `LearningRobotics` is Phase 11/12 follow-up.
+- MuJoCo collision-mesh export is deferred until after assembly support.
 
 ---
 
-*Last updated: 2026-08-23 (Phases 5 + 6 complete; Google Stitch Kinetic Precision UI redesign integrated and live; README demo GIF embed visible; 56/57 tests passing)*
+## 10. Engineer-grade roadmap (Phases 8–14)
+
+Phases 0–7 proved the AI → parametric-code loop for single-part robotics hardware. Phases 8–14 turn RoboCAD into an engineer-grade CAD system by adding a structured feature tree, 2D sketch constraints, assemblies, deterministic verification, model specialization, and end-user packaging.
+
+### Phase 8 — Complexity benchmark + feature-tree spec
+
+**Goal:** Measure exactly where the current pipeline breaks, and define the data model for engineer-grade parametric CAD.
+
+**Deliverables:**
+- `benchmarks/complexity_ladder.json` — 30 prompts from trivial primitives to planetary gearboxes.
+- `benchmarks/evaluate_complexity.py` — runner recording success, attempts, latency, failure mode, feature count.
+- `docs/feature_tree_schema.md` — JSON schema for features, sketches, constraints, and assemblies.
+
+**Tests:** `tests/test_complexity_benchmark.py`, `tests/test_feature_tree_schema.py`.
+
+**Acceptance criteria:** baseline report generated; schema approved by user.
+
+**Effort:** 3–5 days.
+
+### Phase 9 — Feature-tree backend
+
+**Goal:** Replace monolithic `code.py` with a structured, versioned, editable feature tree that transpiles to build123d.
+
+**Deliverables:**
+- `ai_cad/feature_tree.py`, `ai_cad/transpiler.py`, `ai_cad/feature_store.py`.
+- Update `ai_cad/api.py` and `web/backend/main.py` to store and regenerate from feature trees.
+- `FeatureTreePanel.jsx` in the frontend.
+
+**Tests:** transpiler correctness, versioning round-trip, identical STL output.
+
+**Acceptance criteria:** base plate via old path and feature-tree path produce identical STL; editing a feature parameter regenerates only affected downstream features.
+
+**Effort:** 2–3 weeks.
+
+### Phase 10 — Sketch + 2D constraint solver
+
+**Goal:** Add true parametric sketching so dimensions drive geometry through constraints, not raw coordinates.
+
+**Deliverables:**
+- Integrate PlaneGCS/SolveSpace/small internal solver.
+- `ai_cad/sketch.py`, `ai_cad/sketch_solver.py`, sketch transpiler updates.
+- `SketchViewer.jsx` (read-only v1).
+
+**Tests:** solver produces correct coordinates for canonical sketches; sketch updates correctly when parameters change.
+
+**Acceptance criteria:** rectangle constrained to `length × width` updates correctly; circle stays concentric after edits; benchmark pass rate on sketch-based parts improves.
+
+**Effort:** 3–4 weeks.
+
+### Phase 11 — Assembly system
+
+**Goal:** Support multi-part designs with LCS-based mates and per-part + assembly STEP export.
+
+**Deliverables:**
+- `ai_cad/assembly.py` with parts, mates, and instances.
+- Backend endpoints for assembly create/get/add-part/mate.
+- `AssemblyPanel.jsx` and multi-part `STLViewer` support.
+
+**Tests:** mate transforms, assembly STEP export contains expected instances.
+
+**Acceptance criteria:** two-part hinged bracket keeps hinge axis aligned when length changes; assembly STEP opens as separate bodies.
+
+**Effort:** 3–4 weeks.
+
+### Phase 12 — Verification + physics layer
+
+**Goal:** Add deterministic engineering checks beyond manifold/watertight.
+
+**Deliverables:**
+- `ai_cad/dfm.py` — DFM rule engine.
+- `ai_cad/fea.py` — optional CalculiX/ElmerFEM wrapper.
+- `ai_cad/tolerances.py` — fit/clearance checks.
+- Frontend `DFMReport.jsx`, `FEAPanel.jsx`, `ToleranceReport.jsx`.
+
+**Tests:** DFM flags thin walls and inaccessible holes; tolerance checks report interference/clearance correctly.
+
+**Acceptance criteria:** 0.2 mm wall flagged as unmanufacturable by FDM; 6 mm shaft in 6.0 mm hole flagged interference; FEA returns stress/displacement for a loaded bracket.
+
+**Effort:** 3–4 weeks.
+
+### Phase 13 — Model specialization / fine-tuning
+
+**Goal:** Improve complex-part success rate by fine-tuning a local model on RoboCAD feature trees.
+
+**Deliverables:**
+- `scripts/build_training_dataset.py`, `scripts/finetune_model.py`.
+- `ai_cad/generator.py` `generate_feature_tree()` path.
+- A/B evaluation against Phase 8 benchmark.
+
+**Tests:** fine-tuned model produces valid feature trees for held-out prompts.
+
+**Acceptance criteria:** ≥10 percentage-point improvement on complexity benchmark.
+
+**Effort:** 3–6 weeks.
+
+### Phase 14 — Distribution + packaging
+
+**Goal:** Make RoboCAD installable by non-engineers without manual Python/Node setup.
+
+**Deliverables:**
+- One-command launcher (`start.bat` / `start.sh`).
+- Optional desktop installer (PyInstaller/NSIS or Tauri).
+- Updated README install/run instructions.
+
+**Tests:** launcher smoke test; manual clean-Windows VM test.
+
+**Acceptance criteria:** new user from installer to first generated base plate in under 10 minutes.
+
+**Effort:** 2–3 weeks.
+
+---
+
+## 11. Engineer-grade trade-offs and decisions
+
+| Decision | Options | Recommendation |
+|---|---|---|
+| 2D constraint solver | PlaneGCS / SolveSpace / internal subset | Start with internal subset for fast progress; migrate to PlaneGCS once validated |
+| Assembly mating | LCS/expression-based / full 3D constraint solver | LCS-based first — enough for robotics and avoids solver instability |
+| FEA engine | CalculiX / ElmerFEM / skip | CalculiX via wrapper; optional and async |
+| Fine-tuning target | qwen3-coder LoRA / cloud API | Local qwen3-coder LoRA to keep Ollama-first stack |
+| Feature tree source of truth | JSON sidecar / SQLite / both | JSON sidecar first, consistent with current persistence |
+| Backward compatibility | Keep `code.py` / replace | Keep `code.py` as fallback; feature tree is preferred path for new designs |
+
+---
+
+*Last updated: 2026-08-23 (Phases 0–7 complete; engineer-grade roadmap Phases 8–14 defined; Phase 8 baseline work is next)*
