@@ -11,6 +11,7 @@ export default defineConfig({
       '/designs': 'http://localhost:8000',
       '/exports': 'http://localhost:8000',
       '/health': 'http://localhost:8000',
+      '/onshape': 'http://localhost:8000',
     },
   },
 })

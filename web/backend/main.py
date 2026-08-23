@@ -1,11 +1,14 @@
-"""FastAPI backend for the RoboCAD web app (Phase 2).
+"""FastAPI backend for the RoboCAD web app (Phases 2–5).
 
 Endpoints:
-    GET  /health              -> liveness check
-    POST /generate            -> prompt -> structured CAD result + persisted design
-    GET  /designs             -> list persisted designs
-    GET  /designs/{id}        -> load one persisted design
-    GET  /exports/{id}/{file} -> download STL/STEP/script file
+    GET  /health                       -> liveness check
+    POST /generate                     -> prompt -> structured CAD result + persisted design
+    GET  /designs                      -> list persisted designs
+    GET  /designs/{id}                 -> load one persisted design
+    GET  /designs/{id}/manufacturing-report -> manufacturability analysis
+    POST /designs/{id}/onshape         -> upload STEP to Onshape
+    GET  /onshape/documents          -> list Onshape documents
+    GET  /exports/{id}/{file}        -> download STL/STEP/script file
 """
 from __future__ import annotations
 
@@ -17,6 +20,8 @@ import sys
 import uuid
 from pathlib import Path
 from typing import Any, Optional
+
+import requests
 
 # Add repo root so we can import the ai_cad package.
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -32,7 +37,9 @@ from ai_cad.api import RoboCADBackend
 from ai_cad.code_ops import update_parameters
 from ai_cad.executor import execute_code
 from ai_cad.guess_parameter import guess_parameter as _guess_parameter
-from ai_cad.models import CADParameter, ExportPaths, GenerationResult, ValidationReport
+from ai_cad.manufacturing import analyze_model as _analyze_manufacturing
+from ai_cad.models import CADParameter, ExportPaths, GenerationResult, ManufacturingReport, ValidationReport
+from ai_cad.onshape import OnshapeClient
 from ai_cad.parameters import extract_parameters
 from ai_cad.validator import validate_model
 
@@ -101,6 +108,12 @@ class UpdateDesignRequest(BaseModel):
 class GuessParameterRequest(BaseModel):
     face_normal: list[float] = Field(..., min_length=3, max_length=3, description="World-space unit normal of the clicked face.")
     face_centroid: list[float] | None = Field(default=None, max_length=3, description="Optional world-space centroid of the clicked face.")
+
+
+class OnshapeUploadRequest(BaseModel):
+    document_id: str | None = Field(default=None, description="Existing Onshape document id; if omitted, a new document is created.")
+    workspace_id: str | None = Field(default=None, description="Workspace id within the document (required with document_id).")
+    document_name: str | None = Field(default=None, description="Name for a newly created Onshape document.")
 
 
 
@@ -284,6 +297,110 @@ def guess_parameter_endpoint(design_id: str, request: GuessParameterRequest) -> 
         "design_id": design_id,
         **result,
     }
+
+
+@app.get("/onshape/documents")
+def onshape_documents(
+    query: str = Query(default="", description="Free-text search over document names."),
+    limit: int = Query(default=20, ge=1, le=100),
+) -> dict[str, Any]:
+    """List Onshape documents accessible to the configured API key."""
+    try:
+        client = OnshapeClient()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+    try:
+        result = client.list_documents(query=query or None, limit=limit)
+        return {"documents": result.get("items", []), "total": result.get("total", 0)}
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Onshape API error: {exc}")
+
+
+@app.post("/designs/{design_id}/onshape")
+def upload_to_onshape(design_id: str, request: OnshapeUploadRequest) -> dict[str, Any]:
+    """Upload a design's STEP file to Onshape.
+
+    If document_id/workspace_id are provided, the STEP is imported into that
+    document. Otherwise a new Onshape document is created (public documents are
+    required for free Onshape plans).
+    """
+    design_dir = DESIGNS_DIR / design_id
+    meta_path = design_dir / "metadata.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Design not found.")
+
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read metadata: {exc}")
+
+    step_path = _resolve_export_path(design_id, meta.get("exports", {}).get("step"))
+    if not step_path or not step_path.exists():
+        raise HTTPException(status_code=422, detail="No STEP export found for this design.")
+
+    try:
+        client = OnshapeClient()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+    try:
+        if request.document_id and request.workspace_id:
+            result = client.upload_step(
+                step_path,
+                request.document_id,
+                request.workspace_id,
+            )
+        else:
+            document_name = request.document_name or f"RoboCAD {meta.get('prompt', '')[:40]}"
+            result = client.upload_step_to_new_document(
+                step_path,
+                document_name,
+                "Uploaded by RoboCAD",
+            )
+        return {
+            "design_id": design_id,
+            "onshape": result,
+        }
+    except requests.exceptions.HTTPError as exc:
+        status = exc.response.status_code if exc.response is not None else 502
+        detail = exc.response.text if exc.response is not None else str(exc)
+        if status == 409 and "Free accounts" in detail:
+            raise HTTPException(
+                status_code=409,
+                detail="Onshape free accounts only allow public documents. Please upgrade or use an existing public document.",
+            )
+        raise HTTPException(status_code=status, detail=f"Onshape API error: {detail}")
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Onshape upload failed: {exc}")
+
+
+@app.get("/designs/{design_id}/manufacturing-report")
+def manufacturing_report(design_id: str) -> dict[str, Any]:
+    """Return a manufacturing report for a design's STL export."""
+    design_dir = DESIGNS_DIR / design_id
+    meta_path = design_dir / "metadata.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Design not found.")
+
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read metadata: {exc}")
+
+    stl_path = _resolve_export_path(design_id, meta.get("exports", {}).get("stl"))
+    if not stl_path or not stl_path.exists():
+        raise HTTPException(status_code=422, detail="No STL export found for this design.")
+
+    try:
+        raw = _analyze_manufacturing(stl_path)
+        report = ManufacturingReport(**raw)
+        return {
+            "design_id": design_id,
+            "report": report.model_dump(),
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to analyze model: {exc}")
 
 
 @app.post("/designs/{parent_id}/remix")
@@ -539,6 +656,14 @@ def _run_generation(
         max_retries=max_retries,
         output_dir=exports_dir,
     )
+
+    # Build a manufacturing report for successful STL exports.
+    if result.success and result.exports.stl and result.exports.stl.exists():
+        try:
+            manufacturing = ManufacturingReport(**_analyze_manufacturing(result.exports.stl))
+            result.manufacturing = manufacturing
+        except Exception:
+            pass
 
     # Normalize exported filenames so the frontend always uses predictable URLs.
     final_stl: Path | None = None

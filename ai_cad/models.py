@@ -45,6 +45,23 @@ class ValidationReport(BaseModel):
     errors: list[str] = Field(default_factory=list)
 
 
+class ManufacturingReport(BaseModel):
+    """Manufacturability report for a generated STL."""
+
+    valid: bool = False
+    bounds_mm: tuple[float, float, float] | None = None
+    volume_cm3: float | None = None
+    surface_area_cm2: float | None = None
+    overhangs: list[int] = Field(default_factory=list)
+    overhang_area_mm2: float = 0.0
+    overhang_ratio: float = 0.0
+    min_hole_diameter_mm: float | None = None
+    min_feature_size_mm: float | None = None
+    estimated_print_time_min: float | None = None
+    issues: list[str] = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=list)
+
+
 class GenerationResult(BaseModel):
     """Full result of a single RoboCAD generate() call."""
 
@@ -54,6 +71,7 @@ class GenerationResult(BaseModel):
     parameters: list[CADParameter] = Field(default_factory=list)
     exports: ExportPaths = Field(default_factory=ExportPaths)
     validation: ValidationReport | None = None
+    manufacturing: ManufacturingReport | None = None
     attempts_used: int = 0
     max_retries: int = 0
     model: str = "unknown"

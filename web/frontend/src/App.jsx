@@ -8,6 +8,8 @@ import HistorySidebar from './components/HistorySidebar.jsx'
 import TagEditor from './components/TagEditor.jsx'
 import RemixPanel from './components/RemixPanel.jsx'
 import ComponentLibrary from './components/ComponentLibrary.jsx'
+import ManufacturingReport from './components/ManufacturingReport.jsx'
+import OnshapeUpload from './components/OnshapeUpload.jsx'
 import { checkHealth, generateDesign, listDesigns, loadDesign, regenerateDesign, remixDesign, updateDesignTags, guessParameter } from './api.js'
 
 export default function App() {
@@ -181,6 +183,8 @@ export default function App() {
           />
           {selectedId && (
             <>
+              <ManufacturingReport designId={selectedId} />
+              <OnshapeUpload designId={selectedId} prompt={result?.prompt} />
               <TagEditor tags={result?.tags || []} onUpdate={handleUpdateTags} />
               <RemixPanel designId={selectedId} onRemix={handleRemix} loading={loading} />
             </>

@@ -60,6 +60,28 @@ export async function guessParameter(id, { faceNormal, faceCentroid }) {
   })
 }
 
+export async function getManufacturingReport(id) {
+  return apiFetch(`/designs/${id}/manufacturing-report`)
+}
+
+export async function listOnshapeDocuments(query = '', limit = 20) {
+  const params = new URLSearchParams()
+  if (query) params.set('q', query)
+  params.set('limit', String(limit))
+  return apiFetch(`/onshape/documents?${params.toString()}`)
+}
+
+export async function uploadToOnshape(id, { documentId, workspaceId, documentName }) {
+  return apiFetch(`/designs/${id}/onshape`, {
+    method: 'POST',
+    body: JSON.stringify({
+      document_id: documentId,
+      workspace_id: workspaceId,
+      document_name: documentName,
+    }),
+  })
+}
+
 export function exportUrl(path) {
   return `${API_BASE}${path}`
 }
