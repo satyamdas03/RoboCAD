@@ -317,7 +317,8 @@ The benchmark sentence:
 - Recorded a full end-to-end demo (`assets/robocad_kinetic_precision_demo.webm`) covering component-library seed, generation, face-click parameter guessing, parameter edit/regeneration, and manufacturing report.
 - Added `scripts/record_demo.py` Playwright recorder so the demo can be re-created after future UI changes.
 - Embedded the demo in `README.md` with step-by-step written walkthrough and under-the-hood flow while preserving README structure.
+- Fixed README demo visibility: GitHub does not reliably render inline `<video>` tags with relative src, so generated a 720×450 GIF (`assets/robocad_kinetic_precision_demo.gif`) and poster JPG, updated `README.md` to use the GIF embed, and whitelisted the poster in `.gitignore`.
 
 ---
 
-*Last updated: 2026-08-23 (Phases 5 + 6 complete; Google Stitch Kinetic Precision UI redesign integrated and live; README demo video added; 56/57 tests passing)*
+*Last updated: 2026-08-23 (Phases 5 + 6 complete; Google Stitch Kinetic Precision UI redesign integrated and live; README demo GIF embed visible; 56/57 tests passing)*

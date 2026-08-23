@@ -55,6 +55,7 @@ The Google Stitch redesign was driven by `STITCH_BRIEF.md` and the generated `st
 - Frontend production build passes; live end-to-end generation verified (base plate and NEMA-17 mount both succeeded with manifold/watertight geometry and full parameter panels).
 - 12 standard robotics component templates in `ComponentLibrary`.
 - Generated Stitch reference files (`stitch_precision_engineering_interface/`) retained for provenance.
+- README-embedded end-to-end demo: `assets/robocad_kinetic_precision_demo.webm` + `assets/robocad_kinetic_precision_demo.gif` + `assets/robocad_kinetic_precision_demo_poster.jpg`, plus `scripts/record_demo.py` Playwright recorder for reproducible demos.
 - README, PLAN.md, and PRODUCT.md document current phases, architecture, and design context.
 
 ## Product Principles
