@@ -128,7 +128,8 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **5** | Onshape export / sync + manufacturing reports | ✅ **Complete — HMAC-signed Onshape API client, STEP upload, manufacturability report (volume, overhangs, hole diameter, print-time heuristic)** |
 | **6** | Robotics-aware component templates | ✅ **Complete — 12 standard robotics parts in `ComponentLibrary`, seeded prompts, tags, remix** |
 | **7** | Google Stitch Kinetic Precision UI redesign | ✅ **Complete — dark scientific engineering workstation, `kp-*` token system, fixed header/sidebar/viewer/inspector layout, all components restyled, frontend builds cleanly, 56/57 tests passing, live end-to-end verified** |
-| **8** | Complexity benchmark + feature-tree spec | 🚧 **Next — define structured feature-tree schema and measure current pipeline limits** |
+| **G** | **GEDA Bridge — MuJoCo export + verified skill bundle** | 🚧 **Immediate cross-repo priority — connect RoboCAD designs to LearningRobotics MuJoCo simulation + skill verification** |
+| **8** | Complexity benchmark + feature-tree spec | ⏳ **Next native RoboCAD phase after GEDA Bridge** |
 | **9** | Feature-tree backend | ⏳ Planned — replace monolithic `code.py` with versioned, editable feature tree |
 | **10** | Sketch + 2D constraint solver | ⏳ Planned — true parametric sketches with geometric constraints |
 | **11** | Assembly system | ⏳ Planned — multi-part designs with LCS-based mates |

@@ -456,4 +456,48 @@ Phases 0–7 proved the AI → parametric-code loop for single-part robotics har
 
 ---
 
-*Last updated: 2026-08-23 (Phases 0–7 complete; engineer-grade roadmap Phases 8–14 defined; Phase 8 baseline work is next)*
+## 12. Phase G — GEDA Bridge: MuJoCo Export + Verified Skill Bundle (immediate cross-repo priority)
+
+This phase is intentionally inserted before the engineer-grade roadmap because it connects RoboCAD to the sister project `LearningRobotics` and creates a new product category: the **Generative Embodied Design Agent (GEDA)**.
+
+### Goal
+
+A user types a sentence and, within 60 seconds, receives a zip file containing:
+1. The parametric `build123d` source for a robot part.
+2. Its MuJoCo-ready MJCF / URDF with inertial properties.
+3. A learned/verified manipulation skill (grasp, place, push, insert, hang, rotate).
+4. A manufacturing report and a verification report.
+
+### Modules
+
+| Module | File | Responsibility |
+|---|---|---|
+| Geometry exporter | `ai_cad/geda_bridge/exporter.py` | Convert `build123d` / STEP / STL → MuJoCo MJCF + optional URDF; compute mass, CoM, inertia, friction. |
+| Scene composer | `ai_cad/geda_bridge/composer.py` | Load the generated part into a MuJoCo scene with a simple robot platform and target objects. |
+| Skill runner | `ai_cad/geda_bridge/skill_runner.py` | Wrap LearningRobotics `SkillInstance` / `Composer` / physics verifier APIs. |
+| Verifier | `ai_cad/geda_bridge/verifier.py` | Define success criteria per task type and compute composite score. |
+| Packager | `ai_cad/geda_bridge/packager.py` | Write the `Design + Skill + Sim + Report` bundle directory/zip. |
+| Backend API | `web/backend/main.py` | Add `/designs/{id}/simulate`, `/designs/{id}/simulation`, `/designs/{id}/bundle`, `/capabilities`. |
+| CLI | `python -m ai_cad.geda_bridge` | One-shot prompt → bundle command. |
+
+### Acceptance criteria
+
+- [ ] `python -m ai_cad.geda_bridge --prompt "..." --task grasp --output ./bundles/...` produces a bundle directory.
+- [ ] At least 3 verified example bundles committed under `bundles/examples/`.
+- [ ] Every bundle contains: design source, MJCF, skill metrics, video/GIF, manufacturing report, verification report.
+- [ ] All new modules have pytest coverage and pass.
+- [ ] README, PLAN, and memory files updated in both repos.
+
+### Engineering constraints
+
+1. **Local-first** — no cloud execution of arbitrary generated code.
+2. **Sandbox generated code** — reuse the subprocess + timeout + import whitelist pattern.
+3. **No hardcoded secrets** — keys only via environment variables.
+4. **Determinism** — fixed MuJoCo seeds, timestep, collision settings.
+5. **Version bundle schema** — `manifest.json` with `"schema_version": "1.0.0"`.
+
+For the full super master prompt and market research, see `C:\Users\point\.claude\projects\C--Users-point-projects-LearningRobotics\memory\geda-bridge.md`.
+
+---
+
+*Last updated: 2026-08-23 (Phases 0–7 complete; Phase G / GEDA Bridge is the immediate next phase; engineer-grade roadmap Phases 8–14 defined)*

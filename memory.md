@@ -36,12 +36,12 @@ The AI writes the parametric code; the user edits parameters and exports to manu
 - **LearningRobotics** (`https://github.com/satyamdas03/LearningRobotics`) teaches robot theory: C-space, rigid-body motions, kinematics, dynamics, control, and the PIBench physical-intuition benchmark.
 - **RoboCAD** designs the physical parts that those chapters eventually become.
 - Generated parts can be:
-  1. Exported as STL/STEP for 3D printing or machining.
-  2. Synced to Onshape later for professional assemblies.
+  1. Exported as STL/STEP/3MF for 3D printing or machining.
+  2. Synced to Onshape for professional assemblies.
   3. Used as MuJoCo collision/visual meshes in `LearningRobotics` simulations.
-  4. Linked to the `LearningRobotics` hardware BOM so designs are cost-aware.
+  4. Packaged into verified robot-capability bundles via the GEDA Bridge.
 
-In short: **LearningRobotics teaches the robot. RoboCAD designs the parts.**
+In short: **LearningRobotics teaches the robot. RoboCAD designs the parts. GEDA connects them.**
 
 ---
 
@@ -63,25 +63,34 @@ In short: **LearningRobotics teaches the robot. RoboCAD designs the parts.**
 User prompt + stylus edits
         |
         v
-AI orchestrator (Claude / GPT-4)
+AI orchestrator (Claude / GPT-4 / local Ollama)
   - intent parsing
   - generates build123d code
   - self-corrects on errors
         |
         v
-CAD execution engine (build123d / CADQuery)
+CAD execution engine (build123d)
         |
         v
 Geometry validation (manifold, bounds, manufacturability)
         |
         v
-Web viewer + parameter editor (Phase 2+)
+Web viewer + parameter editor (Phase 2–3)
         |
         v
-Persistence + design library (Phase 4+)
+Persistence + design library + remix (Phase 4)
         |
         v
-Onshape export / sync (Phase 5)
+Onshape upload + manufacturing report (Phase 5)
+        |
+        v
+Robotics component library (Phase 6)
+        |
+        v
+Kinetic Precision workstation UI (Phase 7)
+        |
+        v
+GEDA Bridge → MuJoCo export + verified skill bundle
 ```
 
 **Core bet:** The AI writes **parametric code** (not meshes), so the output is editable, versionable, and manufacturable.
@@ -93,13 +102,14 @@ Onshape export / sync (Phase 5)
 | Decision | Choice | Rationale |
 |---|---|---|
 | CAD kernel | **build123d** first | Python API; LLMs write it well; no API limits |
-| AI model | Claude 3.5 Sonnet / GPT-4o / local `qwen3-coder:latest` | Best code generation + self-correction; local Ollama endpoint also works |
+| AI model | Claude / GPT-4o / local `qwen3-coder:latest` | Best code generation + self-correction; local Ollama endpoint also works |
 | Output artifact | Python script + derived mesh | Script is the editable source of truth |
 | Execution | Subprocess sandbox | Isolates generated code; captures tracebacks |
-| Viewer (Phase 2) | React + three.js | Standard web 3D stack |
-| Storage | SQLite + JSON + Git | Simple and versionable |
+| Viewer | React + three.js | Standard, lightweight |
+| Storage | SQLite + JSON + Git | Simple, versionable, portable |
 | API keys | Environment variables only | Never in files |
 | Hosting | Local first | Runs on the RTX 5060 laptop |
+| Onshape auth | HMAC-SHA256 API-key signing | Matches official Onshape Python client |
 
 ---
 
@@ -107,15 +117,18 @@ Onshape export / sync (Phase 5)
 
 | Phase | Goal | Status |
 |---|---|---|
-| **0** | Validate AI → build123d → STL loop | ✅ **Complete — 8/8 (100%)** |
-| **1** | Robust generation + self-correction backend | ✅ **Complete — 19/20 (95%)** |
+| **0** | Validate AI → build123d → STL loop | ✅ **Complete — 8/8 prompts pass** |
+| **1** | Robust generation + self-correction backend | ✅ **Complete — 19/20 prompts pass (95%)** |
 | **2** | Minimal web app (prompt + viewer + export) | ✅ **Complete — FastAPI + React + three.js + persistence** |
-| **3** | Parameter / stylus editing layer | ✅ **Core complete — editable parameter panel + versioned regeneration; stylus/face-click interaction outstanding** |
+| **3** | Parameter / stylus editing layer | ✅ **Complete — editable parameter panel + face-click parameter guessing + versioned regeneration** |
 | **4** | Design library + remix | ✅ **Complete — component catalog, search/filter, tags, remix with parent linking** |
-| 5 | Onshape export / sync + manufacturing reports | ⏳ Planned |
-| 6 | Robotics-aware component templates | ⏳ Planned |
+| **5** | Onshape export / sync + manufacturing reports | ✅ **Complete — HMAC-signed Onshape client, STEP upload, manufacturability report** |
+| **6** | Robotics-aware component templates | ✅ **Complete — 12 standard robotics parts in `ComponentLibrary`, seeded prompts, tags, remix** |
+| **7** | Google Stitch Kinetic Precision UI redesign | ✅ **Complete — dark scientific engineering workstation, `kp-*` token system, 56/57 tests passing** |
+| **8** | Complexity benchmark + feature-tree spec | 🚧 **Next native RoboCAD phase** |
+| **G** | **GEDA Bridge — MuJoCo export + verified skill bundle** | 🚧 **Immediate cross-repo priority** |
 
-See `PLAN.md` for full details.
+See `PLAN.md` for full details. See `C:\Users\point\.claude\projects\C--Users-point-projects-LearningRobotics\memory\geda-bridge.md` for the GEDA Bridge super master prompt and market research.
 
 ---
 
@@ -128,32 +141,37 @@ RoboCAD/
 ├── memory.md                 # This file — restart context
 ├── requirements.txt          # Python dependencies
 ├── .gitignore
-├── ai_cad/                   # Core package
-│   ├── __init__.py           # Public exports
-│   ├── models.py             # Pydantic response models
-│   ├── api.py                # Unified RoboCADBackend.generate()
-│   ├── generator.py          # prompt → code
-│   ├── executor.py           # run build123d safely
-│   ├── validator.py          # geometry sanity checks
-│   ├── exporter.py           # STL / STEP export
-│   ├── parameters.py         # AST-based parameter extraction
-│   └── prompts/              # system prompt + examples
-├── benchmarks/               # Phase 1 curated prompt set + runner
+├── ai_cad/                   # Core AI-CAD package
+│   ├── __init__.py
+│   ├── prompts/
+│   │   ├── system_prompt.txt
+│   │   └── examples.json
+│   ├── models.py
+│   ├── api.py                # RoboCADBackend.generate()
+│   ├── generator.py
+│   ├── executor.py
+│   ├── validator.py
+│   ├── exporter.py
+│   ├── parameters.py
+│   ├── guess_parameter.py
+│   ├── code_ops.py
+│   ├── onshape.py            # Phase 5 Onshape client
+│   ├── manufacturing.py      # Phase 5 manufacturability analyzer
+│   └── geda_bridge/          # Phase G — next cross-repo integration
+│       ├── exporter.py       # build123d → MJCF/URDF
+│       ├── composer.py       # robot + part + task scene
+│       ├── skill_runner.py   # wrap LearningRobotics APIs
+│       ├── verifier.py       # success criteria + scoring
+│       └── packager.py       # verified bundle writer
+├── benchmarks/
 │   ├── prompts.json
 │   └── evaluate.py
-├── web/                      # Phase 2 FastAPI + React
+├── web/                      # FastAPI + React app
 │   ├── backend/
-│   │   ├── main.py           # FastAPI endpoints
-│   │   └── __init__.py
-│   └── frontend/             # Vite + React + react-three-fiber
-│       ├── src/
-│       │   ├── App.jsx
-│       │   ├── api.js
-│       │   └── components/
-│       ├── index.html
-│       ├── package.json
-│       └── vite.config.js
-├── components/               # (Phase 6) robotics part library
+│   │   └── main.py
+│   └── frontend/
+│       └── src/components/
+├── components/               # Phase 6 robotics part library
 ├── designs/                  # persisted generated designs (runtime)
 └── tests/                    # pytest suite
 ```
@@ -163,29 +181,21 @@ RoboCAD/
 ## 9. Current status snapshot
 
 - Repo created at `https://github.com/satyamdas03/RoboCAD`.
-- Phase 0 committed and pushed (8/8 prompts passed).
-- Phase 1 committed and pushed (19/20 prompts passed = 95%, commit `08c3b60`).
-- Phase 2 committed and pushed (FastAPI + React + three.js viewer, commit to be recorded).
-- `ai_cad/` package implements:
-  - `models.py` — Pydantic `GenerationResult`, `CADParameter`, `ValidationReport`, `ExportPaths`.
-  - `api.py` — `RoboCADBackend.generate()` orchestrating generation, execution, validation, parameter extraction, and self-correction.
-  - `parameters.py` — AST-based extraction of editable numeric parameters from generated code.
-  - `generator.py` — Anthropic SDK 1.0 compatibility + `ROBOCAD_MODEL` override + Ollama / OpenAI-compatible local model support via `httpx`.
-  - `executor.py` — subprocess sandbox with JSON metadata, script path tracking.
-  - `validator.py` — manifold/watertight/bounds checks via `trimesh`.
-  - `exporter.py` — STEP/STL export wrapper.
-  - `prompts/system_prompt.txt` + `examples.json` — working build123d patterns A/B/C/D.
-- `web/backend/main.py` — FastAPI app with `/generate`, `/designs`, `/designs/{id}`, `/exports/{id}/{file:path}`, `/designs/{id}/regenerate`, `/designs/{parent_id}/remix`, `/designs/{id}` PUT for tags/prompt.
-- `web/frontend/` — Vite + React + `react-three-fiber` STL viewer + prompt input + editable parameter list + tag editor + remix panel + component library + history search/filter.
-- `ai_cad/code_ops.py` — safe module-level numeric parameter rewriting.
-- `benchmarks/prompts.json` + `benchmarks/evaluate.py` — 20-prompt Phase 1 benchmark.
-- Test suite: **40 passing tests** across generator, executor, validator, parameters, API orchestration, web backend, code_ops, and design library.
-- Live end-to-end verification 2026-08-22: backend + frontend running, `qwen3-coder:latest` via Ollama generated a 120×80×3 mm base plate with 4 M3 holes in 36.1 s; STL served via `/exports/{id}/model.stl`, design persisted to `designs/{uuid}/`.
+- Phases 0–7 committed and pushed.
+- `ai_cad/` package implements generation, execution, validation, parameter extraction, self-correction, Onshape upload, manufacturing reports, and face-click parameter guessing.
+- Web app has FastAPI backend + React frontend with Kinetic Precision dark workstation UI.
+- Test suite: **57 passing tests** (56/57 with the known `test_generate_missing_api_key` env interaction).
+- Live end-to-end verified for base plates, NEMA-17 mounts, and component-library seed flows.
 
 **Next work:**
-1. Phase 3 follow-up: stylus / face-click parameter guessing in the 3D viewer.
-2. Phase 5: Onshape export / sync + manufacturing reports.
-3. Phase 6: Robotics-aware component templates and LearningRobotics BOM integration.
+1. **GEDA Bridge (immediate):** build `ai_cad/geda_bridge/` to export designs to MuJoCo and verify robot skills. See `C:\Users\point\.claude\projects\C--Users-point-projects-LearningRobotics\memory\geda-bridge.md`.
+2. Phase 8: complexity benchmark + feature-tree spec.
+3. Phase 9: feature-tree backend.
+4. Phase 10: sketch + 2D constraint solver.
+5. Phase 11: assembly system.
+6. Phase 12: verification + physics layer (DFM, FEA, tolerance/fit).
+7. Phase 13: model specialization / fine-tuning.
+8. Phase 14: distribution + packaging.
 
 ---
 
@@ -210,7 +220,7 @@ $env:PYTHONPATH = "C:\Users\point\projects\RoboCAD"
 python -m pytest tests -q
 ```
 
-### Start the Phase 2 web app
+### Start the web app
 
 ```powershell
 cd C:\Users\point\projects\RoboCAD
@@ -243,6 +253,7 @@ git push origin master
 3. **No mesh dead-ends.** Always produce an editable model.
 4. **Start local, integrate later.** Prove the loop before Onshape.
 5. **Document every push.** README/memory/PLAN are living logs.
+6. **No API keys in files.** All keys via environment variables.
 
 ---
 
@@ -250,8 +261,9 @@ git push origin master
 
 1. Which LLM provider should be the default? Currently Claude via Anthropic; GPT-4o is an easy alternative.
 2. Should we also support `cadquery` as an alternate kernel? Defer until build123d is proven.
-3. When should we buy hardware? Defer until Phase 5/6 when real parts are designed.
+3. When should we buy hardware? Defer until GEDA Bridge produces real parts that need fabrication.
 4. Should designs be tracked in Git? Yes for code; exports are gitignored.
+5. Should GEDA Bridge live inside RoboCAD or as a new top-level repo? Current plan: inside RoboCAD (`ai_cad/geda_bridge/`) to reuse backend/frontend/test infrastructure.
 
 ---
 
@@ -260,11 +272,11 @@ git push origin master
 If the session restarts and all context is lost, read these files in order:
 
 1. `C:\Users\point\.claude\projects\C--Users-point-projects-LearningRobotics\memory\MEMORY.md`
-2. `C:\Users\point\projects\RoboCAD\memory.md`
-3. `C:\Users\point\projects\RoboCAD\README.md`
-4. `C:\Users\point\projects\RoboCAD\PLAN.md`
-
-Then read `C:\Users\point\projects\LearningRobotics\MEMORY.md` for the sister-project context.
+2. `C:\Users\point\.claude\projects\C--Users-point-projects-LearningRobotics\memory\geda-bridge.md`
+3. `C:\Users\point\projects\RoboCAD\memory.md`
+4. `C:\Users\point\projects\RoboCAD\README.md`
+5. `C:\Users\point\projects\RoboCAD\PLAN.md`
+6. `C:\Users\point\projects\LearningRobotics\MEMORY.md`
 
 To force a full sync at any time, type:
 
@@ -276,8 +288,8 @@ To force a full sync at any time, type:
 
 If you are resuming this session with no other context:
 
-> We are building **RoboCAD**, an AI-powered parametric CAD tool for robotics hardware. The repo is at `https://github.com/satyamdas03/RoboCAD`. The core loop is prompt → LLM → `build123d` Python code → execution → STL/STEP export. **Phases 0–4 are committed and pushed.** Phase 3 core (editable parameter panel + versioned regeneration) is complete; stylus/face-click interaction is outstanding. Phase 4 (component library, search/filter, tags, remix) is complete. **40 pytest tests passing.** The sister project is `LearningRobotics` (robotics theory and PIBench benchmark). Say `:POINTBREAK` to force a full dossier sync.
+> We are building **RoboCAD**, an AI-powered parametric CAD tool for robotics hardware. The repo is at `https://github.com/satyamdas03/RoboCAD`. **Phases 0–7 are committed and pushed** (prompt → build123d → STL/STEP → Onshape → manufacturing report → component library → dark Kinetic Precision UI, **57 tests passing**). The immediate next phase is the **GEDA Bridge**: connect RoboCAD designs to the LearningRobotics MuJoCo simulation + skill-verification stack to produce verified `Design + Skill` bundles. See `C:\Users\point\.claude\projects\C--Users-point-projects-LearningRobotics\memory\geda-bridge.md` for the super master prompt. The sister project is `LearningRobotics` (robotics theory and PIBench benchmark). Say `:POINTBREAK` to force a full dossier sync.
 
 ---
 
-*Last updated: 2026-08-22*
+*Last updated: 2026-08-22 (Phases 0–7 complete; GEDA Bridge is the immediate next phase)*
