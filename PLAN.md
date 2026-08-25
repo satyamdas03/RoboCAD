@@ -446,16 +446,19 @@ Phases 0–7 proved the AI → parametric-code loop for single-part robotics har
 
 ### Phase 13 — Model specialization / fine-tuning
 
-**Goal:** Improve complex-part success rate by fine-tuning a local model on RoboCAD feature trees.
+**Goal:** Improve complex-part success rate by specializing a local model on RoboCAD feature trees.
 
 **Deliverables:**
-- `scripts/build_training_dataset.py`, `scripts/finetune_model.py`.
-- `ai_cad/generator.py` `generate_feature_tree()` path.
-- A/B evaluation against Phase 8 benchmark.
+- `scripts/build_training_dataset.py` — generate validated prompt → Feature-Tree JSONL from the Phase 8 complexity ladder.
+- `scripts/build_ollama_modelfile.py` — embed diverse training examples into an Ollama Modelfile for quick few-shot specialization (`robocad-ft`).
+- `scripts/finetune_model.py` — QLoRA fine-tuning skeleton (`unsloth` preferred, `peft`+`bitsandbytes` fallback) with merged-model and Ollama export.
+- `scripts/evaluate_finetuned.py` — A/B evaluate base vs specialized model on held-out prompts and report pass-rate delta.
+- `ai_cad/generator.py` `generate_feature_tree()` path fixed for local Ollama models.
+- `tests/test_phase13.py` — unit tests for all four scripts using synthetic data.
 
-**Tests:** fine-tuned model produces valid feature trees for held-out prompts.
+**Tests:** `tests/test_phase13.py`; full suite 134 passed.
 
-**Acceptance criteria:** ≥10 percentage-point improvement on complexity benchmark.
+**Acceptance criteria:** ≥10 percentage-point improvement on the Phase 8 complexity benchmark pass rate (target: 26/30 → 29/30 or better).
 
 **Effort:** 3–6 weeks.
 
@@ -489,4 +492,4 @@ Phases 0–7 proved the AI → parametric-code loop for single-part robotics har
 
 ---
 
-*Last updated: 2026-08-25 (Phases 0–12 complete; Phases 13–14 planned; GEDA Bridge scope removed from RoboCAD roadmap)*
+*Last updated: 2026-08-25 (Phases 0–12 complete; Phase 13 in progress — dataset + Modelfile + QLoRA skeleton + A/B evaluator landed; Phase 14 planned; GEDA Bridge scope removed from RoboCAD roadmap)*

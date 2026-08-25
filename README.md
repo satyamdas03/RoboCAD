@@ -4,7 +4,7 @@
 >
 > **Core bet:** The AI writes **parametric CAD code** (build123d / FeatureScript), not throwaway meshes. The model you get is editable, versionable, and exportable for 3D printing, machining, or Onshape.
 >
-> **Latest milestone:** Phase 12 verification + physics layer complete. RoboCAD now runs deterministic DFM checks (`ai_cad/dfm.py`), tolerance/fit checks between two designs (`ai_cad/tolerances.py`), and a simple cantilever-beam FEA wrapper (`ai_cad/fea.py`) from the web UI. Backend adds `GET /designs/{id}/dfm-report`, `POST /designs/{id}/fit-check`, and `POST /designs/{id}/fea-report`. The frontend adds **DFM Report**, **Tolerance / Fit Check**, and **FEA / Stress Check** panels. Phase 8 baseline remains **26/30 (86.7%)**; full pytest suite: **125 passed**.
+> **Latest milestone:** Phase 13 model-specialization scaffolding is in place. RoboCAD can now build a supervised-finetuning dataset from the Phase 8 complexity ladder (`scripts/build_training_dataset.py`), embed selected examples into an Ollama Modelfile for few-shot specialization (`scripts/build_ollama_modelfile.py`), and A/B evaluate a specialized model against the base model (`scripts/evaluate_finetuned.py`). A QLoRA fine-tuning skeleton (`scripts/finetune_model.py`) is wired for `unsloth`/`peft`+`bitsandbytes` export to Ollama. Phase 8 baseline remains **26/30 (86.7%)**; full pytest suite: **134 passed**.
 
 ---
 
@@ -133,7 +133,7 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **10** | **Sketch + 2D constraint solver** | ✅ **Complete — internal 2D solver for distance/horizontal/vertical/coincident/concentric/equal/fix constraints; `ai_cad/sketch_solver.py` + `tests/test_sketch_solver.py`; 105/105 tests pass** |
 | **11** | **Assembly system** | ✅ **Complete — multi-part instances + LCS mates, `ai_cad/assembly.py`, assembly STEP export, `GET /designs/{id}/assembly`, `AssemblyPanel.jsx`, `tests/test_assembly.py`; 112/112 tests pass** |
 | **12** | **Verification + physics layer** | ✅ **Complete — DFM rule engine (`ai_cad/dfm.py`), tolerance/fit checks (`ai_cad/tolerances.py`), cantilever-beam FEA (`ai_cad/fea.py`), backend endpoints for all three, frontend `DFMReport.jsx` / `ToleranceReport.jsx` / `FEAPanel.jsx`; 125/125 tests pass** |
-| **13** | Model specialization / fine-tuning | ⏳ Planned — LoRA fine-tune local model on RoboCAD feature trees |
+| **13** | **Model specialization / fine-tuning** | 🚧 **In progress — dataset builder, Ollama Modelfile specialization, QLoRA skeleton, A/B evaluator; 134/134 tests pass; awaiting dataset completion for first few-shot model and A/B run** |
 | **14** | Distribution + packaging | ⏳ Planned — one-command launcher / desktop installer |
 
 Phases 0–7 proved the **AI → parametric-code loop** for single-part robotics hardware. Phases 8–14 turn that loop into an **engineer-grade CAD system** with feature trees, constraints, assemblies, and verification. See [`PLAN.md`](PLAN.md) for the full roadmap and the new **🎯 Engineer-grade roadmap** section below for the narrative.
@@ -191,6 +191,32 @@ Finally, the view scrolls to the **Manufacturing Report** panel. It reads the ma
 6. **Manufacturing report** — `ManufacturingReport.jsx` fetches `GET /designs/{id}/manufacturing-report` and renders the metrics as dense readout cards.
 
 All of this runs in the browser against the local FastAPI backend; no data leaves the machine except the optional Onshape upload when the user chooses to push a STEP file.
+
+---
+
+## 🧠 Phase 13 — Model specialization
+
+RoboCAD is moving from generic local-coder prompts to a model trained on the exact Feature-Tree JSON schema. The pipeline is:
+
+1. **Build a dataset** from the Phase 8 complexity ladder:
+   ```bash
+   python scripts/build_training_dataset.py --output training --test-split 0.2
+   ```
+2. **Create a few-shot Ollama model** (`robocad-ft`):
+   ```bash
+   python scripts/build_ollama_modelfile.py
+   ollama create robocad-ft -f models/robocad-ft/Modelfile
+   ```
+3. **Evaluate** against the base model on held-out prompts:
+   ```bash
+   python scripts/evaluate_finetuned.py --specialized-model robocad-ft:latest
+   ```
+4. **True QLoRA fine-tuning** (when time/hardware allow):
+   ```bash
+   python scripts/finetune_model.py --dataset training/feature_tree_train.jsonl --method unsloth
+   ```
+
+Target: push the Phase 8 complexity benchmark from 26/30 (86.7%) to 29/30 or better.
 
 ---
 

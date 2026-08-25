@@ -226,7 +226,7 @@ def generate_feature_tree(
     ]
 
     if _looks_like_local_model(model):
-        return _generate_with_openai_compatible(
+        result = _generate_with_openai_compatible(
             messages,
             model=model,
             system=system_prompt,
@@ -234,6 +234,9 @@ def generate_feature_tree(
             temperature=temperature,
             base_url=OLLAMA_BASE_URL,
         )
+        # The OpenAI-compatible helper returns a code-style result dict; repackage
+        # the raw response as a feature-tree JSON result.
+        return _wrap_feature_tree_result(result.get("raw_response", ""), model)
 
     api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
