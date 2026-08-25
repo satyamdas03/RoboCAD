@@ -13,6 +13,7 @@ import httpx
 
 DEFAULT_MODEL = os.environ.get("ROBOCAD_MODEL", "claude-3-5-sonnet-20241022")
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434/v1")
+OLLAMA_TIMEOUT = float(os.environ.get("OLLAMA_TIMEOUT", "120"))
 
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
@@ -132,7 +133,7 @@ def _generate_with_openai_compatible(
             f"{base_url}/chat/completions",
             json=payload,
             headers={"Authorization": "Bearer ollama"},
-            timeout=120,
+            timeout=OLLAMA_TIMEOUT,
         )
         response.raise_for_status()
     except Exception as exc:
@@ -234,8 +235,17 @@ def generate_feature_tree(
             temperature=temperature,
             base_url=OLLAMA_BASE_URL,
         )
-        # The OpenAI-compatible helper returns a code-style result dict; repackage
-        # the raw response as a feature-tree JSON result.
+        # The OpenAI-compatible helper returns a code-style result dict. If the
+        # call itself failed (timeout, API error), surface that error directly.
+        if not result.get("success") and not result.get("raw_response"):
+            return {
+                "success": False,
+                "feature_tree": None,
+                "raw_response": result.get("raw_response", ""),
+                "model": model,
+                "error": result.get("error", "Local model request failed."),
+            }
+        # Otherwise repackage the raw response as a feature-tree JSON result.
         return _wrap_feature_tree_result(result.get("raw_response", ""), model)
 
     api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")

@@ -54,7 +54,7 @@ def _run_single(
     backend: RoboCADBackend,
     prompt_item: dict[str, Any],
     output_dir: Path,
-    timeout: int = 120,
+    timeout: int = 240,
     max_retries: int = 2,
 ) -> dict[str, Any] | None:
     prompt_id = prompt_item["id"]
@@ -70,6 +70,8 @@ def _run_single(
     from ai_cad.generator import generate_feature_tree, self_correct_feature_tree
 
     start = dt.datetime.now(dt.timezone.utc)
+    # Increase httpx timeout used by the local OpenAI-compatible path.
+    os.environ["OLLAMA_TIMEOUT"] = str(timeout)
     gen = generate_feature_tree(prompt_text, model=backend.model)
     attempts_used = 1
 
@@ -148,7 +150,7 @@ def main() -> None:
     parser.add_argument("--ladder", type=Path, default=LADDER_PATH, help="Path to complexity_ladder.json")
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT_DIR, help="Output directory")
     parser.add_argument("--limit", type=int, default=None, help="Run only the first N prompts")
-    parser.add_argument("--timeout", type=int, default=120, help="Execution timeout per prompt")
+    parser.add_argument("--timeout", type=int, default=240, help="Execution timeout per prompt")
     parser.add_argument("--max-retries", type=int, default=2, help="Self-correction retries")
     parser.add_argument("--test-split", type=float, default=0.2, help="Fraction to reserve as held-out test set")
     parser.add_argument("--model", type=str, default=None, help="Override model name")
