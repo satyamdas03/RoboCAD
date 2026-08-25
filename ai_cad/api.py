@@ -6,8 +6,18 @@ import time
 from pathlib import Path
 from typing import Optional
 
+import json
+
 from ai_cad.executor import execute_code
-from ai_cad.generator import DEFAULT_MODEL, generate_model, self_correct
+from ai_cad.feature_store import save as save_feature_tree
+from ai_cad.feature_tree import FeatureTree
+from ai_cad.generator import (
+    DEFAULT_MODEL,
+    generate_feature_tree,
+    generate_model,
+    self_correct,
+    self_correct_feature_tree,
+)
 from ai_cad.models import (
     CADParameter,
     ExportPaths,
@@ -15,6 +25,7 @@ from ai_cad.models import (
     ValidationReport,
 )
 from ai_cad.parameters import extract_parameters
+from ai_cad.transpiler import transpile
 from ai_cad.validator import validate_model
 
 
@@ -42,11 +53,16 @@ class RoboCADBackend:
         max_tokens: int = 2048,
         output_dir: Optional[Path] = None,
         timeout: int = 60,
+        use_feature_tree: bool = False,
     ) -> GenerationResult:
         """Generate a validated parametric CAD model from a natural-language prompt.
 
         Retries on both execution/runtime failures and geometry validation failures
         by feeding the error/traceback back to the LLM, up to ``max_retries`` times.
+
+        If ``use_feature_tree`` is True, the backend first attempts to generate a
+        structured Feature-Tree JSON, transpile it to build123d, validate it, and
+        falls back to the legacy code.py path if the feature-tree path fails.
         """
         start = time.time()
         model = model or self.model or DEFAULT_MODEL
@@ -62,6 +78,41 @@ class RoboCADBackend:
                 error="ANTHROPIC_API_KEY not set.",
             )
 
+        if use_feature_tree:
+            ft_result = self._generate_from_feature_tree(
+                prompt,
+                model=model,
+                max_retries=max_retries,
+                output_dir=output_dir,
+                timeout=timeout,
+            )
+            if ft_result.success:
+                return ft_result
+            # Fall through to legacy code path if feature-tree generation failed.
+
+        return self._generate_from_code(
+            prompt,
+            model=model,
+            max_retries=max_retries,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            output_dir=output_dir,
+            timeout=timeout,
+            start=start,
+        )
+
+    def _generate_from_code(
+        self,
+        prompt: str,
+        model: str,
+        max_retries: int,
+        temperature: float,
+        max_tokens: int,
+        output_dir: Path,
+        timeout: int,
+        start: float,
+    ) -> GenerationResult:
+        """Legacy path: prompt → code.py → execute → validate."""
         attempts_used = 0
         code: Optional[str] = None
         error: Optional[str] = None
@@ -111,7 +162,6 @@ class RoboCADBackend:
             if validation is not None and validation.valid:
                 break
 
-            # Retry on validation failure if we have budget left.
             validation_error = ""
             if validation is not None and validation.errors:
                 validation_error = "Validation failed:\n" + "\n".join(validation.errors)
@@ -136,7 +186,6 @@ class RoboCADBackend:
                 error = "Geometry validation failed after all retries."
             break
 
-        # Extract parameters from the final code if available.
         if code is not None and exec_result.get("success"):
             parameters = extract_parameters(code)
 
@@ -158,6 +207,159 @@ class RoboCADBackend:
             parameters=parameters,
             exports=exports,
             validation=validation,
+            attempts_used=attempts_used,
+            max_retries=max_retries,
+            model=model,
+            error=error,
+            traceback=traceback_str,
+            latency_seconds=round(time.time() - start, 3),
+        )
+
+    def _generate_from_feature_tree(
+        self,
+        prompt: str,
+        model: str,
+        max_retries: int,
+        output_dir: Path,
+        timeout: int,
+    ) -> GenerationResult:
+        """Feature-tree path: prompt → Feature-Tree JSON → transpile → execute → validate."""
+        start = time.time()
+        attempts_used = 0
+        tree: Optional[FeatureTree] = None
+        code: Optional[str] = None
+        error: Optional[str] = None
+        traceback_str: Optional[str] = None
+        exec_result: dict = {}
+        validation: ValidationReport | None = None
+        parameters: list[CADParameter] = []
+
+        gen = generate_feature_tree(
+            prompt,
+            model=model,
+            api_key=self.api_key,
+            max_tokens=4096,
+        )
+        attempts_used += 1
+
+        while True:
+            if not gen["success"]:
+                error = gen.get("error") or "Feature-tree generation failed."
+                break
+
+            json_text = gen.get("feature_tree")
+            if json_text is None:
+                error = "Feature-tree generation succeeded but no JSON was extracted."
+                break
+
+            try:
+                tree_data = json.loads(json_text)
+                tree = FeatureTree(**tree_data)
+            except Exception as exc:
+                traceback_str = f"FeatureTree validation failed: {exc}"
+                if attempts_used - 1 < max_retries:
+                    gen = self_correct_feature_tree(
+                        prompt,
+                        json_text,
+                        traceback_str,
+                        model=model,
+                        max_retries=1,
+                        api_key=self.api_key,
+                    )
+                    attempts_used += 1
+                    continue
+                error = f"Failed to validate feature tree: {exc}"
+                break
+
+            try:
+                code = transpile(tree)
+            except Exception as exc:
+                traceback_str = f"Transpiler failed: {exc}"
+                if attempts_used - 1 < max_retries:
+                    gen = self_correct_feature_tree(
+                        prompt,
+                        json_text,
+                        traceback_str,
+                        model=model,
+                        max_retries=1,
+                        api_key=self.api_key,
+                    )
+                    attempts_used += 1
+                    continue
+                error = f"Failed to transpile feature tree: {exc}"
+                break
+
+            exec_result = execute_code(code, timeout=timeout, output_dir=output_dir)
+
+            if not exec_result["success"]:
+                traceback_str = exec_result.get("traceback") or exec_result.get("error", "")
+                if attempts_used - 1 < max_retries:
+                    gen = self_correct_feature_tree(
+                        prompt,
+                        json_text,
+                        traceback_str,
+                        model=model,
+                        max_retries=1,
+                        api_key=self.api_key,
+                    )
+                    attempts_used += 1
+                    continue
+                error = exec_result.get("error", "Generated code from feature tree failed to execute.")
+                break
+
+            validation = self._build_validation_report(exec_result.get("stl_path"))
+            if validation is not None and validation.valid:
+                break
+
+            validation_error = ""
+            if validation is not None and validation.errors:
+                validation_error = "Validation failed:\n" + "\n".join(validation.errors)
+                if validation.warnings:
+                    validation_error += "\nWarnings:\n" + "\n".join(validation.warnings)
+            traceback_str = validation_error or "Geometry validation failed."
+            if attempts_used - 1 < max_retries:
+                gen = self_correct_feature_tree(
+                    prompt,
+                    json_text,
+                    traceback_str,
+                    model=model,
+                    max_retries=1,
+                    api_key=self.api_key,
+                )
+                attempts_used += 1
+                continue
+
+            if validation is not None and validation.errors:
+                error = validation.errors[0]
+            else:
+                error = "Geometry validation failed after all retries."
+            break
+
+        if tree is not None:
+            parameters = [
+                CADParameter(name=p.name, value=p.value, unit=p.unit, description=p.description)
+                for p in tree.parameters
+            ]
+
+        success = bool(
+            exec_result.get("success")
+            and (validation is not None and validation.valid)
+        )
+
+        exports = ExportPaths(
+            step=exec_result.get("step_path"),
+            stl=exec_result.get("stl_path"),
+            script=exec_result.get("script_path"),
+        )
+
+        return GenerationResult(
+            prompt=prompt,
+            success=success,
+            code=code,
+            parameters=parameters,
+            exports=exports,
+            validation=validation,
+            feature_tree=tree,
             attempts_used=attempts_used,
             max_retries=max_retries,
             model=model,

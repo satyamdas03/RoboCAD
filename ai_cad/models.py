@@ -6,6 +6,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from ai_cad.feature_tree import FeatureTree
+
 
 class CADParameter(BaseModel):
     """A named, editable numeric parameter extracted from generated code."""
@@ -72,6 +74,7 @@ class GenerationResult(BaseModel):
     exports: ExportPaths = Field(default_factory=ExportPaths)
     validation: ValidationReport | None = None
     manufacturing: ManufacturingReport | None = None
+    feature_tree: FeatureTree | None = None
     attempts_used: int = 0
     max_retries: int = 0
     model: str = "unknown"

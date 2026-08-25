@@ -46,6 +46,13 @@ def _load_system_prompt() -> str:
     return "You are a CAD programmer. Write build123d Python code for the requested part. Output only a code block."
 
 
+def _load_feature_tree_system_prompt() -> str:
+    path = PROMPTS_DIR / "feature_tree_system_prompt.txt"
+    if path.exists():
+        return path.read_text(encoding="utf-8")
+    return "You are a CAD assistant. Output only a Feature-Tree JSON document."
+
+
 def _load_examples() -> list[dict]:
     path = PROMPTS_DIR / "examples.json"
     if path.exists():
@@ -152,6 +159,118 @@ def _generate_with_openai_compatible(
     return _wrap_result(raw, model)
 
 
+def _extract_json_block(text: str) -> Optional[str]:
+    """Extract the first JSON object from an LLM response.
+
+    Handles both raw JSON and JSON embedded inside markdown fences.
+    """
+    # Try ```json ... ``` or ``` ... ``` fences.
+    match = re.search(r"```(?:json)?\n(.*?)\n```", text, re.DOTALL)
+    if match:
+        candidate = match.group(1).strip()
+        try:
+            json.loads(candidate)
+            return candidate
+        except Exception:
+            pass
+    # Fallback: find the first `{...}` block that parses as JSON.
+    match = re.search(r"(\{.*\})", text, re.DOTALL)
+    if match:
+        candidate = match.group(1).strip()
+        try:
+            json.loads(candidate)
+            return candidate
+        except Exception:
+            pass
+    return None
+
+
+def _wrap_feature_tree_result(raw_response: str, model: str) -> dict:
+    json_text = _extract_json_block(raw_response)
+    if json_text is None:
+        return {
+            "success": False,
+            "feature_tree": None,
+            "raw_response": raw_response,
+            "model": model,
+            "error": "Could not extract a valid JSON object from the response.",
+        }
+    return {
+        "success": True,
+        "feature_tree": json_text,
+        "raw_response": raw_response,
+        "model": model,
+        "error": None,
+    }
+
+
+def generate_feature_tree(
+    prompt: str,
+    model: str = DEFAULT_MODEL,
+    temperature: float = 0.0,
+    max_tokens: int = 4096,
+    api_key: Optional[str] = None,
+) -> dict:
+    """Generate a Feature-Tree JSON document from a prompt.
+
+    Returns a dict with keys:
+        - success: bool
+        - feature_tree: str (raw JSON text) or None
+        - raw_response: str
+        - model: str
+        - error: str or None
+    """
+    system_prompt = _load_feature_tree_system_prompt()
+    messages = [
+        {"role": "user", "content": f"Prompt: {prompt}\n\nOutput the Feature-Tree JSON."},
+    ]
+
+    if _looks_like_local_model(model):
+        return _generate_with_openai_compatible(
+            messages,
+            model=model,
+            system=system_prompt,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            base_url=OLLAMA_BASE_URL,
+        )
+
+    api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        return {
+            "success": False,
+            "feature_tree": None,
+            "raw_response": "",
+            "model": model,
+            "error": "ANTHROPIC_API_KEY not set.",
+        }
+
+    client = anthropic.Anthropic(
+        api_key=api_key,
+        base_url=os.environ.get("ANTHROPIC_BASE_URL"),
+    )
+    try:
+        response = _anthropic_create(
+            client,
+            model=model,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            system=system_prompt,
+            messages=messages,
+        )
+    except Exception as exc:
+        return {
+            "success": False,
+            "feature_tree": None,
+            "raw_response": "",
+            "model": model,
+            "error": f"API error: {exc}",
+        }
+
+    raw_response = response.content[0].text
+    return _wrap_feature_tree_result(raw_response, model)
+
+
 def generate_model(
     prompt: str,
     model: str = DEFAULT_MODEL,
@@ -216,6 +335,120 @@ def generate_model(
 
     raw_response = response.content[0].text
     return _wrap_result(raw_response, model)
+
+
+def self_correct_feature_tree(
+    prompt: str,
+    json_text: str,
+    error: str,
+    model: str = DEFAULT_MODEL,
+    max_retries: int = 2,
+    api_key: Optional[str] = None,
+) -> dict:
+    """Ask the LLM to fix a feature tree JSON that failed transpilation or validation."""
+    system_prompt = _load_feature_tree_system_prompt()
+    messages = [
+        {"role": "user", "content": f"Prompt: {prompt}\n\nOutput the Feature-Tree JSON."},
+        {"role": "assistant", "content": f"```json\n{json_text}\n```"},
+        {
+            "role": "user",
+            "content": (
+                "The feature tree above failed with this error:\n"
+                f"```\n{error}\n```\n"
+                "Please correct the JSON and return the fixed Feature-Tree JSON object only."
+            ),
+        },
+    ]
+
+    if _looks_like_local_model(model):
+        last_raw = ""
+        for attempt in range(max_retries):
+            result = _generate_with_openai_compatible(
+                messages,
+                model=model,
+                system=system_prompt,
+                max_tokens=4096,
+                temperature=0.0,
+                base_url=OLLAMA_BASE_URL,
+            )
+            if not result["success"]:
+                return {
+                    "success": False,
+                    "feature_tree": None,
+                    "raw_response": result.get("raw_response", ""),
+                    "model": model,
+                    "error": f"API error during self-correction attempt {attempt + 1}: {result['error']}",
+                }
+            last_raw = result["raw_response"]
+            fixed_json = _extract_json_block(last_raw)
+            if fixed_json:
+                return {
+                    "success": True,
+                    "feature_tree": fixed_json,
+                    "raw_response": last_raw,
+                    "model": model,
+                    "error": None,
+                }
+        return {
+            "success": False,
+            "feature_tree": None,
+            "raw_response": last_raw,
+            "model": model,
+            "error": f"Failed to extract corrected JSON after {max_retries} attempts.",
+        }
+
+    api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        return {
+            "success": False,
+            "feature_tree": None,
+            "raw_response": "",
+            "model": model,
+            "error": "ANTHROPIC_API_KEY not set.",
+        }
+
+    client = anthropic.Anthropic(
+        api_key=api_key,
+        base_url=os.environ.get("ANTHROPIC_BASE_URL"),
+    )
+    last_raw = ""
+    for attempt in range(max_retries):
+        try:
+            response = _anthropic_create(
+                client,
+                model=model,
+                max_tokens=4096,
+                temperature=0.0,
+                system=system_prompt,
+                messages=messages,
+            )
+        except Exception as exc:
+            return {
+                "success": False,
+                "feature_tree": None,
+                "raw_response": last_raw,
+                "model": model,
+                "error": f"API error during self-correction attempt {attempt + 1}: {exc}",
+            }
+
+        last_raw = response.content[0].text
+        fixed_json = _extract_json_block(last_raw)
+        if fixed_json:
+            return {
+                "success": True,
+                "feature_tree": fixed_json,
+                "raw_response": last_raw,
+                "model": model,
+                "error": None,
+            }
+
+    return {
+        "success": False,
+        "feature_tree": None,
+        "raw_response": last_raw,
+        "model": model,
+        "error": f"Failed to extract corrected JSON after {max_retries} attempts.",
+    }
 
 
 def self_correct(

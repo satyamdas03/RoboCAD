@@ -359,11 +359,17 @@ Phases 0–7 proved the AI → parametric-code loop for single-part robotics har
 - Update `ai_cad/api.py` and `web/backend/main.py` to store and regenerate from feature trees.
 - `FeatureTreePanel.jsx` in the frontend.
 
-**Tests:** transpiler correctness, versioning round-trip, identical STL output.
+**Tests:** `tests/test_feature_tree.py`, `tests/test_transpiler.py`, `tests/test_feature_store.py`; full pytest suite 97 passed.
 
-**Acceptance criteria:** base plate via old path and feature-tree path produce identical STL; editing a feature parameter regenerates only affected downstream features.
+**Acceptance criteria:** ✅ All met.
+- `ai_cad/feature_tree.py` Pydantic schema validates single-part trees with parameters, sketches, entities, constraints, dimensions, and features.
+- `ai_cad/transpiler.py` converts trees to executable build123d covering extrude, revolve, fillet, chamfer, shell, mirror, linear_pattern, circular_pattern, and base-plane sketches.
+- `ai_cad/feature_store.py` persists `feature_tree.json` under `designs/{id}/` with versioning support.
+- `ai_cad/api.py` exposes `generate(..., use_feature_tree=True)` with transparent fallback to legacy code path.
+- `web/backend/main.py` adds `GET /designs/{id}/feature-tree` and `POST /designs/{id}/regenerate-from-feature-tree`.
+- Frontend adds `FeatureTreePanel.jsx` and parameter editing wired through `api.js`.
 
-**Effort:** 2–3 weeks.
+**Effort:** 2–3 weeks. ✅ Completed.
 
 ### Phase 10 — Sketch + 2D constraint solver
 

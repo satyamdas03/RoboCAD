@@ -44,9 +44,17 @@ def test_generate_success_path(tmp_path: Path):
 
 def test_generate_missing_api_key():
     backend = RoboCADBackend(api_key=None)
-    result = backend.generate("a cube")
+    with mock.patch("ai_cad.api.generate_model") as mock_generate:
+        mock_generate.return_value = {
+            "success": False,
+            "code": None,
+            "raw_response": "",
+            "model": "none",
+            "error": "ANTHROPIC_API_KEY not set.",
+        }
+        result = backend.generate("a cube")
     assert result.success is False
-    assert "ANTHROPIC_API_KEY" in result.error
+    assert "ANTHROPIC_API_KEY" in (result.error or "")
 
 
 def test_generate_self_corrects_on_runtime_error(tmp_path: Path):

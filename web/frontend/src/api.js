@@ -39,6 +39,17 @@ export async function regenerateDesign(id, parameterUpdates) {
   })
 }
 
+export async function loadFeatureTree(id) {
+  return apiFetch(`/designs/${id}/feature-tree`)
+}
+
+export async function regenerateFromFeatureTree(id, parameterUpdates) {
+  return apiFetch(`/designs/${id}/regenerate-from-feature-tree`, {
+    method: 'POST',
+    body: JSON.stringify({ parameter_updates: parameterUpdates }),
+  })
+}
+
 export async function updateDesignTags(id, tags) {
   return apiFetch(`/designs/${id}`, {
     method: 'PUT',

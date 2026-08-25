@@ -42,11 +42,14 @@ from pydantic import BaseModel, Field
 from ai_cad.api import RoboCADBackend
 from ai_cad.code_ops import update_parameters
 from ai_cad.executor import execute_code
+from ai_cad.feature_store import save as save_feature_tree
+from ai_cad.feature_tree import FeatureTree
 from ai_cad.guess_parameter import guess_parameter as _guess_parameter
 from ai_cad.manufacturing import analyze_model as _analyze_manufacturing
 from ai_cad.models import CADParameter, ExportPaths, GenerationResult, ManufacturingReport, ValidationReport
 from ai_cad.onshape import OnshapeClient
 from ai_cad.parameters import extract_parameters
+from ai_cad.transpiler import transpile
 from ai_cad.validator import validate_model
 
 app = FastAPI(title="RoboCAD", version="0.3.0")
@@ -106,6 +109,10 @@ class RegenerateRequest(BaseModel):
     parameter_updates: dict[str, float | int] = Field(..., description="Parameter name to new value.")
 
 
+class RegenerateFromFeatureTreeRequest(BaseModel):
+    parameter_updates: dict[str, float | int] = Field(..., description="Parameter name to new value.")
+
+
 class UpdateDesignRequest(BaseModel):
     tags: list[str] | None = None
     prompt: str | None = None
@@ -135,7 +142,13 @@ def generate(request: GenerateRequest) -> GenerateResponse:
         raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY not configured.")
 
     design_id = uuid.uuid4().hex
-    result, metadata = _run_generation(design_id, request.prompt, request.model, request.max_retries)
+    result, metadata = _run_generation(
+        design_id,
+        request.prompt,
+        request.model,
+        request.max_retries,
+        use_feature_tree=False,
+    )
 
     return GenerateResponse(
         **result.model_dump(),
@@ -209,6 +222,14 @@ def get_design(design_id: str) -> dict[str, Any]:
     if code_path.exists():
         code = code_path.read_text(encoding="utf-8")
 
+    feature_tree = None
+    feature_tree_path = design_dir / "feature_tree.json"
+    if feature_tree_path.exists():
+        try:
+            feature_tree = json.loads(feature_tree_path.read_text(encoding="utf-8"))
+        except Exception:
+            feature_tree = None
+
     parameters: list[dict] = []
     params_path = design_dir / "parameters.json"
     if params_path.exists():
@@ -222,10 +243,119 @@ def get_design(design_id: str) -> dict[str, Any]:
     return {
         **meta,
         "code": code,
+        "feature_tree": feature_tree,
         "parameters": parameters,
         "export_urls": _build_export_urls(design_id, meta.get("exports", {})),
         "versions": versions,
     }
+
+
+@app.get("/designs/{design_id}/feature-tree")
+def get_feature_tree(design_id: str) -> dict[str, Any]:
+    """Return the persisted Feature-Tree JSON for a design, if any."""
+    design_dir = DESIGNS_DIR / design_id
+    feature_tree_path = design_dir / "feature_tree.json"
+    if not feature_tree_path.exists():
+        raise HTTPException(status_code=404, detail="Feature tree not found for this design.")
+    try:
+        data = json.loads(feature_tree_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read feature tree: {exc}")
+    return {"design_id": design_id, "feature_tree": data}
+
+
+@app.post("/designs/{design_id}/regenerate-from-feature-tree")
+def regenerate_from_feature_tree(
+    design_id: str,
+    request: RegenerateFromFeatureTreeRequest,
+) -> GenerateResponse:
+    """Update parameters in the saved feature tree, transpile, and re-execute."""
+    design_dir = DESIGNS_DIR / design_id
+    meta_path = design_dir / "metadata.json"
+    feature_tree_path = design_dir / "feature_tree.json"
+    if not meta_path.exists() or not feature_tree_path.exists():
+        raise HTTPException(status_code=404, detail="Design or feature tree not found.")
+
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        tree_data = json.loads(feature_tree_path.read_text(encoding="utf-8"))
+        tree = FeatureTree(**tree_data)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to load feature tree: {exc}")
+
+    for name, value in request.parameter_updates.items():
+        if not tree.update_parameter(name, value):
+            raise HTTPException(status_code=400, detail=f"Unknown parameter: {name}")
+
+    try:
+        code = transpile(tree)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Failed to transpile feature tree: {exc}")
+
+    exports_dir = design_dir / "exports"
+    exports_dir.mkdir(parents=True, exist_ok=True)
+    exec_result = execute_code(code, timeout=60, output_dir=exports_dir)
+
+    if not exec_result["success"]:
+        raise HTTPException(
+            status_code=422,
+            detail=exec_result.get("traceback", exec_result.get("error", "Execution failed.")),
+        )
+
+    validation = _build_validation_report(exec_result.get("stl_path"))
+    exec_bounds = exec_result.get("bounds")
+    if exec_bounds and validation and validation.bounds_mm is None:
+        validation.bounds_mm = tuple(float(v) for v in exec_bounds)
+    parameters = [CADParameter(**p.model_dump()) for p in tree.parameters]
+
+    final_stl: Path | None = None
+    final_step: Path | None = None
+    if exec_result.get("stl_path") and Path(exec_result["stl_path"]).exists():
+        final_stl = exports_dir / "model.stl"
+        shutil.copy2(exec_result["stl_path"], final_stl)
+    if exec_result.get("step_path") and Path(exec_result["step_path"]).exists():
+        final_step = exports_dir / "model.step"
+        shutil.copy2(exec_result["step_path"], final_step)
+
+    _write_text(design_dir / "code.py", code)
+    _write_json(feature_tree_path, tree.model_dump(mode="json"))
+    _write_json(design_dir / "parameters.json", [p.model_dump() for p in parameters])
+
+    meta["parameters"] = [p.model_dump() for p in parameters]
+    if final_stl:
+        meta["exports"] = {
+            "stl": "model.stl",
+            "step": "model.step" if final_step else None,
+            "script": "code.py",
+        }
+    if validation:
+        meta["validation"] = validation.model_dump()
+    _write_json(meta_path, meta)
+
+    result = GenerationResult(
+        prompt=meta["prompt"],
+        success=validation.valid if validation else False,
+        code=code,
+        parameters=parameters,
+        exports=ExportPaths(
+            step=final_step,
+            stl=final_stl,
+            script=design_dir / "code.py",
+        ),
+        validation=validation,
+        feature_tree=tree,
+        attempts_used=1,
+        max_retries=0,
+        model="local-feature-tree",
+        latency_seconds=0.0,
+    )
+
+    return GenerateResponse(
+        **result.model_dump(),
+        design_id=design_id,
+        export_urls=_build_export_urls(design_id, meta["exports"]),
+        tags=meta.get("tags", []),
+    )
 
 
 @app.put("/designs/{design_id}")
@@ -440,6 +570,7 @@ def remix(parent_id: str, request: GenerateRequest) -> GenerateResponse:
         request.max_retries,
         parent_id=parent_id,
         tags=[],
+        use_feature_tree=False,
     )
 
     return GenerateResponse(
@@ -651,6 +782,7 @@ def _run_generation(
     max_retries: int,
     parent_id: str | None = None,
     tags: list[str] | None = None,
+    use_feature_tree: bool = False,
 ) -> tuple[GenerationResult, dict]:
     design_dir = DESIGNS_DIR / design_id
     exports_dir = design_dir / "exports"
@@ -661,6 +793,7 @@ def _run_generation(
         model=model,
         max_retries=max_retries,
         output_dir=exports_dir,
+        use_feature_tree=use_feature_tree,
     )
 
     # Build a manufacturing report for successful STL exports.
@@ -685,6 +818,8 @@ def _run_generation(
     _write_text(design_dir / "prompt.txt", prompt)
     if result.code:
         _write_text(design_dir / "code.py", result.code)
+    if result.feature_tree is not None:
+        save_feature_tree(design_id, result.feature_tree)
     _write_json(design_dir / "parameters.json", [p.model_dump() for p in result.parameters])
 
     metadata = {

@@ -10,7 +10,18 @@ import RemixPanel from './components/RemixPanel.jsx'
 import ComponentLibrary from './components/ComponentLibrary.jsx'
 import ManufacturingReport from './components/ManufacturingReport.jsx'
 import OnshapeUpload from './components/OnshapeUpload.jsx'
-import { checkHealth, generateDesign, listDesigns, loadDesign, regenerateDesign, remixDesign, updateDesignTags, guessParameter } from './api.js'
+import FeatureTreePanel from './components/FeatureTreePanel.jsx'
+import {
+  checkHealth,
+  generateDesign,
+  listDesigns,
+  loadDesign,
+  regenerateDesign,
+  regenerateFromFeatureTree,
+  remixDesign,
+  updateDesignTags,
+  guessParameter,
+} from './api.js'
 
 export default function App() {
   const [result, setResult] = useState(null)
@@ -86,7 +97,10 @@ export default function App() {
     setError(null)
     clearFaceSelection()
     try {
-      const data = await regenerateDesign(selectedId, updates)
+      const hasFeatureTree = result?.feature_tree != null
+      const data = hasFeatureTree
+        ? await regenerateFromFeatureTree(selectedId, updates)
+        : await regenerateDesign(selectedId, updates)
       setResult({
         ...data,
         design_id: data.design_id,
@@ -257,6 +271,12 @@ export default function App() {
 
           {selectedId && (
             <div className="kp-panels-grid">
+              <FeatureTreePanel
+                designId={selectedId}
+                parameters={result?.parameters}
+                onRegenerate={handleRegenerate}
+                loading={loading}
+              />
               <ManufacturingReport designId={selectedId} />
               <OnshapeUpload designId={selectedId} prompt={result?.prompt} />
               <TagEditor tags={result?.tags || []} onUpdate={handleUpdateTags} />
