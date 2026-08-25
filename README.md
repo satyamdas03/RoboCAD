@@ -4,7 +4,7 @@
 >
 > **Core bet:** The AI writes **parametric CAD code** (build123d / FeatureScript), not throwaway meshes. The model you get is editable, versionable, and exportable for 3D printing, machining, or Onshape.
 >
-> **Latest milestone:** Phase 12 verification + physics layer complete. RoboCAD now runs deterministic DFM checks (`ai_cad/dfm.py`), tolerance/fit checks between two designs (`ai_cad/tolerances.py`), and a simple cantilever-beam FEA wrapper (`ai_cad/fea.py`) from the web UI. Backend adds `GET /designs/{id}/dfm-report`, `POST /designs/{id}/fit-check`, and `POST /designs/{id}/fea-report`. The frontend adds **DFM Report**, **Tolerance / Fit Check**, and **FEA / Stress Check** panels. Phase 8 baseline remains **26/30 (86.7%)**; full pytest suite: **122 passed**.
+> **Latest milestone:** Phase 12 verification + physics layer complete. RoboCAD now runs deterministic DFM checks (`ai_cad/dfm.py`), tolerance/fit checks between two designs (`ai_cad/tolerances.py`), and a simple cantilever-beam FEA wrapper (`ai_cad/fea.py`) from the web UI. Backend adds `GET /designs/{id}/dfm-report`, `POST /designs/{id}/fit-check`, and `POST /designs/{id}/fea-report`. The frontend adds **DFM Report**, **Tolerance / Fit Check**, and **FEA / Stress Check** panels. Phase 8 baseline remains **26/30 (86.7%)**; full pytest suite: **125 passed**.
 
 ---
 
@@ -132,7 +132,7 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **9** | **Feature-tree backend** | ✅ **Complete — structured feature tree transpiles to build123d; `GET /designs/{id}/feature-tree` + `POST /designs/{id}/regenerate-from-feature-tree`; frontend Feature Tree panel; 97/97 tests pass** |
 | **10** | **Sketch + 2D constraint solver** | ✅ **Complete — internal 2D solver for distance/horizontal/vertical/coincident/concentric/equal/fix constraints; `ai_cad/sketch_solver.py` + `tests/test_sketch_solver.py`; 105/105 tests pass** |
 | **11** | **Assembly system** | ✅ **Complete — multi-part instances + LCS mates, `ai_cad/assembly.py`, assembly STEP export, `GET /designs/{id}/assembly`, `AssemblyPanel.jsx`, `tests/test_assembly.py`; 112/112 tests pass** |
-| **12** | **Verification + physics layer** | ✅ **Complete — DFM rule engine (`ai_cad/dfm.py`), tolerance/fit checks (`ai_cad/tolerances.py`), cantilever-beam FEA (`ai_cad/fea.py`), backend endpoints for all three, frontend `DFMReport.jsx` / `ToleranceReport.jsx` / `FEAPanel.jsx`; 122/122 tests pass** |
+| **12** | **Verification + physics layer** | ✅ **Complete — DFM rule engine (`ai_cad/dfm.py`), tolerance/fit checks (`ai_cad/tolerances.py`), cantilever-beam FEA (`ai_cad/fea.py`), backend endpoints for all three, frontend `DFMReport.jsx` / `ToleranceReport.jsx` / `FEAPanel.jsx`; 125/125 tests pass** |
 | **13** | Model specialization / fine-tuning | ⏳ Planned — LoRA fine-tune local model on RoboCAD feature trees |
 | **14** | Distribution + packaging | ⏳ Planned — one-command launcher / desktop installer |
 
@@ -400,8 +400,8 @@ and receive a folder of editable parts ready for printing, assembly in Onshape, 
   * `FEAPanel.jsx` — choose fixed face, material, and load, then run stress/displacement analysis.
 * Wired new panels into `App.jsx` and added API helpers to `web/frontend/src/api.js`.
 * Added `rtree>=1.2.0` to `requirements.txt` because `trimesh` proximity queries require it.
-* Added `tests/test_dfm.py`, `tests/test_tolerances.py`, and `tests/test_fea.py`.
-* Full pytest suite now **122 passing tests**.
+* Added `tests/test_dfm.py`, `tests/test_tolerances.py`, `tests/test_fea.py`, plus backend endpoint coverage in `tests/test_web_backend.py`.
+* Full pytest suite now **125 passing tests**.
 
 ### 2026-08-23 — Google Stitch Kinetic Precision UI redesign integrated
 

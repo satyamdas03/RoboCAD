@@ -132,6 +132,43 @@ def test_get_export_file_not_found():
     assert response.status_code == 404
 
 
+def test_dfm_report_endpoint(tmp_path: Path):
+    design_dir, stl_path = _seed_cube_design(tmp_path, "cube1", size=10.0)
+    response = client.get("/designs/cube1/dfm-report")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["design_id"] == "cube1"
+    report = data["report"]
+    assert isinstance(report["valid"], bool)
+    assert report["min_wall_thickness_mm"] is not None
+
+
+def test_fea_report_endpoint(tmp_path: Path):
+    design_dir, stl_path = _seed_cube_design(tmp_path, "cube2", size=10.0)
+    response = client.post("/designs/cube2/fea-report", json={"fixed_face": "-x", "load_magnitude_n": 50, "material": "PLA"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["design_id"] == "cube2"
+    report = data["report"]
+    assert report["success"] is True
+    assert report["max_stress_mpa"] is not None
+
+
+def test_fit_check_endpoint(tmp_path: Path):
+    _seed_cube_design(tmp_path, "shaft", size=6.0)
+    _seed_cube_design(tmp_path, "hole", size=8.0)
+    response = client.post(
+        "/designs/shaft/fit-check",
+        json={"other_design_id": "hole", "name": "shaft_hole", "samples": 500},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["design_id"] == "shaft"
+    assert data["other_design_id"] == "hole"
+    report = data["report"]
+    assert report["classification"] in ("clearance", "transition", "interference")
+
+
 # Helpers
 
 class RoboCADBackendStub:
@@ -175,3 +212,67 @@ def __parse_param(p: dict):
     from ai_cad.models import CADParameter
 
     return CADParameter(**p)
+
+
+def _seed_cube_design(tmp_path: Path, design_id: str, size: float = 10.0):
+    """Create a persisted design with a minimal ASCII STL cube."""
+    design_dir = tmp_path / "designs" / design_id
+    exports_dir = design_dir / "exports"
+    exports_dir.mkdir(parents=True)
+    stl_path = exports_dir / "model.stl"
+    stl_path.write_text(_ascii_cube_stl(size))
+    metadata = {
+        "id": design_id,
+        "prompt": f"a {size} mm cube",
+        "success": True,
+        "model": "fake",
+        "attempts_used": 1,
+        "max_retries": 0,
+        "latency_seconds": 0.0,
+        "created_at": "2026-08-25T00:00:00Z",
+        "exports": {"stl": "model.stl", "step": None, "script": None},
+    }
+    (design_dir / "metadata.json").write_text(json.dumps(metadata))
+    return design_dir, stl_path
+
+
+def _ascii_cube_stl(size: float = 10.0) -> str:
+    """Return a minimal valid ASCII STL for a centered cube."""
+    h = size / 2.0
+    v = [
+        (-h, -h, -h),
+        (h, -h, -h),
+        (h, h, -h),
+        (-h, h, -h),
+        (-h, -h, h),
+        (h, -h, h),
+        (h, h, h),
+        (-h, h, h),
+    ]
+    # 12 triangles (two per face).
+    faces = [
+        (0, 2, 1),
+        (0, 3, 2),  # front/back
+        (4, 5, 6),
+        (4, 6, 7),
+        (0, 1, 5),
+        (0, 5, 4),  # bottom
+        (3, 6, 2),
+        (3, 7, 6),  # top
+        (0, 4, 7),
+        (0, 7, 3),  # left
+        (1, 2, 6),
+        (1, 6, 5),  # right
+    ]
+    lines = ["solid cube"]
+    for a, b, c in faces:
+        p1, p2, p3 = v[a], v[b], v[c]
+        lines.append("  facet normal 0 0 0")
+        lines.append("    outer loop")
+        lines.append(f"      vertex {p1[0]} {p1[1]} {p1[2]}")
+        lines.append(f"      vertex {p2[0]} {p2[1]} {p2[2]}")
+        lines.append(f"      vertex {p3[0]} {p3[1]} {p3[2]}")
+        lines.append("    endloop")
+        lines.append("  endfacet")
+    lines.append("endsolid cube")
+    return "\n".join(lines) + "\n"

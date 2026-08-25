@@ -350,7 +350,7 @@ Phases 0–7 proved the AI → parametric-code loop for single-part robotics har
 
 **Current status:** Complete. Baseline: 26/30 (86.7%) with 3 runtime failures and 1 geometry failure; actionable failure details captured in `benchmarks/complexity_baseline_2026-08-25.md`.
 
-- **Phase 12 (complete):** DFM rule engine (`ai_cad/dfm.py`), tolerance/fit checker (`ai_cad/tolerances.py`), simple beam FEA (`ai_cad/fea.py`), backend endpoints, and frontend panels added. Full pytest suite **122 passed**.
+- **Phase 12 (complete):** DFM rule engine (`ai_cad/dfm.py`), tolerance/fit checker (`ai_cad/tolerances.py`), simple beam FEA (`ai_cad/fea.py`), backend endpoints, and frontend panels added. Full pytest suite **125 passed**.
 
 ### Phase 9 — Feature-tree backend
 
@@ -435,7 +435,7 @@ Phases 0–7 proved the AI → parametric-code loop for single-part robotics har
   - `DFMReport.jsx`, `ToleranceReport.jsx`, `FEAPanel.jsx`
   - Wired into `App.jsx` and `api.js`.
 
-**Tests:** ✅ `tests/test_dfm.py`, `tests/test_tolerances.py`, `tests/test_fea.py`; full pytest suite 122 passed.
+**Tests:** ✅ `tests/test_dfm.py`, `tests/test_tolerances.py`, `tests/test_fea.py`, plus backend endpoint coverage in `tests/test_web_backend.py`; full pytest suite 125 passed.
 
 **Acceptance criteria:** ✅ All met.
 - 0.2 mm wall flagged as unmanufacturable by FDM.
