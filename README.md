@@ -4,7 +4,7 @@
 >
 > **Core bet:** The AI writes **parametric CAD code** (build123d / FeatureScript), not throwaway meshes. The model you get is editable, versionable, and exportable for 3D printing, machining, or Onshape.
 >
-> **Latest milestone:** Phase 5 Onshape export/sync + manufacturing reports, Phase 6 robotics-aware component templates, and the Google Stitch *Kinetic Precision* UI redesign complete. End-to-end web app supports prompt-to-CAD, parameter editing, face-click parameter guessing, design library/remix, manufacturability analysis, one-click STEP upload to Onshape, and a dark scientific engineering-workstation UI. **56/57 passing tests** (the single failure is `test_generate_missing_api_key`, which now passes because `.env` configures a local Ollama model instead of failing on a missing API key).
+> **Latest milestone:** Phase 8 baseline complete. 30-prompt complexity ladder run against `qwen3-coder:latest` achieved **26/30 (86.7%)** with average successful latency of ~29.5 s. Feature-Tree JSON Schema v1.0.0 approved. All new benchmark/schema tests pass. The single remaining pytest failure is the pre-existing `test_generate_missing_api_key`, which now succeeds because `.env` routes to the local Ollama model even when no Anthropic key is set.
 
 ---
 
@@ -128,8 +128,7 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **5** | Onshape export / sync + manufacturing reports | ✅ **Complete — HMAC-signed Onshape API client, STEP upload, manufacturability report (volume, overhangs, hole diameter, print-time heuristic)** |
 | **6** | Robotics-aware component templates | ✅ **Complete — 12 standard robotics parts in `ComponentLibrary`, seeded prompts, tags, remix** |
 | **7** | Google Stitch Kinetic Precision UI redesign | ✅ **Complete — dark scientific engineering workstation, `kp-*` token system, fixed header/sidebar/viewer/inspector layout, all components restyled, frontend builds cleanly, 56/57 tests passing, live end-to-end verified** |
-| **G** | **GEDA Bridge — MuJoCo export + verified skill bundle** | 🚧 **Immediate cross-repo priority — connect RoboCAD designs to LearningRobotics MuJoCo simulation + skill verification** |
-| **8** | Complexity benchmark + feature-tree spec | ⏳ **Next native RoboCAD phase after GEDA Bridge** |
+| **8** | **Complexity benchmark + feature-tree spec** | ✅ **Complete — 30-prompt baseline: 26/30 (86.7%); feature-tree schema v1.0.0; new tests pass** |
 | **9** | Feature-tree backend | ⏳ Planned — replace monolithic `code.py` with versioned, editable feature tree |
 | **10** | Sketch + 2D constraint solver | ⏳ Planned — true parametric sketches with geometric constraints |
 | **11** | Assembly system | ⏳ Planned — multi-part designs with LCS-based mates |

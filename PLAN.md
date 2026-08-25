@@ -307,27 +307,25 @@ The benchmark sentence:
 
 - **Google Stitch *Kinetic Precision* UI redesign integrated:** Mined the generated `stitch_precision_engineering_interface/` reference files and `STITCH_BRIEF.md` to rebuild the React frontend as a dark scientific engineering workstation. Replaced the `rc-*` light *Precision Lab Instrument* token system with the `kp-*` dark *Kinetic Precision* system (`#121315` ground, `#1b1c1e` panels, `#00e5ff` cyan accent, `#feb300` amber warnings, `Inter` + `JetBrains Mono`). Implemented fixed header, left sidebar (component library + history), central 3D viewport, right inspector panel (metadata/validation/selected face/quick export), and bottom grid (manufacturing / Onshape / tags / remix). All `api.js` exports, backend endpoints, STLViewer face-click raycaster logic, React component props, and `standard_components.json` schema preserved.
 - **Validation:** `npm run build` passes. `pytest` reports 56/57 passing tests; the single failure (`test_generate_missing_api_key`) is the known test/env interaction where `.env` sets `ROBOCAD_MODEL=qwen3-coder:latest` so the backend uses local Ollama instead of failing on a missing Anthropic key. Backend health check passes. Frontend preview running on `http://127.0.0.1:5173`. Live end-to-end generation verified for a base plate and a NEMA-17 mount — both manifold/watertight with full parameter extraction.
-- **Google Stitch UI redesign brief:** Prepared `STITCH_BRIEF.md` defining the dark-first *Precision Engineering Workstation* visual direction. The brief includes exact layout grid, component specs, data models/API contracts, motion design, responsive rules, accessibility requirements, anti-patterns, and integration notes.
-- **Impeccable UI redesign:** Rebuilt the entire React frontend under a *Precision Lab Instrument* design world (light ground, teal accent, IBM Plex Sans, instrument-grade panels and readouts). Added `web/frontend/src/styles/index.css` token system, rewrote all components, and added `PRODUCT.md` for durable design context.
-- **Validation:** Frontend production build passes. Impeccable design detector reports no findings. Backend health check passes. Frontend preview and backend are running locally.
-- **Test status:** 56/57 pytest tests pass. The one failure (`test_generate_missing_api_key`) succeeds because `.env` configures `ROBOCAD_MODEL=qwen3-coder:latest`, causing the backend to use the local Ollama model rather than failing on a missing Anthropic key.
-- **Commit/push:** `STITCH_BRIEF.md` and dossier updates committed and pushed to `origin/master`.
+- **Phase 7 (UI redesign):** Google Stitch *Kinetic Precision* dark scientific-workstation UI implemented; all API contracts preserved; 56/57 tests passing; live end-to-end verified.
+- **Phase 8 (complete):** `benchmarks/complexity_ladder.json` with 30 prompts (T1–T5), `benchmarks/evaluate_complexity.py` runner, `docs/feature_tree_schema.md` schema v1.0.0, tests `test_complexity_benchmark.py` / `test_feature_tree_schema.py` added, and `benchmarks/complexity_baseline_2026-08-25.md` published. Baseline result: **26/30 (86.7%)** against `qwen3-coder:latest`, avg successful latency ~29.5 s.
+- **Note on cross-repo scope:** A separate session attempted to implement a `GEDA Bridge` connecting RoboCAD to `LearningRobotics`. That work was not authorized for RoboCAD and has been reverted from this repo. MuJoCo/skill-verification integration remains a future cross-repo concern, not the current RoboCAD roadmap.
+- **Commit/push:** Pending completion of Phase 8 baseline.
 
 ## 9. Immediate next session plan (Phase 8)
 
 1. **Complexity benchmark:** create `benchmarks/complexity_ladder.json` with 30 prompts from trivial to hard, and `benchmarks/evaluate_complexity.py` to run them against the current local model.
 2. **Feature-tree specification:** write `docs/feature_tree_schema.md` defining the JSON schema for features, sketches, constraints, and assemblies.
-3. **Run baseline:** execute the benchmark, categorize failures, and publish the report in `benchmarks/complexity_baseline_YYYY-MM-DD.md`.
-4. **Update dossiers:** refresh `README.md`, `PLAN.md`, and memory files to mark the transition from foundation work to engineer-grade phases.
-5. **Tests:** add `tests/test_complexity_benchmark.py` and `tests/test_feature_tree_schema.py`.
-6. Commit and push all Phase 8 planning/baseline artifacts.
+3. **Run baseline:** execute the benchmark, categorize failures, and publish the report in `benchmarks/complexity_baseline_YYYY-MM-DD.md`. ✅ Completed — 26/30 (86.7%); report saved as `benchmarks/complexity_baseline_2026-08-25.md`.
+4. **Update dossiers:** refresh `README.md`, `PLAN.md`, and memory files. ✅ Completed.
+5. **Tests:** add `tests/test_complexity_benchmark.py` and `tests/test_feature_tree_schema.py`. ✅ Completed — 15/15 pass.
+6. Commit and push all Phase 8 planning/baseline artifacts. ⏳ Ready to commit.
 
 **Deferred but noted:**
 - UI polish (keyboard shortcuts, mobile drawer) moves to Phase 14 packaging window or fits-and-starts work.
 - Packaging / distribution is explicitly Phase 14 now.
 - Multi-part assembly upload with mate hints is Phase 11.
 - Hardware BOM integration with `LearningRobotics` is Phase 11/12 follow-up.
-- MuJoCo collision-mesh export is deferred until after assembly support.
 
 ---
 
@@ -346,9 +344,11 @@ Phases 0–7 proved the AI → parametric-code loop for single-part robotics har
 
 **Tests:** `tests/test_complexity_benchmark.py`, `tests/test_feature_tree_schema.py`.
 
-**Acceptance criteria:** baseline report generated; schema approved by user.
+**Acceptance criteria:** baseline report generated; schema approved by user; all new tests pass. ✅ All met.
 
 **Effort:** 3–5 days.
+
+**Current status:** Complete. Baseline: 26/30 (86.7%) with 3 runtime failures and 1 geometry failure; actionable failure details captured in `benchmarks/complexity_baseline_2026-08-25.md`.
 
 ### Phase 9 — Feature-tree backend
 
@@ -456,48 +456,4 @@ Phases 0–7 proved the AI → parametric-code loop for single-part robotics har
 
 ---
 
-## 12. Phase G — GEDA Bridge: MuJoCo Export + Verified Skill Bundle (immediate cross-repo priority)
-
-This phase is intentionally inserted before the engineer-grade roadmap because it connects RoboCAD to the sister project `LearningRobotics` and creates a new product category: the **Generative Embodied Design Agent (GEDA)**.
-
-### Goal
-
-A user types a sentence and, within 60 seconds, receives a zip file containing:
-1. The parametric `build123d` source for a robot part.
-2. Its MuJoCo-ready MJCF / URDF with inertial properties.
-3. A learned/verified manipulation skill (grasp, place, push, insert, hang, rotate).
-4. A manufacturing report and a verification report.
-
-### Modules
-
-| Module | File | Responsibility |
-|---|---|---|
-| Geometry exporter | `ai_cad/geda_bridge/exporter.py` | Convert `build123d` / STEP / STL → MuJoCo MJCF + optional URDF; compute mass, CoM, inertia, friction. |
-| Scene composer | `ai_cad/geda_bridge/composer.py` | Load the generated part into a MuJoCo scene with a simple robot platform and target objects. |
-| Skill runner | `ai_cad/geda_bridge/skill_runner.py` | Wrap LearningRobotics `SkillInstance` / `Composer` / physics verifier APIs. |
-| Verifier | `ai_cad/geda_bridge/verifier.py` | Define success criteria per task type and compute composite score. |
-| Packager | `ai_cad/geda_bridge/packager.py` | Write the `Design + Skill + Sim + Report` bundle directory/zip. |
-| Backend API | `web/backend/main.py` | Add `/designs/{id}/simulate`, `/designs/{id}/simulation`, `/designs/{id}/bundle`, `/capabilities`. |
-| CLI | `python -m ai_cad.geda_bridge` | One-shot prompt → bundle command. |
-
-### Acceptance criteria
-
-- [ ] `python -m ai_cad.geda_bridge --prompt "..." --task grasp --output ./bundles/...` produces a bundle directory.
-- [ ] At least 3 verified example bundles committed under `bundles/examples/`.
-- [ ] Every bundle contains: design source, MJCF, skill metrics, video/GIF, manufacturing report, verification report.
-- [ ] All new modules have pytest coverage and pass.
-- [ ] README, PLAN, and memory files updated in both repos.
-
-### Engineering constraints
-
-1. **Local-first** — no cloud execution of arbitrary generated code.
-2. **Sandbox generated code** — reuse the subprocess + timeout + import whitelist pattern.
-3. **No hardcoded secrets** — keys only via environment variables.
-4. **Determinism** — fixed MuJoCo seeds, timestep, collision settings.
-5. **Version bundle schema** — `manifest.json` with `"schema_version": "1.0.0"`.
-
-For the full super master prompt and market research, see `C:\Users\point\.claude\projects\C--Users-point-projects-LearningRobotics\memory\geda-bridge.md`.
-
----
-
-*Last updated: 2026-08-23 (Phases 0–7 complete; Phase G / GEDA Bridge is the immediate next phase; engineer-grade roadmap Phases 8–14 defined)*
+*Last updated: 2026-08-25 (Phases 0–7 complete; Phase 8 in progress; GEDA Bridge scope removed from RoboCAD roadmap)*
