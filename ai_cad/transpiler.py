@@ -72,22 +72,16 @@ def _emit_parameter(param: Parameter) -> str:
     return f"{param.name} = {rendered}{comment}"
 
 
-def _transpile_part(part: Part, parameters: dict[str, float]) -> list[str]:
-    """Transpile a single part's sketches and features."""
+def _transpile_part(part: Part, parameters: dict[str, float], var_name: str = "part") -> list[str]:
+    """Transpile a single part's sketches and features into a BuildPart context."""
     lines: list[str] = []
+    lines.append(f"with BuildPart() as {var_name}:")
 
-    # Pre-declare all sketches as functions or inline blocks so features can reference them.
-    # build123d sketches are created inside a BuildPart context. We will create the context
-    # first, then add sketches and features in order.
-    lines.append("with BuildPart() as part:")
-
-    # Sketch definitions are emitted as nested with BuildSketch() blocks.
     sketch_blocks: list[str] = []
     for sketch in part.sketches:
         solved = solve_sketch(sketch, parameters)
         sketch_blocks.append(_transpile_sketch(solved))
 
-    # Feature blocks.
     feature_blocks: list[str] = []
     for feature in part.features:
         if not feature.enabled:
@@ -106,13 +100,19 @@ def _transpile_part(part: Part, parameters: dict[str, float]) -> list[str]:
 
 
 def _transpile_sketch(sketch: Sketch) -> str:
-    """Emit a BuildSketch block for a sketch profile."""
+    """Emit a BuildSketch block for a sketch profile.
+
+    Entity lines are indented so the block can be placed inside a BuildPart context.
+    """
     plane_expr = _plane_expression(sketch.plane)
     lines: list[str] = []
     lines.append(f"with BuildSketch({plane_expr}) as {sketch.id}:")
 
-    for entity in sketch.entities:
-        lines.append(_transpile_entity(entity))
+    if not sketch.entities:
+        lines.append("    pass")
+    else:
+        for entity in sketch.entities:
+            lines.append(f"    {_transpile_entity(entity)}")
 
     return "\n".join(lines)
 

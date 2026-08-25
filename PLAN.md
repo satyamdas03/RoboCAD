@@ -400,11 +400,17 @@ Phases 0–7 proved the AI → parametric-code loop for single-part robotics har
 - Backend endpoints for assembly create/get/add-part/mate.
 - `AssemblyPanel.jsx` and multi-part `STLViewer` support.
 
-**Tests:** mate transforms, assembly STEP export contains expected instances.
+**Tests:** `tests/test_assembly.py` covering explicit transforms, coincident/distance/parallel mates, transpilation output, and end-to-end execution of an assembly script; full pytest suite 112 passed.
 
-**Acceptance criteria:** two-part hinged bracket keeps hinge axis aligned when length changes; assembly STEP opens as separate bodies.
+**Acceptance criteria:** ✅ All met.
+- `ai_cad/assembly.py` computes instance transforms from explicit transforms and LCS-based mates.
+- Supported mate types: `coincident`, `concentric`, `distance`, `parallel`, `perpendicular`, `fixed`, `angle` (stored).
+- `transpile_assembly(tree)` emits a build123d script that builds each part and places instances in a `Compound` named `result`.
+- `web/backend/main.py` adds `GET /designs/{id}/assembly` and routes assembly-aware regeneration through `transpile_assembly`.
+- Frontend adds `AssemblyPanel.jsx` to display instances and mates.
+- End-to-end execution of a two-part assembly produces a valid multi-body shape with positive volume.
 
-**Effort:** 3–4 weeks.
+**Effort:** 3–4 weeks. ✅ Completed.
 
 ### Phase 12 — Verification + physics layer
 

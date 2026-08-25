@@ -25,6 +25,7 @@ from ai_cad.models import (
     ValidationReport,
 )
 from ai_cad.parameters import extract_parameters
+from ai_cad.assembly import transpile_assembly
 from ai_cad.transpiler import transpile
 from ai_cad.validator import validate_model
 
@@ -54,6 +55,7 @@ class RoboCADBackend:
         output_dir: Optional[Path] = None,
         timeout: int = 60,
         use_feature_tree: bool = False,
+        use_assembly: bool = False,
     ) -> GenerationResult:
         """Generate a validated parametric CAD model from a natural-language prompt.
 
@@ -63,6 +65,10 @@ class RoboCADBackend:
         If ``use_feature_tree`` is True, the backend first attempts to generate a
         structured Feature-Tree JSON, transpile it to build123d, validate it, and
         falls back to the legacy code.py path if the feature-tree path fails.
+
+        If ``use_assembly`` is True and the generated feature tree contains an
+        assembly, the feature tree is transpiled as an assembly (multi-part
+        Compound) instead of a single part.
         """
         start = time.time()
         model = model or self.model or DEFAULT_MODEL
@@ -85,6 +91,7 @@ class RoboCADBackend:
                 max_retries=max_retries,
                 output_dir=output_dir,
                 timeout=timeout,
+                use_assembly=use_assembly,
             )
             if ft_result.success:
                 return ft_result
@@ -222,6 +229,7 @@ class RoboCADBackend:
         max_retries: int,
         output_dir: Path,
         timeout: int,
+        use_assembly: bool = False,
     ) -> GenerationResult:
         """Feature-tree path: prompt → Feature-Tree JSON → transpile → execute → validate."""
         start = time.time()
@@ -272,7 +280,10 @@ class RoboCADBackend:
                 break
 
             try:
-                code = transpile(tree)
+                if use_assembly and tree.assemblies:
+                    code = transpile_assembly(tree)
+                else:
+                    code = transpile(tree)
             except Exception as exc:
                 traceback_str = f"Transpiler failed: {exc}"
                 if attempts_used - 1 < max_retries:

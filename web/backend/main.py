@@ -42,8 +42,9 @@ from pydantic import BaseModel, Field
 from ai_cad.api import RoboCADBackend
 from ai_cad.code_ops import update_parameters
 from ai_cad.executor import execute_code
+from ai_cad.assembly import transpile_assembly
 from ai_cad.feature_store import save as save_feature_tree
-from ai_cad.feature_tree import FeatureTree
+from ai_cad.feature_tree import Assembly, FeatureTree
 from ai_cad.guess_parameter import guess_parameter as _guess_parameter
 from ai_cad.manufacturing import analyze_model as _analyze_manufacturing
 from ai_cad.models import CADParameter, ExportPaths, GenerationResult, ManufacturingReport, ValidationReport
@@ -83,6 +84,7 @@ class GenerateRequest(BaseModel):
     prompt: str = Field(..., min_length=1, description="Natural-language part description.")
     max_retries: int = Field(default=2, ge=0, le=5, description="Self-correction attempts.")
     model: str | None = Field(default=None, description="Optional LLM model override.")
+    use_assembly: bool = Field(default=False, description="Generate as a multi-part assembly if the model returns one.")
 
 
 class GenerateResponse(GenerationResult):
@@ -147,7 +149,8 @@ def generate(request: GenerateRequest) -> GenerateResponse:
         request.prompt,
         request.model,
         request.max_retries,
-        use_feature_tree=False,
+        use_feature_tree=True,
+        use_assembly=request.use_assembly,
     )
 
     return GenerateResponse(
@@ -222,13 +225,18 @@ def get_design(design_id: str) -> dict[str, Any]:
     if code_path.exists():
         code = code_path.read_text(encoding="utf-8")
 
+    assembly = None
     feature_tree = None
     feature_tree_path = design_dir / "feature_tree.json"
     if feature_tree_path.exists():
         try:
             feature_tree = json.loads(feature_tree_path.read_text(encoding="utf-8"))
+            assemblies = feature_tree.get("assemblies")
+            if assemblies:
+                assembly = assemblies[0]
         except Exception:
             feature_tree = None
+            assembly = None
 
     parameters: list[dict] = []
     params_path = design_dir / "parameters.json"
@@ -244,10 +252,28 @@ def get_design(design_id: str) -> dict[str, Any]:
         **meta,
         "code": code,
         "feature_tree": feature_tree,
+        "assembly": assembly,
         "parameters": parameters,
         "export_urls": _build_export_urls(design_id, meta.get("exports", {})),
         "versions": versions,
     }
+
+
+@app.get("/designs/{design_id}/assembly")
+def get_assembly(design_id: str) -> dict[str, Any]:
+    """Return the first assembly in the design's feature tree, if any."""
+    design_dir = DESIGNS_DIR / design_id
+    feature_tree_path = design_dir / "feature_tree.json"
+    if not feature_tree_path.exists():
+        raise HTTPException(status_code=404, detail="No feature tree found for this design.")
+    try:
+        data = json.loads(feature_tree_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read feature tree: {exc}")
+    assemblies = data.get("assemblies", [])
+    if not assemblies:
+        raise HTTPException(status_code=404, detail="No assembly found for this design.")
+    return {"design_id": design_id, "assembly": assemblies[0]}
 
 
 @app.get("/designs/{design_id}/feature-tree")
@@ -288,7 +314,10 @@ def regenerate_from_feature_tree(
             raise HTTPException(status_code=400, detail=f"Unknown parameter: {name}")
 
     try:
-        code = transpile(tree)
+        if tree.assemblies:
+            code = transpile_assembly(tree)
+        else:
+            code = transpile(tree)
     except Exception as exc:
         raise HTTPException(status_code=422, detail=f"Failed to transpile feature tree: {exc}")
 
@@ -783,6 +812,7 @@ def _run_generation(
     parent_id: str | None = None,
     tags: list[str] | None = None,
     use_feature_tree: bool = False,
+    use_assembly: bool = False,
 ) -> tuple[GenerationResult, dict]:
     design_dir = DESIGNS_DIR / design_id
     exports_dir = design_dir / "exports"
@@ -794,6 +824,7 @@ def _run_generation(
         max_retries=max_retries,
         output_dir=exports_dir,
         use_feature_tree=use_feature_tree,
+        use_assembly=use_assembly,
     )
 
     # Build a manufacturing report for successful STL exports.

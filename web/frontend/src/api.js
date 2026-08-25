@@ -43,6 +43,10 @@ export async function loadFeatureTree(id) {
   return apiFetch(`/designs/${id}/feature-tree`)
 }
 
+export async function loadAssembly(id) {
+  return apiFetch(`/designs/${id}/assembly`)
+}
+
 export async function regenerateFromFeatureTree(id, parameterUpdates) {
   return apiFetch(`/designs/${id}/regenerate-from-feature-tree`, {
     method: 'POST',

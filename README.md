@@ -4,7 +4,7 @@
 >
 > **Core bet:** The AI writes **parametric CAD code** (build123d / FeatureScript), not throwaway meshes. The model you get is editable, versionable, and exportable for 3D printing, machining, or Onshape.
 >
-> **Latest milestone:** Phase 10 sketch + 2D constraint solver complete. RoboCAD now solves geometric constraints (distance, horizontal, vertical, coincident, concentric, equal, fix) inside sketches before transpiling to `build123d`. The solver uses `scipy.optimize.least_squares` with a tiny regularization term so under-determined sketches converge near their initial geometry. Phase 8 baseline remains **26/30 (86.7%)**; full pytest suite: **105 passed**.
+> **Latest milestone:** Phase 11 assembly system complete. RoboCAD now supports multi-part assemblies with part instances, LCS-based mates (coincident, concentric, distance, parallel, perpendicular, fixed), and assembly export as a multi-body `Compound` via `ai_cad.assembly.transpile_assembly`. Backend adds `GET /designs/{id}/assembly`, and the frontend adds an **Assembly** panel. Phase 8 baseline remains **26/30 (86.7%)**; full pytest suite: **112 passed**.
 
 ---
 
@@ -131,7 +131,7 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **8** | **Complexity benchmark + feature-tree spec** | ✅ **Complete — 30-prompt baseline: 26/30 (86.7%); feature-tree schema v1.0.0; new tests pass** |
 | **9** | **Feature-tree backend** | ✅ **Complete — structured feature tree transpiles to build123d; `GET /designs/{id}/feature-tree` + `POST /designs/{id}/regenerate-from-feature-tree`; frontend Feature Tree panel; 97/97 tests pass** |
 | **10** | **Sketch + 2D constraint solver** | ✅ **Complete — internal 2D solver for distance/horizontal/vertical/coincident/concentric/equal/fix constraints; `ai_cad/sketch_solver.py` + `tests/test_sketch_solver.py`; 105/105 tests pass** |
-| **11** | Assembly system | ⏳ Planned — multi-part designs with LCS-based mates |
+| **11** | **Assembly system** | ✅ **Complete — multi-part instances + LCS mates, `ai_cad/assembly.py`, assembly STEP export, `GET /designs/{id}/assembly`, `AssemblyPanel.jsx`, `tests/test_assembly.py`; 112/112 tests pass** |
 | **12** | Verification + physics layer | ⏳ Planned — DFM rules, FEA, tolerance/fit checks |
 | **13** | Model specialization / fine-tuning | ⏳ Planned — LoRA fine-tune local model on RoboCAD feature trees |
 | **14** | Distribution + packaging | ⏳ Planned — one-command launcher / desktop installer |
