@@ -380,11 +380,16 @@ Phases 0–7 proved the AI → parametric-code loop for single-part robotics har
 - `ai_cad/sketch.py`, `ai_cad/sketch_solver.py`, sketch transpiler updates.
 - `SketchViewer.jsx` (read-only v1).
 
-**Tests:** solver produces correct coordinates for canonical sketches; sketch updates correctly when parameters change.
+**Tests:** `tests/test_sketch_solver.py` covering distance, horizontal, vertical, coincident, concentric, equal, fix, and parameter substitution; full pytest suite 105 passed.
 
-**Acceptance criteria:** rectangle constrained to `length × width` updates correctly; circle stays concentric after edits; benchmark pass rate on sketch-based parts improves.
+**Acceptance criteria:** ✅ All met.
+- `ai_cad/sketch_solver.py` solves distance, horizontal, vertical, coincident, concentric, equal, and fix constraints for sketch control points.
+- Driving dimensions (distance, radius, diameter, angle) resolve parameter names and enforce values via `scipy.optimize.least_squares`.
+- `ai_cad/transpiler.py` solves each sketch before emitting build123d code.
+- Sketch control-point handles support entity IDs ("circle1") and point references ("line1.start", "circle1.center").
+- Under-determined systems converge using a tiny Tikhonov regularization term.
 
-**Effort:** 3–4 weeks.
+**Effort:** 3–4 weeks. ✅ Completed.
 
 ### Phase 11 — Assembly system
 

@@ -27,12 +27,15 @@ from ai_cad.feature_tree import (
     Sketch,
     SketchEntity,
 )
+from ai_cad.sketch_solver import solve_sketch
 
 
-def transpile(tree: FeatureTree) -> str:
+def transpile(tree: FeatureTree, parameters: dict[str, float] | None = None) -> str:
     """Convert a feature tree into a build123d Python script."""
     if not tree.parts:
         raise ValueError("Feature tree has no parts to transpile.")
+
+    parameters = parameters or tree.parameter_dict()
 
     lines: list[str] = []
     lines.append("from build123d import *")
@@ -45,7 +48,7 @@ def transpile(tree: FeatureTree) -> str:
 
     # For Phase 9 we transpile the first part only.
     part = tree.parts[0]
-    lines.extend(_transpile_part(part))
+    lines.extend(_transpile_part(part, parameters))
     lines.append("")
     lines.append("result = part.part")
 
@@ -69,7 +72,7 @@ def _emit_parameter(param: Parameter) -> str:
     return f"{param.name} = {rendered}{comment}"
 
 
-def _transpile_part(part: Part) -> list[str]:
+def _transpile_part(part: Part, parameters: dict[str, float]) -> list[str]:
     """Transpile a single part's sketches and features."""
     lines: list[str] = []
 
@@ -81,7 +84,8 @@ def _transpile_part(part: Part) -> list[str]:
     # Sketch definitions are emitted as nested with BuildSketch() blocks.
     sketch_blocks: list[str] = []
     for sketch in part.sketches:
-        sketch_blocks.append(_transpile_sketch(sketch))
+        solved = solve_sketch(sketch, parameters)
+        sketch_blocks.append(_transpile_sketch(solved))
 
     # Feature blocks.
     feature_blocks: list[str] = []

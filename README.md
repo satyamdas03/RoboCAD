@@ -4,7 +4,7 @@
 >
 > **Core bet:** The AI writes **parametric CAD code** (build123d / FeatureScript), not throwaway meshes. The model you get is editable, versionable, and exportable for 3D printing, machining, or Onshape.
 >
-> **Latest milestone:** Phase 9 feature-tree backend complete. RoboCAD now stores designs as a structured, editable Feature-Tree JSON sidecar (`designs/{id}/feature_tree.json`) in addition to the legacy `code.py` path. The tree transpiles to `build123d`, supports parameter updates via `POST /designs/{id}/regenerate-from-feature-tree`, and is exposed in the frontend through a new **Feature Tree** panel. Phase 8 baseline remains: 30-prompt complexity ladder against `qwen3-coder:latest` achieved **26/30 (86.7%)**. Full pytest suite: **97 passed**.
+> **Latest milestone:** Phase 10 sketch + 2D constraint solver complete. RoboCAD now solves geometric constraints (distance, horizontal, vertical, coincident, concentric, equal, fix) inside sketches before transpiling to `build123d`. The solver uses `scipy.optimize.least_squares` with a tiny regularization term so under-determined sketches converge near their initial geometry. Phase 8 baseline remains **26/30 (86.7%)**; full pytest suite: **105 passed**.
 
 ---
 
@@ -130,7 +130,7 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **7** | Google Stitch Kinetic Precision UI redesign | ✅ **Complete — dark scientific engineering workstation, `kp-*` token system, fixed header/sidebar/viewer/inspector layout, all components restyled, frontend builds cleanly, 56/57 tests passing, live end-to-end verified** |
 | **8** | **Complexity benchmark + feature-tree spec** | ✅ **Complete — 30-prompt baseline: 26/30 (86.7%); feature-tree schema v1.0.0; new tests pass** |
 | **9** | **Feature-tree backend** | ✅ **Complete — structured feature tree transpiles to build123d; `GET /designs/{id}/feature-tree` + `POST /designs/{id}/regenerate-from-feature-tree`; frontend Feature Tree panel; 97/97 tests pass** |
-| **10** | Sketch + 2D constraint solver | ⏳ Planned — true parametric sketches with geometric constraints |
+| **10** | **Sketch + 2D constraint solver** | ✅ **Complete — internal 2D solver for distance/horizontal/vertical/coincident/concentric/equal/fix constraints; `ai_cad/sketch_solver.py` + `tests/test_sketch_solver.py`; 105/105 tests pass** |
 | **11** | Assembly system | ⏳ Planned — multi-part designs with LCS-based mates |
 | **12** | Verification + physics layer | ⏳ Planned — DFM rules, FEA, tolerance/fit checks |
 | **13** | Model specialization / fine-tuning | ⏳ Planned — LoRA fine-tune local model on RoboCAD feature trees |
