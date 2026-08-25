@@ -12,6 +12,7 @@ pydantic>=2.0.0
 
 # Geometry validation and mesh handling
 trimesh>=4.0.0
+rtree>=1.2.0  # required by trimesh proximity queries (tolerance/fit checks)
 manifold3d>=2.0.0
 numpy>=1.26.0
 

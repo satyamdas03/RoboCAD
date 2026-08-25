@@ -79,6 +79,30 @@ export async function getManufacturingReport(id) {
   return apiFetch(`/designs/${id}/manufacturing-report`)
 }
 
+export async function getDFMReport(id) {
+  return apiFetch(`/designs/${id}/dfm-report`)
+}
+
+export async function runFitCheck(id, { otherDesignId, name = 'fit_check', clearanceThresholdMm = 0.05, interferenceThresholdMm = -0.05, samples = 2000 }) {
+  return apiFetch(`/designs/${id}/fit-check`, {
+    method: 'POST',
+    body: JSON.stringify({
+      other_design_id: otherDesignId,
+      name,
+      clearance_threshold_mm: clearanceThresholdMm,
+      interference_threshold_mm: interferenceThresholdMm,
+      samples,
+    }),
+  })
+}
+
+export async function runFEA(id, { fixedFace = '-x', loadMagnitudeN = 100, material = 'PLA' } = {}) {
+  return apiFetch(`/designs/${id}/fea-report`, {
+    method: 'POST',
+    body: JSON.stringify({ fixed_face: fixedFace, load_magnitude_n: loadMagnitudeN, material }),
+  })
+}
+
 export async function listOnshapeDocuments(query = '', limit = 20) {
   const params = new URLSearchParams()
   if (query) params.set('q', query)

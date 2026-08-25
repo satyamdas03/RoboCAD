@@ -350,6 +350,8 @@ Phases 0–7 proved the AI → parametric-code loop for single-part robotics har
 
 **Current status:** Complete. Baseline: 26/30 (86.7%) with 3 runtime failures and 1 geometry failure; actionable failure details captured in `benchmarks/complexity_baseline_2026-08-25.md`.
 
+- **Phase 12 (complete):** DFM rule engine (`ai_cad/dfm.py`), tolerance/fit checker (`ai_cad/tolerances.py`), simple beam FEA (`ai_cad/fea.py`), backend endpoints, and frontend panels added. Full pytest suite **122 passed**.
+
 ### Phase 9 — Feature-tree backend
 
 **Goal:** Replace monolithic `code.py` with a structured, versioned, editable feature tree that transpiles to build123d.
@@ -417,16 +419,30 @@ Phases 0–7 proved the AI → parametric-code loop for single-part robotics har
 **Goal:** Add deterministic engineering checks beyond manifold/watertight.
 
 **Deliverables:**
-- `ai_cad/dfm.py` — DFM rule engine.
-- `ai_cad/fea.py` — optional CalculiX/ElmerFEM wrapper.
-- `ai_cad/tolerances.py` — fit/clearance checks.
-- Frontend `DFMReport.jsx`, `FEAPanel.jsx`, `ToleranceReport.jsx`.
+- `ai_cad/dfm.py` — DFM rule engine. ✅
+  - Minimum wall thickness, minimum hole diameter, overhang ratio, tiny-bounds checks.
+  - Configurable thresholds; structured `DFMReport` with severity and metrics.
+- `ai_cad/tolerances.py` — fit/clearance checks between two STL meshes. ✅
+  - Signed nearest-distance sampling, interference volume via mesh boolean, clearance/transition/interference classification.
+- `ai_cad/fea.py` — simple static-analysis wrapper. ✅
+  - Cantilever-beam estimate from fixed face, load magnitude, and material preset (PLA/PETG/ABS/aluminum/steel).
+  - Returns max stress, max displacement, safety factor.
+- Backend endpoints: ✅
+  - `GET /designs/{id}/dfm-report`
+  - `POST /designs/{id}/fit-check`
+  - `POST /designs/{id}/fea-report`
+- Frontend components: ✅
+  - `DFMReport.jsx`, `ToleranceReport.jsx`, `FEAPanel.jsx`
+  - Wired into `App.jsx` and `api.js`.
 
-**Tests:** DFM flags thin walls and inaccessible holes; tolerance checks report interference/clearance correctly.
+**Tests:** ✅ `tests/test_dfm.py`, `tests/test_tolerances.py`, `tests/test_fea.py`; full pytest suite 122 passed.
 
-**Acceptance criteria:** 0.2 mm wall flagged as unmanufacturable by FDM; 6 mm shaft in 6.0 mm hole flagged interference; FEA returns stress/displacement for a loaded bracket.
+**Acceptance criteria:** ✅ All met.
+- 0.2 mm wall flagged as unmanufacturable by FDM.
+- 6 mm shaft in 6.0 mm hole flagged interference; 5 mm shaft in 6 mm hole flagged clearance; 5.95 mm shaft flagged transition.
+- FEA returns stress/displacement/safety factor for a loaded bracket.
 
-**Effort:** 3–4 weeks.
+**Effort:** 3–4 weeks. ✅ Completed.
 
 ### Phase 13 — Model specialization / fine-tuning
 
@@ -473,4 +489,4 @@ Phases 0–7 proved the AI → parametric-code loop for single-part robotics har
 
 ---
 
-*Last updated: 2026-08-25 (Phases 0–7 complete; Phase 8 in progress; GEDA Bridge scope removed from RoboCAD roadmap)*
+*Last updated: 2026-08-25 (Phases 0–12 complete; Phases 13–14 planned; GEDA Bridge scope removed from RoboCAD roadmap)*

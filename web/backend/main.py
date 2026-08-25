@@ -43,13 +43,16 @@ from ai_cad.api import RoboCADBackend
 from ai_cad.code_ops import update_parameters
 from ai_cad.executor import execute_code
 from ai_cad.assembly import transpile_assembly
+from ai_cad.dfm import analyze_dfm
 from ai_cad.feature_store import save as save_feature_tree
 from ai_cad.feature_tree import Assembly, FeatureTree
+from ai_cad.fea import run_static_analysis
 from ai_cad.guess_parameter import guess_parameter as _guess_parameter
 from ai_cad.manufacturing import analyze_model as _analyze_manufacturing
 from ai_cad.models import CADParameter, ExportPaths, GenerationResult, ManufacturingReport, ValidationReport
 from ai_cad.onshape import OnshapeClient
 from ai_cad.parameters import extract_parameters
+from ai_cad.tolerances import check_fit
 from ai_cad.transpiler import transpile
 from ai_cad.validator import validate_model
 
@@ -129,6 +132,20 @@ class OnshapeUploadRequest(BaseModel):
     document_id: str | None = Field(default=None, description="Existing Onshape document id; if omitted, a new document is created.")
     workspace_id: str | None = Field(default=None, description="Workspace id within the document (required with document_id).")
     document_name: str | None = Field(default=None, description="Name for a newly created Onshape document.")
+
+
+class FitCheckRequest(BaseModel):
+    other_design_id: str = Field(..., description="Design id whose STL will be compared against the target design.")
+    name: str = Field(default="fit_check", description="Identifier for this fit check.")
+    clearance_threshold_mm: float = Field(default=0.05, ge=0, description="Min positive clearance to classify as clearance fit.")
+    interference_threshold_mm: float = Field(default=-0.05, le=0, description="Max negative clearance to classify as interference fit.")
+    samples: int = Field(default=2000, ge=100, le=10000, description="Surface sample count.")
+
+
+class FEARequest(BaseModel):
+    fixed_face: str = Field(default="-x", description="Fully constrained face: +x, -x, +y, -y, +z, -z.")
+    load_magnitude_n: float = Field(default=100.0, gt=0, description="Applied force magnitude in Newtons.")
+    material: str = Field(default="PLA", description="Material name (PLA, PETG, ABS, aluminum, steel).")
 
 
 
@@ -566,6 +583,107 @@ def manufacturing_report(design_id: str) -> dict[str, Any]:
         }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to analyze model: {exc}")
+
+
+@app.get("/designs/{design_id}/dfm-report")
+def dfm_report(design_id: str) -> dict[str, Any]:
+    """Return a Design-for-Manufacturing report for a design's STL export."""
+    design_dir = DESIGNS_DIR / design_id
+    meta_path = design_dir / "metadata.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Design not found.")
+
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read metadata: {exc}")
+
+    stl_path = _resolve_export_path(design_id, meta.get("exports", {}).get("stl"))
+    if not stl_path or not stl_path.exists():
+        raise HTTPException(status_code=422, detail="No STL export found for this design.")
+
+    try:
+        report = analyze_dfm(stl_path)
+        return {"design_id": design_id, "report": report.model_dump()}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to run DFM analysis: {exc}")
+
+
+@app.post("/designs/{design_id}/fit-check")
+def fit_check_endpoint(design_id: str, request: FitCheckRequest) -> dict[str, Any]:
+    """Check geometric fit/clearance between this design's STL and another design's STL."""
+    target_dir = DESIGNS_DIR / design_id
+    target_meta_path = target_dir / "metadata.json"
+    other_dir = DESIGNS_DIR / request.other_design_id
+    other_meta_path = other_dir / "metadata.json"
+
+    if not target_meta_path.exists():
+        raise HTTPException(status_code=404, detail="Target design not found.")
+    if not other_meta_path.exists():
+        raise HTTPException(status_code=404, detail="Other design not found.")
+
+    try:
+        target_meta = json.loads(target_meta_path.read_text(encoding="utf-8"))
+        other_meta = json.loads(other_meta_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read metadata: {exc}")
+
+    target_stl = _resolve_export_path(design_id, target_meta.get("exports", {}).get("stl"))
+    other_stl = _resolve_export_path(request.other_design_id, other_meta.get("exports", {}).get("stl"))
+    if not target_stl or not target_stl.exists():
+        raise HTTPException(status_code=422, detail="No STL export found for the target design.")
+    if not other_stl or not other_stl.exists():
+        raise HTTPException(status_code=422, detail="No STL export found for the other design.")
+
+    try:
+        result = check_fit(
+            target_stl,
+            other_stl,
+            name=request.name,
+            clearance_threshold_mm=request.clearance_threshold_mm,
+            interference_threshold_mm=request.interference_threshold_mm,
+            samples=request.samples,
+        )
+        return {
+            "design_id": design_id,
+            "other_design_id": request.other_design_id,
+            "report": result.model_dump(),
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to run fit check: {exc}")
+
+
+@app.post("/designs/{design_id}/fea-report")
+def fea_report(design_id: str, request: FEARequest) -> dict[str, Any]:
+    """Run a simple static analysis (cantilever beam estimate) on a design's STL."""
+    design_dir = DESIGNS_DIR / design_id
+    meta_path = design_dir / "metadata.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Design not found.")
+
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read metadata: {exc}")
+
+    stl_path = _resolve_export_path(design_id, meta.get("exports", {}).get("stl"))
+    if not stl_path or not stl_path.exists():
+        raise HTTPException(status_code=422, detail="No STL export found for this design.")
+
+    valid_faces = {"+x", "-x", "+y", "-y", "+z", "-z"}
+    if request.fixed_face not in valid_faces:
+        raise HTTPException(status_code=400, detail=f"fixed_face must be one of {valid_faces}")
+
+    try:
+        result = run_static_analysis(
+            stl_path,
+            fixed_face=request.fixed_face,
+            load_magnitude_n=request.load_magnitude_n,
+            material=request.material,
+        )
+        return {"design_id": design_id, "report": result.model_dump()}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to run FEA: {exc}")
 
 
 @app.post("/designs/{parent_id}/remix")

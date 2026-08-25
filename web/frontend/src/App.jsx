@@ -9,6 +9,9 @@ import TagEditor from './components/TagEditor.jsx'
 import RemixPanel from './components/RemixPanel.jsx'
 import ComponentLibrary from './components/ComponentLibrary.jsx'
 import ManufacturingReport from './components/ManufacturingReport.jsx'
+import DFMReport from './components/DFMReport.jsx'
+import ToleranceReport from './components/ToleranceReport.jsx'
+import FEAPanel from './components/FEAPanel.jsx'
 import OnshapeUpload from './components/OnshapeUpload.jsx'
 import FeatureTreePanel from './components/FeatureTreePanel.jsx'
 import AssemblyPanel from './components/AssemblyPanel.jsx'
@@ -280,6 +283,9 @@ export default function App() {
                 loading={loading}
               />
               <ManufacturingReport designId={selectedId} />
+              <DFMReport designId={selectedId} />
+              <ToleranceReport designId={selectedId} designs={designs} />
+              <FEAPanel designId={selectedId} />
               <OnshapeUpload designId={selectedId} prompt={result?.prompt} />
               <TagEditor tags={result?.tags || []} onUpdate={handleUpdateTags} />
               <RemixPanel designId={selectedId} onRemix={handleRemix} loading={loading} />
