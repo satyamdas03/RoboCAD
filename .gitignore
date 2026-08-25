@@ -11,6 +11,7 @@ output/
 designs/
 training/
 models/
+backups/
 *.stl
 *.step
 *.stp
