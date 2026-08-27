@@ -17,6 +17,7 @@ from ai_cad.geda_bridge.models import (
     InertialData,
 )
 from ai_cad.geda_bridge.packager import package_bundle, package_bundle_paths
+from ai_cad.geda_bridge.runtime_validator import validate_bundle_with_mujoco
 from ai_cad.geda_bridge.verifier import verify_bundle
 
 __all__ = [
@@ -33,5 +34,6 @@ __all__ = [
     "InertialData",
     "package_bundle",
     "package_bundle_paths",
+    "validate_bundle_with_mujoco",
     "verify_bundle",
 ]

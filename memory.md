@@ -131,8 +131,8 @@ LearningRobotics → world model → policy training → sim-to-real
 | **11** | Assembly system | ✅ **Complete — multi-part instances + LCS mates; 112 tests** |
 | **12** | Verification + physics layer | ✅ **Complete — DFM, tolerances, FEA; 125 tests** |
 | **13** | Model specialization + Claude 5 integration | ✅ **Complete — dataset builder, Ollama Modelfile, QLoRA skeleton, A/B evaluator, Anthropic SDK fixes; 134 tests; Claude Sonnet 5 T1–T4 87.5% (21/24), overall 21/30 (70.0%)** |
-| **14A** | **GEDA Bridge: MuJoCo / URDF exporter + bundles** | 🚧 **Next** |
-| **14B** | Standard manipulation scene templates | ⏳ Planned |
+| **14A** | **GEDA Bridge: MuJoCo / URDF exporter + bundles** | ✅ **Complete — `ai_cad/geda_bridge/`, backend endpoints, `SimulatePanel.jsx`, 152/152 tests passing, MuJoCo runtime validation** |
+| **14B** | Standard manipulation scene templates | 🚧 **Next** |
 | **15A** | LearningRobotics handshake | ⏳ Planned |
 | **15B** | RoboCompiler asset pipeline | ⏳ Planned |
 | **16** | Voice/text + sketch input | ⏳ Planned |
@@ -219,13 +219,14 @@ RoboCAD/
 - `ai_cad/` package implements generation, execution, validation, parameter extraction, self-correction, Onshape upload, manufacturing reports, face-click parameter guessing, feature trees, sketch constraints, assemblies, DFM/tolerances/FEA, and Claude 5 compatibility.
 - Latest commit `06a373c` hardens `_extract_code_block()` against nested markdown fences and increases empty-text retries from 3 to 5.
 - Web app has FastAPI backend + React frontend with Kinetic Precision dark workstation UI.
-- Test suite: **134/134 passing tests**.
+- Test suite: **152/152 passing tests**.
+- Phase 14A GEDA Bridge complete: `ai_cad/geda_bridge/` exports MuJoCo/URDF bundles and passes MuJoCo runtime validation tests.
 - Live end-to-end verified for base plates, NEMA-17 mounts, component-library seed flows, feature-tree regeneration, and assembly display.
 - Strategic analysis complete: PATH1 (GEDA Bridge) will be built before PATH2 (full voice-to-world-model vision).
 - **Phase 13 quality gate achieved:** `claude-sonnet-5-20250501` T1–T4 **87.5% (21/24)**.
 
 **Next work:**
-1. **Phase 14A GEDA Bridge:** build `ai_cad/geda_bridge/exporter.py` to export designs to MuJoCo/URDF and verify bundles.
+1. **Phase 14B — Standard manipulation scene templates:** build drop-in MuJoCo/Isaac Sim task scenes for gripper cube grasp, bracket hook hang, wedge push, and peg insertion.
 2. Complete cross-repo handshake with `LearningRobotics` (Phase 15A).
 3. Continue local-model fine-tuning (`robocad-ft:latest`) as a background experiment.
 
@@ -334,4 +335,4 @@ If you are resuming this session with no other context:
 
 ---
 
-*Last updated: 2026-08-27 (Phases 0–13 complete; Phase 13 T1–T4 gate achieved; PATH1/PATH2 analysis done; Phase 14A GEDA Bridge is next)*
+*Last updated: 2026-08-27 (Phases 0–14A complete; Phase 14A GEDA Bridge verified with MuJoCo runtime tests; 152/152 tests passing; Phase 14B is next)*

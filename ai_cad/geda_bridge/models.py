@@ -67,6 +67,8 @@ class BundleManifest(BaseModel):
     generator: str = "RoboCAD GEDA Bridge"
     length_unit: str = "m"
     mass_unit: str = "kg"
+    urdf_file: str | None = None
+    mjcf_file: str | None = None
     parts: list[BundlePart] = Field(default_factory=list)
 
 

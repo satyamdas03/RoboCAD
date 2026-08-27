@@ -509,6 +509,8 @@ PATH1 is a delivery-infrastructure play: take RoboCAD's parametric output and ex
 
 ### Phase 14A — GEDA Bridge: MuJoCo / URDF exporter + verified asset bundles
 
+**Status:** ✅ Complete — runtime validation tests using MuJoCo are now included.
+
 **Goal:** Convert any RoboCAD part or assembly into a simulation-ready bundle: mesh, collision mesh, inertial properties, MJCF, URDF, and manifest.
 
 **Deliverables:**
@@ -524,14 +526,14 @@ PATH1 is a delivery-infrastructure play: take RoboCAD's parametric output and ex
 - Optional `mujoco>=3.0.0` dependency in `requirements-dev.txt`.
 - Test fixtures: cube, cylinder, L-bracket, 2-part assembly, gripper jaw.
 
-**Tests:** `tests/test_geda_bridge.py` (9 tests) + backend endpoint tests in `tests/test_web_backend.py` (4 tests). Full suite: 148 passed.
+**Tests:** `tests/test_geda_bridge.py` (9 tests) + backend endpoint tests in `tests/test_web_backend.py` (4 tests) + `tests/test_geda_bridge_runtime.py` MuJoCo runtime tests (4 tests). Full suite: 152 passed.
 
 **Acceptance criteria:**
 - ✅ Cube, cylinder, L-bracket, 2-part assembly, and gripper jaw all export and verify.
 - ✅ Inertial properties are positive-definite and CoM lies inside each convex hull.
 - ✅ Every URDF contains a world link, fixed joints, and inertial/visual/collision blocks.
 - ✅ Every MJCF contains mesh assets, bodies, inertial frames, and mesh geoms.
-- ⏳ Load bundles in MuJoCo (requires `mujoco` dev dependency).
+- ✅ Bundles load in MuJoCo (`mujoco` dev dependency) and survive a short simulation rollout.
 - ⏳ Load URDF in Gazebo/Ignition.
 
 **Effort:** 2–3 months.
@@ -782,4 +784,4 @@ Full analysis is saved in `.claude/memory/robocad-path-analysis.md` and the end-
 
 ---
 
-*Last updated: 2026-08-27 (Phase 14A GEDA Bridge core exporter/backend/frontend implemented; 148/148 tests passing; remaining work: MuJoCo/URDF runtime validation, docs polish)*
+*Last updated: 2026-08-27 (Phase 14A GEDA Bridge complete; 152/152 tests passing; MuJoCo runtime validation included; Phase 14B is next)*

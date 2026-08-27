@@ -355,7 +355,9 @@ def _build_mjcf(parts: list[BundlePart], output_path: Path, model_name: str) -> 
 
     for part in parts:
         mesh_name = _sanitize_name(part.name)
-        ET.SubElement(asset, "mesh", {"name": mesh_name, "file": part.mesh_file})
+        # meshdir="meshes" is already set on the compiler, so the file path
+        # here must be relative to that directory (i.e. just the STL filename).
+        ET.SubElement(asset, "mesh", {"name": mesh_name, "file": Path(part.mesh_file).name})
 
     for part in parts:
         body_name = _sanitize_name(part.name)
@@ -453,6 +455,11 @@ def export_bundle_from_tree(
         parts=parts,
     )
 
+    urdf_path = output_dir / f"{name}.urdf"
+    mjcf_path = output_dir / f"{name}.mjcf"
+    manifest.urdf_file = urdf_path.name
+    manifest.mjcf_file = mjcf_path.name
+
     manifest_path = output_dir / "manifest.json"
     manifest_path.write_text(manifest.model_dump_json(indent=2), encoding="utf-8")
 
@@ -461,9 +468,6 @@ def export_bundle_from_tree(
     import json
 
     inertial_path.write_text(json.dumps(inertial_data, indent=2), encoding="utf-8")
-
-    urdf_path = output_dir / f"{name}.urdf"
-    mjcf_path = output_dir / f"{name}.mjcf"
     _build_urdf(parts, urdf_path, name)
     _build_mjcf(parts, mjcf_path, name)
 
@@ -511,6 +515,12 @@ def export_bundle_from_mesh(
         created_at=dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z"),
         parts=[part],
     )
+
+    urdf_path = output_dir / f"{name}.urdf"
+    mjcf_path = output_dir / f"{name}.mjcf"
+    manifest.urdf_file = urdf_path.name
+    manifest.mjcf_file = mjcf_path.name
+
     manifest_path = output_dir / "manifest.json"
     manifest_path.write_text(manifest.model_dump_json(indent=2), encoding="utf-8")
 
@@ -518,9 +528,6 @@ def export_bundle_from_mesh(
     import json
 
     inertial_path.write_text(json.dumps({part.name: part.inertial.model_dump()}, indent=2), encoding="utf-8")
-
-    urdf_path = output_dir / f"{name}.urdf"
-    mjcf_path = output_dir / f"{name}.mjcf"
     _build_urdf([part], urdf_path, name)
     _build_mjcf([part], mjcf_path, name)
 
