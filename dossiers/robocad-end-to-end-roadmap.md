@@ -100,6 +100,12 @@ Maintained across the entire roadmap:
 - End-to-end test: RoboCAD exports wedge → composes `wedge_push_block` → MuJoCo 10 s rollout → stability verified.
 - Full pytest suite: **170 passed**.
 
+**Caveats resolved during acceptance:**
+- Isaac Sim loader skeleton expanded with real `omni.isaac.core` imports (local/conditional so the module still imports outside Isaac Sim).
+- Nightly cross-repo CI workflow `.github/workflows/learningrobotics_handshake.yml` added against `satyamdas03/LearningRobotics`.
+- Backend handshake tests now seed a real build123d-scale wedge STL and assert `success is True`.
+- Two exporter/loader bugs fixed: bundle meshes are written in meters; rollout metrics are cast to native Python types for FastAPI serialization.
+
 **Timeline:** 1–2 months.
 
 ---
@@ -108,7 +114,7 @@ Maintained across the entire roadmap:
 
 **Goal:** When a human demonstrates a skill on video, RoboCAD suggests/generates a custom end-effector and `LearningRobotics` trains on it.
 
-**Status:** 🚧 In progress — next after Phase 15A acceptance.
+**Status:** 🚧 In progress — started 2026-08-27.
 
 **Deliverables:**
 - Skill-to-part recommendation.

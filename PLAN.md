@@ -590,12 +590,12 @@ PATH1 is a delivery-infrastructure play: take RoboCAD's parametric output and ex
 - ✅ 10 s stability rollout runs and reports metrics (steps, penetration, energy drift).
 - ✅ `/capabilities` registry is exposed.
 - ✅ Frontend can trigger the handshake and display results.
+- ✅ Three solvable caveats fixed during acceptance: real Isaac Sim skeleton loader, nightly cross-repo GitHub Actions workflow, and backend handshake tests use a real wedge asset and assert stability success.
+- ✅ Full pytest suite: **170 passed** after caveat fixes.
 
 **Effort:** 1–2 months.
 
-### Phase 15B — RoboCompiler asset pipeline 🚧 NEXT
-
-**Goal:** When a human demonstrates a skill on video, RoboCAD can suggest or generate a custom end-effector/part that makes the skill easier, and `LearningRobotics` can train on it.
+### Phase 15B — RoboCompiler asset pipeline 🚧 IN PROGRESS
 
 **Goal:** When a human demonstrates a skill on video, RoboCAD can suggest or generate a custom end-effector/part that makes the skill easier, and `LearningRobotics` can train on it.
 
