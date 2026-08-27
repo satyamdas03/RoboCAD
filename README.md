@@ -4,7 +4,7 @@
 >
 > **Core bet:** The AI writes **parametric CAD code** (build123d / FeatureScript), not throwaway meshes. The model you get is editable, versionable, and exportable for 3D printing, machining, or Onshape.
 >
-> **Latest milestone:** Phase 13 model-specialization scaffolding is in place and Claude 5 is now integrated. RoboCAD can build a supervised-finetuning dataset from the Phase 8 complexity ladder (`scripts/build_training_dataset.py`), embed selected examples into an Ollama Modelfile for few-shot specialization (`scripts/build_ollama_modelfile.py`), and A/B evaluate a specialized model against the base model (`scripts/evaluate_finetuned.py`). A QLoRA fine-tuning skeleton (`scripts/finetune_model.py`) is wired for `unsloth`/`peft`+`bitsandbytes` export to Ollama. Anthropic SDK compatibility fixes for Claude 5 (httpx2/httpcore2 shim, official base URL override, ThinkingBlock handling, retry loop, nested-fence extraction) are committed. Phase 8 baseline is **26/30 (86.7%)** against `qwen3-coder:latest`; first Claude Sonnet 5 run reached **21/30 (70.0%)** after fixes. Full pytest suite: **134 passed**. The strategic decision is to ship the **GEDA Bridge** (MuJoCo/URDF exporter + verified asset bundles) as Phase 14A/15A before pursuing the full voice-to-world-model vision.
+> **Latest milestone:** Phase 13 is **green on the T1–T4 ≥80% quality gate** and Claude 5 is fully integrated. RoboCAD can build a supervised-finetuning dataset from the Phase 8 complexity ladder (`scripts/build_training_dataset.py`), embed selected examples into an Ollama Modelfile for few-shot specialization (`scripts/build_ollama_modelfile.py`), and A/B evaluate a specialized model against the base model (`scripts/evaluate_finetuned.py`). A QLoRA fine-tuning skeleton (`scripts/finetune_model.py`) is wired for `unsloth`/`peft`+`bitsandbytes` export to Ollama. Anthropic SDK compatibility fixes for Claude 5 (httpx2/httpcore2 shim, official base URL override, ThinkingBlock handling, retry loop, nested-fence extraction) are committed and pushed. Phase 8 baseline is **26/30 (86.7%)** against `qwen3-coder:latest`; Claude Sonnet 5 reached **21/30 (70.0%)** overall with **T1–T4 at 87.5% (21/24)**. Full pytest suite: **134 passed**. The strategic decision is to ship the **GEDA Bridge** (MuJoCo/URDF exporter + verified asset bundles) as Phase 14A/15A before pursuing the full voice-to-world-model vision.
 
 ---
 
@@ -133,7 +133,7 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **10** | **Sketch + 2D constraint solver** | ✅ **Complete — internal 2D solver for distance/horizontal/vertical/coincident/concentric/equal/fix constraints; `ai_cad/sketch_solver.py` + `tests/test_sketch_solver.py`; 105/105 tests pass** |
 | **11** | **Assembly system** | ✅ **Complete — multi-part instances + LCS mates, `ai_cad/assembly.py`, assembly STEP export, `GET /designs/{id}/assembly`, `AssemblyPanel.jsx`, `tests/test_assembly.py`; 112/112 tests pass** |
 | **12** | **Verification + physics layer** | ✅ **Complete — DFM rule engine (`ai_cad/dfm.py`), tolerance/fit checks (`ai_cad/tolerances.py`), cantilever-beam FEA (`ai_cad/fea.py`), backend endpoints for all three, frontend `DFMReport.jsx` / `ToleranceReport.jsx` / `FEAPanel.jsx`; 125/125 tests pass** |
-| **13** | **Model specialization / fine-tuning + Claude 5 integration** | ✅ **Complete — dataset builder, Ollama Modelfile specialization, QLoRA skeleton, A/B evaluator, Anthropic SDK Claude 5 fixes; 134/134 tests pass; first Claude Sonnet 5 benchmark 21/30 (70.0%)** |
+| **13** | **Model specialization / fine-tuning + Claude 5 integration** | ✅ **Complete — dataset builder, Ollama Modelfile specialization, QLoRA skeleton, A/B evaluator, Anthropic SDK Claude 5 fixes; 134/134 tests pass; Claude Sonnet 5 T1–T4 87.5% (21/24), overall 21/30 (70.0%)** |
 | **14A** | **GEDA Bridge: MuJoCo / URDF exporter + verified asset bundles** | 🚧 **Next — export any part/assembly to simulation-ready MJCF/URDF bundle** |
 | **14B** | **Standard manipulation scene templates** | ⏳ Planned — drop-in MuJoCo/Isaac Sim task scenes |
 | **15A** | **LearningRobotics handshake** | ⏳ Planned — cross-repo bundle loader + stability rollout |
@@ -163,7 +163,7 @@ This roadmap is the canonical plan of record for RoboCAD. **Do not reorder phase
 
 | Phase | What it does | ~Time | Proof point |
 |---|---|---|---|
-| **13** | Benchmark to ≥80%, close extractor edge cases | 1–2 mo | Quality gate passed |
+| **13** | Benchmark to ≥80% on T1–T4, close extractor edge cases | 1–2 mo | Quality gate passed — T1–T4 87.5% with Claude Sonnet 5 |
 | **14A** | MuJoCo/URDF exporter + verified asset bundles | 2–3 mo | Simulation-ready CAD |
 | **14B** | Standard manipulation scene templates | 1 mo | Drop-in task templates |
 | **15A** | LearningRobotics bundle handshake | 1–2 mo | Cross-repo verified handoff |

@@ -55,10 +55,12 @@ The Google Stitch redesign was driven by `STITCH_BRIEF.md` and the generated `st
 - Frontend production build passes; live end-to-end generation verified (base plate and NEMA-17 mount both succeeded with manifold/watertight geometry and full parameter panels).
 - 12 standard robotics component templates in `ComponentLibrary`.
 - Feature-tree backend, sketch constraint solver, assembly system, and DFM/tolerance/FEA verification all implemented and tested.
-- Claude 5 integration complete with Anthropic SDK compatibility fixes; first Claude Sonnet 5 Phase 8 benchmark run reached 21/30 (70.0%).
+- Claude 5 integration complete with Anthropic SDK compatibility fixes; first Claude Sonnet 5 Phase 8 benchmark run reached 21/30 (70.0%), with **T1–T4 at 87.5% (21/24)**.
+- Latest generator fix (`06a373c`) hardens code extraction against nested markdown fences from self-correction responses.
 - Generated Stitch reference files (`stitch_precision_engineering_interface/`) retained for provenance.
 - README-embedded end-to-end demo: `assets/robocad_kinetic_precision_demo.webm` + `assets/robocad_kinetic_precision_demo.gif` + `assets/robocad_kinetic_precision_demo_poster.jpg`, plus `scripts/record_demo.py` Playwright recorder for reproducible demos.
 - README, PLAN.md, PRODUCT.md, and memory files document current phases, architecture, design context, and the PATH1/PATH2 strategic roadmap.
+- Phase 14A GEDA Bridge (simulation-ready MuJoCo/URDF bundle export) is the next build target.
 
 ## Product Principles
 

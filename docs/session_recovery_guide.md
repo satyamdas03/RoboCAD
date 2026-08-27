@@ -28,9 +28,9 @@ These files are in `C:\Users\point\.claude\projects\C--Users-point-projects-Robo
 8. `phase10-sketch-constraint-solver.md` — Internal 2D constraint solver.
 9. `phase11-assembly-system.md` — Multi-part instances + LCS mates.
 10. `phase12-verification-physics.md` — DFM, tolerance/fit, simple FEA.
-11. `phase13-model-specialization.md` — Fine-tuning scaffolding + Claude 5 integration.
-12. `claude5-integration-fixes.md` — Anthropic SDK fixes and first Claude Sonnet 5 benchmark.
-13. `robocad-path-analysis.md` — PATH1 (GEDA Bridge) vs PATH2 (voice-to-world-model) strategic analysis.
+11. `phase13-model-specialization.md` — Fine-tuning scaffolding + Claude 5 integration; Phase 13 green on T1–T4 gate.
+12. `claude5-integration-fixes.md` — Anthropic SDK fixes and latest Claude Sonnet 5 benchmark numbers (21/30, T1–T4 87.5%).
+13. `robocad-path-analysis.md` — PATH1 (GEDA Bridge) vs PATH2 (voice-to-world-model) strategic analysis; Phase 13 gate cleared.
 14. `robocad-end-to-end-roadmap.md` — Phased 13–24 plan to the full vision.
 
 ---
@@ -192,8 +192,8 @@ npm run build
 | 10 | 2D sketch constraint solver | `ai_cad/sketch_solver.py` |
 | 11 | Multi-part assembly system | `ai_cad/assembly.py` |
 | 12 | DFM / tolerance / FEA verification | `ai_cad/dfm.py`, `ai_cad/tolerances.py`, `ai_cad/fea.py` |
-| 13 | Model specialization + Claude 5 integration | `scripts/build_training_dataset.py`, `scripts/build_ollama_modelfile.py`, `ai_cad/generator.py` |
-| 14A–24 | End-to-end vision roadmap (Phase 14A next) | `PLAN.md`, `.claude/memory/robocad-end-to-end-roadmap.md` |
+| 13 | Model specialization + Claude 5 integration (T1–T4 gate achieved) | `scripts/build_training_dataset.py`, `scripts/build_ollama_modelfile.py`, `ai_cad/generator.py` |
+| 14A–24 | End-to-end vision roadmap (Phase 14A GEDA Bridge next) | `PLAN.md`, `.claude/memory/robocad-end-to-end-roadmap.md` |
 
 ---
 

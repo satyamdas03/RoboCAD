@@ -15,7 +15,7 @@
 | **Mission** | AI-powered parametric CAD for robotics hardware: describe parts/assemblies in language, get editable manufacturable models and simulation-ready bundles. |
 | **Owner** | Satyam Das (@satyamdas03, satyamdas03@gmail.com) |
 | **Start date** | 2026-08-21 |
-| **Current date** | 2026-08-25 |
+| **Current date** | 2026-08-27 |
 
 ---
 
@@ -130,7 +130,7 @@ LearningRobotics → world model → policy training → sim-to-real
 | **10** | Sketch + 2D constraint solver | ✅ **Complete — internal least-squares solver; 105 tests** |
 | **11** | Assembly system | ✅ **Complete — multi-part instances + LCS mates; 112 tests** |
 | **12** | Verification + physics layer | ✅ **Complete — DFM, tolerances, FEA; 125 tests** |
-| **13** | Model specialization + Claude 5 integration | ✅ **Complete — dataset builder, Ollama Modelfile, QLoRA skeleton, A/B evaluator, Anthropic SDK fixes; 134 tests; Claude Sonnet 5 21/30 (70.0%)** |
+| **13** | Model specialization + Claude 5 integration | ✅ **Complete — dataset builder, Ollama Modelfile, QLoRA skeleton, A/B evaluator, Anthropic SDK fixes; 134 tests; Claude Sonnet 5 T1–T4 87.5% (21/24), overall 21/30 (70.0%)** |
 | **14A** | **GEDA Bridge: MuJoCo / URDF exporter + bundles** | 🚧 **Next** |
 | **14B** | Standard manipulation scene templates | ⏳ Planned |
 | **15A** | LearningRobotics handshake | ⏳ Planned |
@@ -217,15 +217,17 @@ RoboCAD/
 - Repo created at `https://github.com/satyamdas03/RoboCAD`.
 - Phases 0–13 committed and pushed.
 - `ai_cad/` package implements generation, execution, validation, parameter extraction, self-correction, Onshape upload, manufacturing reports, face-click parameter guessing, feature trees, sketch constraints, assemblies, DFM/tolerances/FEA, and Claude 5 compatibility.
+- Latest commit `06a373c` hardens `_extract_code_block()` against nested markdown fences and increases empty-text retries from 3 to 5.
 - Web app has FastAPI backend + React frontend with Kinetic Precision dark workstation UI.
 - Test suite: **134/134 passing tests**.
 - Live end-to-end verified for base plates, NEMA-17 mounts, component-library seed flows, feature-tree regeneration, and assembly display.
 - Strategic analysis complete: PATH1 (GEDA Bridge) will be built before PATH2 (full voice-to-world-model vision).
+- **Phase 13 quality gate achieved:** `claude-sonnet-5-20250501` T1–T4 **87.5% (21/24)**.
 
 **Next work:**
 1. **Phase 14A GEDA Bridge:** build `ai_cad/geda_bridge/exporter.py` to export designs to MuJoCo/URDF and verify bundles.
-2. Stabilize Claude Sonnet 5 Phase 8 benchmark to ≥80% on T1–T4.
-3. Complete cross-repo handshake with `LearningRobotics` (Phase 15A).
+2. Complete cross-repo handshake with `LearningRobotics` (Phase 15A).
+3. Continue local-model fine-tuning (`robocad-ft:latest`) as a background experiment.
 
 ---
 
@@ -313,6 +315,11 @@ If the session restarts and all context is lost, read these files in order:
 5. `C:\Users\point\projects\RoboCAD\PLAN.md`
 6. `C:\Users\point\projects\RoboCAD\PRODUCT.md`
 
+For the most recent state, also check:
+- Latest commit hash (`git log --oneline -5`)
+- `.claude/memory/robocad-path-analysis.md` for PATH1/PATH2 status
+- `.claude/memory/claude5-integration-fixes.md` for latest benchmark numbers
+
 To force a full sync at any time, type:
 
 > `:POINTBREAK`
@@ -323,8 +330,8 @@ To force a full sync at any time, type:
 
 If you are resuming this session with no other context:
 
-> We are building **RoboCAD**, an AI-powered parametric CAD tool for robotics hardware. The repo is at `https://github.com/satyamdas03/RoboCAD`. **Phases 0–13 are committed and pushed** (prompt → build123d → STL/STEP → Onshape → manufacturing report → component library → dark Kinetic Precision UI → feature tree → sketch constraints → assemblies → DFM/tolerances/FEA → model specialization → Claude 5 integration, **134 tests passing**). The immediate next phase is **Phase 14A GEDA Bridge**: connect RoboCAD designs to the `LearningRobotics` MuJoCo simulation + skill-verification stack via verified MuJoCo/URDF bundles. Strategic decision: ship PATH1 (GEDA Bridge) before PATH2 (voice-to-CAD-to-world-model). See `.claude/memory/robocad-path-analysis.md` and `.claude/memory/robocad-end-to-end-roadmap.md`. Say `:POINTBREAK` to force a full dossier sync.
+> We are building **RoboCAD**, an AI-powered parametric CAD tool for robotics hardware. The repo is at `https://github.com/satyamdas03/RoboCAD`. **Phases 0–13 are committed and pushed** (prompt → build123d → STL/STEP → Onshape → manufacturing report → component library → dark Kinetic Precision UI → feature tree → sketch constraints → assemblies → DFM/tolerances/FEA → model specialization → Claude 5 integration, **134 tests passing**). **Phase 13 is green on the T1–T4 ≥80% gate** (87.5% with `claude-sonnet-5-20250501`). The immediate next phase is **Phase 14A GEDA Bridge**: connect RoboCAD designs to the `LearningRobotics` MuJoCo simulation + skill-verification stack via verified MuJoCo/URDF bundles. Strategic decision: ship PATH1 (GEDA Bridge) before PATH2 (voice-to-CAD-to-world-model). See `.claude/memory/robocad-path-analysis.md` and `.claude/memory/robocad-end-to-end-roadmap.md`. Say `:POINTBREAK` to force a full dossier sync.
 
 ---
 
-*Last updated: 2026-08-25 (Phases 0–13 complete; PATH1/PATH2 analysis done; Phase 14A GEDA Bridge is next)*
+*Last updated: 2026-08-27 (Phases 0–13 complete; Phase 13 T1–T4 gate achieved; PATH1/PATH2 analysis done; Phase 14A GEDA Bridge is next)*

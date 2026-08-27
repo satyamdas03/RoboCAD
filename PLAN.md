@@ -319,15 +319,30 @@ The benchmark sentence:
 
 ## 9. Immediate next session plan
 
-1. **Stabilize Phase 13 benchmark:** re-run the 30-prompt complexity suite with the latest extractor fixes and topped-up Claude credits; confirm 70% holds or improves; target ≥80% on T1–T4 with Claude Sonnet 5.
-2. **Root-cause remaining T4/T5 failures:** likely max-token limits for very long outputs or missing instructions to keep self-correction code blocks clean. Add an explicit prompt instruction if needed.
-3. **Sketch Phase 14A GEDA Bridge exporter:** open a branch/doc for `ai_cad/geda_bridge/exporter.py` interface, bundle schema v2.0.0, and test plan (cube, cylinder, L-bracket, 2-part assembly, gripper jaw).
-4. **Update dossiers:** this session refreshed `README.md`, `PLAN.md`, `memory.md`, `.claude/memory/*`, and `docs/session_recovery_guide.md` with the new Phases 13–24 roadmap and PATH1/PATH2 analysis.
-5. **Commit and push:** stage all dossier and memory updates.
+### Completed since last update
+
+- ✅ Phase 13 benchmark gate achieved: `claude-sonnet-5-20250501` T1–T4 **87.5% (21/24)**, above the ≥80% target.
+- ✅ Nested-fence extraction and empty-text retry hardening committed and pushed (`06a373c`).
+- ✅ Full pytest suite remains **134/134 passing**.
+- ✅ All dossiers and memory files refreshed with latest benchmark data and Phase 13 status.
+
+### Next session (Phase 14A GEDA Bridge)
+
+1. **Create `ai_cad/geda_bridge/` package:**
+   - `exporter.py` — `export_to_mujoco(shape, material, output_dir)` and `export_to_urdf(shape, material, output_dir)`.
+   - `packager.py` — bundle schema v2.0.0: `manifest.json`, meshes, `inertial.json`, MJCF, URDF, DFM report.
+   - `verifier.py` — mass > 0, positive-definite inertia, CoM inside convex hull.
+2. **Add backend endpoints:**
+   - `POST /designs/{id}/simulate`
+   - `GET /designs/{id}/bundle`
+   - `GET /designs/{id}/simulation`
+3. **Frontend:** add a **Simulate** button and bundle download panel.
+4. **Tests:** `tests/test_geda_bridge.py` with fixtures (cube, cylinder, L-bracket, 2-part assembly, gripper jaw).
+5. **Acceptance:** every fixture bundle loads in MuJoCo without warnings and passes verifier checks.
 
 **Deferred but noted:**
 - UI polish (keyboard shortcuts, mobile drawer) moves to Phase 24 packaging window or fits-and-starts work.
-- Packaging / distribution is explicitly Phase 24 now; Phase 14A is the GEDA Bridge.
+- Local-model fine-tuning (`robocad-ft:latest`) continues as background experiment; not blocking Phase 14A.
 - Hardware BOM integration with `LearningRobotics` is Phase 17/19 follow-up.
 
 ---
@@ -472,11 +487,19 @@ The strategic decision (see Section 12) is to ship **PATH1 (GEDA Bridge, Phases 
 **Tests:** `tests/test_phase13.py`; full suite 134 passed.
 
 **Acceptance criteria:**
-- Local-model scaffolding runs end-to-end on synthetic data.
-- Claude Sonnet 5 produces valid CAD output through the fixed generator.
-- Full pytest suite stays green.
+- Local-model scaffolding runs end-to-end on synthetic data. ✅
+- Claude Sonnet 5 produces valid CAD output through the fixed generator. ✅
+- Full pytest suite stays green. ✅
+- **T1–T4 quality gate:** Claude Sonnet 5 ≥80% on T1–T4. ✅ **Achieved 87.5% (21/24)** on the full 30-prompt run.
+- T5 is explicitly not gating; it remains hard due to token limits, nested fences in self-correction, and genuine geometry complexity.
 
-**Effort:** 3–6 weeks. ✅ Completed (scaffolding + Claude 5 fixes).
+**Latest benchmark data:**
+- `qwen3-coder:latest` Phase 8 baseline: **26/30 (86.7%)**.
+- `claude-sonnet-5-20250501` full run: **21/30 (70.0%)**, T1–T4 **21/24 (87.5%)**.
+- Targeted T4 re-run after extraction hardening: **4/6 (66.7%)** — one geometry failure, one empty-text timeout.
+- Targeted T5 re-run after extraction hardening: **1/6 (16.7%)** — nested fences, empty text, fillet geometry failures.
+
+**Effort:** 3–6 weeks. ✅ Completed (core gate achieved; remaining fine-tuning/scaffolding work can continue in parallel).
 
 ---
 
