@@ -4,3 +4,6 @@
 # Phase 14A+ simulation verification (optional). Core GEDA Bridge tests use
 # build123d + trimesh only; install mujoco to load generated MJCF files directly.
 mujoco>=3.0.0
+
+# Batch A multi-domain expansion: optional local offline embedding-based classifier.
+sentence-transformers>=3.0.0
