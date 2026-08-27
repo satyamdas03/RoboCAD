@@ -17,6 +17,15 @@ from ai_cad.geda_bridge.models import (
     InertialData,
 )
 from ai_cad.geda_bridge.packager import package_bundle, package_bundle_paths
+from ai_cad.geda_bridge.capabilities import get_capabilities
+from ai_cad.geda_bridge.loader import (
+    BundleLoadResult,
+    load_bundle_into_isaac_sim,
+    load_bundle_into_mujoco,
+    load_bundle_manifest,
+    run_stability_rollout,
+    stability_check_bundle,
+)
 from ai_cad.geda_bridge.runtime_validator import validate_bundle_with_mujoco
 from ai_cad.geda_bridge.scene_templates import (
     ManipulationScene,
@@ -49,6 +58,13 @@ __all__ = [
     "package_bundle_paths",
     "validate_bundle_with_mujoco",
     "verify_bundle",
+    "get_capabilities",
+    "BundleLoadResult",
+    "load_bundle_into_isaac_sim",
+    "load_bundle_into_mujoco",
+    "load_bundle_manifest",
+    "run_stability_rollout",
+    "stability_check_bundle",
     "ManipulationScene",
     "SceneDescription",
     "SceneGoalRegion",

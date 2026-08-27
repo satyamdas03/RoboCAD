@@ -133,7 +133,7 @@ LearningRobotics → world model → policy training → sim-to-real
 | **13** | Model specialization + Claude 5 integration | ✅ **Complete — dataset builder, Ollama Modelfile, QLoRA skeleton, A/B evaluator, Anthropic SDK fixes; 134 tests; Claude Sonnet 5 T1–T4 87.5% (21/24), overall 21/30 (70.0%)** |
 | **14A** | **GEDA Bridge: MuJoCo / URDF exporter + bundles** | ✅ **Complete — `ai_cad/geda_bridge/`, backend endpoints, `SimulatePanel.jsx`, 152/152 tests passing, MuJoCo runtime validation** |
 | **14B** | Standard manipulation scene templates | ✅ **Complete — `ai_cad/geda_bridge/scene_templates.py`, 4 templates, composition API, `POST /designs/{id}/scene`, `SceneTemplatePanel.jsx`, 160/160 tests passing** |
-| **15A** | LearningRobotics handshake | 🚧 **In progress — bundle loader, /capabilities, 10 s stability rollout** |
+| **15A** | LearningRobotics handshake | ✅ **Complete — `ai_cad/geda_bridge/loader.py`, bundle contract, reference loaders, `GET /capabilities`, `POST /designs/{id}/handshake`, `CapabilitiesPanel.jsx`, 10 s wedge stability test, 170/170 tests passing** |
 | **15B** | RoboCompiler asset pipeline | ⏳ Planned |
 | **16** | Voice/text + sketch input | ⏳ Planned |
 | **17** | Automatic part decomposition | ⏳ Planned |

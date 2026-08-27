@@ -127,6 +127,24 @@ export async function getSceneReport(id, template = 'gripper_cube_grasp') {
   return apiFetch(`/designs/${id}/scene?${params.toString()}`)
 }
 
+export async function getCapabilities() {
+  return apiFetch('/capabilities')
+}
+
+export async function runHandshake(id, template = 'wedge_push_block') {
+  const params = new URLSearchParams()
+  params.set('template', template)
+  return apiFetch(`/designs/${id}/handshake?${params.toString()}`, {
+    method: 'POST',
+  })
+}
+
+export async function getHandshakeReport(id, template = 'wedge_push_block') {
+  const params = new URLSearchParams()
+  params.set('template', template)
+  return apiFetch(`/designs/${id}/handshake?${params.toString()}`)
+}
+
 export async function listOnshapeDocuments(query = '', limit = 20) {
   const params = new URLSearchParams()
   if (query) params.set('q', query)

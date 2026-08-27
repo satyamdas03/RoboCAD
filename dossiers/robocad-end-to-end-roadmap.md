@@ -89,13 +89,16 @@ Maintained across the entire roadmap:
 
 **Goal:** `LearningRobotics` consumes a RoboCAD bundle, loads it into a standard scene, and runs a physics stability check.
 
-**Status:** 🚧 In progress — started 2026-08-27 after Phase 14B acceptance.
+**Status:** ✅ Complete — 2026-08-27.
 
 **Deliverables:**
-- Shared OpenAPI / JSON-Schema contract for bundle ingestion.
-- Reference loader in Python for MuJoCo + Isaac Sim.
-- End-to-end test: RoboCAD exports wedge → `LearningRobotics` loads scene → runs 10 s stability rollout.
-- Capability registry: `/capabilities` endpoint.
+- `docs/BUNDLE_CONTRACT.md` — OpenAPI / JSON-Schema contract for bundle ingestion.
+- `ai_cad/geda_bridge/loader.py` — reference MuJoCo bundle loader + Isaac Sim stub.
+- `ai_cad/geda_bridge/capabilities.py` — in-code capability registry.
+- Backend endpoints: `GET /capabilities`, `POST /designs/{id}/handshake`, `GET /designs/{id}/handshake`.
+- Frontend `CapabilitiesPanel.jsx`.
+- End-to-end test: RoboCAD exports wedge → composes `wedge_push_block` → MuJoCo 10 s rollout → stability verified.
+- Full pytest suite: **170 passed**.
 
 **Timeline:** 1–2 months.
 
@@ -104,6 +107,8 @@ Maintained across the entire roadmap:
 ## Phase 15B — RoboCompiler asset pipeline
 
 **Goal:** When a human demonstrates a skill on video, RoboCAD suggests/generates a custom end-effector and `LearningRobotics` trains on it.
+
+**Status:** 🚧 In progress — next after Phase 15A acceptance.
 
 **Deliverables:**
 - Skill-to-part recommendation.

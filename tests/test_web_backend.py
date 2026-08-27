@@ -296,6 +296,45 @@ def test_get_scene_report_endpoint(tmp_path: Path):
     assert "scene" in data
 
 
+def test_capabilities_endpoint():
+    response = client.get("/capabilities")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["bundle_schema_version"] == "2.0.0"
+    assert "wedge_push_block" in data["supported_scene_templates"]
+    assert "GET /capabilities" in data["endpoints"].values()
+
+
+def test_handshake_endpoint(tmp_path: Path):
+    pytest.importorskip("mujoco")
+    _seed_cube_design(tmp_path, "handshake_cube", size=15.0)
+    response = client.post("/designs/handshake_cube/handshake", params={"template": "wedge_push_block"})
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["design_id"] == "handshake_cube"
+    assert data["template"] == "wedge_push_block"
+    assert "success" in data
+    assert "rollout" in data
+    assert data["rollout"]["steps"] == 5000
+    assert data["nbody"] >= 3
+
+
+def test_get_handshake_report_endpoint(tmp_path: Path):
+    pytest.importorskip("mujoco")
+    _seed_cube_design(tmp_path, "handshake_cube2", size=15.0)
+    response = client.post("/designs/handshake_cube2/handshake", params={"template": "wedge_push_block"})
+    assert response.status_code == 200
+
+    response = client.get("/designs/handshake_cube2/handshake?template=wedge_push_block")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["design_id"] == "handshake_cube2"
+    assert data["template"] == "wedge_push_block"
+    assert "handshake" in data
+    assert "success" in data["handshake"]
+    assert "rollout" in data["handshake"]
+
+
 def test_simulate_endpoint_with_feature_tree(tmp_path: Path):
     design_dir = tmp_path / "designs" / "ftcube"
     exports_dir = design_dir / "exports"

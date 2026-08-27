@@ -4,7 +4,7 @@
 >
 > **Core bet:** The AI writes **parametric CAD code** (build123d / FeatureScript), not throwaway meshes. The model you get is editable, versionable, and exportable for 3D printing, machining, or Onshape.
 >
-> **Latest milestone:** Phases 14A and 14B are **complete**. RoboCAD can export any part or assembly to a simulation-ready bundle (MJCF/URDF/ STL/inertial) and drop it into one of four standard manipulation scenes: gripper cube grasp, bracket hook hang, wedge push block, and peg insertion. The backend exposes `POST /designs/{id}/simulate`, `POST /designs/{id}/scene`, and download endpoints; the Kinetic Precision frontend has `SimulatePanel` and `SceneTemplatePanel`. Phase 13 remains green on the T1–T4 ≥80% quality gate with Claude 5 fully integrated. Full pytest suite: **160 passed**. Phase 15A — the `LearningRobotics` bundle handshake — is the next in-progress item.
+> **Latest milestone:** Phases 14A, 14B, and 15A are **complete**. RoboCAD can export any part or assembly to a simulation-ready bundle (MJCF/URDF/ STL/inertial), drop it into one of four standard manipulation scenes, and verify a 10-second MuJoCo stability rollout via the `LearningRobotics` handshake. The backend exposes `POST /designs/{id}/simulate`, `POST /designs/{id}/scene`, `POST /designs/{id}/handshake`, `GET /capabilities`, and download endpoints; the Kinetic Precision frontend has `SimulatePanel`, `SceneTemplatePanel`, and `CapabilitiesPanel`. Phase 13 remains green on the T1–T4 ≥80% quality gate with Claude 5 fully integrated. Full pytest suite: **170 passed**. Phase 15B — the `RoboCompiler` asset pipeline — is the next in-progress item.
 
 ---
 
@@ -136,8 +136,8 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **13** | **Model specialization / fine-tuning + Claude 5 integration** | ✅ **Complete — dataset builder, Ollama Modelfile specialization, QLoRA skeleton, A/B evaluator, Anthropic SDK Claude 5 fixes; 134/134 tests pass; Claude Sonnet 5 T1–T4 87.5% (21/24), overall 21/30 (70.0%)** |
 | **14A** | **GEDA Bridge: MuJoCo / URDF exporter + verified asset bundles** | ✅ **Complete — `ai_cad/geda_bridge/`, `POST /designs/{id}/simulate`, `SimulatePanel.jsx`, 152/152 tests passing, MuJoCo runtime validation** |
 | **14B** | **Standard manipulation scene templates** | ✅ **Complete — `ai_cad/geda_bridge/scene_templates.py`, 4 templates, composition API, `POST /designs/{id}/scene`, `SceneTemplatePanel.jsx`, 160/160 tests passing, MuJoCo scene-load validation** |
-| **15A** | **LearningRobotics handshake** | 🚧 **In progress — cross-repo bundle loader + /capabilities + 10 s stability rollout** |
-| **15B** | **RoboCompiler asset pipeline** | ⏳ Planned — video → custom part → trained skill |
+| **15A** | **LearningRobotics handshake** | ✅ **Complete — `ai_cad/geda_bridge/loader.py`, bundle contract (`docs/BUNDLE_CONTRACT.md`), reference MuJoCo/Isaac Sim loaders, `GET /capabilities`, `POST /designs/{id}/handshake`, `CapabilitiesPanel.jsx`, 10 s wedge stability end-to-end test, 170/170 tests passing** |
+| **15B** | **RoboCompiler asset pipeline** | 🚧 **Next — video → custom part → trained skill** |
 | **16** | Voice/text + sketch input | ⏳ Planned |
 | **17** | Automatic part decomposition | ⏳ Planned |
 | **18** | Per-part physical testing (FEA templates) | ⏳ Planned |

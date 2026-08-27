@@ -17,6 +17,7 @@ import FeatureTreePanel from './components/FeatureTreePanel.jsx'
 import AssemblyPanel from './components/AssemblyPanel.jsx'
 import SimulatePanel from './components/SimulatePanel.jsx'
 import SceneTemplatePanel from './components/SceneTemplatePanel.jsx'
+import CapabilitiesPanel from './components/CapabilitiesPanel.jsx'
 import {
   checkHealth,
   generateDesign,
@@ -280,6 +281,7 @@ export default function App() {
               <AssemblyPanel designId={selectedId} />
               <SimulatePanel designId={selectedId} />
               <SceneTemplatePanel designId={selectedId} />
+              <CapabilitiesPanel designId={selectedId} />
               <FeatureTreePanel
                 designId={selectedId}
                 parameters={result?.parameters}

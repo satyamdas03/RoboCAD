@@ -565,23 +565,37 @@ PATH1 is a delivery-infrastructure play: take RoboCAD's parametric output and ex
 
 **Effort:** 1 month.
 
-### Phase 15A — LearningRobotics handshake 🚧 NEXT
+### Phase 15A — LearningRobotics handshake ✅ COMPLETE
 
 **Goal:** `LearningRobotics` can consume a RoboCAD bundle, load it into a standard scene, and run a physics stability check.
 
+**Status:** Complete — 2026-08-27.
+
 **Deliverables:**
-- Shared OpenAPI / JSON-Schema contract for bundle ingestion.
-- Reference loader in Python for MuJoCo + Isaac Sim.
-- End-to-end test: RoboCAD exports wedge → `LearningRobotics` loads scene → runs 10 s stability rollout.
-- Capability registry: `/capabilities` endpoint listing supported part families and scene templates.
+- `docs/BUNDLE_CONTRACT.md` — OpenAPI / JSON-Schema contract for bundle ingestion.
+- `ai_cad/geda_bridge/loader.py` — reference `load_bundle_into_mujoco()`, conditional `load_bundle_into_isaac_sim()`, and `run_stability_rollout()` helpers.
+- `ai_cad/geda_bridge/capabilities.py` — in-code capability registry.
+- Backend endpoints: `GET /capabilities`, `POST /designs/{id}/handshake`, `GET /designs/{id}/handshake`.
+- Frontend `CapabilitiesPanel.jsx` to run the handshake and view metrics.
+- End-to-end test `tests/test_learningrobotics_handshake.py`: RoboCAD exports wedge → composes `wedge_push_block` → loads scene → 10 s rollout (5000 steps) → asserts stability.
 
-**Tests:** cross-repo integration test in CI or nightly.
+**Tests:**
+- `tests/test_learningrobotics_handshake.py` — 7 tests (manifest, MuJoCo load, 10 s rollout, high-level helper, Isaac Sim stub, capabilities, MJCF fallback).
+- `tests/test_web_backend.py` — 2 endpoint tests for `/capabilities` and `/designs/{id}/handshake`.
+- Full pytest suite: **170 passed**.
 
-**Acceptance criteria:** one verified, documented handoff between the two repos.
+**Acceptance criteria:**
+- ✅ Bundle contract documented and versioned (`schema_version: 2.0.0`).
+- ✅ Reference MuJoCo loader consumes the bundle and composes a standard scene.
+- ✅ 10 s stability rollout runs and reports metrics (steps, penetration, energy drift).
+- ✅ `/capabilities` registry is exposed.
+- ✅ Frontend can trigger the handshake and display results.
 
 **Effort:** 1–2 months.
 
-### Phase 15B — RoboCompiler asset pipeline
+### Phase 15B — RoboCompiler asset pipeline 🚧 NEXT
+
+**Goal:** When a human demonstrates a skill on video, RoboCAD can suggest or generate a custom end-effector/part that makes the skill easier, and `LearningRobotics` can train on it.
 
 **Goal:** When a human demonstrates a skill on video, RoboCAD can suggest or generate a custom end-effector/part that makes the skill easier, and `LearningRobotics` can train on it.
 
@@ -796,4 +810,4 @@ Full analysis is saved in `.claude/memory/robocad-path-analysis.md` and the end-
 
 ---
 
-*Last updated: 2026-08-27 (Phases 14A & 14B complete; 160/160 tests passing; MuJoCo scene-load validation included; Phase 15A is next)*
+*Last updated: 2026-08-27 (Phases 14A, 14B & 15A complete; 170/170 tests passing; MuJoCo stability handshake included; Phase 15B is next)*

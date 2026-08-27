@@ -1,0 +1,47 @@
+"""Capability registry for the RoboCAD GEDA Bridge.
+
+Exposes the features, scene templates, part families, and API contract version
+that downstream consumers (e.g., `LearningRobotics`) can rely on.
+"""
+from __future__ import annotations
+
+from ai_cad.geda_bridge.scene_templates import TEMPLATE_REGISTRY
+
+
+BUNDLE_SCHEMA_VERSION = "2.0.0"
+API_VERSION = "0.3.0"
+
+SUPPORTED_EXPORT_FORMATS = ["stl", "step", "urdf", "mjcf", "bundle.zip"]
+SUPPORTED_SIMULATORS = ["mujoco"]
+SUPPORTED_PART_FAMILIES = [
+    "cube",
+    "cylinder",
+    "wedge",
+    "l_bracket",
+    "gripper_jaw",
+    "bracket",
+    "peg",
+    "plate",
+]
+
+
+def get_capabilities() -> dict[str, object]:
+    """Return the current RoboCAD GEDA Bridge capability registry."""
+    return {
+        "api_version": API_VERSION,
+        "bundle_schema_version": BUNDLE_SCHEMA_VERSION,
+        "supported_export_formats": SUPPORTED_EXPORT_FORMATS,
+        "supported_simulators": SUPPORTED_SIMULATORS,
+        "supported_scene_templates": sorted(TEMPLATE_REGISTRY),
+        "supported_part_families": SUPPORTED_PART_FAMILIES,
+        "endpoints": {
+            "health": "GET /health",
+            "generate": "POST /generate",
+            "simulate": "POST /designs/{id}/simulate",
+            "bundle": "GET /designs/{id}/bundle",
+            "scene": "POST /designs/{id}/scene",
+            "capabilities": "GET /capabilities",
+            "handshake": "POST /designs/{id}/handshake",
+        },
+        "contract_doc": "docs/BUNDLE_CONTRACT.md",
+    }

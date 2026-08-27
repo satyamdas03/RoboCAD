@@ -52,7 +52,10 @@ from ai_cad.geda_bridge import (
     export_bundle_from_mesh,
     export_bundle_from_tree,
     export_scene_to_mjcf,
+    get_capabilities,
+    load_bundle_manifest,
     package_bundle_paths,
+    stability_check_bundle,
     validate_bundle_with_mujoco,
     verify_bundle,
 )
@@ -889,6 +892,92 @@ def get_scene_report(design_id: str, template: str = Query(default="gripper_cube
         "design_id": design_id,
         "template": template,
         "scene": scenes[template],
+        "scene_url": f"/exports/{design_id}/simulation/scene_{template}.mjcf",
+    }
+
+
+@app.get("/capabilities")
+def capabilities() -> dict[str, Any]:
+    """Return the RoboCAD GEDA Bridge capability registry."""
+    return get_capabilities()
+
+
+@app.post("/designs/{design_id}/handshake")
+def handshake(design_id: str, template: str = Query(default="wedge_push_block", description="Scene template for stability check.")) -> dict[str, Any]:
+    """Run the LearningRobotics handshake: export → scene → 10 s MuJoCo stability rollout."""
+    design_dir = DESIGNS_DIR / design_id
+    meta_path = design_dir / "metadata.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Design not found.")
+
+    simulation_dir = design_dir / "simulation"
+    manifest_path = simulation_dir / "manifest.json"
+    if not manifest_path.exists():
+        # Auto-generate the bundle first.
+        simulate_design(design_id, SimulateRequest(material="PLA", tolerance=0.1))
+
+    try:
+        manifest = load_bundle_manifest(simulation_dir)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read bundle manifest: {exc}")
+
+    try:
+        scene = build_scene(template, manifest.parts)
+        scene_path = simulation_dir / f"scene_{template}.mjcf"
+        export_scene_to_mjcf(scene, scene_path)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to compose scene: {exc}")
+
+    check = stability_check_bundle(simulation_dir, scene_template=template, duration_seconds=10.0)
+
+    # Persist handshake result.
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    meta.setdefault("handshakes", {})
+    meta["handshakes"][template] = {
+        "template": template,
+        "scene_file": f"simulation/scene_{template}.mjcf",
+        "success": check["success"],
+        "rollout": check["rollout"],
+        "nbody": check["nbody"],
+        "created_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+    }
+    _write_json(meta_path, meta)
+
+    return {
+        "design_id": design_id,
+        "template": template,
+        "success": check["success"],
+        "scene_url": f"/exports/{design_id}/simulation/scene_{template}.mjcf",
+        "nbody": check["nbody"],
+        "rollout": check["rollout"],
+        "errors": check.get("errors", []),
+        "warnings": check.get("warnings", []),
+    }
+
+
+@app.get("/designs/{design_id}/handshake")
+def get_handshake_report(design_id: str, template: str = Query(default="wedge_push_block", description="Scene template for stability check.")) -> dict[str, Any]:
+    """Return the persisted handshake result for a design and template."""
+    design_dir = DESIGNS_DIR / design_id
+    meta_path = design_dir / "metadata.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Design not found.")
+
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read metadata: {exc}")
+
+    handshakes = meta.get("handshakes", {})
+    if template not in handshakes:
+        raise HTTPException(status_code=404, detail=f"Handshake for '{template}' not found. Run POST /designs/{id}/handshake first.")
+
+    return {
+        "design_id": design_id,
+        "template": template,
+        "handshake": handshakes[template],
         "scene_url": f"/exports/{design_id}/simulation/scene_{template}.mjcf",
     }
 
