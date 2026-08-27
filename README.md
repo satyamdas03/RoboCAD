@@ -138,17 +138,21 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **14B** | **Standard manipulation scene templates** | ✅ **Complete — `ai_cad/geda_bridge/scene_templates.py`, 4 templates, composition API, `POST /designs/{id}/scene`, `SceneTemplatePanel.jsx`, 160/160 tests passing, MuJoCo scene-load validation** |
 | **15A** | **LearningRobotics handshake** | ✅ **Complete — `ai_cad/geda_bridge/loader.py`, bundle contract (`docs/BUNDLE_CONTRACT.md`), reference MuJoCo/Isaac Sim loaders, `GET /capabilities`, `POST /designs/{id}/handshake`, `CapabilitiesPanel.jsx`, 10 s wedge stability end-to-end test, 170/170 tests passing** |
 | **15B** | **RoboCompiler asset pipeline** | ✅ **Complete — `ai_cad/geda_bridge/skill_recommend.py`, `skill_smoke.py`, `variant_sweep.py`, `POST /designs/{id}/recommend-skill`, `POST /designs/{id}/train-skill`, `GET /designs/{id}/skills`, `POST /designs/{id}/variant-sweep`, trainable push-policy smoke test, 187/187 tests passing** |
-| **16** | Voice/text + sketch input | ⏳ Planned |
-| **17** | Automatic part decomposition | ⏳ Planned |
-| **18** | Per-part physical testing (FEA templates) | ⏳ Planned |
-| **19** | Assembly synthesis + verification | ⏳ Planned |
-| **20** | World-model simulation builder | ⏳ Planned |
-| **21** | Robot brain training loop | ⏳ Planned |
-| **22** | HERMES conversational supervisor | ⏳ Planned |
-| **23** | Sim-to-real feedback loop | ⏳ Planned |
-| **24** | Distribution + commercialization | ⏳ Planned — one-command launcher / desktop installer / SaaS tier |
+:| **16** | Cross-domain input (voice/text/sketch + domain detection) | ⏳ Planned |
+| **17** | Domain-aware parametric representation (solids, surfaces, kinematics, PCB form factors) | ⏳ Planned |
+| **18** | Automatic decomposition + domain part families | ⏳ Planned |
+| **19** | Mechanical assembly synthesis + verification | ⏳ Planned |
+| **20** | Aerodynamics, thermal, and propulsion geometry | ⏳ Planned |
+| **21** | Electronics and mechatronics integration (form-factor co-design, not silicon layout) | ⏳ Planned |
+| **22** | Multi-physics verification engine (FEA / CFD / thermal / dynamics) | ⏳ Planned |
+| **23** | Humanoid and full-robot system synthesis | ⏳ Planned |
+| **24** | World-model simulation builder | ⏳ Planned |
+| **25** | Robot brain training loop | ⏳ Planned |
+| **26** | HERMES cross-domain conversational supervisor | ⏳ Planned |
+| **27** | Sim-to-real feedback loop | ⏳ Planned |
+| **28** | Distribution + commercialization + advanced EDA/CFD co-design plugins | ⏳ Planned |
 
-Phases 0–7 proved the **AI → parametric-code loop** for single-part robotics hardware. Phases 8–13 turned that loop into an **engineer-grade CAD system** with feature trees, constraints, assemblies, verification, and model specialization. Phases 14A–24 extend RoboCAD toward the full **voice-to-CAD-to-world-model-to-robot-brain** vision, starting with the GEDA Bridge so LearningRobotics can consume verified simulation-ready assets.
+Phases 0–7 proved the **AI → parametric-code loop** for single-part robotics hardware. Phases 8–13 turned that loop into an **engineer-grade CAD system** with feature trees, constraints, assemblies, verification, and model specialization. Phases 14A–15B shipped the **GEDA Bridge** so LearningRobotics can consume verified simulation-ready assets. Phases 16–28 expand RoboCAD into a **multi-domain generative engineering platform** for the entire robotics world: mechanical assemblies, aerodynamic/thermal surfaces, electronics form-factor co-design, and full humanoid/robot systems.
 
 ### 🎯 Why we are following this exact sequence
 
@@ -156,8 +160,10 @@ This roadmap is the canonical plan of record for RoboCAD. **Do not reorder phase
 
 - **Phase 13** is the quality gate. We do not build the bridge until the generator is reliably producing correct feature trees.
 - **Phases 14A–15B** (PATH1) are the first commercial milestone. They prove that AI-generated CAD can be consumed by real physics simulators and create the exact bundle format that the later vision layers need.
-- **Phases 16–23** (PATH2) add voice, decomposition, FEA, assembly synthesis, world models, brain training, and HERMES. These are intentionally sequenced so each hard layer is funded by earlier validation.
-- **Phase 24** turns the stack into an installable product and business.
+- **Phases 16–17** add cross-domain input and a domain-aware parametric core. Without these, aero/thermal/electronics/humanoid features have no shared data model.
+- **Phases 18–23** add domain-specific tracks (mechanical assembly, aero/thermal geometry, electronics integration, multi-physics verification, humanoid/robot synthesis). These are intentionally parallelizable once the core representation is in place.
+- **Phases 24–27** close the world-model → brain-training → sim-to-real loop.
+- **Phase 28** turns the stack into an installable product, marketplace, and optional advanced co-design plugins.
 
 ### 📋 Roadmap at a glance
 
@@ -168,23 +174,27 @@ This roadmap is the canonical plan of record for RoboCAD. **Do not reorder phase
 | **14B** | Standard manipulation scene templates | 1 mo | Drop-in task templates |
 | **15A** | LearningRobotics bundle handshake | 1–2 mo | Cross-repo verified handoff |
 | **15B** | RoboCompiler asset pipeline | 2–3 mo | ✅ Video → custom part → trained skill smoke test; variant sweep + skill recommendation live |
-| **16** | Voice/text + sketch input | 2–3 mo | Hands-free CAD edits |
-| **17** | Automatic part decomposition | 3–4 mo | Robot from one prompt |
-| **18** | Templated per-part physical tests | 2–3 mo | Auto stress/drop reports |
-| **19** | Assembly synthesis + verification | 3–4 mo | Full robot bundle |
-| **20** | World-model simulation builder | 3–4 mo | Parameterized training scene |
-| **21** | Synthetic data + policy training loop | 4–6 mo | Design → trainable brain |
-| **22** | HERMES conversational supervisor | 3–4 mo | Conversational design agent |
-| **23** | Sim-to-real feedback loop | 6–12 mo | Real robot deployment |
-| **24** | Distribution + commercialization | Ongoing | SaaS + marketplace |
+| **16** | Cross-domain input (voice/text/sketch + domain detection) | 2–3 mo | Mechanical, aero, electronics, humanoid intents routed correctly |
+| **17** | Domain-aware parametric representation | 3–4 mo | Feature tree supports solids, surfaces, kinematics, PCB form factors |
+| **18** | Automatic decomposition + domain part families | 3–4 mo | System intents split into domain-specific parts |
+| **19** | Mechanical assembly synthesis + verification | 3–4 mo | Full mechanical subsystem bundle |
+| **20** | Aerodynamics, thermal, and propulsion geometry | 3–4 mo | Airfoil / wing / heat sink / propeller + CFD mesh export |
+| **21** | Electronics and mechatronics integration | 2–3 mo | PCB form-factor / enclosure / connector co-design |
+| **22** | Multi-physics verification engine | 4–6 mo | Structural / thermal / CFD / dynamic checks |
+| **23** | Humanoid and full-robot system synthesis | 4–6 mo | Biped / quadruped / manipulator system export |
+| **24** | World-model simulation builder | 3–4 mo | Cross-domain training scenes |
+| **25** | Synthetic data + policy training loop | 4–6 mo | Design → trainable brain |
+| **26** | HERMES cross-domain conversational supervisor | 3–4 mo | Conversational design agent |
+| **27** | Sim-to-real feedback loop | 6–12 mo | Real robot deployment |
+| **28** | Distribution + commercialization + advanced co-design plugins | Ongoing | SaaS + marketplace |
 
 ### 🧭 Decision record: PATH1 before PATH2
 
-We explicitly decided to ship **PATH1 (GEDA Bridge, Phases 14A–15B) before PATH2 (voice-to-world-model, Phases 16–23)**. The reasoning is:
+We explicitly decided to ship **PATH1 (GEDA Bridge, Phases 14A–15B) first**, then expand into the full **voice/world-model-to-robot platform (Phases 16–28)**. The reasoning is:
 
-1. **Risk-ordering.** PATH1 is plumbing and unit conversion; PATH2 bundles multiple unsolved research problems (decomposition, arbitrary FEA, RL training, sim-to-real).
-2. **Market validation.** PATH1 addresses a visible $4–5 B market gap (CAD → MuJoCo). PATH2 markets are larger but crowded and capital-intensive.
-3. **Foundation for PATH2.** PATH1 produces the bundle schema, verified asset format, and LearningRobotics API contract that every PATH2 layer depends on.
+1. **Risk-ordering.** PATH1 is plumbing and unit conversion; the expanded PATH2 bundles multiple unsolved research problems (decomposition, arbitrary multi-physics, RL training, humanoid morphology, sim-to-real).
+2. **Market validation.** PATH1 addresses a visible $4–5 B market gap (CAD → MuJoCo / URDF). The broader robotics design platform market is larger but crowded and capital-intensive.
+3. **Foundation for the multi-domain vision.** PATH1 produces the bundle schema, verified asset format, and LearningRobotics API contract that mechanical, aero, electronics, and humanoid layers depend on.
 4. **Ship-first discipline.** Every phase must produce something a user or partner can run. PATH1 satisfies that immediately.
 
 See [`PLAN.md`](PLAN.md) Section 14 for the full PATH1 vs PATH2 analysis, and [`dossiers/PATH1_PATH2_analysis.md`](dossiers/PATH1_PATH2_analysis.md) for the detailed market/technical write-up.
@@ -442,22 +452,26 @@ The long-term vision is not a chatbot that draws shapes. It is a **robotics desi
 - Kinematic constraints (motor shaft spacing, pulley ratios, link lengths).
 - Manufacturability (print orientation, tolerance, material).
 - Assembly intent (mates, constraints, BOM).
+- Aerodynamic and thermal surfaces (airfoils, wings, ducts, heat sinks, propellers).
+- Electronics form-factor co-design (PCB outlines, enclosures, connectors, cable routing).
+- Multi-physics simulation: structural FEA, thermal, CFD, and multibody dynamics.
+- Humanoid and full-robot system synthesis (kinematic trees, actuator sizing, stability).
 - Physics and control: load cases, actuation, sensors, sim-to-real transfer.
 
 A user should eventually be able to say:
 
-> *"Design a 2-DOF robot arm: shoulder NEMA-17, elbow NEMA-17, 200 mm link, belt drive, base mountable on 2040 aluminum extrusion. Simulate it picking up a 100 g cube and train the controller."*
+> *"Design a 450 mm quadcopter frame with aerodynamic body shell, battery/PCB tray, and heat-sink base plate; then design a 2-DOF manipulator arm for it. Simulate picking up a 100 g cube and train the controller."*
 
-and receive a folder of editable parts ready for printing, a verified MuJoCo/URDF bundle, a parameterized training scene, and a trained policy — with a conversational supervisor (HERMES) explaining each step and asking for approval before expensive operations.
+and receive a folder of editable multi-domain parts ready for printing, verified MuJoCo/URDF bundles, CFD/thermal/FEA model exports, a parameterized training scene, and a trained policy — with a conversational supervisor (HERMES) explaining each step and asking for approval before expensive operations.
 
 ### Strategic sequencing
 
 We analyzed two paths (see `PLAN.md` Section 12):
 
 - **PATH1 — GEDA Bridge:** export RoboCAD parts to MuJoCo/URDF with verified inertial properties and bundle them for `LearningRobotics`. Ship this first.
-- **PATH2 — Voice-to-world-model:** voice/text → CAD → physical testing → assembly → world-model simulation → HERMES oversight → robot brain training. This is the North Star, but it depends on PATH1 being real.
+- **PATH2 — Voice/world-model-to-robot:** voice/text/sketch → multi-domain parametric CAD → physical testing → assembly → world-model simulation → HERMES oversight → robot brain training. This is the North Star, but it depends on PATH1 being real.
 
-The decision: **build PATH1 (Phases 14A–15B) first**, then use it as the technical and commercial foundation for PATH2 (Phases 16–23).
+The decision: **build PATH1 (Phases 14A–15B) first**, then use it as the technical and commercial foundation for the expanded PATH2 (Phases 16–28).
 
 ---
 
@@ -467,19 +481,36 @@ The decision: **build PATH1 (Phases 14A–15B) first**, then use it as the techn
 * **GEDA Bridge** — the RoboCAD → MuJoCo/URDF exporter + verified asset bundle that lets `LearningRobotics` consume parametric parts directly. This is the immediate cross-repo priority (Phases 14A–15B).
 * **PIBench** — physical common-sense benchmark. RoboCAD could generate the 3D assets for new PIBench scenes from prompts.
 * **Hardware BOM** from LearningRobotics — will be imported as the component library so RoboCAD designs are cost-aware.
-* **HERMES** — future conversational supervisor layer that orchestrates design, simulation, and training (Phase 22).
+* **HERMES** — future cross-domain conversational supervisor layer that orchestrates design, simulation, and training (Phase 26).
 
 ---
 
 ## 📝 Changelog
+
+### 2026-08-27 — Scope expanded to full multi-domain robotics platform
+
+* Expanded RoboCAD target scope from "AI-powered parametric CAD for robotics hardware" to "AI-powered generative engineering platform for the entire robotics world."
+* New domains added to the roadmap: aerodynamics / thermal surfaces, electronics form-factor co-design (PCB/enclosure/connector), and humanoid / full-robot system synthesis.
+* Honest boundary: true silicon EDA (transistor layout, SPICE, lithography) is explicitly out of scope; RoboCAD handles packages, boards, mounts, and thermal hardware.
+* Re-structured future phases into domain tracks:
+  * Phase 16 — cross-domain input
+  * Phase 17 — domain-aware parametric representation
+  * Phase 18 — decomposition + domain part families
+  * Phase 19 — mechanical assembly synthesis
+  * Phase 20 — aero/thermal/propulsion geometry
+  * Phase 21 — electronics/mechatronics integration
+  * Phase 22 — multi-physics verification engine
+  * Phase 23 — humanoid/full-robot synthesis
+  * Phases 24–28 — world model, brain training, HERMES, sim-to-real, commercialization
+* Updated `PLAN.md`, `README.md`, and dossiers to reflect the new phase map and dependencies.
 
 ### 2026-08-25 — Strategic roadmap updated: PATH1 (GEDA Bridge) before PATH2 (voice-to-world-model)
 
 * Conducted market and technical analysis comparing two strategic directions:
   * **PATH1 (GEDA Bridge):** RoboCAD → MuJoCo/URDF/inertial bundle for `LearningRobotics` — a delivery-infrastructure play in a $4–5 B robot skill-learning market.
   * **PATH2 (full vision):** voice/text → parametric CAD → physical testing → assembly → world-model simulation → HERMES oversight → robot brain trained on synthetic data.
-* Conclusion: PATH1 is technically reachable in 4–6 weeks, creates the exact asset format PATH2 needs, and should be shipped first. PATH2 remains the 5–7 year North Star and is now mapped into Phases 14A–24.
-* Updated `PLAN.md` with the full end-to-end roadmap (Phases 13–24), dependency table, and critical path.
+* Conclusion: PATH1 is technically reachable in 4–6 weeks, creates the exact asset format PATH2 needs, and should be shipped first. PATH2 remains the 5–7 year North Star and is now mapped into Phases 14A–28.
+* Updated `PLAN.md` with the full end-to-end roadmap, dependency table, and critical path.
 * Updated `memory.md` and `.claude` memory files with the new analysis and roadmap.
 
 ### 2026-08-25 — Claude 5 integration and Phase 8 benchmark run

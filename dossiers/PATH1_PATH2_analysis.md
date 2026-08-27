@@ -1,8 +1,8 @@
 # RoboCAD Strategic Analysis: PATH1 vs PATH2
 
-**Date:** 2026-08-25  
-**Status:** Decision made; PATH1 first, PATH2 as North Star  
-**Related:** [`PLAN.md`](../PLAN.md) Section 14, [`robocad-end-to-end-roadmap.md`](robocad-end-to-end-roadmap.md)
+**Date:** 2026-08-25 (updated 2026-08-27)  
+**Status:** Decision made; PATH1 first, PATH2 as multi-domain North Star  
+**Related:** [`PLAN.md`](../PLAN.md) Sections 12–14, [`robocad-end-to-end-roadmap.md`](robocad-end-to-end-roadmap.md)
 
 ---
 
@@ -11,9 +11,9 @@
 Two strategic directions were analyzed for RoboCAD:
 
 - **PATH1 (GEDA Bridge):** RoboCAD → MuJoCo/URDF/inertial bundle for `LearningRobotics`.
-- **PATH2 (full vision):** voice/text → parametric CAD → per-part physical testing → assembly → world-model simulation → HERMES oversight → robot brain trained on synthetic data.
+- **PATH2 (multi-domain North Star):** voice/text/sketch → multi-domain parametric CAD (mechanical, aero/thermal, electronics, humanoid) → per-part multi-physics testing → assembly → world-model simulation → HERMES oversight → robot brain trained on synthetic data with sim-to-real feedback.
 
-**Decision: build PATH1 first.** It is technically reachable from the current codebase, addresses a real market need, and produces the exact asset format and API surface that PATH2 needs. PATH2 remains the 5–7 year North Star and is now mapped into Phases 16–24.
+**Decision: build PATH1 first.** It is technically reachable from the current codebase, addresses a real market need, and produces the exact asset format and API surface that PATH2 needs. PATH2 remains the 5–7 year North Star and is now mapped into **Phases 16–28** as a set of domain tracks (mechanical, aero/thermal/propulsion, electronics, humanoid/full-robot) layered on top of the same feature-tree and bundle core.
 
 ---
 
@@ -82,14 +82,21 @@ None of these are research problems.
 
 ### What it is
 
-A full-stack robotics design operating system. It bundles six serious sub-products:
+A full-stack, multi-domain robotics design operating system. It now spans **Phases 16–28** and adds four domain tracks on top of the existing mechanical core:
 
-1. Voice/text engineering-intent parser.
-2. Automatic part decomposition.
-3. Per-part physical simulation (FEA).
-4. Automated assembly synthesis.
-5. World-model simulation + robot brain training.
-6. HERMES conversational supervisor.
+1. **Cross-domain input** — voice/text/sketch + domain classifier (Phase 16).
+2. **Domain-aware parametric representation** — solids, surfaces, kinematic chains, PCB form factors (Phase 17).
+3. **Automatic decomposition + domain part families** — mechanical, aero/thermal, electronics, humanoid (Phase 18).
+4. **Mechanical assembly synthesis** — mates, kinematic loops, full-subsystem export (Phase 19).
+5. **Aerodynamics, thermal, and propulsion geometry** — airfoils, wings, ducts, heat sinks, propellers (Phase 20).
+6. **Electronics and mechatronics co-design** — PCB outlines, enclosures, connectors, thermal hardware (Phase 21).
+7. **Multi-physics verification engine** — structural, thermal, CFD, and dynamic checks (Phase 22).
+8. **Humanoid / full-robot system synthesis** — biped, quadruped, manipulator-on-base templates (Phase 23).
+9. **World-model simulation builder** — manipulation, locomotion, aerial, humanoid scenes (Phase 24).
+10. **Robot brain training loop** — synthetic data, RL/IL, design feedback (Phase 25).
+11. **HERMES cross-domain conversational supervisor** — status, approvals, explanations (Phase 26).
+12. **Sim-to-real feedback loop** — real robot deployment, failure logging, retraining (Phase 27).
+13. **Distribution + ecosystem + advanced co-design plugins** — launcher, marketplace, enterprise (Phase 28).
 
 ### Market context
 
@@ -103,22 +110,30 @@ A full-stack robotics design operating system. It bundles six serious sub-produc
 | Layer | Feasibility | Hard part |
 |---|---|---|
 | Voice-to-text | High | Solved |
-| Engineering intent parsing | Medium | Ambiguity |
-| Part decomposition | Low | AI planning for arbitrary geometry |
-| Physical simulation | Medium | Automating FEA for LLM-generated parts |
-| Assembly synthesis | Medium | Automated mate inference |
+| Domain classification | Medium | Distinguishing mechanical vs aero vs electronics intent |
+| Engineering intent parsing | Medium | Ambiguity; domain-specific parameter vocabularies |
+| Part decomposition + domain families | Low–Medium | AI planning for arbitrary geometry; avoiding over-generalized templates |
+| Mechanical assembly synthesis | Medium | Automated mate inference and kinematic loops |
+| Aero / thermal / propulsion geometry | Medium | Surface mesh quality and CFD template automation |
+| Electronics / mechatronics co-design | Medium | Footprint/connector accuracy; staying out of silicon EDA |
+| Multi-physics verification | Medium | Automating FEA/CFD/thermal for LLM-generated geometry |
+| Humanoid / full-robot synthesis | Low–Medium | Morphology, actuator sizing, dynamic stability |
 | World-model simulation | Medium | Mature simulators; policy training separate |
+| Robot brain training | Medium–High | RL/IL as its own discipline; start with imitation |
 | HERMES supervisor | Medium | Reliable as observer, risky as sole executor |
+| Sim-to-real | High | Hardware access, calibration, safety |
 
 ### Risks
 
 | Risk | Severity | Mitigation |
 |---|---|---|
-| Scope explodes across 6 products | High | Sequence into independent phases |
+| Multi-domain scope explodes across 6+ products | High | Sequence into independent domain tracks on a shared core |
 | Voice is a gimmick for engineering | Medium | Treat voice as input shortcut, not core UX |
-| Physical simulation for arbitrary parts is brittle | High | Start with load-case templates |
-| Training a robot brain is a full ML project | High | Leave policy training to LearningRobotics |
-| HERMES becomes a black-box bottleneck | Medium | Supervisor/observer first |
+| Physical simulation for arbitrary parts is brittle | High | Start with closed load-case templates and graceful degradation |
+| Aero/thermal geometry drifts into full CFD/EDA | High | Explicit boundary: RoboCAD owns form-factor + export bridges; full solvers stay external |
+| Humanoid / full-robot morphology | Medium–High | Start with parameterized templates and scaling rules |
+| Training a robot brain is a full ML project | High | Leave core policy research to LearningRobotics; RoboCAD provides synthetic data + geometry feedback |
+| HERMES becomes a black-box bottleneck | Medium | Supervisor/observer first; hard approval gates |
 
 ### Verdict
 
@@ -147,7 +162,7 @@ A full-stack robotics design operating system. It bundles six serious sub-produc
 3. **Phase C:** Build standard manipulation scene templates (Phase 14B). ✅ Done — 4 templates, composition API, backend + frontend, 160/160 tests passing.
 4. **Phase D:** Cross-repo handshake with LearningRobotics (Phase 15A). ✅ Done — bundle contract, reference loaders, /capabilities, 10 s stability rollout, 170/170 tests passing. Three solvable caveats fixed during acceptance (Isaac Sim skeleton, nightly CI, real wedge test seed + exporter/loader bug fixes).
 5. **Phase E:** RoboCompiler asset pipeline (Phase 15B). ✅ Done — skill recommendation (`recommend-skill`), part variant sweep (`variant-sweep`), batch bundle export, and a NumPy-only CEM push-policy smoke test (`train-skill`) end-to-end on generated wedge meshes. 187/187 tests passing. Video-to-skill ingestion remains future work.
-6. **Phase F:** Add voice, decomposition, physical testing, assembly synthesis, world models, and HERMES — in that order.
+6. **Phase F:** Add cross-domain input (16), domain-aware representation (17), decomposition + domain part families (18), mechanical assembly synthesis (19), aero/thermal/propulsion geometry (20), electronics / mechatronics integration (21), multi-physics verification (22), humanoid / full-robot synthesis (23), world-model simulation (24), robot brain training (25), HERMES cross-domain supervisor (26), sim-to-real feedback (27), and distribution / ecosystem / advanced co-design (28) — in that order.
 
 ---
 

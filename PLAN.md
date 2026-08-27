@@ -2,21 +2,21 @@
 
 ## 1. Product definition
 
-**RoboCAD** is an AI-powered parametric CAD tool for robotics hardware.
+**RoboCAD** is an AI-powered generative engineering platform for the entire robotics world — from simple mechanical parts to complex multi-domain systems including robot mechanisms, aerodynamic and thermal surfaces, electronics integration, and full humanoid / robot subsystems.
 
-*Input:* a natural-language description of a robot part or assembly.
-*Output:* a real, editable, parametric CAD model (initially in `build123d`, later syncable to Onshape), plus manufacturing exports and a parameter panel for manual refinement.
+*Input:* natural-language, voice, or sketch descriptions of robot parts, assemblies, mechanisms, aerodynamic surfaces, thermal hardware, electronics modules, or complete robot / humanoid systems.
+*Output:* editable, parametric, multi-domain CAD models (build123d / OpenCASCADE solids, parametric surfaces, kinematic trees, PCB form factors), manufacturing exports (STL / STEP / 3MF / CFD meshes), and physics-ready simulation bundles (MJCF / URDF / FEA / thermal / CFD inputs).
 
 **Differentiation from text-to-mesh toys:**
 - The AI writes **parametric code**, not a static mesh.
-- The generated code is saved and versioned.
+- The generated code is saved, versioned, and domain-aware (mechanical, aero, thermal, electronics, humanoid).
 - Parameters are exposed for interactive editing.
-- The output is manufacturable: STL / STEP / 3MF.
+- The output is manufacturable and simulation-ready: STL / STEP / 3MF / URDF / MJCF / CFD surface meshes.
 
 **Connection to LearningRobotics:**
 - `LearningRobotics` teaches robot theory.
-- RoboCAD designs the physical parts.
-- Saved parts can be imported into MuJoCo / Onshape / real hardware builds.
+- RoboCAD designs the physical parts and systems.
+- Saved parts can be imported into MuJoCo / Isaac Sim / Gazebo / Onshape / CFD / FEA tools / real hardware builds.
 
 ---
 
@@ -279,6 +279,9 @@ Every phase ends with:
 | Onshape API is too restrictive for arbitrary feature trees | Defer feature-tree Onshape integration; use STEP export as fallback; later add FeatureScript transpiler |
 | Designs become an unversioned mess | Save code + parameters as text; use Git from day one |
 | Scope creep into full CAD app | Stay parametric-code-first; never build a manual sketcher; AI generates constraints, humans edit parameter values |
+| Scope creep into full EDA / CFD / silicon design | RoboCAD owns mechanical/aero/thermal/electronics *form-factor* co-design; full chip layout, SPICE, and high-fidelity CFD remain external tools with export bridges |
+| Multi-domain representation explosion | Start with one new domain per phase; keep a shared core feature tree and domain-specific extensions; avoid premature generalization |
+| Humanoid / full-robot morphology generation | Start with parameterized templates and scaling rules, not open-ended morphology search |
 | Cost of LLM API calls | Cache results; use cheaper models for retries; local open-source LLM optional later |
 | 2D constraint solver integration is hard / unstable | Start with minimal constraint subset; add full solver only after benchmark proves need |
 | Feature-tree transpiler cannot express some build123d patterns | Keep raw `code.py` fallback; extend schema incrementally |
@@ -291,15 +294,19 @@ Every phase ends with:
 
 ## 7. Definition of "extraordinary" for this project
 
-RoboCAD becomes extraordinary when a user can describe a multi-part robot subsystem in one paragraph, receive editable parts, adjust key dimensions with sliders, and export a ready-to-print / ready-to-assemble package in under five minutes.
+RoboCAD becomes extraordinary when a user can describe a multi-domain robot system in one paragraph — from a drone wing to a humanoid torso to a heat-sink-cooled PCB stack — receive editable parametric parts, run domain-aware physics checks, and export a ready-to-print / ready-to-simulate package in under ten minutes.
 
-The benchmark sentence:
+**Foundational benchmark sentence (Phases 0–7):**
 
 > *"Design a differential-drive robot base for two NEMA-17 motors with a 100 mm wheelbase, a 20 mm caster clearance, and four M3 mounting holes for a Raspberry Pi 5."*
 
-### Engineer-grade benchmark sentence (Phases 8–14)
+**Engineer-grade benchmark sentence (Phases 8–15B):**
 
 > *"Design a differential-drive robot chassis assembly: two NEMA-17 motor mounts constrained to a 100 mm wheelbase, a 20 mm caster clearance, a Raspberry Pi 5 mounting plate with four M3 holes, and wheel hubs with 6 mm shaft bores. Ensure all parts are editable parametric features, validate the assembly mates, and run a static load check on the base plate."*
+
+**Multi-domain benchmark sentence (Phases 16–28):**
+
+> *"Design a 450 mm quadcopter frame with four motor arms, an aerodynamic center body shell, a battery/PCB tray with M3 mounting holes, and a passive heat-sink base plate. Export the frame as a structural assembly, the body shell as a CFD surface mesh, the tray as a PCB form-factor STEP, and the heat sink as a thermal FEA model."*
 
 ---
 
@@ -625,118 +632,186 @@ PATH1 is a delivery-infrastructure play: take RoboCAD's parametric output and ex
 
 PATH2 is the long-term North Star: a full-stack robotics design operating system where a user describes a robot in voice/text, the system generates parts, tests each part physically, assembles the robot, simulates it in a world model, trains a brain, and supervises the whole process with a conversational agent (HERMES). These phases depend on PATH1 being proven and are intentionally sequenced so each layer is funded by earlier validation.
 
-### Phase 16 — Voice and rich text input
+### Phase 16 — Cross-domain input layer
 
-**Goal:** Add voice and multimodal input as first-class input modalities, while keeping text as the primary, debuggable source of truth.
+**Goal:** Accept voice, text, and sketch input for any robotics domain, detect the domain, and route the intent to the right parametric representation and physics backend.
 
 **Deliverables:**
 - Whisper/local STT integration in backend and frontend.
-- Intent parser that maps speech/text to feature-tree operations and constraints.
+- Domain classifier: mechanical / aerodynamics / thermal / electronics / humanoid / full robot.
+- Per-domain intent parsers that map speech/text to feature-tree operations, constraints, surface profiles, kinematic chains, or PCB form factors.
 - Ambiguity resolution UI: when the LLM is unsure, ask 1–3 clarifying questions.
-- Sketch-to-constraint: rough 2D sketch → dimension inference → feature tree.
-- Voice prompt templates for common operations.
+- Sketch-to-constraint for mechanical parts and 2D aerofoil profiles.
+- Voice prompt templates for common operations across domains.
 
-**Tests:** ≥85% of simple dimensional edits work on first voice attempt.
+**Tests:** ≥85% of simple dimensional edits work on first voice attempt for mechanical parts; ≥70% domain classification accuracy on a curated multi-domain prompt set.
 
 **Effort:** 2–3 months.
 
-### Phase 17 — Automatic part decomposition
+### Phase 17 — Domain-aware parametric representation
 
-**Goal:** For complex prompts (e.g., "a 2-joint robotic arm"), generate a feature tree for each part plus an assembly plan with mates, fasteners, and manufacturing method.
+**Goal:** Extend the feature tree and transpiler to represent not only solid extrusions, but also surfaces, shells, kinematic chains, and electronics form factors.
 
 **Deliverables:**
-- Decomposition planner: LLM + heuristic rules split an assembly intent into parts.
-- Interface library: standard joint interfaces (revolute, prismatic, rigid) with mate points.
-- Fastener/surface-join suggestions.
-- Manufacturing method hint per part (FDM, CNC, sheet metal, off-the-shelf).
-- Validation: assembly is statically determined and parts do not intersect.
+- Feature-tree schema v2.0 with support for:
+  - Surfaces / splines / airfoil sections.
+  - Kinematic joints (revolute, prismatic, spherical, fixed).
+  - PCB outlines, mounting holes, connector keepouts.
+  - Domain tags on every feature/part.
+- Transpiler backends: build123d for solids; parametric surface geometry for aero/thermal; kinematic-tree helper for mechanisms.
+- Validation: each domain-specific tree produces a measurable artifact (mesh, surface, kinematic description).
 
-**Tests:** generate 3–5 standard assemblies from single prompts; verify no intersections.
+**Tests:** load and transpile trees for a bracket, an airfoil, a PCB bracket, and a 2-DOF arm.
+
+**Effort:** 3–4 months. **Risk:** schema over-generalization; start with one new domain at a time.
+
+### Phase 18 — Automatic decomposition and domain part families
+
+**Goal:** Split complex system intents into parts and choose domain-specific part families/templates.
+
+**Deliverables:**
+- Decomposition planner with domain heuristics (LLM + rules).
+- Part-family library:
+  - Mechanical: brackets, links, hubs, pulleys.
+  - Aero/thermal: airfoils, wings, ducts, heat sinks, propeller blades.
+  - Electronics: PCB brackets, enclosures, connector mounts, cable guides.
+  - Humanoid/robot: limb segments, torso plates, end effectors, feet.
+- Interface library per domain: mechanical mates, wing spar joints, PCB mounting patterns, humanoid joint limits.
+- Validation: no part intersections, statically determined assembly, reachable workspace check where applicable.
+
+**Tests:** generate 3–5 standard assemblies from single prompts per domain; verify no intersections.
 
 **Effort:** 3–4 months. **Risk:** fully open-ended decomposition is unsolved; start with parameterized part families.
 
-### Phase 18 — Per-part physical testing
+### Phase 19 — Mechanical assembly synthesis
 
-**Goal:** Before assembly, automatically test each part under realistic load cases and report pass/fail with redesign suggestions.
-
-**Deliverables:**
-- Load-case templates: static load, drop test, thermal expansion, fatigue cycles, fastener pull-out.
-- Integration with CalculiX or FEBio for linear/static FEA.
-- Material library with density, Young’s modulus, yield strength.
-- Failure report: max stress, safety factor, deflection, suggested thickness/rib additions.
-- Mesh-quality pre-checker to avoid FEA crashes on bad LLM geometry.
-
-**Tests:** each load-case template runs on standard part families.
-
-**Effort:** 2–3 months. **Risk:** arbitrary FEA automation is brittle; start with closed load cases.
-
-### Phase 19 — Assembly synthesis and verification
-
-**Goal:** Combine decomposed parts into a coherent assembly, verify kinematics and clearances, and export the full robot as one bundle.
+**Goal:** Scale the existing assembly system to multi-part mechanisms and complete mechanical subsystems.
 
 **Deliverables:**
 - Mate inference from part interfaces and intent.
 - Kinematic loop solver for closed chains.
 - Assembly-level collision and clearance checks.
-- Full-robot MJCF export with joints, actuators, and sensors.
+- Full-subsystem MJCF / URDF export with joints, actuators, and sensors.
 - Assembly replay: step through range-of-motion in the browser.
 
-**Tests:** 2–3 full robot assemblies transpile and load in MuJoCo.
+**Tests:** 2–3 full mechanical assemblies (arm, gripper, diff-drive chassis) transpile and load in MuJoCo.
 
 **Effort:** 3–4 months.
 
-### Phase 20 — World-model simulation
+### Phase 20 — Aerodynamics, thermal, and propulsion geometry
 
-**Goal:** Drop the assembled robot into a parameterized scene with objects, sensors, and domain randomization, ready for policy training.
+**Goal:** Generate parametric airfoils, wings, ducts, heat sinks, and propeller blades, and export CFD-ready surfaces/meshes.
+
+**Deliverables:**
+- Parametric airfoil / wing builder (NACA 4/5-digit, custom camber, sweep, twist).
+- Surface / shell geometry for wings, ducts, and heat-sink fins.
+- Propeller blade geometry from chord/twist/pitch parameters.
+- CFD mesh export (SU2 / OpenFOAM surface mesh and config stubs).
+- Thermal fin / duct templates and heat-spreader geometry.
+
+**Tests:** generated airfoil, wing, and heat sink produce valid surface meshes; simple 2D CFD template runs without errors.
+
+**Effort:** 3–4 months. **Risk:** accurate CFD automation is hard; scope is geometry + template generation, not autonomous high-fidelity analysis.
+
+### Phase 21 — Electronics and mechatronics integration
+
+**Goal:** Design PCB form factors, enclosures, connectors, cable routing, and thermal management hardware that integrate with external EDA tools — *not* to replace full silicon EDA, but to close the mechanical-electrical co-design loop.
+
+**Deliverables:**
+- Component footprint / connector library (KiCad-standard and generic).
+- PCB outline + mounting holes + keepout generation.
+- Connector and cable-channel routing geometry.
+- Heat sink / spreader / fan-mount geometry tied to thermal loads.
+- Export IDF / STEP for board-level EDA tools.
+- **Explicit out-of-scope:** transistor-level IC design, SPICE simulation, and lithography/PnR. These remain external EDA domains; RoboCAD handles packages, boards, and mounts.
+
+**Tests:** generate an electronics enclosure + mounting bracket for a Raspberry Pi / motor-driver stack; export loads in KiCad or FreeCAD.
+
+**Effort:** 2–3 months.
+
+### Phase 22 — Multi-physics verification engine
+
+**Goal:** Run structural, thermal, CFD, and dynamic checks on generated designs from a single verification layer.
+
+**Deliverables:**
+- Solver abstraction layer: plug-in FEA, CFD, thermal, and multibody-dynamics backends.
+- Closed load-case templates: static stress, drop test, thermal expansion, fatigue cycles, fastener pull-out, wind-tunnel drag, heat-sink thermal resistance, joint torque check.
+- Material library extended with conductivity, specific heat, emissivity, and thermal expansion.
+- Failure report with redesign suggestions (thickness, ribs, fin count, duct size).
+- Mesh-quality pre-checker to avoid solver crashes on bad LLM geometry.
+
+**Tests:** each load-case template runs on at least one standard part family per domain.
+
+**Effort:** 4–6 months. **Risk:** arbitrary multi-physics automation is brittle; start with closed templates and graceful degradation.
+
+### Phase 23 — Humanoid and full-robot system synthesis
+
+**Goal:** Generate complete humanoid / robot kinematics, actuator layouts, and stability estimates from high-level descriptions.
+
+**Deliverables:**
+- Kinematic tree builder with revolute/prismatic/spherical joints.
+- Actuator sizing from payload, speed, and safety-factor requirements.
+- Humanoid / legged robot template library (biped, quadruped, manipulator-on-base).
+- Dynamic stability checks: support polygon, ZMP estimate, reachable workspace.
+- Whole-system MJCF / URDF export with sensors and actuators.
+- Basic gait / motion feasibility checks via simple dynamics templates.
+
+**Tests:** generate and load a biped or quadruped assembly in MuJoCo; verify static stability in a standing pose.
+
+**Effort:** 4–6 months. **Risk:** humanoid design is a research area; start with templates and parameterized scaling, not open-ended morphology.
+
+### Phase 24 — World-model simulation
+
+**Goal:** Drop the assembled system into a parameterized scene with objects, sensors, and domain randomization, ready for policy training across manipulation, locomotion, aerial, and humanoid tasks.
 
 **Deliverables:**
 - World builder API: robot + objects + terrain + sensors + task.
-- Domain randomization for mass, friction, actuator gains, sensor noise.
-- Scene templates for pick-place, push, locomotion, insertion.
+- Domain-specific scene templates (pick-place, push, walker, drone hover, humanoid stand).
+- Domain randomization for mass, friction, actuator gains, sensor noise, wind/thermal loads.
 - Export to MuJoCo and Isaac Sim from the same world description.
 - Replay and inspection tools in the frontend.
 
-**Tests:** each scene template exports to both simulators.
+**Tests:** each scene template exports to both simulators and loads without errors.
 
 **Effort:** 3–4 months.
 
-### Phase 21 — Robot brain training loop
+### Phase 25 — Robot brain training loop
 
 **Goal:** Generate training data from the simulated world, train a policy, evaluate it in sim, and feed performance back into design.
 
 **Deliverables:**
 - Synthetic dataset generator: RGB, depth, segmentation, state, action.
-- RL training harness (Isaac Lab / rl-zoo / custom) with standard algorithms.
+- RL / IL training harness (Isaac Lab / rl-zoo / custom) with standard algorithms.
 - Evaluation metrics: success rate, energy, cycle time, robustness.
 - Design feedback loop: if the policy fails due to geometry, flag the part for redesign.
 - First closed-loop demo: design → train → evaluate → redesign → retrain.
 
-**Tests:** closed-loop demo passes on one simple task.
+**Tests:** closed-loop demo passes on one simple task per domain class (push, hover, stand).
 
-**Effort:** 4–6 months. **Risk:** RL training is its own discipline; start with imitation learning.
+**Effort:** 4–6 months. **Risk:** RL training is its own discipline; start with imitation learning and simple tasks.
 
-### Phase 22 — HERMES conversational supervisor
+### Phase 26 — HERMES cross-domain conversational supervisor
 
-**Goal:** A user can talk to RoboCAD like a colleague: ask status, request design changes, approve simulations, and get explanations — without becoming a black-box controller.
+**Goal:** A user can talk to RoboCAD like a colleague across all domains: ask status, request design changes, approve simulations, and get explanations — without becoming a black-box controller.
 
 **Deliverables:**
 - HERMES agent with tool use across design, simulation, and training APIs.
 - Status dashboard: current phase, failures, suggested next actions.
 - Approval gates: HERMES proposes, human confirms for expensive operations (training, large redesigns).
-- Explanation engine: why a part failed a test, why a policy succeeded/failed.
+- Explanation engine: why a part failed a test, why a policy succeeded/failed, why an airfoil/heat sink was shaped a certain way.
 - Memory of project context across sessions.
 
-**Tests:** HERMES correctly explains a DFM failure and proposes a redesign.
+**Tests:** HERMES correctly explains a DFM failure and proposes a redesign; explains a CFD/thermal result in plain language.
 
 **Effort:** 3–4 months. **Risk:** agent hallucinations in safety-critical commands; mitigate with hard approval gates.
 
-### Phase 23 — Real-world feedback loop
+### Phase 27 — Real-world feedback loop and sim-to-real
 
-**Goal:** Deploy the trained policy on a real robot, collect failure data, and close the loop back into simulation and design.
+**Goal:** Deploy trained policies and hardware designs on real robots, collect failure data, and close the loop back into simulation and design.
 
 **Deliverables:**
 - Real robot deployment harness (ROS 2 / micro-ROS / hardware bridge).
-- Data logger for real-world failures.
+- Data logger for real-world failures and telemetry.
 - Automatic sim parameter calibration from real trajectories.
 - Retraining pipeline: real data → fine-tune policy → re-deploy.
 - Safety monitoring: detect out-of-distribution states and halt.
@@ -745,22 +820,22 @@ PATH2 is the long-term North Star: a full-stack robotics design operating system
 
 **Effort:** 6–12 months.
 
-### Phase 24 — Distribution and commercialization
+### Phase 28 — Distribution, ecosystem, and advanced co-design
 
-**Goal:** Product packaging, licensing, and community.
+**Goal:** Product packaging, marketplace, and optional advanced co-design with external EDA / CFD tools.
 
 **Deliverables:**
 - One-command launcher (`start.bat` / `start.sh`).
 - Optional desktop installer (PyInstaller/NSIS or Tauri).
 - Open-source core with paid cloud simulation/training tier.
-- Asset marketplace: verified parts, scene templates, trained policies.
+- Asset marketplace: verified parts, scene templates, trained policies, aero/thermal templates, robot templates.
 - Enterprise features: private model training, PLM integrations, audit logs.
 - Community benchmarks and competitions.
-- Updated README install/run instructions.
+- Advanced co-design plugins for package/heat-spreader integration with external EDA (not silicon layout).
 
-**Tests:** launcher smoke test; manual clean-Windows VM test.
+**Tests:** launcher smoke test; manual clean-Windows VM test; marketplace upload/download round trip.
 
-**Acceptance criteria:** new user from installer to first generated base plate in under 10 minutes.
+**Acceptance criteria:** new user from installer to first generated base plate or airfoil in under 10 minutes.
 
 **Effort:** 2–3 months core packaging; ongoing for marketplace/enterprise.
 
@@ -775,15 +850,19 @@ PATH2 is the long-term North Star: a full-stack robotics design operating system
 | 14B (scenes) | 14A | 15A |
 | 15A (handshake) | 14A, 14B | 15B, revenue/validation |
 | 15B (RoboCompiler pipeline) | 15A | ✅ Complete — 187/187 tests; PATH1 monetization |
-| 16 (voice) | Phase 13 | 17, 22 |
-| 17 (decomposition) | Phase 13, 16 | 18, 19 |
-| 18 (physical tests) | 17 | 19, 21 |
-| 19 (assembly synthesis) | 14A, 17, 18 | 20 |
-| 20 (world model) | 15A, 19 | 21 |
-| 21 (brain training) | 20 | 23 |
-| 22 (HERMES) | 16, 19, 20 | Full UX layer |
-| 23 (sim-to-real) | 21, hardware access | Commercial deployment |
-| 24 (commercialization) | PATH1 proven | SaaS + marketplace |
+| 16 (cross-domain input) | Phase 13 | 17, 22 |
+| 17 (domain representation) | Phase 13, 16 | 18 |
+| 18 (decomposition + families) | Phase 17 | 19, 20, 21 |
+| 19 (mechanical assembly) | 14A, 17, 18 | 23, 24 |
+| 20 (aero/thermal geometry) | 17, 18 | 22 |
+| 21 (electronics integration) | 17, 18 | 22 |
+| 22 (multi-physics verification) | 19, 20, 21 | 23, 24 |
+| 23 (humanoid / robot synthesis) | 19, 22 | 24, 25 |
+| 24 (world model) | 15A, 19, 23 | 25 |
+| 25 (brain training) | 24 | 27 |
+| 26 (HERMES) | 16, 19, 22, 24 | Full UX layer |
+| 27 (sim-to-real) | 25, hardware access | Commercial deployment |
+| 28 (commercialization + co-design) | PATH1 proven, 27 | SaaS + marketplace |
 
 ---
 
@@ -792,9 +871,9 @@ PATH2 is the long-term North Star: a full-stack robotics design operating system
 We compared two directions for RoboCAD:
 
 - **PATH1 — GEDA Bridge:** export RoboCAD parts/assembly to MuJoCo/URDF with verified inertial properties, DFM reports, and a bundle schema consumable by `LearningRobotics`. This is a delivery-infrastructure play in a $4–5 B robot skill-learning market. It is technically reachable from the current codebase in 4–6 weeks and creates the exact data/API surface that PATH2 needs.
-- **PATH2 — Voice-to-world-model:** voice/text → parametric CAD → per-part physical simulation → assembly → world-model simulation → HERMES oversight → robot brain trained on synthetic data with retraining loops. This is the right 5–7 year North Star, but it bundles too many unsolved sub-problems to chase before PATH1 is shipped.
+- **PATH2 — Voice/world-model-to-robot:** voice/text/sketch → multi-domain parametric CAD → per-part multi-physics testing → assembly → world-model simulation → HERMES oversight → robot brain trained on synthetic data with retraining loops. This now spans mechanical, aerodynamics/thermal, electronics, and humanoid/robot subsystems. It is the 5–7 year North Star and intentionally sequenced so each layer is funded by earlier validation.
 
-**Decision:** Build PATH1 first. It validates the CAD-to-physics handoff, produces a reusable asset format, and gives RoboCAD a concrete integration story with `LearningRobotics`. PATH2 becomes the natural second act once PATH1 is proven with a real cross-repo handshake.
+**Decision:** Build PATH1 first. It validates the CAD-to-physics handoff, produces a reusable asset format, and gives RoboCAD a concrete integration story with `LearningRobotics`. PATH2 expands into the multi-domain vision (Phases 16–28) once PATH1 is proven with a real cross-repo handshake. Electronics/aero/humanoid features are added as domain tracks on top of the proven mechanical core, not in parallel.
 
 Full analysis is saved in `.claude/memory/robocad-path-analysis.md` and the end-to-end roadmap in `.claude/memory/robocad-end-to-end-roadmap.md`.
 
@@ -818,4 +897,4 @@ Full analysis is saved in `.claude/memory/robocad-path-analysis.md` and the end-
 
 ---
 
-*Last updated: 2026-08-27 (Phases 14A, 14B, 15A & 15B complete; 187/187 tests passing; MuJoCo stability handshake + trainable push-policy smoke test included; Phase 16 is next)*
+*Last updated: 2026-08-27 (Phases 14A, 14B, 15A & 15B complete; 187/187 tests passing; scope expanded to full multi-domain robotics: mechanical, aero/thermal, electronics, and humanoid/robot systems; Phase 16 — cross-domain input — is next)*
