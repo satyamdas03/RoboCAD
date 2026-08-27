@@ -125,23 +125,38 @@ def _extract_code_block(text: str) -> Optional[str]:
         return None
 
     # Find the first ```python or ``` fence and the matching close.
-    start_match = re.search(r"```(?:python)?\n", text, re.DOTALL)
+    start_match = re.search(r"```(?:python)?(?:\s*\n)", text, re.DOTALL)
     if start_match:
         start = start_match.end()
-        # Find the closing ``` after the start.
         rest = text[start:]
-        end_match = re.search(r"\n```\s*$|\n```\n", rest, re.DOTALL)
+        # Find the next closing fence line after the open fence.
+        end_match = re.search(r"\n```\s*(?:\n|$)", rest, re.DOTALL)
         if end_match:
             code = rest[: end_match.start()].strip()
-            # Remove any accidental nested fence lines.
-            code = re.sub(r"^```(?:python)?\s*\n?", "", code, flags=re.MULTILINE)
-            code = re.sub(r"\n```\s*$", "", code, flags=re.MULTILINE)
-            return code.strip()
+            # Remove any accidental nested fence lines. These can appear as
+            # leading ```python or standalone ``` markers inside the model's
+            # own explanation before the real code block.
+            code = re.sub(r"^```(?:python)?\s*$", "", code, flags=re.MULTILINE)
+            code = re.sub(r"^```(?:python)?\s*\n", "", code, flags=re.MULTILINE)
+            code = code.strip()
+            if _looks_like_code(code):
+                return code
 
-    # Fallback: if the response looks like code, return it raw.
-    if "import" in text or "def " in text or "with BuildPart" in text:
-        return text.strip()
+    # Fallback: strip fence markers from the whole response and see if code remains.
+    cleaned = re.sub(r"^```(?:python)?\s*$", "", text, flags=re.MULTILINE)
+    cleaned = re.sub(r"^```(?:python)?\s*\n", "", cleaned, flags=re.MULTILINE)
+    cleaned = cleaned.strip()
+    if _looks_like_code(cleaned):
+        return cleaned
     return None
+
+
+def _looks_like_code(text: str) -> bool:
+    """Return True if the cleaned text looks like executable Python CAD code."""
+    if not text:
+        return False
+    markers = ["import ", "from ", "def ", "with BuildPart", "result ="]
+    return any(marker in text for marker in markers)
 
 
 def _wrap_result(raw_response: str, model: str) -> dict:
@@ -315,7 +330,7 @@ def generate_feature_tree(
         base_url=_anthropic_base_url(),
     )
     last_exc: Optional[Exception] = None
-    for attempt in range(3):
+    for attempt in range(5):
         try:
             response = _anthropic_create(
                 client,
@@ -395,7 +410,7 @@ def generate_model(
         base_url=_anthropic_base_url(),
     )
     last_exc: Optional[Exception] = None
-    for attempt in range(3):
+    for attempt in range(5):
         try:
             response = _anthropic_create(
                 client,
