@@ -103,6 +103,17 @@ export async function runFEA(id, { fixedFace = '-x', loadMagnitudeN = 100, mater
   })
 }
 
+export async function simulateDesign(id, { material = 'PLA', tolerance = 0.1 } = {}) {
+  return apiFetch(`/designs/${id}/simulate`, {
+    method: 'POST',
+    body: JSON.stringify({ material, tolerance }),
+  })
+}
+
+export async function getSimulationReport(id) {
+  return apiFetch(`/designs/${id}/simulation`)
+}
+
 export async function listOnshapeDocuments(query = '', limit = 20) {
   const params = new URLSearchParams()
   if (query) params.set('q', query)
@@ -123,4 +134,8 @@ export async function uploadToOnshape(id, { documentId, workspaceId, documentNam
 
 export function exportUrl(path) {
   return `${API_BASE}${path}`
+}
+
+export function getBundleUrl(id) {
+  return `${API_BASE}/designs/${id}/bundle`
 }

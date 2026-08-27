@@ -24,10 +24,11 @@ class ExportPaths(BaseModel):
     step: Path | None = None
     stl: Path | None = None
     script: Path | None = None
+    bundle: Path | None = None
 
     def model_dump(self, **kwargs: Any) -> dict[str, Any]:
         data = super().model_dump(**kwargs)
-        for key in ("step", "stl", "script"):
+        for key in ("step", "stl", "script", "bundle"):
             value = data.get(key)
             if isinstance(value, Path):
                 data[key] = value.as_posix()

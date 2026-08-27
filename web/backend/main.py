@@ -47,6 +47,8 @@ from ai_cad.dfm import analyze_dfm
 from ai_cad.feature_store import save as save_feature_tree
 from ai_cad.feature_tree import Assembly, FeatureTree
 from ai_cad.fea import run_static_analysis
+from ai_cad.geda_bridge import export_bundle_from_mesh, export_bundle_from_tree, package_bundle_paths, verify_bundle
+from ai_cad.geda_bridge.models import BundleManifest, BundleVerification
 from ai_cad.guess_parameter import guess_parameter as _guess_parameter
 from ai_cad.manufacturing import analyze_model as _analyze_manufacturing
 from ai_cad.models import CADParameter, ExportPaths, GenerationResult, ManufacturingReport, ValidationReport
@@ -146,6 +148,11 @@ class FEARequest(BaseModel):
     fixed_face: str = Field(default="-x", description="Fully constrained face: +x, -x, +y, -y, +z, -z.")
     load_magnitude_n: float = Field(default=100.0, gt=0, description="Applied force magnitude in Newtons.")
     material: str = Field(default="PLA", description="Material name (PLA, PETG, ABS, aluminum, steel).")
+
+
+class SimulateRequest(BaseModel):
+    material: str = Field(default="PLA", description="Material name for density lookup.")
+    tolerance: float = Field(default=0.1, gt=0, le=1.0, description="Mesh tessellation tolerance in mm.")
 
 
 
@@ -684,6 +691,98 @@ def fea_report(design_id: str, request: FEARequest) -> dict[str, Any]:
         return {"design_id": design_id, "report": result.model_dump()}
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to run FEA: {exc}")
+
+
+@app.post("/designs/{design_id}/simulate")
+def simulate_design(design_id: str, request: SimulateRequest) -> dict[str, Any]:
+    """Generate a simulation-ready MJCF/URDF bundle for a design."""
+    design_dir = DESIGNS_DIR / design_id
+    meta_path = design_dir / "metadata.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Design not found.")
+
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read metadata: {exc}")
+
+    simulation_dir = design_dir / "simulation"
+    simulation_dir.mkdir(parents=True, exist_ok=True)
+
+    feature_tree_path = design_dir / "feature_tree.json"
+    try:
+        if feature_tree_path.exists():
+            tree_data = json.loads(feature_tree_path.read_text(encoding="utf-8"))
+            tree = FeatureTree(**tree_data)
+            paths = export_bundle_from_tree(tree, simulation_dir, name="model", tolerance=request.tolerance)
+        else:
+            stl_path = _resolve_export_path(design_id, meta.get("exports", {}).get("stl"))
+            if not stl_path or not stl_path.exists():
+                raise HTTPException(status_code=422, detail="No STL export or feature tree found for this design.")
+            import trimesh
+            mesh = trimesh.load_mesh(stl_path)
+            if isinstance(mesh, trimesh.Scene):
+                if len(mesh.geometry) == 1:
+                    mesh = next(iter(mesh.geometry.values()))
+                else:
+                    raise HTTPException(status_code=422, detail="STL contains multiple bodies; cannot export as single simulation body.")
+            paths = export_bundle_from_mesh(mesh, simulation_dir, name="model", material=request.material)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to export simulation bundle: {exc}")
+
+    paths = package_bundle_paths(paths, simulation_dir / "bundle.zip")
+
+    verification = verify_bundle(paths.directory)
+
+    # Update metadata so the bundle URL is surfaced in design summaries.
+    meta.setdefault("exports", {})
+    meta["exports"]["bundle"] = "simulation/bundle.zip"
+    _write_json(meta_path, meta)
+
+    return {
+        "design_id": design_id,
+        "valid": verification.valid,
+        "verification": verification.model_dump(),
+        "manifest": BundleManifest(**json.loads(paths.manifest_json.read_text(encoding="utf-8"))).model_dump(),
+        "bundle_url": f"/exports/{design_id}/simulation/bundle.zip",
+    }
+
+
+@app.get("/designs/{design_id}/simulation")
+def get_simulation_report(design_id: str) -> dict[str, Any]:
+    """Return the persisted simulation manifest and verification for a design."""
+    design_dir = DESIGNS_DIR / design_id
+    meta_path = design_dir / "metadata.json"
+    manifest_path = design_dir / "simulation" / "manifest.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Design not found.")
+    if not manifest_path.exists():
+        raise HTTPException(status_code=404, detail="No simulation bundle found for this design.")
+
+    try:
+        manifest = BundleManifest(**json.loads(manifest_path.read_text(encoding="utf-8")))
+        verification = verify_bundle(manifest_path.parent)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read simulation report: {exc}")
+
+    return {
+        "design_id": design_id,
+        "valid": verification.valid,
+        "verification": verification.model_dump(),
+        "manifest": manifest.model_dump(),
+        "bundle_url": f"/exports/{design_id}/simulation/bundle.zip",
+    }
+
+
+@app.get("/designs/{design_id}/bundle")
+def download_bundle(design_id: str) -> FileResponse:
+    """Download the generated simulation bundle zip for a design."""
+    bundle_path = DESIGNS_DIR / design_id / "simulation" / "bundle.zip"
+    if not bundle_path.exists():
+        raise HTTPException(status_code=404, detail="Bundle not found. Run POST /designs/{id}/simulate first.")
+    return FileResponse(bundle_path, media_type="application/zip", filename=f"{design_id}_bundle.zip")
 
 
 @app.post("/designs/{parent_id}/remix")

@@ -15,6 +15,7 @@ import FEAPanel from './components/FEAPanel.jsx'
 import OnshapeUpload from './components/OnshapeUpload.jsx'
 import FeatureTreePanel from './components/FeatureTreePanel.jsx'
 import AssemblyPanel from './components/AssemblyPanel.jsx'
+import SimulatePanel from './components/SimulatePanel.jsx'
 import {
   checkHealth,
   generateDesign,
@@ -276,6 +277,7 @@ export default function App() {
           {selectedId && (
             <div className="kp-panels-grid">
               <AssemblyPanel designId={selectedId} />
+              <SimulatePanel designId={selectedId} />
               <FeatureTreePanel
                 designId={selectedId}
                 parameters={result?.parameters}

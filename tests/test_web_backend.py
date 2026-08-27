@@ -236,6 +236,97 @@ def _seed_cube_design(tmp_path: Path, design_id: str, size: float = 10.0):
     return design_dir, stl_path
 
 
+def test_simulate_endpoint_stl_fallback(tmp_path: Path):
+    design_dir, stl_path = _seed_cube_design(tmp_path, "simcube", size=10.0)
+    response = client.post("/designs/simcube/simulate", json={"material": "PLA", "tolerance": 0.1})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["design_id"] == "simcube"
+    assert data["valid"] is True
+    assert data["bundle_url"].startswith("/exports/simcube/simulation/bundle.zip")
+
+
+def test_get_simulation_report_endpoint(tmp_path: Path):
+    _seed_cube_design(tmp_path, "simcube2", size=10.0)
+    response = client.post("/designs/simcube2/simulate", json={"material": "PLA"})
+    assert response.status_code == 200
+
+    response = client.get("/designs/simcube2/simulation")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["design_id"] == "simcube2"
+    assert "manifest" in data
+    assert "verification" in data
+
+
+def test_download_bundle_endpoint(tmp_path: Path):
+    _seed_cube_design(tmp_path, "simcube3", size=10.0)
+    response = client.post("/designs/simcube3/simulate", json={"material": "PLA"})
+    assert response.status_code == 200
+
+    response = client.get("/designs/simcube3/bundle")
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/zip"
+    assert len(response.content) > 0
+
+
+def test_simulate_endpoint_with_feature_tree(tmp_path: Path):
+    design_dir = tmp_path / "designs" / "ftcube"
+    exports_dir = design_dir / "exports"
+    exports_dir.mkdir(parents=True)
+    stl_path = exports_dir / "model.stl"
+    stl_path.write_text(_ascii_cube_stl(10.0))
+
+    feature_tree = {
+        "schema_version": "1.0.0",
+        "design_id": "ftcube",
+        "prompt": "a 10 mm cube",
+        "created_at": "2026-08-25T00:00:00Z",
+        "units": "mm",
+        "parameters": [],
+        "parts": [
+            {
+                "id": "cube",
+                "material": "PLA",
+                "sketches": [
+                    {
+                        "id": "profile",
+                        "plane": {"type": "base", "name": "XY"},
+                        "entities": [
+                            {"type": "rectangle", "id": "base", "center": [0, 0], "width": 10, "height": 10}
+                        ],
+                    }
+                ],
+                "features": [
+                    {"id": "extrude1", "type": "extrude", "sketch_id": "profile", "parameters": {"amount": 10, "mode": "add"}}
+                ],
+            }
+        ],
+    }
+    (design_dir / "feature_tree.json").write_text(json.dumps(feature_tree))
+    metadata = {
+        "id": "ftcube",
+        "prompt": "a 10 mm cube",
+        "success": True,
+        "model": "fake",
+        "attempts_used": 1,
+        "max_retries": 0,
+        "latency_seconds": 0.0,
+        "created_at": "2026-08-25T00:00:00Z",
+        "exports": {"stl": "model.stl", "step": None, "script": None},
+    }
+    (design_dir / "metadata.json").write_text(json.dumps(metadata))
+
+    response = client.post("/designs/ftcube/simulate", json={"material": "PLA", "tolerance": 0.1})
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["design_id"] == "ftcube"
+    assert data["valid"] is True
+    manifest = data["manifest"]
+    assert len(manifest["parts"]) == 1
+    assert manifest["parts"][0]["material"] == "PLA"
+
+
 def _ascii_cube_stl(size: float = 10.0) -> str:
     """Return a minimal valid ASCII STL for a centered cube."""
     h = size / 2.0

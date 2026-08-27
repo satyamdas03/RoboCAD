@@ -271,7 +271,7 @@ def transpile_assembly(tree: FeatureTree, assembly: Assembly | None = None) -> s
         M = transforms.get(inst.id, np.eye(4))
         (tx, ty, tz), (rx, ry, rz) = _matrix_to_pos_rot(M)
         placed.append(
-            f"{var_name}.part.move(Location(({tx}, {ty}, {tz})) * Rotation({rx}, {ry}, {rz}))"
+            f"{var_name}.part.moved(Location(({tx}, {ty}, {tz})) * Rotation({rx}, {ry}, {rz}))"
         )
 
     if not placed:

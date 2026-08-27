@@ -159,8 +159,8 @@ def test_transpile_assembly_emits_compound():
     assert "with BuildPart() as part_0:" in code
     assert "with BuildPart() as part_1:" in code
     assert "result = Compound(children=[" in code
-    assert "part_0.part.move(" in code
-    assert "part_1.part.move(" in code
+    assert "part_0.part.moved(" in code
+    assert "part_1.part.moved(" in code
 
 
 def test_transpile_assembly_executes(tmp_path):
@@ -238,3 +238,28 @@ def test_parallel_mate_aligns_z_axes():
     z2 = transforms["i2"][:3, 2]
     # After parallel mate, z axes should align.
     assert z1.tolist() == pytest.approx(z2.tolist(), abs=0.01)
+
+
+def test_transpile_assembly_duplicate_part_instances(tmp_path):
+    """Placing the same part twice must not raise an anytree duplicate-child error."""
+    tree = FeatureTree(
+        design_id="dup_asm",
+        prompt="two instances of the same bracket",
+        created_at="2026-08-25T00:00:00Z",
+        parts=[_make_bracket_part()],
+        assemblies=[
+            Assembly(
+                id="a1",
+                instances=[
+                    Instance(id="i1", part_id="bracket"),
+                    Instance(id="i2", part_id="bracket", transform={"translation": [30, 0, 0]}),
+                ],
+            )
+        ],
+    )
+    from ai_cad.executor import execute_code
+
+    code = transpile_assembly(tree, tree.assemblies[0])
+    result = execute_code(code, timeout=60, output_dir=tmp_path)
+    assert result["success"], result.get("traceback", result.get("error"))
+    assert result.get("volume") > 0
