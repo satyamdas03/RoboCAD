@@ -115,16 +115,30 @@ def _build_messages(prompt: str, examples: list[dict]) -> list[dict]:
 
 
 def _extract_code_block(text: str) -> Optional[str]:
-    """Extract the first fenced python code block from an LLM response."""
-    # Try ```python ... ```
-    match = re.search(r"```python\n(.*?)\n```", text, re.DOTALL)
-    if match:
-        return match.group(1).strip()
-    # Try any ``` block
-    match = re.search(r"```\n(.*?)\n```", text, re.DOTALL)
-    if match:
-        return match.group(1).strip()
-    # Fallback: if the response looks like code, return it raw
+    """Extract the first fenced python code block from an LLM response.
+
+    Some models (especially during self-correction) return nested or malformed
+    fences such as ```python\n```python\n...```. This function strips fence
+    markers and returns the executable code inside.
+    """
+    if not text or not text.strip():
+        return None
+
+    # Find the first ```python or ``` fence and the matching close.
+    start_match = re.search(r"```(?:python)?\n", text, re.DOTALL)
+    if start_match:
+        start = start_match.end()
+        # Find the closing ``` after the start.
+        rest = text[start:]
+        end_match = re.search(r"\n```\s*$|\n```\n", rest, re.DOTALL)
+        if end_match:
+            code = rest[: end_match.start()].strip()
+            # Remove any accidental nested fence lines.
+            code = re.sub(r"^```(?:python)?\s*\n?", "", code, flags=re.MULTILINE)
+            code = re.sub(r"\n```\s*$", "", code, flags=re.MULTILINE)
+            return code.strip()
+
+    # Fallback: if the response looks like code, return it raw.
     if "import" in text or "def " in text or "with BuildPart" in text:
         return text.strip()
     return None
