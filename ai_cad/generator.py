@@ -23,8 +23,8 @@ def _anthropic_create(client, *, model, max_tokens, messages, system, temperatur
     """Compatibility wrapper for Anthropic SDK temperature handling.
 
     Anthropic SDK >=1.0 removed the top-level ``temperature`` parameter from
-    ``Messages.create``; it must be passed via ``extra_body``. Older SDKs
-    accepted it as a top-level argument. This helper works with both.
+    ``Messages.create``; it must be passed via ``extra_body``. Newer Claude 5
+    models deprecate ``temperature`` entirely, so we drop it for those models.
     """
     major = int(getattr(anthropic, "__version__", "0.0.0").split(".")[0])
     kwargs = {
@@ -33,6 +33,9 @@ def _anthropic_create(client, *, model, max_tokens, messages, system, temperatur
         "messages": messages,
         "system": system,
     }
+    # Claude 5 family deprecated temperature; omit it to avoid 400 errors.
+    if model.startswith("claude-fable-5") or model.startswith("claude-sonnet-5") or model.startswith("claude-opus-5"):
+        return client.messages.create(**kwargs)
     if major >= 1:
         kwargs["extra_body"] = {"temperature": temperature}
     else:
