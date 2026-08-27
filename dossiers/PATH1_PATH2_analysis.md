@@ -142,10 +142,11 @@ A full-stack robotics design operating system. It bundles six serious sub-produc
 
 ## Recommended sequencing
 
-1. **Phase A (now):** Complete Phase 13 benchmark tuning to ≥80% on T1–T4.
-2. **Phase B:** Build the MuJoCo exporter (Phase 14A).
-3. **Phase C:** Cross-repo handshake with LearningRobotics (Phase 15A).
-4. **Phase D:** Add voice, decomposition, physical testing, assembly synthesis, world models, and HERMES — in that order.
+1. **Phase A:** Complete Phase 13 benchmark tuning to ≥80% on T1–T4. ✅ Done — 87.5% on T1–T4 with Claude Sonnet 5.
+2. **Phase B:** Build the MuJoCo exporter (Phase 14A). ✅ Done — `ai_cad/geda_bridge/`, 152/152 tests passing, MuJoCo runtime validation.
+3. **Phase C:** Build standard manipulation scene templates (Phase 14B). 🚧 In progress.
+4. **Phase D:** Cross-repo handshake with LearningRobotics (Phase 15A).
+5. **Phase E:** Add voice, decomposition, physical testing, assembly synthesis, world models, and HERMES — in that order.
 
 ---
 

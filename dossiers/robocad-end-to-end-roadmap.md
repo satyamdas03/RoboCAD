@@ -51,19 +51,36 @@ Maintained across the entire roadmap:
 
 **Goal:** Convert any RoboCAD part or assembly into a simulation-ready bundle.
 
+**Status:** ✅ Complete — 2026-08-27.
+
 **Deliverables:**
 - `ai_cad/geda_bridge/exporter.py` with `export_to_mujoco()` and `export_to_urdf()`.
 - Bundle schema v2.0.0: manifest, meshes, inertial JSON, MJCF, URDF, DFM report.
 - Backend endpoints: `POST /designs/{id}/simulate`, `GET /designs/{id}/bundle`, `GET /designs/{id}/simulation`.
 - Frontend "Simulate" button + download bundle panel.
 - Verification: mass > 0, positive-definite inertia, CoM inside convex hull.
-- Tests: cube, cylinder, L-bracket, 2-part assembly, gripper jaw.
+- Runtime validation: MuJoCo loads MJCF/URDF and simulates 20 steps for cube, cylinder, L-bracket, and 2-part assembly.
+- Tests: cube, cylinder, L-bracket, 2-part assembly, gripper jaw — **152/152 passing**.
 
 **Timeline:** 2–3 months.
 
 ---
 
 ## Phase 14B — Standard manipulation scene templates
+
+**Goal:** Provide reusable scene templates so `LearningRobotics` can drop a RoboCAD asset into a task.
+
+**Status:** 🚧 In progress — started 2026-08-27 after Phase 14A acceptance.
+
+**Deliverables:**
+- Scene templates: `gripper_cube_grasp`, `bracket_hook_hang`, `wedge_push_block`, `peg_insertion`.
+- Template composition API: add object, add end-effector, define goal region.
+- Backend endpoint: `POST /designs/{id}/scene` to compose a scene around an exported bundle.
+- Frontend scene-template selector panel.
+- Example notebooks for MuJoCo and Isaac Sim loaders.
+- End-to-end tests: generated scene MJCF loads and simulates in MuJoCo.
+
+**Timeline:** 1 month.
 
 **Goal:** Provide reusable scene templates so `LearningRobotics` can drop a RoboCAD asset into a task.
 
