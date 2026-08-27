@@ -136,7 +136,7 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **13** | **Model specialization / fine-tuning + Claude 5 integration** | ✅ **Complete — dataset builder, Ollama Modelfile specialization, QLoRA skeleton, A/B evaluator, Anthropic SDK Claude 5 fixes; 134/134 tests pass; Claude Sonnet 5 T1–T4 87.5% (21/24), overall 21/30 (70.0%)** |
 | **14A** | **GEDA Bridge: MuJoCo / URDF exporter + verified asset bundles** | ✅ **Complete — `ai_cad/geda_bridge/`, `POST /designs/{id}/simulate`, `SimulatePanel.jsx`, 152/152 tests passing, MuJoCo runtime validation** |
 | **14B** | **Standard manipulation scene templates** | ✅ **Complete — `ai_cad/geda_bridge/scene_templates.py`, 4 templates, composition API, `POST /designs/{id}/scene`, `SceneTemplatePanel.jsx`, 160/160 tests passing, MuJoCo scene-load validation** |
-| **15A** | **LearningRobotics handshake** | 🚧 **Next — cross-repo bundle loader + stability rollout** |
+| **15A** | **LearningRobotics handshake** | 🚧 **In progress — cross-repo bundle loader + /capabilities + 10 s stability rollout** |
 | **15B** | **RoboCompiler asset pipeline** | ⏳ Planned — video → custom part → trained skill |
 | **16** | Voice/text + sketch input | ⏳ Planned |
 | **17** | Automatic part decomposition | ⏳ Planned |

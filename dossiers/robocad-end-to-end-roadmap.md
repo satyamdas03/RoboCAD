@@ -89,7 +89,7 @@ Maintained across the entire roadmap:
 
 **Goal:** `LearningRobotics` consumes a RoboCAD bundle, loads it into a standard scene, and runs a physics stability check.
 
-**Status:** 🚧 In progress — next after Phase 14B acceptance.
+**Status:** 🚧 In progress — started 2026-08-27 after Phase 14B acceptance.
 
 **Deliverables:**
 - Shared OpenAPI / JSON-Schema contract for bundle ingestion.
