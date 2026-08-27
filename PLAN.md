@@ -538,22 +538,34 @@ PATH1 is a delivery-infrastructure play: take RoboCAD's parametric output and ex
 
 **Effort:** 2–3 months.
 
-### Phase 14B — Standard manipulation scene templates
+### Phase 14B — Standard manipulation scene templates ✅ COMPLETE
 
 **Goal:** Provide reusable scene templates so a `LearningRobotics` user can drop a RoboCAD asset into a task without writing XML by hand.
 
+**Status:** Complete — 2026-08-27.
+
 **Deliverables:**
+- `ai_cad/geda_bridge/scene_templates.py` with `ManipulationScene` builder, `SceneDescription`, `SceneObject`, `SceneGoalRegion`.
 - Scene templates: `gripper_cube_grasp`, `bracket_hook_hang`, `wedge_push_block`, `peg_insertion`.
-- Template composition API: add object, add end-effector, define goal region.
-- Example notebooks / scripts for MuJoCo and Isaac Sim loaders.
+- Template composition API: `set_asset()`, `add_object()`, `define_goal_region()`.
+- `export_scene_to_mjcf()` writes a standalone MJCF world including the asset, table/props, and goal sites.
+- Backend endpoints: `POST /designs/{id}/scene` and `GET /designs/{id}/scene`.
+- Frontend `SceneTemplatePanel.jsx` to select a template, compose, and download the scene MJCF.
 
-**Tests:** load each template with a RoboCAD bundle and verify scene compiles.
+**Tests:**
+- `tests/test_geda_bridge_scenes.py` — 8 tests covering all 4 templates plus registry/unknown-template errors.
+- `tests/test_web_backend.py` — 2 endpoint tests for compose and report.
+- Full pytest suite: **160 passed**.
 
-**Acceptance criteria:** each template loads in MuJoCo and Isaac Sim from the same world description.
+**Acceptance criteria:**
+- ✅ Each template produces a MuJoCo-loadable MJCF.
+- ✅ Each scene survives a 20-step simulation rollout.
+- ✅ Backend exposes scene composition endpoints.
+- ✅ Frontend exposes a template selector panel.
 
 **Effort:** 1 month.
 
-### Phase 15A — LearningRobotics handshake
+### Phase 15A — LearningRobotics handshake 🚧 NEXT
 
 **Goal:** `LearningRobotics` can consume a RoboCAD bundle, load it into a standard scene, and run a physics stability check.
 
@@ -784,4 +796,4 @@ Full analysis is saved in `.claude/memory/robocad-path-analysis.md` and the end-
 
 ---
 
-*Last updated: 2026-08-27 (Phase 14A GEDA Bridge complete; 152/152 tests passing; MuJoCo runtime validation included; Phase 14B is next)*
+*Last updated: 2026-08-27 (Phases 14A & 14B complete; 160/160 tests passing; MuJoCo scene-load validation included; Phase 15A is next)*

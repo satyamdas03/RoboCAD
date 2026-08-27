@@ -270,6 +270,32 @@ def test_download_bundle_endpoint(tmp_path: Path):
     assert len(response.content) > 0
 
 
+def test_compose_scene_endpoint(tmp_path: Path):
+    pytest.importorskip("mujoco")
+    _seed_cube_design(tmp_path, "scenecube", size=10.0)
+    response = client.post("/designs/scenecube/scene", json={"template": "gripper_cube_grasp", "material": "PLA", "tolerance": 0.1})
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["design_id"] == "scenecube"
+    assert data["template"] == "gripper_cube_grasp"
+    assert data["runtime_ok"] is True
+    assert data["scene_url"].startswith("/exports/scenecube/simulation/scene_gripper_cube_grasp.mjcf")
+
+
+def test_get_scene_report_endpoint(tmp_path: Path):
+    pytest.importorskip("mujoco")
+    _seed_cube_design(tmp_path, "scenecube2", size=10.0)
+    response = client.post("/designs/scenecube2/scene", json={"template": "wedge_push_block"})
+    assert response.status_code == 200
+
+    response = client.get("/designs/scenecube2/scene?template=wedge_push_block")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["design_id"] == "scenecube2"
+    assert data["template"] == "wedge_push_block"
+    assert "scene" in data
+
+
 def test_simulate_endpoint_with_feature_tree(tmp_path: Path):
     design_dir = tmp_path / "designs" / "ftcube"
     exports_dir = design_dir / "exports"

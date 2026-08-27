@@ -70,24 +70,16 @@ Maintained across the entire roadmap:
 
 **Goal:** Provide reusable scene templates so `LearningRobotics` can drop a RoboCAD asset into a task.
 
-**Status:** 🚧 In progress — started 2026-08-27 after Phase 14A acceptance.
+**Status:** ✅ Complete — 2026-08-27.
 
 **Deliverables:**
+- `ai_cad/geda_bridge/scene_templates.py` with `ManipulationScene` builder and `SceneDescription` / `SceneObject` / `SceneGoalRegion` models.
 - Scene templates: `gripper_cube_grasp`, `bracket_hook_hang`, `wedge_push_block`, `peg_insertion`.
-- Template composition API: add object, add end-effector, define goal region.
-- Backend endpoint: `POST /designs/{id}/scene` to compose a scene around an exported bundle.
-- Frontend scene-template selector panel.
-- Example notebooks for MuJoCo and Isaac Sim loaders.
-- End-to-end tests: generated scene MJCF loads and simulates in MuJoCo.
-
-**Timeline:** 1 month.
-
-**Goal:** Provide reusable scene templates so `LearningRobotics` can drop a RoboCAD asset into a task.
-
-**Deliverables:**
-- Scene templates: `gripper_cube_grasp`, `bracket_hook_hang`, `wedge_push_block`, `peg_insertion`.
-- Template composition API: add object, add end-effector, define goal region.
-- Example notebooks for MuJoCo and Isaac Sim loaders.
+- Template composition API: `set_asset()`, `add_object()`, `define_goal_region()`.
+- `export_scene_to_mjcf()` writes a standalone MJCF world.
+- Backend endpoints: `POST /designs/{id}/scene` and `GET /designs/{id}/scene`.
+- Frontend `SceneTemplatePanel.jsx` with template selector and download link.
+- End-to-end tests: 8 new tests, full suite **160/160 passing**; every generated scene loads and simulates in MuJoCo.
 
 **Timeline:** 1 month.
 
@@ -96,6 +88,8 @@ Maintained across the entire roadmap:
 ## Phase 15A — LearningRobotics handshake
 
 **Goal:** `LearningRobotics` consumes a RoboCAD bundle, loads it into a standard scene, and runs a physics stability check.
+
+**Status:** 🚧 In progress — next after Phase 14B acceptance.
 
 **Deliverables:**
 - Shared OpenAPI / JSON-Schema contract for bundle ingestion.

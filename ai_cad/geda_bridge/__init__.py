@@ -18,6 +18,19 @@ from ai_cad.geda_bridge.models import (
 )
 from ai_cad.geda_bridge.packager import package_bundle, package_bundle_paths
 from ai_cad.geda_bridge.runtime_validator import validate_bundle_with_mujoco
+from ai_cad.geda_bridge.scene_templates import (
+    ManipulationScene,
+    SceneDescription,
+    SceneGoalRegion,
+    SceneObject,
+    ScenePose,
+    bracket_hook_hang_template,
+    build_scene,
+    export_scene_to_mjcf,
+    gripper_cube_grasp_template,
+    peg_insertion_template,
+    wedge_push_block_template,
+)
 from ai_cad.geda_bridge.verifier import verify_bundle
 
 __all__ = [
@@ -36,4 +49,15 @@ __all__ = [
     "package_bundle_paths",
     "validate_bundle_with_mujoco",
     "verify_bundle",
+    "ManipulationScene",
+    "SceneDescription",
+    "SceneGoalRegion",
+    "SceneObject",
+    "ScenePose",
+    "bracket_hook_hang_template",
+    "build_scene",
+    "export_scene_to_mjcf",
+    "gripper_cube_grasp_template",
+    "peg_insertion_template",
+    "wedge_push_block_template",
 ]

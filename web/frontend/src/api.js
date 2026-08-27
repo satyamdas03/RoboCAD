@@ -114,6 +114,19 @@ export async function getSimulationReport(id) {
   return apiFetch(`/designs/${id}/simulation`)
 }
 
+export async function composeScene(id, { template = 'gripper_cube_grasp', material = 'PLA', tolerance = 0.1 } = {}) {
+  return apiFetch(`/designs/${id}/scene`, {
+    method: 'POST',
+    body: JSON.stringify({ template, material, tolerance }),
+  })
+}
+
+export async function getSceneReport(id, template = 'gripper_cube_grasp') {
+  const params = new URLSearchParams()
+  params.set('template', template)
+  return apiFetch(`/designs/${id}/scene?${params.toString()}`)
+}
+
 export async function listOnshapeDocuments(query = '', limit = 20) {
   const params = new URLSearchParams()
   if (query) params.set('q', query)

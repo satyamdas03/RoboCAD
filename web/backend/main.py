@@ -47,7 +47,15 @@ from ai_cad.dfm import analyze_dfm
 from ai_cad.feature_store import save as save_feature_tree
 from ai_cad.feature_tree import Assembly, FeatureTree
 from ai_cad.fea import run_static_analysis
-from ai_cad.geda_bridge import export_bundle_from_mesh, export_bundle_from_tree, package_bundle_paths, verify_bundle
+from ai_cad.geda_bridge import (
+    build_scene,
+    export_bundle_from_mesh,
+    export_bundle_from_tree,
+    export_scene_to_mjcf,
+    package_bundle_paths,
+    validate_bundle_with_mujoco,
+    verify_bundle,
+)
 from ai_cad.geda_bridge.models import BundleManifest, BundleVerification
 from ai_cad.guess_parameter import guess_parameter as _guess_parameter
 from ai_cad.manufacturing import analyze_model as _analyze_manufacturing
@@ -151,6 +159,12 @@ class FEARequest(BaseModel):
 
 
 class SimulateRequest(BaseModel):
+    material: str = Field(default="PLA", description="Material name for density lookup.")
+    tolerance: float = Field(default=0.1, gt=0, le=1.0, description="Mesh tessellation tolerance in mm.")
+
+
+class SceneTemplateRequest(BaseModel):
+    template: str = Field(default="gripper_cube_grasp", description="Scene template name.")
     material: str = Field(default="PLA", description="Material name for density lookup.")
     tolerance: float = Field(default=0.1, gt=0, le=1.0, description="Mesh tessellation tolerance in mm.")
 
@@ -783,6 +797,100 @@ def download_bundle(design_id: str) -> FileResponse:
     if not bundle_path.exists():
         raise HTTPException(status_code=404, detail="Bundle not found. Run POST /designs/{id}/simulate first.")
     return FileResponse(bundle_path, media_type="application/zip", filename=f"{design_id}_bundle.zip")
+
+
+@app.post("/designs/{design_id}/scene")
+def compose_scene(design_id: str, request: SceneTemplateRequest) -> dict[str, Any]:
+    """Compose a standard manipulation scene around a design's simulation bundle."""
+    design_dir = DESIGNS_DIR / design_id
+    meta_path = design_dir / "metadata.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Design not found.")
+
+    simulation_dir = design_dir / "simulation"
+    manifest_path = simulation_dir / "manifest.json"
+    if not manifest_path.exists():
+        # Auto-generate the bundle first using the same material/tolerance.
+        simulate_design(design_id, SimulateRequest(material=request.material, tolerance=request.tolerance))
+
+    try:
+        manifest = BundleManifest(**json.loads(manifest_path.read_text(encoding="utf-8")))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read bundle manifest: {exc}")
+
+    scene_name = f"{design_id}_{request.template}"
+    scene_path = simulation_dir / f"scene_{request.template}.mjcf"
+    try:
+        scene = build_scene(request.template, manifest.parts)
+        export_scene_to_mjcf(scene, scene_path)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to compose scene: {exc}")
+
+    runtime_ok = False
+    runtime_info: dict[str, Any] = {}
+    try:
+        runtime_info = validate_bundle_with_mujoco(simulation_dir)
+        # Try to load the scene MJCF specifically.
+        import mujoco
+
+        model = mujoco.MjModel.from_xml_path(str(scene_path))
+        data = mujoco.MjData(model)
+        for _ in range(20):
+            mujoco.mj_step(model, data)
+        runtime_info["scene_loadable"] = True
+        runtime_info["scene_nbody"] = int(getattr(model, "nbody", 0))
+        runtime_ok = True
+    except Exception as exc:
+        runtime_info["scene_loadable"] = False
+        runtime_info["scene_error"] = str(exc)
+
+    # Persist scene metadata in the design for GET retrieval.
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    meta.setdefault("scenes", {})
+    meta["scenes"][request.template] = {
+        "template": request.template,
+        "scene_file": f"simulation/scene_{request.template}.mjcf",
+        "runtime_ok": runtime_ok,
+        "runtime_info": runtime_info,
+        "created_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+    }
+    _write_json(meta_path, meta)
+
+    return {
+        "design_id": design_id,
+        "template": request.template,
+        "scene_name": scene_name,
+        "scene_url": f"/exports/{design_id}/simulation/scene_{request.template}.mjcf",
+        "runtime_ok": runtime_ok,
+        "runtime_info": runtime_info,
+    }
+
+
+@app.get("/designs/{design_id}/scene")
+def get_scene_report(design_id: str, template: str = Query(default="gripper_cube_grasp", description="Scene template name.")) -> dict[str, Any]:
+    """Return the persisted scene metadata for a design and template."""
+    design_dir = DESIGNS_DIR / design_id
+    meta_path = design_dir / "metadata.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Design not found.")
+
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read metadata: {exc}")
+
+    scenes = meta.get("scenes", {})
+    if template not in scenes:
+        raise HTTPException(status_code=404, detail=f"Scene template '{template}' not found. Run POST /designs/{id}/scene first.")
+
+    return {
+        "design_id": design_id,
+        "template": template,
+        "scene": scenes[template],
+        "scene_url": f"/exports/{design_id}/simulation/scene_{template}.mjcf",
+    }
 
 
 @app.post("/designs/{parent_id}/remix")

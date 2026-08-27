@@ -132,8 +132,8 @@ LearningRobotics → world model → policy training → sim-to-real
 | **12** | Verification + physics layer | ✅ **Complete — DFM, tolerances, FEA; 125 tests** |
 | **13** | Model specialization + Claude 5 integration | ✅ **Complete — dataset builder, Ollama Modelfile, QLoRA skeleton, A/B evaluator, Anthropic SDK fixes; 134 tests; Claude Sonnet 5 T1–T4 87.5% (21/24), overall 21/30 (70.0%)** |
 | **14A** | **GEDA Bridge: MuJoCo / URDF exporter + bundles** | ✅ **Complete — `ai_cad/geda_bridge/`, backend endpoints, `SimulatePanel.jsx`, 152/152 tests passing, MuJoCo runtime validation** |
-| **14B** | Standard manipulation scene templates | 🚧 **Next** |
-| **15A** | LearningRobotics handshake | ⏳ Planned |
+| **14B** | Standard manipulation scene templates | ✅ **Complete — `ai_cad/geda_bridge/scene_templates.py`, 4 templates, composition API, `POST /designs/{id}/scene`, `SceneTemplatePanel.jsx`, 160/160 tests passing** |
+| **15A** | LearningRobotics handshake | 🚧 **Next** |
 | **15B** | RoboCompiler asset pipeline | ⏳ Planned |
 | **16** | Voice/text + sketch input | ⏳ Planned |
 | **17** | Automatic part decomposition | ⏳ Planned |
@@ -184,10 +184,11 @@ RoboCAD/
 │   ├── fea.py                # Phase 12
 │   ├── onshape.py            # Phase 5
 │   ├── manufacturing.py      # Phase 5
-│   └── geda_bridge/          # Phase 14A — next
+│   └── geda_bridge/          # Phases 14A–14B
 │       ├── exporter.py
-│       ├── composer.py
-│       ├── skill_runner.py
+│       ├── scene_templates.py
+│       ├── runtime_validator.py
+│       ├── models.py
 │       ├── verifier.py
 │       └── packager.py
 ├── benchmarks/
