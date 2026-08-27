@@ -14,9 +14,9 @@ Secondary audiences include **robotics students and competition teams** who need
 
 ## Product Purpose
 
-RoboCAD lets users describe a robot part in plain language and receive an editable, parametric CAD model. The AI generates executable build123d/FeatureScript code instead of a throwaway mesh, so the output is versionable, parameter-editable, 3D-printable/machinable, and syncable to Onshape for professional assembly work.
+RoboCAD lets users describe robot parts and assemblies in plain language (and eventually voice) and receive editable, parametric CAD models plus simulation-ready bundles. The AI generates executable build123d/FeatureScript code instead of a throwaway mesh, so the output is versionable, parameter-editable, 3D-printable/machinable, syncable to Onshape, and loadable into MuJoCo/Isaac Sim for robot skill training.
 
-Success means a user goes from “a 120 mm × 80 mm × 3 mm base plate with four M3 holes on a 100 mm × 60 mm grid” to a verified STL/STEP export, a parameter panel, and an optional manufacturing report in under a minute.
+Success means a user goes from “a 120 mm × 80 mm × 3 mm base plate with four M3 holes on a 100 mm × 60 mm grid” to a verified STL/STEP export, a parameter panel, a manufacturing report, and a MuJoCo bundle in under a few minutes.
 
 ## Positioning
 
@@ -31,9 +31,9 @@ The meaningful difference is **parametric code, not mesh soup**. Most text-to-3D
 
 ## Capabilities and Constraints
 
-- **Capabilities:** natural-language prompt-to-CAD, parameter editing via sliders and face-click guessing, design history with search/filter/tags, component library with seeded robotics templates, remix from any prior design, manufacturing report (volume, overhangs, hole diameter, print-time heuristic), one-click STEP upload to Onshape.
-- **Constraints:** backend runs locally (FastAPI + build123d + optional Ollama); the 3D viewer is three.js / react-three-fiber; exports are STL/STEP/3MF; local SQLite is the source of truth for history; Onshape integration requires user-provided HMAC credentials stored in `.env`.
-- **Terminology:** prompt, design, parameters, export, regeneration, remix, face/parameter guessing, component library, manufacturing report, Onshape upload.
+- **Capabilities:** natural-language prompt-to-CAD, parameter editing via sliders and face-click guessing, design history with search/filter/tags, component library with seeded robotics templates, remix from any prior design, manufacturing report (volume, overhangs, hole diameter, print-time heuristic), one-click STEP upload to Onshape, feature-tree editing, multi-part assembly with LCS mates, DFM/tolerance/FEA verification, Claude 5 + local Ollama model support, simulation-ready MuJoCo/URDF bundle export (Phase 14A), future voice/sketch input and world-model training.
+- **Constraints:** backend runs locally (FastAPI + build123d + optional Ollama/Claude); the 3D viewer is three.js / react-three-fiber; exports are STL/STEP/3MF and (in Phase 14A) MuJoCo/URDF bundles; local SQLite/JSON is the source of truth for history; Onshape integration requires user-provided HMAC credentials stored in `.env`.
+- **Terminology:** prompt, design, parameters, export, regeneration, remix, face/parameter guessing, component library, manufacturing report, Onshape upload, feature tree, assembly, mate, DFM, FEA, bundle, scene template, world model, HERMES.
 - **Brand:** name kept as **RoboCAD**; visual direction is *Kinetic Precision* — a dark scientific engineering workstation with surgical cyan accent (#00e5ff), near-black ground (#121315), obsidian panels, and `Inter` + `JetBrains Mono` typography. The earlier *Precision Lab Instrument* light theme was superseded by this darker, denser workstation aesthetic. No future redesign may revert to generic SaaS gradients, cartoon UI, cyberpunk neon, or military-industrial steel tropes without a new user decision.
 
 ## Brand Commitments
@@ -51,12 +51,14 @@ The Google Stitch redesign was driven by `STITCH_BRIEF.md` and the generated `st
 ## Evidence on Hand
 
 - Working end-to-end web app with FastAPI backend and a Google Stitch *Kinetic Precision* dark workstation React frontend.
-- 56/57 pytest tests passing. The single failure (`test_generate_missing_api_key`) passes because `.env` configures a local Ollama model (`ROBOCAD_MODEL=qwen3-coder:latest`), so the backend no longer fails on a missing Anthropic key.
+- **134/134 pytest tests passing.**
 - Frontend production build passes; live end-to-end generation verified (base plate and NEMA-17 mount both succeeded with manifold/watertight geometry and full parameter panels).
 - 12 standard robotics component templates in `ComponentLibrary`.
+- Feature-tree backend, sketch constraint solver, assembly system, and DFM/tolerance/FEA verification all implemented and tested.
+- Claude 5 integration complete with Anthropic SDK compatibility fixes; first Claude Sonnet 5 Phase 8 benchmark run reached 21/30 (70.0%).
 - Generated Stitch reference files (`stitch_precision_engineering_interface/`) retained for provenance.
 - README-embedded end-to-end demo: `assets/robocad_kinetic_precision_demo.webm` + `assets/robocad_kinetic_precision_demo.gif` + `assets/robocad_kinetic_precision_demo_poster.jpg`, plus `scripts/record_demo.py` Playwright recorder for reproducible demos.
-- README, PLAN.md, and PRODUCT.md document current phases, architecture, and design context.
+- README, PLAN.md, PRODUCT.md, and memory files document current phases, architecture, design context, and the PATH1/PATH2 strategic roadmap.
 
 ## Product Principles
 

@@ -4,7 +4,7 @@
 >
 > **Core bet:** The AI writes **parametric CAD code** (build123d / FeatureScript), not throwaway meshes. The model you get is editable, versionable, and exportable for 3D printing, machining, or Onshape.
 >
-> **Latest milestone:** Phase 13 model-specialization scaffolding is in place. RoboCAD can now build a supervised-finetuning dataset from the Phase 8 complexity ladder (`scripts/build_training_dataset.py`), embed selected examples into an Ollama Modelfile for few-shot specialization (`scripts/build_ollama_modelfile.py`), and A/B evaluate a specialized model against the base model (`scripts/evaluate_finetuned.py`). A QLoRA fine-tuning skeleton (`scripts/finetune_model.py`) is wired for `unsloth`/`peft`+`bitsandbytes` export to Ollama. Phase 8 baseline remains **26/30 (86.7%)**; full pytest suite: **134 passed**.
+> **Latest milestone:** Phase 13 model-specialization scaffolding is in place and Claude 5 is now integrated. RoboCAD can build a supervised-finetuning dataset from the Phase 8 complexity ladder (`scripts/build_training_dataset.py`), embed selected examples into an Ollama Modelfile for few-shot specialization (`scripts/build_ollama_modelfile.py`), and A/B evaluate a specialized model against the base model (`scripts/evaluate_finetuned.py`). A QLoRA fine-tuning skeleton (`scripts/finetune_model.py`) is wired for `unsloth`/`peft`+`bitsandbytes` export to Ollama. Anthropic SDK compatibility fixes for Claude 5 (httpx2/httpcore2 shim, official base URL override, ThinkingBlock handling, retry loop, nested-fence extraction) are committed. Phase 8 baseline is **26/30 (86.7%)** against `qwen3-coder:latest`; first Claude Sonnet 5 run reached **21/30 (70.0%)** after fixes. Full pytest suite: **134 passed**. The strategic decision is to ship the **GEDA Bridge** (MuJoCo/URDF exporter + verified asset bundles) as Phase 14A/15A before pursuing the full voice-to-world-model vision.
 
 ---
 
@@ -133,10 +133,22 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **10** | **Sketch + 2D constraint solver** | ✅ **Complete — internal 2D solver for distance/horizontal/vertical/coincident/concentric/equal/fix constraints; `ai_cad/sketch_solver.py` + `tests/test_sketch_solver.py`; 105/105 tests pass** |
 | **11** | **Assembly system** | ✅ **Complete — multi-part instances + LCS mates, `ai_cad/assembly.py`, assembly STEP export, `GET /designs/{id}/assembly`, `AssemblyPanel.jsx`, `tests/test_assembly.py`; 112/112 tests pass** |
 | **12** | **Verification + physics layer** | ✅ **Complete — DFM rule engine (`ai_cad/dfm.py`), tolerance/fit checks (`ai_cad/tolerances.py`), cantilever-beam FEA (`ai_cad/fea.py`), backend endpoints for all three, frontend `DFMReport.jsx` / `ToleranceReport.jsx` / `FEAPanel.jsx`; 125/125 tests pass** |
-| **13** | **Model specialization / fine-tuning** | 🚧 **In progress — dataset builder, Ollama Modelfile specialization, QLoRA skeleton, A/B evaluator; 134/134 tests pass; awaiting dataset completion for first few-shot model and A/B run** |
-| **14** | Distribution + packaging | ⏳ Planned — one-command launcher / desktop installer |
+| **13** | **Model specialization / fine-tuning + Claude 5 integration** | ✅ **Complete — dataset builder, Ollama Modelfile specialization, QLoRA skeleton, A/B evaluator, Anthropic SDK Claude 5 fixes; 134/134 tests pass; first Claude Sonnet 5 benchmark 21/30 (70.0%)** |
+| **14A** | **GEDA Bridge: MuJoCo / URDF exporter + verified asset bundles** | 🚧 **Next — export any part/assembly to simulation-ready MJCF/URDF bundle** |
+| **14B** | **Standard manipulation scene templates** | ⏳ Planned — drop-in MuJoCo/Isaac Sim task scenes |
+| **15A** | **LearningRobotics handshake** | ⏳ Planned — cross-repo bundle loader + stability rollout |
+| **15B** | **RoboCompiler asset pipeline** | ⏳ Planned — video → custom part → trained skill |
+| **16** | Voice/text + sketch input | ⏳ Planned |
+| **17** | Automatic part decomposition | ⏳ Planned |
+| **18** | Per-part physical testing (FEA templates) | ⏳ Planned |
+| **19** | Assembly synthesis + verification | ⏳ Planned |
+| **20** | World-model simulation builder | ⏳ Planned |
+| **21** | Robot brain training loop | ⏳ Planned |
+| **22** | HERMES conversational supervisor | ⏳ Planned |
+| **23** | Sim-to-real feedback loop | ⏳ Planned |
+| **24** | Distribution + commercialization | ⏳ Planned — one-command launcher / desktop installer / SaaS tier |
 
-Phases 0–7 proved the **AI → parametric-code loop** for single-part robotics hardware. Phases 8–14 turn that loop into an **engineer-grade CAD system** with feature trees, constraints, assemblies, and verification. See [`PLAN.md`](PLAN.md) for the full roadmap and the new **🎯 Engineer-grade roadmap** section below for the narrative.
+Phases 0–7 proved the **AI → parametric-code loop** for single-part robotics hardware. Phases 8–13 turned that loop into an **engineer-grade CAD system** with feature trees, constraints, assemblies, verification, and model specialization. Phases 14A–24 extend RoboCAD toward the full **voice-to-CAD-to-world-model-to-robot-brain** vision, starting with the GEDA Bridge so LearningRobotics can consume verified simulation-ready assets. See [`PLAN.md`](PLAN.md) for the complete roadmap.
 
 See [`PLAN.md`](PLAN.md) for the complete end-to-end build plan.
 
@@ -383,24 +395,59 @@ The long-term vision is not a chatbot that draws shapes. It is a **robotics desi
 - Kinematic constraints (motor shaft spacing, pulley ratios, link lengths).
 - Manufacturability (print orientation, tolerance, material).
 - Assembly intent (mates, constraints, BOM).
+- Physics and control: load cases, actuation, sensors, sim-to-real transfer.
 
 A user should eventually be able to say:
 
-> *"Design a 2-DOF robot arm: shoulder NEMA-17, elbow NEMA-17, 200 mm link, belt drive, base mountable on 2040 aluminum extrusion."*
+> *"Design a 2-DOF robot arm: shoulder NEMA-17, elbow NEMA-17, 200 mm link, belt drive, base mountable on 2040 aluminum extrusion. Simulate it picking up a 100 g cube and train the controller."*
 
-and receive a folder of editable parts ready for printing, assembly in Onshape, and simulation export to `LearningRobotics` / MuJoCo.
+and receive a folder of editable parts ready for printing, a verified MuJoCo/URDF bundle, a parameterized training scene, and a trained policy — with a conversational supervisor (HERMES) explaining each step and asking for approval before expensive operations.
+
+### Strategic sequencing
+
+We analyzed two paths (see `PLAN.md` Section 12):
+
+- **PATH1 — GEDA Bridge:** export RoboCAD parts to MuJoCo/URDF with verified inertial properties and bundle them for `LearningRobotics`. Ship this first.
+- **PATH2 — Voice-to-world-model:** voice/text → CAD → physical testing → assembly → world-model simulation → HERMES oversight → robot brain training. This is the North Star, but it depends on PATH1 being real.
+
+The decision: **build PATH1 (Phases 14A–15B) first**, then use it as the technical and commercial foundation for PATH2 (Phases 16–23).
 
 ---
 
 ## 🤝 Relationship to other work
 
-* **LearningRobotics** ([repo](https://github.com/satyamdas03/LearningRobotics)) — theory, kinematics, dynamics, and the PIBench physical-intuition benchmark. RoboCAD designs parts that can be loaded there.
+* **LearningRobotics** ([repo](https://github.com/satyamdas03/LearningRobotics)) — theory, kinematics, dynamics, and the PIBench physical-intuition benchmark. RoboCAD designs parts that can be loaded there via the GEDA Bridge.
+* **GEDA Bridge** — the RoboCAD → MuJoCo/URDF exporter + verified asset bundle that lets `LearningRobotics` consume parametric parts directly. This is the immediate cross-repo priority (Phases 14A–15B).
 * **PIBench** — physical common-sense benchmark. RoboCAD could generate the 3D assets for new PIBench scenes from prompts.
 * **Hardware BOM** from LearningRobotics — will be imported as the component library so RoboCAD designs are cost-aware.
+* **HERMES** — future conversational supervisor layer that orchestrates design, simulation, and training (Phase 22).
 
 ---
 
 ## 📝 Changelog
+
+### 2026-08-25 — Strategic roadmap updated: PATH1 (GEDA Bridge) before PATH2 (voice-to-world-model)
+
+* Conducted market and technical analysis comparing two strategic directions:
+  * **PATH1 (GEDA Bridge):** RoboCAD → MuJoCo/URDF/inertial bundle for `LearningRobotics` — a delivery-infrastructure play in a $4–5 B robot skill-learning market.
+  * **PATH2 (full vision):** voice/text → parametric CAD → physical testing → assembly → world-model simulation → HERMES oversight → robot brain trained on synthetic data.
+* Conclusion: PATH1 is technically reachable in 4–6 weeks, creates the exact asset format PATH2 needs, and should be shipped first. PATH2 remains the 5–7 year North Star and is now mapped into Phases 14A–24.
+* Updated `PLAN.md` with the full end-to-end roadmap (Phases 13–24), dependency table, and critical path.
+* Updated `memory.md` and `.claude` memory files with the new analysis and roadmap.
+
+### 2026-08-25 — Claude 5 integration and Phase 8 benchmark run
+
+* Integrated the Claude 5 family (Fable 5 / Sonnet 5 / Opus 5) into `ai_cad/generator.py`:
+  * `ai_cad/__init__.py` now shims Anthropic SDK's vendored `httpx2`/`httpcore2` forks to standard `httpx`/`httpcore` to avoid a Python 3.14 recursion bug.
+  * `_anthropic_base_url()` in `ai_cad/generator.py` forces `https://api.anthropic.com` when stale env vars point at local Ollama.
+  * `_first_text_block()` skips Claude 5 `ThinkingBlock` and returns the first real `TextBlock`.
+  * Added retry loop for Claude 5 responses that contain only an empty thinking block.
+  * Default `max_tokens` raised to 4096 in `ai_cad/generator.py` and `ai_cad/api.py` to accommodate long feature-tree / assembly outputs.
+  * `_anthropic_create()` drops the deprecated `temperature` parameter for `claude-*-5*` models.
+  * `_extract_code_block()` now strips nested markdown fences from self-correction responses.
+* First Claude Sonnet 5 run on the Phase 8 complexity benchmark: **21/30 (70.0%)** after fixes.
+* Full pytest suite remains **134/134 passing**.
+* Anthropic credit balance was depleted mid-benchmark and then topped up by the user.
 
 ### 2026-08-25 — Phase 12 complete: verification + physics layer
 

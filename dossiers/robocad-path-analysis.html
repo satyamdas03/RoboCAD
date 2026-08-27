@@ -1,0 +1,737 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RoboCAD Path Analysis</title>
+  <meta name="description" content="Deep market and technical analysis comparing the GEDA Bridge (PATH1) and voice-to-simulation (PATH2) visions for RoboCAD.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #F7F5F2;
+      --text: #1A1A1A;
+      --muted: #6B6B6B;
+      --surface: #FFFFFF;
+      --border: #E5E2DE;
+      --path1: #2E5A5A;
+      --path1-soft: #E8F0F0;
+      --path2: #B85C38;
+      --path2-soft: #F5E9E3;
+      --warning: #C9A227;
+      --success: #2E7D32;
+      --danger: #B3261E;
+      --link: #1A4D8C;
+      --radius: 6px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #141416;
+        --text: #E8E6E1;
+        --muted: #A0A0A0;
+        --surface: #1E1E20;
+        --border: #353538;
+        --path1: #6BB8B8;
+        --path1-soft: #1A2F2F;
+        --path2: #D98C6A;
+        --path2-soft: #3A231B;
+        --warning: #E4C34A;
+        --success: #6FC276;
+        --danger: #F28B82;
+        --link: #8AB4F8;
+        --shadow: 0 1px 3px rgba(0,0,0,0.25);
+      }
+    }
+
+    :root[data-theme="dark"] {
+      --bg: #141416;
+      --text: #E8E6E1;
+      --muted: #A0A0A0;
+      --surface: #1E1E20;
+      --border: #353538;
+      --path1: #6BB8B8;
+      --path1-soft: #1A2F2F;
+      --path2: #D98C6A;
+      --path2-soft: #3A231B;
+      --warning: #E4C34A;
+      --success: #6FC276;
+      --danger: #F28B82;
+      --link: #8AB4F8;
+      --shadow: 0 1px 3px rgba(0,0,0,0.25);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 16px;
+      line-height: 1.65;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    .page {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 56px 24px 96px;
+    }
+
+    h1, h2, h3, h4 {
+      font-family: "Source Serif 4", Georgia, serif;
+      font-weight: 600;
+      line-height: 1.2;
+      margin: 0 0 0.5em;
+      text-wrap: balance;
+    }
+
+    h1 {
+      font-size: 2.6rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.3em;
+    }
+
+    h2 {
+      font-size: 1.7rem;
+      margin-top: 2.4em;
+      margin-bottom: 0.6em;
+      padding-bottom: 0.35em;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h3 {
+      font-size: 1.25rem;
+      margin-top: 1.8em;
+    }
+
+    h4 {
+      font-size: 1.05rem;
+      font-family: "Inter", sans-serif;
+      font-weight: 600;
+      margin-top: 1.4em;
+    }
+
+    p {
+      margin: 0 0 1em;
+    }
+
+    .subtitle {
+      font-size: 1.15rem;
+      color: var(--muted);
+      margin-bottom: 2em;
+      line-height: 1.5;
+    }
+
+    .meta {
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.8em;
+    }
+
+    a {
+      color: var(--link);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    a:hover {
+      text-decoration: none;
+    }
+
+    .eyebrow {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin-bottom: 0.6em;
+    }
+
+    .eyebrow.path1 { background: var(--path1-soft); color: var(--path1); }
+    .eyebrow.path2 { background: var(--path2-soft); color: var(--path2); }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 24px;
+      margin: 1.2em 0 1.6em;
+    }
+
+    .verdict-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin: 1.5em 0;
+    }
+
+    .verdict-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .verdict-card .label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .verdict-card .value {
+      font-size: 1.25rem;
+      font-weight: 700;
+      font-family: "Source Serif 4", Georgia, serif;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1em 0 1.4em;
+      font-size: 0.92rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    th, td {
+      padding: 12px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      font-weight: 600;
+      background: var(--bg);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    td {
+      vertical-align: top;
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    .num { font-variant-numeric: tabular-nums; }
+
+    ul, ol {
+      margin: 0 0 1.2em;
+      padding-left: 1.4em;
+    }
+
+    li { margin-bottom: 0.35em; }
+
+    .tag {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin-right: 4px;
+      margin-bottom: 4px;
+    }
+
+    .tag.green { background: rgba(46,125,50,0.12); color: var(--success); }
+    .tag.amber { background: rgba(201,162,39,0.14); color: var(--warning); }
+    .tag.red { background: rgba(179,38,30,0.12); color: var(--danger); }
+    .tag.teal { background: var(--path1-soft); color: var(--path1); }
+    .tag.rust { background: var(--path2-soft); color: var(--path2); }
+
+    .recommendation {
+      background: linear-gradient(135deg, var(--path1-soft) 0%, var(--surface) 100%);
+      border-left: 4px solid var(--path1);
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 2.5em 0;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin: 1em 0;
+    }
+
+    @media (max-width: 640px) {
+      .two-col { grid-template-columns: 1fr; }
+      h1 { font-size: 2rem; }
+      .page { padding: 36px 18px 64px; }
+    }
+
+    .source-list {
+      font-size: 0.85rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .source-list a { color: var(--muted); }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <p class="meta">Strategic Product Analysis · RoboCAD</p>
+    <h1>Which revolution should RoboCAD build next?</h1>
+    <p class="subtitle">A research-grounded comparison of PATH1 (GEDA Bridge / Phase 15) and PATH2 (voice-to-CAD-to-simulation-to-world-model).</p>
+
+    <div class="verdict-grid">
+      <div class="verdict-card">
+        <div class="label">Recommended first path</div>
+        <div class="value" style="color: var(--path1);">PATH1: GEDA Bridge</div>
+      </div>
+      <div class="verdict-card">
+        <div class="label">Why now</div>
+        <div class="value" style="font-size: 1rem; line-height: 1.35; font-family: Inter, sans-serif; font-weight: 500;">It extends what already works and feeds a $4–5 B market that is desperate for CAD-to-simulation glue.</div>
+      </div>
+      <div class="verdict-card">
+        <div class="label">PATH2 status</div>
+        <div class="value" style="font-size: 1rem; line-height: 1.35; font-family: Inter, sans-serif; font-weight: 500;">The right North Star, but too many unsolved sub-problems to chase before PATH1 is shipped.</div>
+      </div>
+      <div class="verdict-card">
+        <div class="label">Immediate next step</div>
+        <div class="value" style="font-size: 1rem; line-height: 1.35; font-family: Inter, sans-serif; font-weight: 500;">Get Claude Sonnet 5 benchmark to ~80%, then build the MuJoCo exporter as Phase 14/15.</div>
+      </div>
+    </div>
+
+    <section>
+      <h2>Executive summary</h2>
+      <p>You have two visions on the table. They are not alternatives; they are sequential layers of the same company. The question is order, not either/or.</p>
+      <ul>
+        <li><strong>PATH1 (GEDA Bridge)</strong> is a <em>delivery infrastructure</em> play: take the parametric CAD parts RoboCAD already produces and export them cleanly into MuJoCo/URDF with correct inertial properties, DFM reports, and a bundle schema that LearningRobotics can consume. It is technically reachable from the current codebase, has a narrow, well-defined scope, and sits at the intersection of several fast-growing markets: robot skill-learning platforms (~$4–5 B in 2026), physical AI simulation (~$3.8 B+), and synthetic-data generation for robotics (~$2.5 B).</li>
+        <li><strong>PATH2 (voice/text → CAD → physical test → assembly → world model → HERMES supervisor)</strong> is a <em>full-stack robotics design operating system</em>. It is ambitious, defensible, and aligns with where the industry is heading (NVIDIA Cosmos, foundation models for physical AI, sim-to-real). But it bundles too many unsolved or half-solved sub-problems — reliable voice parsing for engineering intent, part-level physical simulation of arbitrary CAD, automated assembly synthesis, and a generalist supervisory agent — into one bet.</li>
+      </ul>
+      <p><strong>The recommendation:</strong> ship PATH1 first. It validates the CAD-to-physics handoff, produces a reusable asset format, and creates the exact data and API surface that PATH2 will need later. PATH2 becomes the natural second act once PATH1 is proven with a real LearningRobotics handshake.</p>
+    </section>
+
+    <section>
+      <h2>1. PATH1: GEDA Bridge / Phase 15</h2>
+      <span class="eyebrow path1">Delivery infrastructure for RoboCompiler</span>
+
+      <h3>1.1 What the market actually looks like</h3>
+      <p>The Phase 15 prompt cites adjacent TAMs for RoboCompiler and PhysHack. Those numbers are directionally correct, but they mix different market boundaries. Here is a cleaner map:</p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Market segment</th>
+            <th class="num">2026 size</th>
+            <th>CAGR</th>
+            <th>What RoboCAD could capture</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Robot skill-learning platforms</td>
+            <td class="num">~$4.2–5.4 B</td>
+            <td class="num">18–29%</td>
+            <td>Export + bundle format for simulation-ready parts</td>
+          </tr>
+          <tr>
+            <td>Robot learning from demonstration</td>
+            <td class="num">~$3.2–4.1 B</td>
+            <td class="num">28%</td>
+            <td>Part design when the demo task needs a custom end-effector</td>
+          </tr>
+          <tr>
+            <td>Imitation learning for robotics</td>
+            <td class="num">~$2.1–2.8 B</td>
+            <td class="num">34%</td>
+            <td>Mesh + inertial data for cross-embodiment transfer</td>
+          </tr>
+          <tr>
+            <td>AI copilots for robot programming</td>
+            <td class="num">~$2.75 B</td>
+            <td class="num">28–32%</td>
+            <td>PhysHack-style controller-code + MuJoCo verifier</td>
+          </tr>
+          <tr>
+            <td>Physical AI simulation &amp; digital twin for robotics</td>
+            <td class="num">~$3.8 B+</td>
+            <td class="num">28%</td>
+            <td>Verified, inertial-correct MJCF assets</td>
+          </tr>
+          <tr>
+            <td>Synthetic data generation for robotics</td>
+            <td class="num">~$2.5 B</td>
+            <td class="num">33%</td>
+            <td>Parametric scene-ready assets that seed sim scenes</td>
+          </tr>
+          <tr>
+            <td>Virtual commissioning / test-before-build</td>
+            <td class="num">~$1.1–1.6 B</td>
+            <td class="num">13–15%</td>
+            <td>DFM + stability report before fabrication</td>
+          </tr>
+          <tr>
+            <td>Generative AI in product design &amp; engineering</td>
+            <td class="num">~$7.0 B</td>
+            <td class="num">24%</td>
+            <td>Natural-language parametric CAD generation</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p><strong>Interpretation:</strong> The “revolutionary” part is not the bridge itself; it is the workflow the bridge enables. RoboCompiler (human video → skill) is the high-value surface, but it cannot exist without clean, physically-grounded assets. GEDA Bridge is the <em>picks and shovels</em> for that revolution. That is a strong place to be: lower risk than the end-to-end consumer product, but directly tied to its growth.</p>
+
+      <h3>1.2 Technical feasibility from the current state</h3>
+      <p>RoboCAD today has:</p>
+      <ul>
+        <li>Parametric code generation (build123d) with self-correction.</li>
+        <li>Feature-tree schema v1, transpiler, and backend endpoints.</li>
+        <li>Assembly system with LCS-based mates.</li>
+        <li>DFM rule engine, tolerance/fit checks, simple FEA.</li>
+        <li>STL/STEP export and design persistence.</li>
+      </ul>
+      <p>What GEDA Bridge needs on top:</p>
+      <ul>
+        <li>Convert build123d <code>Shape</code> → metric mesh (already STL).</li>
+        <li>Compute mass properties from a real density (build123d/trimesh can give volume; multiply by density).</li>
+        <li>Write MJCF with <code>&lt;inertial&gt;</code> tag and convex collision mesh.</li>
+        <li>Write URDF as a compatibility layer.</li>
+        <li>Package directory structure per the v2 bundle schema.</li>
+      </ul>
+      <p>None of these are research problems. They are plumbing and unit-conversion problems. The hardest piece is getting the inertia tensor correct in the right coordinate frame and units — that is well-documented in MuJoCo and URDF specs. The Phase 15 prompt’s verification thresholds (mass &gt; 0, positive-definite inertia, CoM inside bounding box) are sanity checks, not moonshots.</p>
+
+      <h3>1.3 Competitive landscape</h3>
+      <p>The GEDA Bridge sits between CAD and simulators. Existing players:</p>
+      <ul>
+        <li><strong>NVIDIA Isaac Sim / Isaac Lab:</strong> Photoreal, GPU-parallel, synthetic data leader. Requires NVIDIA stack, steep setup. RoboCAD’s angle is “small, deterministic, open-source, LLM-generated parametric parts” — a different shape.</li>
+        <li><strong>MuJoCo ecosystem:</strong> Gold standard for contact-rich RL. No turnkey CAD importer. GEDA Bridge fills exactly that gap.</li>
+        <li><strong>Gazebo Harmonic / ROS 2:</strong> Systems integration default. URDF export from RoboCAD makes you compatible here.</li>
+        <li><strong>Siemens / Dassault / PTC / Autodesk:</strong> PLM/CAD giants with digital twins. They are not focused on LLM-generated hobbyist/startup robotics parts. Their tools are expensive and heavy; RoboCAD is lightweight and code-first.</li>
+        <li><strong>Skild AI, Physical Intelligence, Generalist, HOST, Video2Robo:</strong> The video-to-skill competitors. They do not design custom parts; they assume the robot morphology is fixed. RoboCompiler + GEDA Bridge’s unique angle is: <em>if the task needs a custom gripper/wedge/bracket, design it in RoboCAD, verify it, then learn the skill.</em></li>
+      </ul>
+
+      <h3>1.4 Risks</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Risk</th>
+            <th>Severity</th>
+            <th>Mitigation</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>LearningRobotics does not consume the bundle</td>
+            <td><span class="tag amber">Medium</span></td>
+            <td>Build a standalone MuJoCo loader test first; only then cross-repo handshake.</td>
+          </tr>
+          <tr>
+            <td>Inertia tensor sign/frame errors</td>
+            <td><span class="tag amber">Medium</span></td>
+            <td>Property-based tests: mass &gt; 0, positive-definite inertia, CoM inside mesh.</td>
+          </tr>
+          <tr>
+            <td>Complex assemblies generate unstable MJCF</td>
+            <td><span class="tag amber">Medium</span></td>
+            <td>Start with rigid, fixed assemblies; joints in 15B.</td>
+          </tr>
+          <tr>
+            <td>Claude API costs for complex prompts</td>
+            <td><span class="tag amber">Medium</span></td>
+            <td>Keep Ollama path alive; use Claude only for T4/T5 or development.</td>
+          </tr>
+          <tr>
+            <td>Market is dominated by NVIDIA</td>
+            <td><span class="tag red">High</span></td>
+            <td>Differentiate on openness, parametric editability, and small-team affordability.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>1.5 Verdict on PATH1</h3>
+      <div class="card recommendation">
+        <p><strong>Do this first.</strong> It is technically reachable, market-validated, and creates the exact artifact (bundle schema + verified MJCF) that PATH2 needs. It also gives RoboCAD a concrete integration story beyond “we generate STL files.”</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>2. PATH2: Voice/text → CAD → physical simulation → assembly → world model</h2>
+      <span class="eyebrow path2">The full-stack robotics design OS</span>
+
+      <h3>2.1 Parsing the vision</h3>
+      <p>PATH2 is actually a stack of five distinct products:</p>
+      <ol>
+        <li><strong>Voice/text intent parser for engineering designs.</strong> Convert natural speech into structured design parameters. This is closer to a voice-driven CAD copilot than a generic assistant.</li>
+        <li><strong>Automated part decomposition.</strong> For complex designs (humanoid), break the intent into individual parts with interfaces and mates. This is an AI planning problem on top of CAD.</li>
+        <li><strong>Part-level physical simulation.</strong> Test each part under load, fatigue, wear before assembly. This is FEA/physics simulation, not just geometry validation.</li>
+        <li><strong>Automated assembly synthesis.</strong> Combine parts into a final assembly and verify end-to-end behavior. This is the GEDA Bridge plus higher-level planning.</li>
+        <li><strong>World-model simulation + robot brain training.</strong> Put the assembled robot into a simulated world, train a policy on synthetic data, evaluate, retrain. This is LearningRobotics / RoboCompiler territory.</li>
+        <li><strong>HERMES supervisor.</strong> A conversational agent that watches the whole pipeline, explains status, and accepts commands. This is a meta-orchestration layer.</li>
+      </ol>
+      <p>Each of these is a serious project. Bundling them into one phase is dangerous because progress is gated by the weakest link.</p>
+
+      <h3>2.2 Market context</h3>
+      <p>The markets PATH2 touches are large and real, but they are mostly downstream of GEDA Bridge:</p>
+      <ul>
+        <li><strong>Generative AI in product design &amp; engineering:</strong> ~$7 B in 2026, growing 24% CAGR. Voice-to-CAD is a tiny slice, but the broader “AI-assisted mechanical design” tailwind is strong.</li>
+        <li><strong>Digital twin / manufacturing simulation:</strong> ~$35–47 B in 2026. Part of this is exactly “test before build,” but incumbents (Siemens, Ansys, Dassault) own the high end.</li>
+        <li><strong>Physical AI training platforms:</strong> ~$3.2 B base, forecast to $101 B by 2035 at 41% CAGR. This is the world-model + synthetic-data layer.</li>
+        <li><strong>Conversational robotics supervision:</strong> Emerging academic area (JARVIS projects, MCP/ACP protocols). No clear standalone market yet, but it is a UX differentiator.</li>
+      </ul>
+      <p><strong>Interpretation:</strong> PATH2’s market opportunity is the union of several multi-billion-dollar markets, but the path is crowded and capital-intensive. The incumbents’ moat is integration: they sell CAD + CAE + PLM + simulation as one stack. A startup wins by owning a narrow, hard wedge first.</p>
+
+      <h3>2.3 Technical feasibility</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Layer</th>
+            <th>State of the art</th>
+            <th>Feasibility for RoboCAD today</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Voice-to-text</td>
+            <td>Whisper / local STT is solved.</td>
+            <td><span class="tag green">High</span></td>
+          </tr>
+          <tr>
+            <td>Engineering intent parsing</td>
+            <td>LLMs can parse dimensions and constraints; ambiguity is the problem.</td>
+            <td><span class="tag amber">Medium</span></td>
+          </tr>
+          <tr>
+            <td>Part decomposition</td>
+            <td>No turnkey solution; requires domain knowledge + planning.</td>
+            <td><span class="tag red">Low</span></td>
+          </tr>
+          <tr>
+            <td>Part-level physical simulation</td>
+            <td>CalculiX/Elmer/ANSYS can do FEA, but automating it for arbitrary LLM-generated geometry is hard.</td>
+            <td><span class="tag amber">Medium</span></td>
+          </tr>
+          <tr>
+            <td>Assembly synthesis</td>
+            <td>RoboCAD has LCS mates; automated mate inference is unsolved.</td>
+            <td><span class="tag amber">Medium</span></td>
+          </tr>
+          <tr>
+            <td>World-model simulation</td>
+            <td>MuJoCo/Isaac Sim are mature; policy training is a separate field.</td>
+            <td><span class="tag amber">Medium</span></td>
+          </tr>
+          <tr>
+            <td>HERMES conversational supervisor</td>
+            <td>LLM agents with tool use are feasible but not reliable as sole orchestrator.</td>
+            <td><span class="tag amber">Medium</span></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>2.4 Competitive landscape</h3>
+      <ul>
+        <li><strong>MIT “Speech to Reality” (2025):</strong> Voice → LLM → text-to-3D → voxelized components → robot assembly. It closes the loop, but the output is voxel/modular, not parametric CAD. RoboCAD’s differentiation is parametric, editable, manufacturable parts.</li>
+        <li><strong>SolidVoice / VoiceForge:</strong> Voice-to-CAD for SolidWorks/FreeCAD. They are plugins; RoboCAD is a native AI-first stack.</li>
+        <li><strong>NVIDIA Cosmos + GR00T:</strong> World foundation models and humanoid training. They will not design custom hardware for you; they assume a fixed robot. RoboCAD’s angle is “design the robot, then train it.”</li>
+        <li><strong>Siemens Industrial Copilot / Rockwell / Schneider:</strong> Natural-language industrial automation. They are not doing generative mechanical design for small robotics teams.</li>
+      </ul>
+
+      <h3>2.5 Risks</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Risk</th>
+            <th>Severity</th>
+            <th>Mitigation</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Scope explodes across 6 products</td>
+            <td><span class="tag red">High</span></td>
+            <td>Sequence into independent phases; ship each layer before adding the next.</td>
+          </tr>
+          <tr>
+            <td>Voice is a gimmick for engineering intent</td>
+            <td><span class="tag amber">Medium</span></td>
+            <td>Treat voice as an input modality, not the core UX. Text remains primary.</td>
+          </tr>
+          <tr>
+            <td>Physical simulation for arbitrary parts is brittle</td>
+            <td><span class="tag red">High</span></td>
+            <td>Start with load-case templates (drop test, static load), not open-ended FEA.</td>
+          </tr>
+          <tr>
+            <td>Training a robot brain is a full-stack ML project</td>
+            <td><span class="tag red">High</span></td>
+            <td>Leave policy training to LearningRobotics; RoboCAD only provides the asset.</td>
+          </tr>
+          <tr>
+            <td>HERMES becomes a black-box bottleneck</td>
+            <td><span class="tag amber">Medium</span></td>
+            <td>Build it as a supervisor/observer first, not the sole executor.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>2.6 Verdict on PATH2</h3>
+      <div class="card" style="border-left: 4px solid var(--path2);">
+        <p><strong>The right North Star, but the wrong next milestone.</strong> PATH2 describes the company you want to be in 3–5 years. It should guide architecture (why the bundle schema matters, why MJCF must be correct, why HERMES should observe the pipeline), but it should not be the immediate build target. Chasing it now spreads effort too thin and substitutes a vision for a shipped product.</p>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <section>
+      <h2>3. PATH1 vs PATH2 comparison</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Dimension</th>
+            <th style="color: var(--path1);">PATH1: GEDA Bridge</th>
+            <th style="color: var(--path2);">PATH2: Design OS</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>What it is</strong></td>
+            <td>Export + packaging layer</td>
+            <td>Full-stack robotics design platform</td>
+          </tr>
+          <tr>
+            <td><strong>Buildable from today?</strong></td>
+            <td><span class="tag green">Yes</span> — 4–6 weeks</td>
+            <td><span class="tag red">No</span> — 6–18 months</td>
+          </tr>
+          <tr>
+            <td><strong>Market risk</strong></td>
+            <td><span class="tag green">Low</span> — demand is visible</td>
+            <td><span class="tag amber">Medium</span> — large but crowded</td>
+          </tr>
+          <tr>
+            <td><strong>Technical risk</strong></td>
+            <td><span class="tag green">Low</span> — plumbing</td>
+            <td><span class="tag red">High</span> — many unsolved layers</td>
+          </tr>
+          <tr>
+            <td><strong>Defensibility</strong></td>
+            <td><span class="tag amber">Medium</span> — bundle schema + verified assets</td>
+            <td><span class="tag green">High</span> — if executed end-to-end</td>
+          </tr>
+          <tr>
+            <td><strong>Revenue path</strong></td>
+            <td>Bundles, API usage, sim-ready asset library</td>
+            <td>SaaS platform, enterprise licenses</td>
+          </tr>
+          <tr>
+            <td><strong>What it proves</strong></td>
+            <td>RoboCAD output is useful in physics sims</td>
+            <td>RoboCAD can design and test entire robots</td>
+          </tr>
+          <tr>
+            <td><strong>Dependency on LearningRobotics</strong></td>
+            <td>Clean API contract; they call you</td>
+            <td>Tight coupling; co-development</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>4. Recommended sequencing</h2>
+
+      <h3>4.1 Phase A — Complete the current RoboCAD core (now)</h3>
+      <ul>
+        <li>Finish Claude Sonnet 5 benchmark tuning. Target: <strong>≥80% on T1–T4</strong> before moving on. The 70% run shows T1–T3 are mostly solved; T4/T5 need either better prompting, feature-tree path, or constrained code templates.</li>
+        <li>Keep local model training as a background optimization, not the main blocker.</li>
+        <li>Commit and push after each fix.</li>
+      </ul>
+
+      <h3>4.2 Phase B — Build the MuJoCo exporter (Phase 14/15A)</h3>
+      <p>This is PATH1 in practice:</p>
+      <ol>
+        <li><strong>Exporter module:</strong> <code>ai_cad/geda_bridge/exporter.py</code> with <code>export_to_mujoco()</code> matching the signature in the Phase 15 prompt.</li>
+        <li><strong>Outputs:</strong> <code>part.stl</code>, <code>part_collision.stl</code>, <code>part.mjcf</code>, <code>part.urdf</code>, <code>inertial.json</code>, <code>manifest.json</code>.</li>
+        <li><strong>Tests:</strong> cube, cylinder, L-bracket, 2-part assembly. Verify mass, CoM, inertia, and MuJoCo load.</li>
+        <li><strong>API:</strong> <code>POST /designs/{id}/simulate</code>, <code>GET /designs/{id}/simulation</code>, <code>GET /designs/{id}/bundle</code>.</li>
+        <li><strong>Example bundles:</strong> gripper_cube_grasp, bracket_hook_hang, wedge_push_block.</li>
+      </ol>
+
+      <h3>4.3 Phase C — Cross-repo handshake with LearningRobotics</h3>
+      <ul>
+        <li>LearningRobotics loads the bundle and runs a stability rollout.</li>
+        <li>Compose the part into a standard manipulation scene.</li>
+        <li>Verify one simple skill (push block with wedge).</li>
+        <li>Register the verified pair via <code>/capabilities</code>.</li>
+      </ul>
+
+      <h3>4.4 Phase D — Voice and decomposition (PATH2 begins)</h3>
+      <p>Only after PATH1 is proven:</p>
+      <ul>
+        <li>Add Whisper STT as an input modality; keep text primary.</li>
+        <li>Build a design-decomposition planner that breaks complex prompts into a feature tree + assembly plan.</li>
+        <li>Add load-case templates for part-level physical testing.</li>
+        <li>Introduce HERMES as a conversational observer/status reporter, not the sole controller.</li>
+      </ul>
+
+      <h3>4.5 Phase E — World model and brain training</h3>
+      <p>This is mostly LearningRobotics’ domain. RoboCAD’s role is to keep producing better, simulation-ready assets and to accept feedback from the world-model results.</p>
+    </section>
+
+    <section>
+      <h2>5. What to build this week</h2>
+      <ol>
+        <li><strong>Re-run the 30-prompt benchmark</strong> with the latest extractor fix and topped-up Claude credits. Confirm the 70% result holds or improves.</li>
+        <li><strong>Debug remaining T4/T5 failures.</strong> Likely causes: max_tokens still too low for very long outputs, or the system prompt does not instruct Claude to keep code blocks clean during self-correction. Try adding an explicit instruction: “Always return corrected code in a single fenced python block with no nested fences.”</li>
+        <li><strong>Sketch the GEDA Bridge exporter API</strong> in a new branch or doc: <code>ai_cad/geda_bridge/exporter.py</code> interface, bundle schema v2, and test plan.</li>
+        <li><strong>Update PLAN.md</strong> to reflect: Phase 13 finishes at ~80% benchmark, Phase 14 expands to include the MuJoCo exporter + bundle packaging, Phase 15 is the LearningRobotics handshake.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>6. Final recommendation</h2>
+      <div class="card recommendation">
+        <p><strong>Build PATH1 first.</strong> It is the only path that converts today’s working RoboCAD into a product that another project (LearningRobotics) can actually consume. It validates the central thesis — that AI-generated parametric CAD can be physically useful — without requiring six separate miracles.</p>
+        <p>PATH2 is the destination. Let it shape the architecture, but do not try to build it whole. The sequence is: <strong>generate → validate → export → simulate → compose → learn.</strong> You are currently at “generate/validate.” PATH1 gets you to “simulate/compose.” That is exactly the right next step.</p>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <section class="source-list">
+      <h2>Sources</h2>
+      <p>Market figures are synthesized from recent syndicated reports. Key sources used:</p>
+      <ul>
+        <li><a href="https://marketintelo.com/report/robot-learning-from-demonstration-market">Robot Learning from Demonstration Market Research Report 2034</a> — MarketIntelo</li>
+        <li><a href="https://marketintelo.com/report/imitation-learning-for-robotics-market">Imitation Learning for Robotics Market Research Report 2034</a> — MarketIntelo</li>
+        <li><a href="https://www.thebusinessresearchcompany.com/report/artificial-intelligence-ai-copilots-for-robot-programming-market-report">AI Copilots for Robot Programming Market Size Report 2026–2030</a> — The Business Research Company</li>
+        <li><a href="https://dataintelo.com/report/robotic-skill-learning-platforms-market">Robotic Skill Learning Platforms Market Research Report 2034</a> — Dataintelo</li>
+        <li><a href="https://marketintelo.com/report/physical-ai-simulation-and-digital-twin-for-robotics-market">Physical AI Simulation and Digital Twin for Robotics Market Research Report 2034</a> — MarketIntelo</li>
+        <li><a href="https://www.giiresearch.com/report/tbrc2014193-synthetic-data-generation-robotics-global-market.html">Synthetic Data Generation For Robotics Global Market Report 2026</a> — The Business Research Company / GII</li>
+        <li><a href="https://www.factmr.com/report/virtual-commissioning-market">Virtual Commissioning Market Report 2036</a> — Fact.MR</li>
+        <li><a href="https://www.fortunebusinessinsights.com/generative-ai-in-product-design-engineering-market-115752">Generative AI in Product Design &amp; Engineering Market Size 2034</a> — Fortune Business Insights</li>
+        <li><a href="https://marketresearch.biz/report/generative-ai-in-cad-market/">Generative AI in CAD Market Size</a> — MarketResearch.biz</li>
+        <li><a href="https://robotforge.org/tutorials/simulators/choosing-a-simulator-2026">Choosing a robotics simulator in 2026</a> — RobotForge</li>
+        <li><a href="https://www.roboticscenter.ai/rl-environments/mujoco-vs-isaac-sim">MuJoCo vs Isaac Sim (2026)</a> — Robotics Center</li>
+        <li><a href="https://news.mit.edu/2025/mit-researchers-speak-objects-existence-using-ai-robotics-1205">MIT “Speech to Reality”</a> — MIT News</li>
+        <li><a href="https://cba.mit.edu/docs/papers/25.11.Kyaw.pdf">Speech to Reality: On-Demand Production using Natural Language, 3D Generative AI, and Discrete Robotic Assembly</a> — MIT CBA</li>
+        <li><a href="https://cryptobriefing.com/skild-ai-s1-robotics-model-video-learning/">Skild AI unveils S1 robotics model that learns physical tasks from a single video</a> — CryptoBriefing</li>
+        <li><a href="https://arxiv.org/html/2607.20033v3">Robots Acquire Manipulation Skills in Seconds from a Single Human Video</a> — arXiv</li>
+        <li><a href="https://openaccess.thecvf.com/content/CVPR2026/papers/Deng_Video2Robo_3DGS-based_Synthetic_Data_from_One_Video_Enables_Scalable_Robot_CVPR_2026_paper.pdf">Video2Robo: 3DGS-based Synthetic Data from One Video Enables Scalable Robot Learning</a> — CVPR 2026</li>
+        <li><a href="https://pal-robotics.com/blog/pal-robotics-in-co-hand-project/">JARVIS / CO-HAND Project TRL 7</a> — PAL Robotics</li>
+        <li><a href="https://arxiv.org/html/2607.14919">Human-Robot Interaction in GenAI Architectures via the Agent-Client Protocol</a> — arXiv</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

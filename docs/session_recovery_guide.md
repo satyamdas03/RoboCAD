@@ -23,6 +23,15 @@ These files are in `C:\Users\point\.claude\projects\C--Users-point-projects-Robo
 3. `impeccable-ui-redesign.md` — First full UI redesign (Precision Lab Instrument light theme).
 4. `google-stitch-ui-redesign.md` — Second/current UI redesign (Kinetic Precision dark workstation); demo video + README walkthrough.
 5. `engineer-grade-roadmap.md` — Strategic decision and Phases 8–14 roadmap for complex, high-precision, multi-part CAD.
+6. `phase8-baseline-in-progress.md` — 30-prompt complexity baseline 26/30 (86.7%) with `qwen3-coder:latest`.
+7. `phase9-feature-tree-backend.md` — Feature-tree sidecar, transpiler, store, endpoints, frontend panel.
+8. `phase10-sketch-constraint-solver.md` — Internal 2D constraint solver.
+9. `phase11-assembly-system.md` — Multi-part instances + LCS mates.
+10. `phase12-verification-physics.md` — DFM, tolerance/fit, simple FEA.
+11. `phase13-model-specialization.md` — Fine-tuning scaffolding + Claude 5 integration.
+12. `claude5-integration-fixes.md` — Anthropic SDK fixes and first Claude Sonnet 5 benchmark.
+13. `robocad-path-analysis.md` — PATH1 (GEDA Bridge) vs PATH2 (voice-to-world-model) strategic analysis.
+14. `robocad-end-to-end-roadmap.md` — Phased 13–24 plan to the full vision.
 
 ---
 
@@ -30,10 +39,11 @@ These files are in `C:\Users\point\.claude\projects\C--Users-point-projects-Robo
 
 These files are at the repo root `C:\Users\point\projects\RoboCAD\`:
 
-1. `README.md` — Mission, architecture, tech stack, current phase table (Phases 0–14), UI demo, quickstart.
-2. `PLAN.md` — Full end-to-end build plan, completed milestones, risks, and detailed Phase 8–14 definitions.
-3. `PRODUCT.md` — Product definition, users, brand commitments, design context, evidence on hand.
-4. `STITCH_BRIEF.md` — Original brief fed to Google Stitch for the Kinetic Precision UI.
+1. `README.md` — Mission, architecture, tech stack, current phase table (Phases 0–24), UI demo, quickstart, PATH1/PATH2 strategic note.
+2. `PLAN.md` — Full end-to-end build plan, completed milestones, risks, and detailed Phase 8–24 definitions plus dependency table.
+3. `PRODUCT.md` — Product definition, users, brand commitments, design context, evidence on hand, simulation-export capabilities.
+4. `memory.md` — Repo-level restart context with current status and commands.
+5. `STITCH_BRIEF.md` — Original brief fed to Google Stitch for the Kinetic Precision UI.
 
 ---
 
@@ -43,18 +53,27 @@ These files are at the repo root `C:\Users\point\projects\RoboCAD\`:
 
 Read every file in this directory:
 
-- `__init__.py`
+- `__init__.py` — httpx2/httpcore2 shims + public exports.
 - `api.py` — `RoboCADBackend.generate()` orchestrates code gen → execution → validation.
 - `code_ops.py` — Parameter replacement in generated code.
 - `executor.py` — Safely runs generated build123d Python in a subprocess.
 - `exporter.py` — STL/STEP/3MF export helpers.
-- `generator.py` — LLM code generation (Claude API or OpenAI-compatible local models).
+- `generator.py` — LLM code generation (Claude 5 / local Ollama).
 - `guess_parameter.py` — Face-normal → parameter heuristic.
 - `manufacturing.py` — Manufacturing report generation.
 - `models.py` — Pydantic models: `CADParameter`, `ExportPaths`, `ValidationReport`, `ManufacturingReport`, `GenerationResult`.
 - `onshape.py` — HMAC-signed Onshape REST API client.
 - `parameters.py` — AST-based numeric parameter extraction from generated code.
 - `validator.py` — STL manifold/watertight validation.
+- `feature_tree.py` — Feature-Tree JSON schema (Phase 9).
+- `transpiler.py` — Feature tree → build123d (Phase 9).
+- `feature_store.py` — Feature tree persistence (Phase 9).
+- `sketch_solver.py` — 2D constraint solver (Phase 10).
+- `assembly.py` — Multi-part instances + LCS mates (Phase 11).
+- `dfm.py` — DFM rule engine (Phase 12).
+- `tolerances.py` — Fit/clearance checks (Phase 12).
+- `fea.py` — Simple static analysis (Phase 12).
+- `geda_bridge/exporter.py` — MuJoCo/URDF bundle exporter (Phase 14A, next).
 - `prompts/system_prompt.txt` — System prompt the LLM sees.
 - `prompts/examples.json` — Few-shot examples.
 
@@ -168,7 +187,13 @@ npm run build
 | 5 | Onshape export/sync, manufacturing reports | `ai_cad/onshape.py`, `ai_cad/manufacturing.py`, `ManufacturingReport.jsx`, `OnshapeUpload.jsx` |
 | 6 | 12 robotics component templates | `standard_components.json`, `ComponentLibrary.jsx` |
 | 7 | Kinetic Precision dark workstation UI | `web/frontend/src/styles/index.css`, `App.jsx`, all component files |
-| 8–14 | Engineer-grade roadmap (not started) | `README.md`, `PLAN.md`, `memory/engineer-grade-roadmap.md` |
+| 8 | Complexity benchmark + feature-tree schema | `benchmarks/evaluate_complexity.py`, `docs/feature_tree_schema.md` |
+| 9 | Feature-tree backend + transpiler + store | `ai_cad/feature_tree.py`, `ai_cad/transpiler.py`, `ai_cad/feature_store.py` |
+| 10 | 2D sketch constraint solver | `ai_cad/sketch_solver.py` |
+| 11 | Multi-part assembly system | `ai_cad/assembly.py` |
+| 12 | DFM / tolerance / FEA verification | `ai_cad/dfm.py`, `ai_cad/tolerances.py`, `ai_cad/fea.py` |
+| 13 | Model specialization + Claude 5 integration | `scripts/build_training_dataset.py`, `scripts/build_ollama_modelfile.py`, `ai_cad/generator.py` |
+| 14A–24 | End-to-end vision roadmap (Phase 14A next) | `PLAN.md`, `.claude/memory/robocad-end-to-end-roadmap.md` |
 
 ---
 
@@ -181,4 +206,4 @@ npm run build
 5. Run the pytest suite and the frontend build.
 6. Only then continue the current phase.
 
-**Current active phase:** Phase 8 — Complexity benchmark + feature-tree schema. See `PLAN.md` section 9 and `memory/engineer-grade-roadmap.md`.
+**Current active phase:** Phase 13 completion + Phase 14A GEDA Bridge scoping. Stabilize the Claude Sonnet 5 Phase 8 benchmark to ≥80% on T1–T4, then sketch `ai_cad/geda_bridge/exporter.py` for MuJoCo/URDF bundle export. See `PLAN.md` Section 9 and `.claude/memory/robocad-end-to-end-roadmap.md`.

@@ -1,0 +1,930 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RoboCAD End-to-End Vision Roadmap</title>
+  <meta name="description" content="Full phased roadmap from current RoboCAD state to the voice-to-CAD-to-world-model vision.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #F7F5F2;
+      --text: #1A1A1A;
+      --muted: #6B6B6B;
+      --surface: #FFFFFF;
+      --border: #E5E2DE;
+      --phase-core: #2E5A5A;
+      --phase-core-soft: #E8F0F0;
+      --phase-bridge: #5A4B8C;
+      --phase-bridge-soft: #ECE9F4;
+      --phase-sim: #8C5A38;
+      --phase-sim-soft: #F5E9E3;
+      --phase-vision: #1A4D8C;
+      --phase-vision-soft: #E3ECF7;
+      --success: #2E7D32;
+      --warning: #C9A227;
+      --danger: #B3261E;
+      --link: #1A4D8C;
+      --radius: 6px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #141416;
+        --text: #E8E6E1;
+        --muted: #A0A0A0;
+        --surface: #1E1E20;
+        --border: #353538;
+        --phase-core: #6BB8B8;
+        --phase-core-soft: #1A2F2F;
+        --phase-bridge: #A99DD6;
+        --phase-bridge-soft: #282236;
+        --phase-sim: #D98C6A;
+        --phase-sim-soft: #3A231B;
+        --phase-vision: #8AB4F8;
+        --phase-vision-soft: #1A2736;
+        --success: #6FC276;
+        --warning: #E4C34A;
+        --danger: #F28B82;
+        --link: #8AB4F8;
+        --shadow: 0 1px 3px rgba(0,0,0,0.25);
+      }
+    }
+
+    :root[data-theme="dark"] {
+      --bg: #141416;
+      --text: #E8E6E1;
+      --muted: #A0A0A0;
+      --surface: #1E1E20;
+      --border: #353538;
+      --phase-core: #6BB8B8;
+      --phase-core-soft: #1A2F2F;
+      --phase-bridge: #A99DD6;
+      --phase-bridge-soft: #282236;
+      --phase-sim: #D98C6A;
+      --phase-sim-soft: #3A231B;
+      --phase-vision: #8AB4F8;
+      --phase-vision-soft: #1A2736;
+      --success: #6FC276;
+      --warning: #E4C34A;
+      --danger: #F28B82;
+      --link: #8AB4F8;
+      --shadow: 0 1px 3px rgba(0,0,0,0.25);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 16px;
+      line-height: 1.65;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    .page {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 56px 24px 96px;
+    }
+
+    h1, h2, h3, h4 {
+      font-family: "Source Serif 4", Georgia, serif;
+      font-weight: 600;
+      line-height: 1.2;
+      margin: 0 0 0.5em;
+      text-wrap: balance;
+    }
+
+    h1 {
+      font-size: 2.6rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.3em;
+    }
+
+    h2 {
+      font-size: 1.7rem;
+      margin-top: 2.4em;
+      margin-bottom: 0.6em;
+      padding-bottom: 0.35em;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h3 {
+      font-size: 1.25rem;
+      margin-top: 1.8em;
+    }
+
+    h4 {
+      font-size: 1.05rem;
+      font-family: "Inter", sans-serif;
+      font-weight: 600;
+      margin-top: 1.4em;
+    }
+
+    p {
+      margin: 0 0 1em;
+    }
+
+    .subtitle {
+      font-size: 1.15rem;
+      color: var(--muted);
+      margin-bottom: 2em;
+      line-height: 1.5;
+    }
+
+    .meta {
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.8em;
+    }
+
+    a {
+      color: var(--link);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    a:hover {
+      text-decoration: none;
+    }
+
+    .phase {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 24px;
+      margin: 1.2em 0 1.6em;
+      border-left: 4px solid var(--phase-core);
+    }
+
+    .phase.core { border-left-color: var(--phase-core); }
+    .phase.bridge { border-left-color: var(--phase-bridge); }
+    .phase.sim { border-left-color: var(--phase-sim); }
+    .phase.vision { border-left-color: var(--phase-vision); }
+
+    .phase-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .phase-title {
+      font-family: "Source Serif 4", Georgia, serif;
+      font-size: 1.3rem;
+      font-weight: 700;
+      margin: 0;
+    }
+
+    .phase-meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .tag {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin-right: 4px;
+      margin-bottom: 4px;
+    }
+
+    .tag.core { background: var(--phase-core-soft); color: var(--phase-core); }
+    .tag.bridge { background: var(--phase-bridge-soft); color: var(--phase-bridge); }
+    .tag.sim { background: var(--phase-sim-soft); color: var(--phase-sim); }
+    .tag.vision { background: var(--phase-vision-soft); color: var(--phase-vision); }
+    .tag.green { background: rgba(46,125,50,0.12); color: var(--success); }
+    .tag.amber { background: rgba(201,162,39,0.14); color: var(--warning); }
+    .tag.red { background: rgba(179,38,30,0.12); color: var(--danger); }
+
+    .phase-section {
+      margin-top: 14px;
+    }
+
+    .phase-section-title {
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    ul, ol {
+      margin: 0 0 1em;
+      padding-left: 1.4em;
+    }
+
+    li { margin-bottom: 0.35em; }
+
+    .phase ul, .phase ol {
+      margin-bottom: 0;
+    }
+
+    .legend {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin: 1em 0 2em;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+    }
+
+    .legend-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1em 0 1.4em;
+      font-size: 0.92rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    th, td {
+      padding: 12px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      font-weight: 600;
+      background: var(--bg);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    td { vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+
+    .num { font-variant-numeric: tabular-nums; }
+
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 2.5em 0;
+    }
+
+    .summary-box {
+      background: linear-gradient(135deg, var(--phase-vision-soft) 0%, var(--surface) 100%);
+      border-left: 4px solid var(--phase-vision);
+      padding: 20px;
+      border-radius: var(--radius);
+      margin: 1.5em 0;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 640px) {
+      .two-col { grid-template-columns: 1fr; }
+      h1 { font-size: 2rem; }
+      .page { padding: 36px 18px 64px; }
+      .phase-header { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <p class="meta">End-to-End Product Roadmap · RoboCAD</p>
+    <h1>From prompt-to-CAD to voice-to-robot-brain</h1>
+    <p class="subtitle">A phased, ship-first plan that connects today’s RoboCAD (Phases 0–13) to the full vision: voice/text input → parametric CAD → per-part physical testing → assembly → world-model simulation → HERMES oversight → robot brain trained on synthetic data with retraining loops.</p>
+
+    <div class="summary-box">
+      <p><strong>Total horizon:</strong> ~5–7 years. <strong>North Star:</strong> PATH2. <strong>First commercial milestone:</strong> PATH1 (GEDA Bridge). Each phase is independently valuable, so the company generates proof and revenue at every step instead of betting everything on the final vision.</p>
+    </div>
+
+    <h2>Color legend</h2>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-color" style="background: var(--phase-core);"></div>Core CAD / AI generation</div>
+      <div class="legend-item"><div class="legend-color" style="background: var(--phase-bridge);"></div>Physics bridge / bundles</div>
+      <div class="legend-item"><div class="legend-color" style="background: var(--phase-sim);"></div>Simulation / training</div>
+      <div class="legend-item"><div class="legend-color" style="background: var(--phase-vision);"></div>Vision-layer UX / orchestration</div>
+    </div>
+
+    <h2>Cross-cutting foundation (runs entire roadmap)</h2>
+    <div class="phase core">
+      <div class="phase-header">
+        <h3 class="phase-title">Foundation layer</h3>
+        <div class="phase-meta"><span class="tag core">Continuous</span></div>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Why it exists</div>
+        <p>Every later phase depends on reliable generation, testing, observability, and deployment hygiene. This is not a phase you finish; it is a standard you maintain.</p>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Continuous work</div>
+        <ul>
+          <li><strong>Benchmark discipline:</strong> keep the 30-prompt complexity suite green and publish scores after every model or prompt change.</li>
+          <li><strong>Test pyramid:</strong> unit → integration → simulation-load → end-to-end skill.</li>
+          <li><strong>Model zoo:</strong> maintain both local (Ollama) and cloud (Claude) generation paths; specialize local models for speed and cost.</li>
+          <li><strong>Schema governance:</strong> version feature-tree, assembly, bundle, and world-model schemas; provide migration tools.</li>
+          <li><strong>CI/CD + git hygiene:</strong> every change committed, every phase demo recorded as a GIF/webm.</li>
+          <li><strong>Documentation:</strong> keep PLAN.md, README.md, and API docs in sync with shipped code.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h2>Phase 13 — Complete the core benchmark</h2>
+    <div class="phase core">
+      <div class="phase-header">
+        <h3 class="phase-title">13. Robust generation + local model specialization</h3>
+        <div class="phase-meta"><span class="tag core">Core</span><span class="tag amber">1–2 months</span></div>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Current state</div>
+        <p>134/134 unit tests pass. 30-prompt complexity benchmark at 70% with Claude Sonnet 5. Ollama fine-tuning scaffolding in place.</p>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Goal</div>
+        <p>Get the benchmark to ≥80% on T1–T4 and close the remaining extractor/self-correction edge cases before building the bridge.</p>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Deliverables</div>
+        <ul>
+          <li>Claude Sonnet 5 run at ≥80% on T1–T4.</li>
+          <li>Root-cause report for remaining T5 failures.</li>
+          <li>Clean self-correction prompt that prevents nested markdown fences.</li>
+          <li>Local model dataset completion and first fine-tuned checkpoint (if data is ready).</li>
+          <li>Updated PLAN.md declaring Phase 13 complete.</li>
+        </ul>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Success criteria</div>
+        <ul>
+          <li>Complexity benchmark ≥80%.</li>
+          <li>No regressions in unit/integration tests.</li>
+          <li>Cost per prompt tracked and within budget for T1–T4.</li>
+        </ul>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Key risks</div>
+        <ul>
+          <li><span class="tag amber">Medium</span> Claude 5 empty-thinking-block flakiness — already mitigated with retry loop.</li>
+          <li><span class="tag amber">Medium</span> Very long T5 outputs still exceed token limits even at 4096.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h2>Phase 14 — GEDA Bridge (PATH1)</h2>
+    <div class="phase bridge">
+      <div class="phase-header">
+        <h3 class="phase-title">14A. MuJoCo / URDF exporter + verified asset bundles</h3>
+        <div class="phase-meta"><span class="tag bridge">Bridge</span><span class="tag green">2–3 months</span></div>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Goal</div>
+        <p>Convert any RoboCAD part or assembly into a simulation-ready bundle: mesh, collision mesh, inertial properties, MJCF, URDF, and manifest.</p>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Deliverables</div>
+        <ul>
+          <li><code>ai_cad/geda_bridge/exporter.py</code> with <code>export_to_mujoco()</code> and <code>export_to_urdf()</code>.</li>
+          <li>Bundle schema v2.0.0 with manifest, meshes, inertial JSON, MJCF, URDF, DFM report.</li>
+          <li>Backend endpoints: <code>POST /designs/{id}/simulate</code>, <code>GET /designs/{id}/bundle</code>, <code>GET /designs/{id}/simulation</code>.</li>
+          <li>Frontend "Simulate" button + download bundle panel.</li>
+          <li>Property-based verification: mass &gt; 0, positive-definite inertia, CoM inside convex hull.</li>
+          <li>Test fixtures: cube, cylinder, L-bracket, 2-part assembly, gripper jaw.</li>
+        </ul>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Success criteria</div>
+        <ul>
+          <li>Every exported bundle loads in MuJoCo without warnings.</li>
+          <li>Inertial properties match analytical values for simple shapes within 1%.</li>
+          <li>URDF version loads in Gazebo/Ignition.</li>
+          <li>≥90% of tested parts pass all verification checks.</li>
+        </ul>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Key risks</div>
+        <ul>
+          <li><span class="tag amber">Medium</span> Coordinate frame / unit mismatches between build123d and MuJoCo.</li>
+          <li><span class="tag amber">Medium</span> Non-convex collision meshes causing contact instability.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase bridge">
+      <div class="phase-header">
+        <h3 class="phase-title">14B. Standard manipulation scenes</h3>
+        <div class="phase-meta"><span class="tag bridge">Bridge</span><span class="tag green">1 month</span></div>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Goal</div>
+        <p>Provide reusable scene templates so a LearningRobotics user can drop a RoboCAD asset into a task without writing XML by hand.</p>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Deliverables</div>
+        <ul>
+          <li>Scene templates: <code>gripper_cube_grasp</code>, <code>bracket_hook_hang</code>, <code>wedge_push_block</code>, <code>peg_insertion</code>.</li>
+          <li>Template composition API: add object, add end-effector, define goal region.</li>
+          <li>Example notebooks / scripts for MuJoCo and Isaac Sim loaders.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h2>Phase 15 — LearningRobotics handshake</h2>
+    <div class="phase sim">
+      <div class="phase-header">
+        <h3 class="phase-title">15A. Cross-repo integration contract</h3>
+        <div class="phase-meta"><span class="tag sim">Sim</span><span class="tag green">1–2 months</span></div>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Goal</div>
+        <p>LearningRobotics can consume a RoboCAD bundle, load it into a standard scene, and run a physics stability check.</p>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Deliverables</div>
+        <ul>
+          <li>Shared OpenAPI / JSON-Schema contract for bundle ingestion.</li>
+          <li>Reference loader in Python for MuJoCo + Isaac Sim.</li>
+          <li>End-to-end test: RoboCAD exports wedge → LearningRobotics loads scene → runs 10 s stability rollout.</li>
+          <li>Capability registry: <code>/capabilities</code> endpoint listing supported part families and scene templates.</li>
+        </ul>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Success criteria</div>
+        <ul>
+          <li>One verified, documented handoff between the two repos.</li>
+          <li>Loader tests pass in CI for both MuJoCo and Gazebo.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase sim">
+      <div class="phase-header">
+        <h3 class="phase-title">15B. RoboCompiler asset pipeline</h3>
+        <div class="phase-meta"><span class="tag sim">Sim</span><span class="tag amber">2–3 months</span></div>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Goal</div>
+        <p>When a human demonstrates a skill on video, RoboCAD can suggest or generate a custom end-effector/part that makes the skill easier, and LearningRobotics can train on it.</p>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Deliverables</div>
+        <ul>
+          <li>Skill-to-part recommendation: given a task description, suggest a part family.</li>
+          <li>Auto-generated variants of a part (e.g., gripper finger lengths, wedge angles).</li>
+          <li>Batch bundle export for variant sweeps.</li>
+          <li>Integration test with one RoboCompiler demo: human video → generated wedge → trained push policy.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h2>Phase 16 — Voice and rich text input</h2>
+    <div class="phase vision">
+      <div class="phase-header">
+        <h3 class="phase-title">16. Engineering intent from speech and sketch</h3>
+        <div class="phase-meta"><span class="tag vision">Vision UX</span><span class="tag amber">2–3 months</span></div>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Goal</div>
+        <p>Add voice and multimodal input as first-class input modalities, while keeping text as the primary, debuggable source of truth.</p>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Deliverables</div>
+        <ul>
+          <li>Whisper/local STT integration in backend and frontend.</li>
+          <li>Intent parser that maps speech/text to feature-tree operations and constraints.</li>
+          <li>Ambiguity resolution UI: when the LLM is unsure, ask the user 1–3 clarifying questions.</li>
+          <li>Sketch-to-constraint: rough 2D sketch → dimension inference → feature tree.</li>
+          <li>Voice prompt templates for common operations: “make a bracket 50 mm wide with two 4 mm holes.”</li>
+        </ul>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Success criteria</div>
+        <ul>
+          <li>≥85% of simple dimensional edits work on first voice attempt.</li>
+          <li>All voice input is transcribed and editable as text before execution.</li>
+          <li>No voice-only dead-ends; every command has a text fallback.</li>
+        </ul>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Key risks</div>
+        <ul>
+          <li><span class="tag amber">Medium</span> Voice becomes a gimmick; mitigate by treating it as an input shortcut, not the core UX.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h2>Phase 17 — Automatic part decomposition</h2>
+    <div class="phase core">
+      <div class="phase-header">
+        <h3 class="phase-title">17. From single part to multi-part design plan</h3>
+        <div class="phase-meta"><span class="tag core">Core</span><span class="tag red">3–4 months</span></div>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Goal</div>
+        <p>For complex prompts (e.g., “a 2-joint robotic arm”), generate a feature tree for each part plus an assembly plan with mates, fasteners, and manufacturing method.</p>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Deliverables</div>
+        <ul>
+          <li>Decomposition planner: LLM + heuristic rules split an assembly intent into parts.</li>
+          <li>Interface library: standard joint interfaces (revolute, prismatic, rigid) with mate points.</li>
+          <li>Fastener/surface-join suggestions.</li>
+          <li>Manufacturing method hint per part (FDM, CNC, sheet metal, off-the-shelf).</li>
+          <li>Validation: assembly is statically determined and parts do not intersect.</li>
+        </ul>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Key risks</div>
+        <ul>
+          <li><span class="tag red">High</span> Fully open-ended decomposition is an unsolved AI planning problem. Start with parameterized part families (arms, grippers, carts).</li>
+        </ul>
+      </div>
+    </div>
+
+    <h2>Phase 18 — Per-part physical testing</h2>
+    <div class="phase sim">
+      <div class="phase-header">
+        <h3 class="phase-title">18. Templated load and durability checks</h3>
+        <div class="phase-meta"><span class="tag sim">Sim</span><span class="tag amber">2–3 months</span></div>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Goal</div>
+        <p>Before assembly, automatically test each part under realistic load cases and report pass/fail with redesign suggestions.</p>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Deliverables</div>
+        <ul>
+          <li>Load-case templates: static load, drop test, thermal expansion, fatigue cycles, fastener pull-out.</li>
+          <li>Integration with CalculiX or FEBio for linear/static FEA.</li>
+          <li>Material library with density, Young’s modulus, yield strength.</li>
+          <li>Failure report: max stress, safety factor, deflection, suggested thickness/rib additions.</li>
+          <li>Mesh-quality pre-checker to avoid FEA crashes on bad LLM geometry.</li>
+        </ul>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Key risks</div>
+        <ul>
+          <li><span class="tag red">High</span> Arbitrary FEA automation is brittle. Start with a closed set of load cases and simple part families.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h2>Phase 19 — Assembly synthesis and verification</h2>
+    <div class="phase bridge">
+      <div class="phase-header">
+        <h3 class="phase-title">19. Automated assembly + behavior verification</h3>
+        <div class="phase-meta"><span class="tag bridge">Bridge</span><span class="tag amber">3–4 months</span></div>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Goal</div>
+        <p>Combine decomposed parts into a coherent assembly, verify kinematics and clearances, and export the full robot as one bundle.</p>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Deliverables</div>
+        <ul>
+          <li>Mate inference from part interfaces and intent.</li>
+          <li>Kinematic loop solver for closed chains.</li>
+          <li>Assembly-level collision and clearance checks.</li>
+          <li>Full-robot MJCF export with joints, actuators, and sensors.</li>
+          <li>Assembly replay: step through range-of-motion in the browser.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h2>Phase 20 — World-model simulation</h2>
+    <div class="phase sim">
+      <div class="phase-header">
+        <h3 class="phase-title">20. Simulated worlds for the assembled robot</h3>
+        <div class="phase-meta"><span class="tag sim">Sim</span><span class="tag amber">3–4 months</span></div>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Goal</div>
+        <p>Drop the assembled robot into a parameterized scene with objects, sensors, and domain randomization, ready for policy training.</p>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Deliverables</div>
+        <ul>
+          <li>World builder API: robot + objects + terrain + sensors + task.</li>
+          <li>Domain randomization for mass, friction, actuator gains, sensor noise.</li>
+          <li>Scene templates for pick-place, push, locomotion, insertion.</li>
+          <li>Export to MuJoCo and Isaac Sim from the same world description.</li>
+          <li>Replay and inspection tools in the frontend.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h2>Phase 21 — Robot brain training loop</h2>
+    <div class="phase sim">
+      <div class="phase-header">
+        <h3 class="phase-title">21. Synthetic data + policy training + evaluation</h3>
+        <div class="phase-meta"><span class="tag sim">Sim</span><span class="tag red">4–6 months</span></div>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Goal</div>
+        <p>Generate training data from the simulated world, train a policy, evaluate it in sim, and feed performance back into design.</p>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Deliverables</div>
+        <ul>
+          <li>Synthetic dataset generator: RGB, depth, segmentation, state, action.</li>
+          <li>RL training harness (Isaac Lab / rl-zoo / custom) with standard algorithms.</li>
+          <li>Evaluation metrics: success rate, energy, cycle time, robustness.</li>
+          <li>Design feedback loop: if the policy fails due to geometry (e.g., gripper too short), flag the part for redesign.</li>
+          <li>First closed-loop demo: design → train → evaluate → redesign → retrain.</li>
+        </ul>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Key risks</div>
+        <ul>
+          <li><span class="tag red">High</span> RL training is its own discipline. Start with baseline behavioral cloning / imitation before full RL.</li>
+          <li><span class="tag red">High</span> Sim-to-real gap. Domain randomization and real-world validation needed.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h2>Phase 22 — HERMES conversational supervisor</h2>
+    <div class="phase vision">
+      <div class="phase-header">
+        <h3 class="phase-title">22. Natural-language oversight of the whole pipeline</h3>
+        <div class="phase-meta"><span class="tag vision">Vision UX</span><span class="tag amber">3–4 months</span></div>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Goal</div>
+        <p>A user can talk to RoboCAD like a colleague: ask status, request design changes, approve simulations, and get explanations — without becoming a black-box controller.</p>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Deliverables</div>
+        <ul>
+          <li>HERMES agent with tool use across design, simulation, and training APIs.</li>
+          <li>Status dashboard: current phase, failures, suggested next actions.</li>
+          <li>Approval gates: HERMES proposes, human confirms for expensive operations (training, large redesigns).</li>
+          <li>Explanation engine: why a part failed a test, why a policy succeeded/failed.</li>
+          <li>Memory of project context across sessions.</li>
+        </ul>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Key risks</div>
+        <ul>
+          <li><span class="tag red">High</span> Agent hallucinations in safety-critical robot commands. Mitigate with hard approval gates and deterministic execution paths.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h2>Phase 23 — Real-world feedback loop</h2>
+    <div class="phase sim">
+      <div class="phase-header">
+        <h3 class="phase-title">23. Sim-to-real validation and retraining</h3>
+        <div class="phase-meta"><span class="tag sim">Sim</span><span class="tag red">6–12 months</span></div>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Goal</div>
+        <p>Deploy the trained policy on a real robot, collect failure data, and close the loop back into simulation and design.</p>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Deliverables</div>
+        <ul>
+          <li>Real robot deployment harness (ROS 2 / micro-ROS / hardware bridge).</li>
+          <li>Data logger for real-world failures.</li>
+          <li>Automatic sim parameter calibration from real trajectories.</li>
+          <li>Retraining pipeline: real data → fine-tune policy → re-deploy.</li>
+          <li>Safety monitoring: detect out-of-distribution states and halt.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h2>Phase 24 — Distribution and commercialization</h2>
+    <div class="phase vision">
+      <div class="phase-header">
+        <h3 class="phase-title">24. Product packaging, licensing, and community</h3>
+        <div class="phase-meta"><span class="tag vision">Vision UX</span><span class="tag amber">Ongoing</span></div>
+      </div>
+      <div class="phase-section">
+        <div class="phase-section-title">Deliverables</div>
+        <ul>
+          <li>Open-source core with paid cloud simulation/training tier.</li>
+          <li>Asset marketplace: verified parts, scene templates, trained policies.</li>
+          <li>Enterprise features: private model training, PLM integrations, audit logs.</li>
+          <li>Community benchmarks and competitions.</li>
+          <li>Documentation, tutorials, certification tracks.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <h2>Dependencies and critical path</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Phase</th>
+          <th>Hard dependencies</th>
+          <th>Unlocks</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>13 (benchmark)</td>
+          <td>Phases 0–12</td>
+          <td>Confidence to build bridge</td>
+        </tr>
+        <tr>
+          <td>14A (exporter)</td>
+          <td>Phase 13</td>
+          <td>14B, 15A</td>
+        </tr>
+        <tr>
+          <td>14B (scenes)</td>
+          <td>14A</td>
+          <td>15A</td>
+        </tr>
+        <tr>
+          <td>15A (handshake)</td>
+          <td>14A, 14B</td>
+          <td>15B, revenue/validation</td>
+        </tr>
+        <tr>
+          <td>15B (RoboCompiler pipeline)</td>
+          <td>15A</td>
+          <td>PATH1 monetization</td>
+        </tr>
+        <tr>
+          <td>16 (voice)</td>
+          <td>Phase 13</td>
+          <td>17, 22</td>
+        </tr>
+        <tr>
+          <td>17 (decomposition)</td>
+          <td>Phase 13, 16</td>
+          <td>18, 19</td>
+        </tr>
+        <tr>
+          <td>18 (physical tests)</td>
+          <td>17</td>
+          <td>19, 21</td>
+        </tr>
+        <tr>
+          <td>19 (assembly synthesis)</td>
+          <td>14A, 17, 18</td>
+          <td>20</td>
+        </tr>
+        <tr>
+          <td>20 (world model)</td>
+          <td>15A, 19</td>
+          <td>21</td>
+        </tr>
+        <tr>
+          <td>21 (brain training)</td>
+          <td>20</td>
+          <td>23</td>
+        </tr>
+        <tr>
+          <td>22 (HERMES)</td>
+          <td>16, 19, 20</td>
+          <td>Full UX layer</td>
+        </tr>
+        <tr>
+          <td>23 (sim-to-real)</td>
+          <td>21, hardware access</td>
+          <td>Commercial deployment</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Roadmap at a glance</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Phase</th>
+          <th>Focus</th>
+          <th class="num">Timeline</th>
+          <th>Commercial proof point</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>13</td>
+          <td>Benchmark to 80%+</td>
+          <td class="num">1–2 mo</td>
+          <td>Model quality gate</td>
+        </tr>
+        <tr>
+          <td>14A</td>
+          <td>MuJoCo/URDF exporter</td>
+          <td class="num">2–3 mo</td>
+          <td>Simulation-ready CAD</td>
+        </tr>
+        <tr>
+          <td>14B</td>
+          <td>Standard scenes</td>
+          <td class="num">1 mo</td>
+          <td>Drop-in task templates</td>
+        </tr>
+        <tr>
+          <td>15A</td>
+          <td>LearningRobotics handshake</td>
+          <td class="num">1–2 mo</td>
+          <td>Verified integration</td>
+        </tr>
+        <tr>
+          <td>15B</td>
+          <td>RoboCompiler asset pipeline</td>
+          <td class="num">2–3 mo</td>
+          <td>Design-to-skill demo</td>
+        </tr>
+        <tr>
+          <td>16</td>
+          <td>Voice/text input</td>
+          <td class="num">2–3 mo</td>
+          <td>Hands-free CAD edits</td>
+        </tr>
+        <tr>
+          <td>17</td>
+          <td>Part decomposition</td>
+          <td class="num">3–4 mo</td>
+          <td>Multi-part robot from one prompt</td>
+        </tr>
+        <tr>
+          <td>18</td>
+          <td>Physical testing</td>
+          <td class="num">2–3 mo</td>
+          <td>Auto-stress reports</td>
+        </tr>
+        <tr>
+          <td>19</td>
+          <td>Assembly synthesis</td>
+          <td class="num">3–4 mo</td>
+          <td>Full robot bundle</td>
+        </tr>
+        <tr>
+          <td>20</td>
+          <td>World model</td>
+          <td class="num">3–4 mo</td>
+          <td>Parameterized training scene</td>
+        </tr>
+        <tr>
+          <td>21</td>
+          <td>Brain training loop</td>
+          <td class="num">4–6 mo</td>
+          <td>Trainable robot from design</td>
+        </tr>
+        <tr>
+          <td>22</td>
+          <td>HERMES supervisor</td>
+          <td class="num">3–4 mo</td>
+          <td>Conversational design agent</td>
+        </tr>
+        <tr>
+          <td>23</td>
+          <td>Sim-to-real feedback</td>
+          <td class="num">6–12 mo</td>
+          <td>Real robot deployment</td>
+        </tr>
+        <tr>
+          <td>24</td>
+          <td>Commercialization</td>
+          <td class="num">Ongoing</td>
+          <td>SaaS + marketplace</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>What makes this plan realistic</h2>
+    <ol>
+      <li><strong>Ship-first milestones.</strong> Every phase produces something a user or partner can run, not just a research checkpoint.</li>
+      <li><strong>PATH1 funds PATH2.</strong> The bridge is technically reachable and marketable in 6–9 months, giving revenue and validation before the harder vision layers.</li>
+      <li><strong>Hard dependencies are explicit.</strong> Decomposition cannot happen before reliable single-part generation; brain training cannot happen before world simulation.</li>
+      <li><strong>Risks are front-loaded.</strong> The highest-risk layers (decomposition, arbitrary FEA, RL, sim-to-real) are identified and given conservative timelines.</li>
+      <li><strong>Human stays in the loop.</strong> HERMES proposes and explains; humans approve expensive or safety-critical actions.</li>
+    </ol>
+
+    <h2>Immediate next action</h2>
+    <div class="summary-box">
+      <p>Start <strong>Phase 13 completion</strong> this session: re-run the complexity benchmark, confirm 70%+ holds, then close the remaining T4/T5 extractor issues. Once the benchmark is stable, open a branch for <strong>Phase 14A: the MuJoCo exporter</strong>.</p>
+    </div>
+  </main>
+</body>
+</html>
