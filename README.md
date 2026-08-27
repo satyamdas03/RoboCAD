@@ -148,9 +148,56 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **23** | Sim-to-real feedback loop | ⏳ Planned |
 | **24** | Distribution + commercialization | ⏳ Planned — one-command launcher / desktop installer / SaaS tier |
 
-Phases 0–7 proved the **AI → parametric-code loop** for single-part robotics hardware. Phases 8–13 turned that loop into an **engineer-grade CAD system** with feature trees, constraints, assemblies, verification, and model specialization. Phases 14A–24 extend RoboCAD toward the full **voice-to-CAD-to-world-model-to-robot-brain** vision, starting with the GEDA Bridge so LearningRobotics can consume verified simulation-ready assets. See [`PLAN.md`](PLAN.md) for the complete roadmap.
+Phases 0–7 proved the **AI → parametric-code loop** for single-part robotics hardware. Phases 8–13 turned that loop into an **engineer-grade CAD system** with feature trees, constraints, assemblies, verification, and model specialization. Phases 14A–24 extend RoboCAD toward the full **voice-to-CAD-to-world-model-to-robot-brain** vision, starting with the GEDA Bridge so LearningRobotics can consume verified simulation-ready assets.
 
-See [`PLAN.md`](PLAN.md) for the complete end-to-end build plan.
+### 🎯 Why we are following this exact sequence
+
+This roadmap is the canonical plan of record for RoboCAD. **Do not reorder phases or skip ahead without explicit user approval.** Every phase is a load-bearing step:
+
+- **Phase 13** is the quality gate. We do not build the bridge until the generator is reliably producing correct feature trees.
+- **Phases 14A–15B** (PATH1) are the first commercial milestone. They prove that AI-generated CAD can be consumed by real physics simulators and create the exact bundle format that the later vision layers need.
+- **Phases 16–23** (PATH2) add voice, decomposition, FEA, assembly synthesis, world models, brain training, and HERMES. These are intentionally sequenced so each hard layer is funded by earlier validation.
+- **Phase 24** turns the stack into an installable product and business.
+
+### 📋 Roadmap at a glance
+
+| Phase | What it does | ~Time | Proof point |
+|---|---|---|---|
+| **13** | Benchmark to ≥80%, close extractor edge cases | 1–2 mo | Quality gate passed |
+| **14A** | MuJoCo/URDF exporter + verified asset bundles | 2–3 mo | Simulation-ready CAD |
+| **14B** | Standard manipulation scene templates | 1 mo | Drop-in task templates |
+| **15A** | LearningRobotics bundle handshake | 1–2 mo | Cross-repo verified handoff |
+| **15B** | RoboCompiler asset pipeline | 2–3 mo | Video → custom part → trained skill |
+| **16** | Voice/text + sketch input | 2–3 mo | Hands-free CAD edits |
+| **17** | Automatic part decomposition | 3–4 mo | Robot from one prompt |
+| **18** | Templated per-part physical tests | 2–3 mo | Auto stress/drop reports |
+| **19** | Assembly synthesis + verification | 3–4 mo | Full robot bundle |
+| **20** | World-model simulation builder | 3–4 mo | Parameterized training scene |
+| **21** | Synthetic data + policy training loop | 4–6 mo | Design → trainable brain |
+| **22** | HERMES conversational supervisor | 3–4 mo | Conversational design agent |
+| **23** | Sim-to-real feedback loop | 6–12 mo | Real robot deployment |
+| **24** | Distribution + commercialization | Ongoing | SaaS + marketplace |
+
+### 🧭 Decision record: PATH1 before PATH2
+
+We explicitly decided to ship **PATH1 (GEDA Bridge, Phases 14A–15B) before PATH2 (voice-to-world-model, Phases 16–23)**. The reasoning is:
+
+1. **Risk-ordering.** PATH1 is plumbing and unit conversion; PATH2 bundles multiple unsolved research problems (decomposition, arbitrary FEA, RL training, sim-to-real).
+2. **Market validation.** PATH1 addresses a visible $4–5 B market gap (CAD → MuJoCo). PATH2 markets are larger but crowded and capital-intensive.
+3. **Foundation for PATH2.** PATH1 produces the bundle schema, verified asset format, and LearningRobotics API contract that every PATH2 layer depends on.
+4. **Ship-first discipline.** Every phase must produce something a user or partner can run. PATH1 satisfies that immediately.
+
+See [`PLAN.md`](PLAN.md) Section 14 for the full PATH1 vs PATH2 analysis, and [`dossiers/PATH1_PATH2_analysis.md`](dossiers/PATH1_PATH2_analysis.md) for the detailed market/technical write-up.
+
+### ✅ How to stay on track
+
+- Before starting any phase, confirm the previous phase's **acceptance criteria** are met and the test suite is green.
+- Keep the **30-prompt complexity benchmark** green after every model or prompt change.
+- Every phase ends with a commit, a pushed README/PLAN update, and (where possible) a recorded demo.
+- Do not chase side quests labeled as later phases unless the current phase is fully accepted.
+- When in doubt, the default action is: **finish the current phase, then move to the next one in the table above.**
+
+See [`PLAN.md`](PLAN.md) for the complete end-to-end build plan, acceptance criteria, and dependency table.
 
 ## 🎨 UI redesign
 
