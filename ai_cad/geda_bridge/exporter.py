@@ -241,7 +241,10 @@ def _build_bundle_part(
     mesh_file = f"meshes/{mesh_name}.stl"
     mesh_path = output_dir / mesh_file
     mesh_path.parent.mkdir(parents=True, exist_ok=True)
-    mesh_mm.export(mesh_path)
+    # Store the mesh in meters (manifest declares length_unit="m").
+    mesh_m = mesh_mm.copy()
+    mesh_m.vertices = mesh_m.vertices * MM_TO_M
+    mesh_m.export(mesh_path)
 
     transform_m_list = None
     if transform_m is not None:
@@ -497,7 +500,10 @@ def export_bundle_from_mesh(
     mesh_file = f"meshes/{safe_name}.stl"
     mesh_path = output_dir / mesh_file
     mesh_path.parent.mkdir(parents=True, exist_ok=True)
-    mesh_mm.export(mesh_path)
+    # Store the mesh in meters (manifest declares length_unit="m").
+    mesh_m = mesh_mm.copy()
+    mesh_m.vertices = mesh_m.vertices * MM_TO_M
+    mesh_m.export(mesh_path)
 
     part = BundlePart(
         part_id=safe_name,

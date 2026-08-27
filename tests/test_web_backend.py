@@ -7,7 +7,9 @@ import sys
 from pathlib import Path
 from unittest import mock
 
+import numpy as np
 import pytest
+import trimesh
 from fastapi.testclient import TestClient
 
 # Ensure repo root is on sys.path for `ai_cad` imports.
@@ -236,6 +238,63 @@ def _seed_cube_design(tmp_path: Path, design_id: str, size: float = 10.0):
     return design_dir, stl_path
 
 
+def _seed_wedge_design(
+    tmp_path: Path,
+    design_id: str,
+    length_mm: float = 80.0,
+    width_mm: float = 40.0,
+    height_mm: float = 60.0,
+):
+    """Create a persisted design with a real outward-facing triangular-prism wedge STL (mm)."""
+    design_dir = tmp_path / "designs" / design_id
+    exports_dir = design_dir / "exports"
+    exports_dir.mkdir(parents=True)
+    stl_path = exports_dir / "model.stl"
+
+    L, W, H = length_mm, width_mm, height_mm
+    verts = np.array(
+        [
+            [L / 2, -W / 2, -H / 2],  # 0 tip bottom
+            [-L / 2, -W / 2, -H / 2],  # 1 back bottom
+            [-L / 2, -W / 2, H / 2],  # 2 back top
+            [L / 2, W / 2, -H / 2],  # 3 tip bottom (right side)
+            [-L / 2, W / 2, -H / 2],  # 4 back bottom
+            [-L / 2, W / 2, H / 2],  # 5 back top
+        ],
+        dtype=float,
+    )
+    faces = np.array(
+        [
+            [0, 1, 2],  # left end cap
+            [3, 5, 4],  # right end cap
+            [0, 3, 4],
+            [0, 4, 1],  # bottom
+            [1, 4, 5],
+            [1, 5, 2],  # back vertical face
+            [0, 2, 5],
+            [0, 5, 3],  # slanted top face
+        ]
+    )
+    mesh = trimesh.Trimesh(vertices=verts, faces=faces, process=True)
+    if mesh.volume < 0:
+        mesh.invert()
+    mesh.export(stl_path)
+
+    metadata = {
+        "id": design_id,
+        "prompt": "a wedge pusher",
+        "success": True,
+        "model": "fake",
+        "attempts_used": 1,
+        "max_retries": 0,
+        "latency_seconds": 0.0,
+        "created_at": "2026-08-25T00:00:00Z",
+        "exports": {"stl": "model.stl", "step": None, "script": None},
+    }
+    (design_dir / "metadata.json").write_text(json.dumps(metadata))
+    return design_dir, stl_path
+
+
 def test_simulate_endpoint_stl_fallback(tmp_path: Path):
     design_dir, stl_path = _seed_cube_design(tmp_path, "simcube", size=10.0)
     response = client.post("/designs/simcube/simulate", json={"material": "PLA", "tolerance": 0.1})
@@ -307,13 +366,13 @@ def test_capabilities_endpoint():
 
 def test_handshake_endpoint(tmp_path: Path):
     pytest.importorskip("mujoco")
-    _seed_cube_design(tmp_path, "handshake_cube", size=15.0)
-    response = client.post("/designs/handshake_cube/handshake", params={"template": "wedge_push_block"})
+    _seed_wedge_design(tmp_path, "handshake_wedge")
+    response = client.post("/designs/handshake_wedge/handshake", params={"template": "wedge_push_block"})
     assert response.status_code == 200, response.text
     data = response.json()
-    assert data["design_id"] == "handshake_cube"
+    assert data["design_id"] == "handshake_wedge"
     assert data["template"] == "wedge_push_block"
-    assert "success" in data
+    assert data["success"] is True, data
     assert "rollout" in data
     assert data["rollout"]["steps"] == 5000
     assert data["nbody"] >= 3
@@ -321,17 +380,17 @@ def test_handshake_endpoint(tmp_path: Path):
 
 def test_get_handshake_report_endpoint(tmp_path: Path):
     pytest.importorskip("mujoco")
-    _seed_cube_design(tmp_path, "handshake_cube2", size=15.0)
-    response = client.post("/designs/handshake_cube2/handshake", params={"template": "wedge_push_block"})
+    _seed_wedge_design(tmp_path, "handshake_wedge2")
+    response = client.post("/designs/handshake_wedge2/handshake", params={"template": "wedge_push_block"})
     assert response.status_code == 200
 
-    response = client.get("/designs/handshake_cube2/handshake?template=wedge_push_block")
+    response = client.get("/designs/handshake_wedge2/handshake?template=wedge_push_block")
     assert response.status_code == 200
     data = response.json()
-    assert data["design_id"] == "handshake_cube2"
+    assert data["design_id"] == "handshake_wedge2"
     assert data["template"] == "wedge_push_block"
     assert "handshake" in data
-    assert "success" in data["handshake"]
+    assert data["handshake"]["success"] is True, data["handshake"]
     assert "rollout" in data["handshake"]
 
 

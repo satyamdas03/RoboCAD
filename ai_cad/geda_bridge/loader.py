@@ -195,31 +195,37 @@ def run_stability_rollout(
     final_energy = float(data.energy[0] + data.energy[1])
     energy_drift = (final_energy - initial_energy) / max(1e-9, abs(initial_energy))
 
-    success = len(errors) == 0 and (not check_nan or np.all(np.isfinite(data.qpos)))
+    success = bool(len(errors) == 0 and (not check_nan or np.all(np.isfinite(data.qpos))))
     if max_pen_mm > max_penetration_mm:
         errors.append(f"Max contact penetration {max_pen_mm:.3f} mm exceeds {max_penetration_mm} mm")
         success = False
 
     return {
-        "success": success,
-        "steps": step + 1,
-        "duration_seconds": duration_seconds,
-        "nan_detected": not np.all(np.isfinite(data.qpos)) or not np.all(np.isfinite(data.qvel)),
-        "max_position_m": max_pos,
-        "max_velocity_m_s": max_vel,
-        "max_penetration_mm": max_pen_mm,
-        "energy_drift": energy_drift,
+        "success": bool(success),
+        "steps": int(step + 1),
+        "duration_seconds": float(duration_seconds),
+        "nan_detected": bool(not np.all(np.isfinite(data.qpos)) or not np.all(np.isfinite(data.qvel))),
+        "max_position_m": float(max_pos),
+        "max_velocity_m_s": float(max_vel),
+        "max_penetration_mm": float(max_pen_mm),
+        "energy_drift": float(energy_drift),
         "errors": errors,
     }
 
 
-def load_bundle_into_isaac_sim(bundle_dir: Path, scene_template: str | None = None) -> BundleLoadResult:
-    """Conditional loader stub for NVIDIA Isaac Sim.
+def load_bundle_into_isaac_sim(
+    bundle_dir: Path,
+    scene_template: str | None = None,
+    world_settings: dict[str, Any] | None = None,
+) -> BundleLoadResult:
+    """Conditional loader for NVIDIA Isaac Sim.
 
-    Returns a successful result only if `isaacsim` or `omni` modules are
-    importable. Otherwise returns an error result documenting the missing
-    dependency. This keeps Phase 15A testable on machines without Isaac Sim
-    installed while providing the exact integration point for `LearningRobotics`.
+    If Isaac Sim / omni.isaac.core is available, this function constructs a
+    minimal World, imports the bundle asset as a rigid body with the inertial
+    properties from the manifest, optionally composes a standard scene, and
+    returns a load result. If Isaac Sim is not installed, it returns an error
+    result documenting the missing dependency so the contract can still be
+    tested and the failure mode is explicit.
     """
     result = BundleLoadResult(simulator="isaac_sim")
 
@@ -240,14 +246,109 @@ def load_bundle_into_isaac_sim(bundle_dir: Path, scene_template: str | None = No
     try:
         manifest = load_bundle_manifest(bundle_dir)
         result.warnings.extend(_verify_bundle_files(bundle_dir, manifest))
-        # Actual Isaac Sim world construction is environment-specific and is
-        # left to the consumer; this function proves the contract point.
-        result.success = True
-        result.nbody = len(manifest.parts)
     except Exception as exc:
         result.errors.append(f"Failed to read bundle for Isaac Sim: {exc}")
+        return result
+
+    try:
+        # Defer to an internal helper that actually talks to Isaac Sim.
+        # This keeps the public API clean and makes the optional dependency
+        # boundary explicit.
+        _build_isaac_sim_world(bundle_dir, manifest, scene_template, world_settings, result)
+    except Exception as exc:
+        result.errors.append(f"Isaac Sim world construction failed: {exc}")
 
     return result
+
+
+def _build_isaac_sim_world(
+    bundle_dir: Path,
+    manifest: BundleManifest,
+    scene_template: str | None,
+    world_settings: dict[str, Any] | None,
+    result: BundleLoadResult,
+) -> None:
+    """Build an Isaac Sim world from a bundle. Only called when modules exist.
+
+    This is intentionally separated so that environments without Isaac Sim can
+    still import and unit-test `load_bundle_into_isaac_sim` without triggering
+    import errors.
+    """
+    # Local imports ensure we only touch Isaac Sim APIs when the modules exist.
+    from omni.isaac.core import World  # type: ignore[import-not-found]
+
+    settings = world_settings or {"stage_units_in_meters": 1.0, "physics_dt": 1 / 500, "rendering_dt": 1 / 60}
+    world = World(**settings)
+
+    if scene_template:
+        if scene_template not in TEMPLATE_REGISTRY:
+            raise ValueError(f"Unknown scene template '{scene_template}'")
+        scene = build_scene(scene_template, manifest.parts)
+        result.scene_description = scene
+        # Add scene props (table, block, peg, etc.) as simple shapes.
+        for obj in scene.objects:
+            _add_isaac_sim_shape(world, obj)
+
+    # Add the RoboCAD asset bodies.
+    from omni.isaac.core.prims import RigidPrimView  # type: ignore[import-not-found]
+    from omni.isaac.core.utils.stage import add_reference_to_stage  # type: ignore[import-not-found]
+
+    for part in manifest.parts:
+        mesh_path = bundle_dir / part.mesh_file
+        prim_path = f"/World/{part.name}"
+        add_reference_to_stage(str(mesh_path), prim_path)
+        view = RigidPrimView(prim_paths_expr=prim_path, name=part.name)
+        view.initialize()
+        # Mass/inertia are read from the mesh by default; we keep the manifest
+        # values authoritative by applying mass explicitly where the API allows.
+        if part.inertial.mass_kg > 0:
+            view.set_mass(part.inertial.mass_kg)
+
+    result.success = True
+    result.model = world
+    result.nbody = len(manifest.parts) + len(scene.objects if scene_template else [])
+
+
+def _add_isaac_sim_shape(world: Any, obj: Any) -> None:
+    """Add a primitive shape from a SceneObject to an Isaac Sim world.
+
+    This is a best-effort helper: it uses the Isaac Sim core shape creation
+    helpers if they are available. Complex geometry is left to USD/mesh imports.
+    """
+    # Import locally so environments without Isaac Sim can still import loader.py.
+    from omni.isaac.core.objects import (  # type: ignore[import-not-found]
+        FixedCuboid,
+        DynamicCuboid,
+        DynamicCylinder,
+        DynamicSphere,
+    )
+
+    name = obj.name
+    pos = list(obj.pos)
+    quat = list(obj.quat)  # w, x, y, z
+    size = list(obj.size) if obj.size else [0.05, 0.05, 0.05]
+
+    kwargs = {
+        "prim_path": f"/World/{name}",
+        "name": name,
+        "position": pos,
+        "orientation": quat,
+        "scale": size,
+    }
+
+    if obj.geom_type == "box":
+        cls = DynamicCuboid if obj.mass is not None else FixedCuboid
+        cls(**kwargs)
+    elif obj.geom_type == "cylinder":
+        kwargs["radius"] = size[0]
+        kwargs["height"] = size[1]
+        DynamicCylinder(**kwargs)
+    elif obj.geom_type == "sphere":
+        kwargs["radius"] = size[0]
+        DynamicSphere(**kwargs)
+    else:
+        # Other shapes require a USD/mesh reference and are left to the caller.
+        pass
 
 
 def stability_check_bundle(

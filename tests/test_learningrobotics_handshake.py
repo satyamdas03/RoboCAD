@@ -102,10 +102,11 @@ def test_load_bundle_into_isaac_sim_missing_dependency(tmp_path: Path):
     paths = export_bundle_from_shape(shape, tmp_path / "wedge", name="wedge", material="PLA")
     paths = package_bundle_paths(paths)
 
-    result = load_bundle_into_isaac_sim(paths.directory)
+    result = load_bundle_into_isaac_sim(paths.directory, scene_template="wedge_push_block")
     # Should fail gracefully because Isaac Sim is not installed in pytest env.
     assert result.success is False
     assert "Isaac Sim not available" in result.errors[0]
+    assert result.simulator == "isaac_sim"
 
 
 def test_capabilities_registry():

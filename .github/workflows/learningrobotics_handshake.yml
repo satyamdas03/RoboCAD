@@ -1,0 +1,61 @@
+name: LearningRobotics handshake
+
+on:
+  # Nightly check against the latest LearningRobotics main.
+  schedule:
+    - cron: '0 6 * * *'
+  # Manual trigger for debugging.
+  workflow_dispatch:
+
+jobs:
+  handshake:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout RoboCAD
+        uses: actions/checkout@v4
+        with:
+          path: RoboCAD
+
+      - name: Checkout LearningRobotics
+        uses: actions/checkout@v4
+        with:
+          repository: satyamdas03/LearningRobotics
+          path: LearningRobotics
+          # Optional: a PAT with repo scope if LearningRobotics is ever private.
+          # token: ${{ secrets.LEARNINGROBOTICS_PAT }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install RoboCAD + MuJoCo
+        run: |
+          cd RoboCAD
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install mujoco>=3.0.0
+
+      - name: Install LearningRobotics (if installable)
+        run: |
+          cd LearningRobotics
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          fi
+          if [ -f setup.py ] || [ -f pyproject.toml ]; then
+            pip install -e .
+          fi
+
+      - name: Run RoboCAD → LearningRobotics handshake
+        run: |
+          cd RoboCAD
+          python -m pytest tests/test_learningrobotics_handshake.py -v
+
+      - name: Upload handshake artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: handshake-failure-logs
+          path: |
+            RoboCAD/designs/
+            RoboCAD/tests/__pycache__/
