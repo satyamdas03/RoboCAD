@@ -69,6 +69,31 @@ def _looks_like_local_model(model: str) -> bool:
     return ":" in model and not model.startswith("claude-") and not model.startswith("gpt-")
 
 
+def _anthropic_base_url() -> Optional[str]:
+    """Return a proxy base URL if set, otherwise let the SDK use the official endpoint.
+
+    Stale process environments sometimes set ANTHROPIC_BASE_URL to the local Ollama
+    endpoint. We must not send Anthropic API calls there.
+    """
+    base = os.environ.get("ANTHROPIC_BASE_URL")
+    if base and ("localhost" in base or "127.0.0.1" in base or ":11434" in base):
+        return None
+    return base
+
+
+def _first_text_block(response) -> str:
+    """Extract the first text block from an Anthropic message response.
+
+    Claude 5 models may emit thinking blocks before text; skip them.
+    """
+    for block in response.content:
+        if getattr(block, "type", None) == "text" and hasattr(block, "text"):
+            return block.text
+    if response.content and hasattr(response.content[0], "text"):
+        return response.content[0].text
+    return ""
+
+
 def _build_messages(prompt: str, examples: list[dict]) -> list[dict]:
     """Build the chat message list used by both Anthropic and OpenAI paths."""
     messages: list[dict] = []
@@ -263,7 +288,7 @@ def generate_feature_tree(
 
     client = anthropic.Anthropic(
         api_key=api_key,
-        base_url=os.environ.get("ANTHROPIC_BASE_URL"),
+        base_url=_anthropic_base_url(),
     )
     try:
         response = _anthropic_create(
@@ -283,7 +308,7 @@ def generate_feature_tree(
             "error": f"API error: {exc}",
         }
 
-    raw_response = response.content[0].text
+    raw_response = _first_text_block(response)
     return _wrap_feature_tree_result(raw_response, model)
 
 
@@ -329,7 +354,7 @@ def generate_model(
 
     client = anthropic.Anthropic(
         api_key=api_key,
-        base_url=os.environ.get("ANTHROPIC_BASE_URL"),
+        base_url=_anthropic_base_url(),
     )
     try:
         response = _anthropic_create(
@@ -349,7 +374,7 @@ def generate_model(
             "error": f"API error: {exc}",
         }
 
-    raw_response = response.content[0].text
+    raw_response = _first_text_block(response)
     return _wrap_result(raw_response, model)
 
 
@@ -425,7 +450,7 @@ def self_correct_feature_tree(
 
     client = anthropic.Anthropic(
         api_key=api_key,
-        base_url=os.environ.get("ANTHROPIC_BASE_URL"),
+        base_url=_anthropic_base_url(),
     )
     last_raw = ""
     for attempt in range(max_retries):
@@ -447,7 +472,7 @@ def self_correct_feature_tree(
                 "error": f"API error during self-correction attempt {attempt + 1}: {exc}",
             }
 
-        last_raw = response.content[0].text
+        last_raw = _first_text_block(response)
         fixed_json = _extract_json_block(last_raw)
         if fixed_json:
             return {
@@ -539,7 +564,7 @@ def self_correct(
 
     client = anthropic.Anthropic(
         api_key=api_key,
-        base_url=os.environ.get("ANTHROPIC_BASE_URL"),
+        base_url=_anthropic_base_url(),
     )
     last_raw = ""
     for attempt in range(max_retries):
@@ -561,7 +586,7 @@ def self_correct(
                 "error": f"API error during self-correction attempt {attempt + 1}: {exc}",
             }
 
-        last_raw = response.content[0].text
+        last_raw = _first_text_block(response)
         fixed_code = _extract_code_block(last_raw)
         if fixed_code:
             return {
