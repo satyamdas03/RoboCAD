@@ -53,9 +53,13 @@ from ai_cad.geda_bridge import (
     export_bundle_from_tree,
     export_scene_to_mjcf,
     get_capabilities,
+    list_skills,
     load_bundle_manifest,
     package_bundle_paths,
+    recommend_skill,
+    run_variant_sweep,
     stability_check_bundle,
+    train_push_skill,
     validate_bundle_with_mujoco,
     verify_bundle,
 )
@@ -170,6 +174,20 @@ class SceneTemplateRequest(BaseModel):
     template: str = Field(default="gripper_cube_grasp", description="Scene template name.")
     material: str = Field(default="PLA", description="Material name for density lookup.")
     tolerance: float = Field(default=0.1, gt=0, le=1.0, description="Mesh tessellation tolerance in mm.")
+
+
+class TrainSkillRequest(BaseModel):
+    skill_description: str = Field(default="push the block to the goal", description="Natural-language skill/task to train.")
+    n_iters: int = Field(default=20, ge=5, le=100, description="CEM training iterations.")
+    pop_size: int = Field(default=50, ge=10, le=200, description="CEM population size.")
+    eval_episodes: int = Field(default=10, ge=1, le=50, description="Evaluation episodes for success rate.")
+
+
+class VariantSweepRequest(BaseModel):
+    parameter_ranges: dict[str, dict[str, float]] = Field(..., description="Parameter name -> {min/max or relative_min/relative_max or step}.")
+    n_variants: int = Field(default=5, ge=2, le=20, description="Number of variants to generate.")
+    tolerance: float = Field(default=0.1, gt=0, le=1.0, description="Mesh tessellation tolerance in mm.")
+    run_stability: bool = Field(default=True, description="Run a 2 s MuJoCo stability check on each variant.")
 
 
 
@@ -980,6 +998,173 @@ def get_handshake_report(design_id: str, template: str = Query(default="wedge_pu
         "handshake": handshakes[template],
         "scene_url": f"/exports/{design_id}/simulation/scene_{template}.mjcf",
     }
+
+
+@app.post("/designs/{design_id}/recommend-skill")
+def recommend_skill_endpoint(design_id: str, request: TrainSkillRequest) -> dict[str, Any]:
+    """Recommend a scene template and default policy config for a skill."""
+    design_dir = DESIGNS_DIR / design_id
+    meta_path = design_dir / "metadata.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Design not found.")
+
+    recommendation = recommend_skill(request.skill_description)
+    # Persist recommendation for later train-skill call.
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    meta["recommended_skills"] = meta.get("recommended_skills", [])
+    meta["recommended_skills"].append(
+        {
+            "skill_description": request.skill_description,
+            "template": recommendation.template,
+            "confidence": recommendation.confidence,
+            "goal_pos": recommendation.goal_pos,
+            "block_start": recommendation.block_start,
+            "policy_config": recommendation.policy_config,
+            "reasoning": recommendation.reasoning,
+            "created_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        }
+    )
+    _write_json(meta_path, meta)
+
+    return {
+        "design_id": design_id,
+        "skill_description": request.skill_description,
+        "template": recommendation.template,
+        "confidence": recommendation.confidence,
+        "goal_pos": recommendation.goal_pos,
+        "block_start": recommendation.block_start,
+        "policy_config": recommendation.policy_config,
+        "reasoning": recommendation.reasoning,
+        "available_skills": list_skills(),
+    }
+
+
+@app.post("/designs/{design_id}/train-skill")
+def train_skill_endpoint(design_id: str, request: TrainSkillRequest) -> dict[str, Any]:
+    """Train a tiny push policy for a design's simulation asset (Phase 15B smoke test)."""
+    design_dir = DESIGNS_DIR / design_id
+    meta_path = design_dir / "metadata.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Design not found.")
+
+    simulation_dir = design_dir / "simulation"
+    manifest_path = simulation_dir / "manifest.json"
+    if not manifest_path.exists():
+        # Auto-generate the bundle first.
+        simulate_design(design_id, SimulateRequest(material="PLA", tolerance=0.1))
+
+    try:
+        manifest = load_bundle_manifest(simulation_dir)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read bundle manifest: {exc}")
+
+    # Resolve the first mesh in the bundle.
+    if not manifest.parts:
+        raise HTTPException(status_code=422, detail="Bundle has no parts.")
+    mesh_file = manifest.parts[0].mesh_file
+    mesh_path = simulation_dir / mesh_file
+    if not mesh_path.exists():
+        raise HTTPException(status_code=422, detail=f"Mesh file not found: {mesh_file}")
+
+    recommendation = recommend_skill(request.skill_description)
+    goal_pos = recommendation.goal_pos
+    block_start = recommendation.block_start
+    success_radius = recommendation.policy_config.get("success_radius_m", 0.06) if recommendation.policy_config else 0.06
+
+    try:
+        report = train_push_skill(
+            asset_mesh_path=mesh_path,
+            output_dir=simulation_dir,
+            goal_m=goal_pos,
+            block_start_m=block_start or (0.25, 0.0, 0.49),
+            n_iters=request.n_iters,
+            pop_size=request.pop_size,
+            eval_episodes=request.eval_episodes,
+            success_radius_m=success_radius,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Skill training failed: {exc}")
+
+    # Persist result.
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    meta.setdefault("skills", {})
+    meta["skills"][recommendation.template] = {
+        "template": recommendation.template,
+        "skill_description": request.skill_description,
+        "success": report["success"],
+        "success_rate": report["success_rate"],
+        "mean_final_distance_m": report["mean_final_distance_m"],
+        "policy_file": report.get("policy_file"),
+        "created_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+    }
+    _write_json(meta_path, meta)
+
+    return {
+        "design_id": design_id,
+        "template": recommendation.template,
+        **report,
+    }
+
+
+@app.get("/designs/{design_id}/skills")
+def list_skills_endpoint(design_id: str) -> dict[str, Any]:
+    """Return persisted skill training results for a design."""
+    design_dir = DESIGNS_DIR / design_id
+    meta_path = design_dir / "metadata.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Design not found.")
+
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read metadata: {exc}")
+
+    return {
+        "design_id": design_id,
+        "skills": meta.get("skills", {}),
+        "recommended_skills": meta.get("recommended_skills", []),
+    }
+
+
+@app.post("/designs/{design_id}/variant-sweep")
+def variant_sweep_endpoint(design_id: str, request: VariantSweepRequest) -> dict[str, Any]:
+    """Generate N parametric variants of a design and export each as a simulation bundle."""
+    design_dir = DESIGNS_DIR / design_id
+    meta_path = design_dir / "metadata.json"
+    feature_tree_path = design_dir / "feature_tree.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Design not found.")
+    if not feature_tree_path.exists():
+        raise HTTPException(status_code=422, detail="Variant sweep requires a feature tree. Generate with use_feature_tree=True first.")
+
+    output_root = design_dir / "variant_sweep"
+    try:
+        report = run_variant_sweep(
+            feature_tree_path=feature_tree_path,
+            parameter_ranges=request.parameter_ranges,
+            n_variants=request.n_variants,
+            output_root=output_root,
+            tolerance=request.tolerance,
+            run_stability=request.run_stability,
+            seed=42,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Variant sweep failed: {exc}")
+
+    # Persist report path in metadata.
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    meta["variant_sweeps"] = meta.get("variant_sweeps", [])
+    meta["variant_sweeps"].append(
+        {
+            "report_path": report["report_path"],
+            "n_variants": request.n_variants,
+            "parameter_ranges": request.parameter_ranges,
+            "created_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        }
+    )
+    _write_json(meta_path, meta)
+
+    return report
 
 
 @app.post("/designs/{parent_id}/remix")

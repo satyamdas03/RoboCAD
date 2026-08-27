@@ -146,7 +146,7 @@ A full-stack robotics design operating system. It bundles six serious sub-produc
 2. **Phase B:** Build the MuJoCo exporter (Phase 14A). ✅ Done — `ai_cad/geda_bridge/`, 152/152 tests passing, MuJoCo runtime validation.
 3. **Phase C:** Build standard manipulation scene templates (Phase 14B). ✅ Done — 4 templates, composition API, backend + frontend, 160/160 tests passing.
 4. **Phase D:** Cross-repo handshake with LearningRobotics (Phase 15A). ✅ Done — bundle contract, reference loaders, /capabilities, 10 s stability rollout, 170/170 tests passing. Three solvable caveats fixed during acceptance (Isaac Sim skeleton, nightly CI, real wedge test seed + exporter/loader bug fixes).
-5. **Phase E:** RoboCompiler asset pipeline (Phase 15B). 🚧 In progress — video → custom part → trained skill.
+5. **Phase E:** RoboCompiler asset pipeline (Phase 15B). ✅ Done — skill recommendation (`recommend-skill`), part variant sweep (`variant-sweep`), batch bundle export, and a NumPy-only CEM push-policy smoke test (`train-skill`) end-to-end on generated wedge meshes. 187/187 tests passing. Video-to-skill ingestion remains future work.
 6. **Phase F:** Add voice, decomposition, physical testing, assembly synthesis, world models, and HERMES — in that order.
 
 ---

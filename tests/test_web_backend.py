@@ -394,6 +394,101 @@ def test_get_handshake_report_endpoint(tmp_path: Path):
     assert "rollout" in data["handshake"]
 
 
+def test_recommend_skill_endpoint(tmp_path: Path):
+    _seed_wedge_design(tmp_path, "rec_wedge")
+    response = client.post("/designs/rec_wedge/recommend-skill", json={"skill_description": "push the block to the goal"})
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["design_id"] == "rec_wedge"
+    assert data["template"] == "wedge_push_block"
+    assert data["confidence"] > 0.0
+
+
+def test_train_skill_endpoint(tmp_path: Path):
+    pytest.importorskip("mujoco")
+    _seed_wedge_design(tmp_path, "skill_wedge")
+    response = client.post(
+        "/designs/skill_wedge/train-skill",
+        json={"skill_description": "push the block", "n_iters": 5, "pop_size": 10, "eval_episodes": 3},
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["design_id"] == "skill_wedge"
+    assert "success_rate" in data
+    assert "weights" in data
+    assert "policy_file" in data
+
+
+def test_list_skills_endpoint(tmp_path: Path):
+    _seed_wedge_design(tmp_path, "skills_wedge")
+    client.post("/designs/skills_wedge/recommend-skill", json={"skill_description": "push the block"})
+    response = client.get("/designs/skills_wedge/skills")
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["design_id"] == "skills_wedge"
+    assert "recommended_skills" in data
+
+
+def test_variant_sweep_endpoint(tmp_path: Path):
+    design_dir = tmp_path / "designs" / "sweepcube"
+    exports_dir = design_dir / "exports"
+    exports_dir.mkdir(parents=True)
+    stl_path = exports_dir / "model.stl"
+    stl_path.write_text(_ascii_cube_stl(10.0))
+
+    feature_tree = {
+        "schema_version": "1.0.0",
+        "design_id": "sweepcube",
+        "prompt": "a cube",
+        "created_at": "2026-08-25T00:00:00Z",
+        "units": "mm",
+        "parameters": [
+            {"name": "size", "value": 10.0, "default_value": 10.0, "unit": "mm", "description": "side length"}
+        ],
+        "parts": [
+            {
+                "id": "cube",
+                "material": "PLA",
+                "sketches": [
+                    {
+                        "id": "profile",
+                        "plane": {"type": "base", "name": "XY"},
+                        "entities": [
+                            {"type": "rectangle", "id": "base", "center": [0, 0], "width": 10, "height": 10}
+                        ],
+                    }
+                ],
+                "features": [
+                    {"id": "extrude1", "type": "extrude", "sketch_id": "profile", "parameters": {"amount": 10, "mode": "add"}}
+                ],
+            }
+        ],
+    }
+    (design_dir / "feature_tree.json").write_text(json.dumps(feature_tree))
+    metadata = {
+        "id": "sweepcube",
+        "prompt": "a cube",
+        "success": True,
+        "model": "fake",
+        "attempts_used": 1,
+        "max_retries": 0,
+        "latency_seconds": 0.0,
+        "created_at": "2026-08-25T00:00:00Z",
+        "exports": {"stl": "model.stl", "step": None, "script": None},
+    }
+    (design_dir / "metadata.json").write_text(json.dumps(metadata))
+
+    response = client.post(
+        "/designs/sweepcube/variant-sweep",
+        json={"parameter_ranges": {"size": {"relative_min": -0.1, "relative_max": 0.1}}, "n_variants": 3, "run_stability": False},
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["success"] is True, data
+    assert len(data["variants"]) == 3
+    assert data["aggregate"]["n_variants"] == 3
+
+
 def test_simulate_endpoint_with_feature_tree(tmp_path: Path):
     design_dir = tmp_path / "designs" / "ftcube"
     exports_dir = design_dir / "exports"

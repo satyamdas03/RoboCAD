@@ -114,15 +114,20 @@ Maintained across the entire roadmap:
 
 **Goal:** When a human demonstrates a skill on video, RoboCAD suggests/generates a custom end-effector and `LearningRobotics` trains on it.
 
-**Status:** 🚧 In progress — started 2026-08-27.
+**Status:** ✅ Complete — 2026-08-27.
 
 **Deliverables:**
-- Skill-to-part recommendation.
-- Auto-generated part variants.
-- Batch bundle export for variant sweeps.
-- Integration test: human video → generated wedge → trained push policy.
+- Skill-to-part recommendation: `ai_cad/geda_bridge/skill_recommend.py` maps skill descriptions to scene templates + default policy configs.
+- Auto-generated part variants: `ai_cad/geda_bridge/variant_sweep.py` sweeps feature-tree parameters, exports each variant as a verified bundle, and reports aggregate validity/stability.
+- Batch bundle export for variant sweeps: `run_variant_sweep()` generates N bundles, verifies each, and optionally runs a 2 s MuJoCo stability check.
+- Trainable push-policy smoke test: `ai_cad/geda_bridge/skill_smoke.py` implements a NumPy-only CEM-trained TinyMLP policy for a `wedge_push_block`-derived push scene. The policy is evaluated over multiple rollouts and reports success rate.
+- Backend endpoints: `POST /designs/{id}/recommend-skill`, `POST /designs/{id}/train-skill`, `GET /designs/{id}/skills`, `POST /designs/{id}/variant-sweep`.
+- Frontend: `SimulatePanel.jsx` now has tabs for bundle generation, skill training, and variant sweep.
+- Tests: `tests/test_geda_bridge_skill.py` (7 tests) + backend endpoint tests in `tests/test_web_backend.py` (4 tests); full pytest suite **187/187 passing**.
 
-**Timeline:** 2–3 months.
+**Notes / honest scope:** The "video" part of video → part → trained skill is not implemented; it remains future work once a video-to-skill embedding pipeline is available. The current milestone proves the part → trained-skill loop end-to-end in simulation.
+
+**Timeline:** 2–3 months (smoke-test layer shipped; video ingestion remains future work).
 
 ---
 

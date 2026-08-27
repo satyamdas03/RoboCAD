@@ -27,6 +27,9 @@ from ai_cad.geda_bridge.loader import (
     stability_check_bundle,
 )
 from ai_cad.geda_bridge.runtime_validator import validate_bundle_with_mujoco
+from ai_cad.geda_bridge.skill_recommend import recommend_skill, list_skills, SkillRecommendation
+from ai_cad.geda_bridge.skill_smoke import PushSkillEnv, TinyMLPPolicy, train_policy_cem, train_push_skill
+from ai_cad.geda_bridge.variant_sweep import generate_variants, run_variant_sweep
 from ai_cad.geda_bridge.scene_templates import (
     ManipulationScene,
     SceneDescription,
@@ -59,6 +62,15 @@ __all__ = [
     "validate_bundle_with_mujoco",
     "verify_bundle",
     "get_capabilities",
+    "recommend_skill",
+    "list_skills",
+    "SkillRecommendation",
+    "PushSkillEnv",
+    "TinyMLPPolicy",
+    "train_policy_cem",
+    "train_push_skill",
+    "generate_variants",
+    "run_variant_sweep",
     "BundleLoadResult",
     "load_bundle_into_isaac_sim",
     "load_bundle_into_mujoco",

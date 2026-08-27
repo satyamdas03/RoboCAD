@@ -4,7 +4,7 @@
 >
 > **Core bet:** The AI writes **parametric CAD code** (build123d / FeatureScript), not throwaway meshes. The model you get is editable, versionable, and exportable for 3D printing, machining, or Onshape.
 >
-> **Latest milestone:** Phases 14A, 14B, and 15A are **complete** (including the three solvable caveat fixes: real Isaac Sim skeleton, nightly cross-repo CI, and real-wedge handshake seed + exporter/loader serialization fixes). RoboCAD can export any part or assembly to a simulation-ready bundle (MJCF/URDF/STL/inertial), drop it into one of four standard manipulation scenes, and verify a 10-second MuJoCo stability rollout via the `LearningRobotics` handshake. The backend exposes `POST /designs/{id}/simulate`, `POST /designs/{id}/scene`, `POST /designs/{id}/handshake`, `GET /capabilities`, and download endpoints; the Kinetic Precision frontend has `SimulatePanel`, `SceneTemplatePanel`, and `CapabilitiesPanel`. Phase 13 remains green on the T1–T4 ≥80% quality gate with Claude 5 fully integrated. Full pytest suite: **170 passed**. Phase 15B — the `RoboCompiler` asset pipeline — is now in progress.
+> **Latest milestone:** Phases 14A, 14B, 15A, and **15B are complete**. RoboCAD can export any part or assembly to a simulation-ready bundle (MJCF/URDF/STL/inertial), drop it into one of four standard manipulation scenes, and verify a 10-second MuJoCo stability rollout via the `LearningRobotics` handshake. Phase 15B adds the `RoboCompiler` asset pipeline: skill-to-scene recommendation (`recommend-skill`), automatic part variant sweeps (`variant-sweep`), and a trainable push-policy smoke test (`train-skill`) using a tiny NumPy-only CEM policy that pushes a block into the goal zone on a generated wedge mesh. The backend exposes `POST /designs/{id}/simulate`, `POST /designs/{id}/scene`, `POST /designs/{id}/handshake`, `GET /capabilities`, `POST /designs/{id}/recommend-skill`, `POST /designs/{id}/train-skill`, `GET /designs/{id}/skills`, `POST /designs/{id}/variant-sweep`, and download endpoints; the Kinetic Precision frontend has `SimulatePanel` with tabs for bundle, skill training, and variant sweep. Phase 13 remains green on the T1–T4 ≥80% quality gate with Claude 5 fully integrated. Full pytest suite: **187 passed**. Phase 16 — voice/text + sketch input — is next.
 
 ---
 
@@ -137,7 +137,7 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **14A** | **GEDA Bridge: MuJoCo / URDF exporter + verified asset bundles** | ✅ **Complete — `ai_cad/geda_bridge/`, `POST /designs/{id}/simulate`, `SimulatePanel.jsx`, 152/152 tests passing, MuJoCo runtime validation** |
 | **14B** | **Standard manipulation scene templates** | ✅ **Complete — `ai_cad/geda_bridge/scene_templates.py`, 4 templates, composition API, `POST /designs/{id}/scene`, `SceneTemplatePanel.jsx`, 160/160 tests passing, MuJoCo scene-load validation** |
 | **15A** | **LearningRobotics handshake** | ✅ **Complete — `ai_cad/geda_bridge/loader.py`, bundle contract (`docs/BUNDLE_CONTRACT.md`), reference MuJoCo/Isaac Sim loaders, `GET /capabilities`, `POST /designs/{id}/handshake`, `CapabilitiesPanel.jsx`, 10 s wedge stability end-to-end test, 170/170 tests passing** |
-| **15B** | **RoboCompiler asset pipeline** | 🚧 **In progress — video → custom part → trained skill** |
+| **15B** | **RoboCompiler asset pipeline** | ✅ **Complete — `ai_cad/geda_bridge/skill_recommend.py`, `skill_smoke.py`, `variant_sweep.py`, `POST /designs/{id}/recommend-skill`, `POST /designs/{id}/train-skill`, `GET /designs/{id}/skills`, `POST /designs/{id}/variant-sweep`, trainable push-policy smoke test, 187/187 tests passing** |
 | **16** | Voice/text + sketch input | ⏳ Planned |
 | **17** | Automatic part decomposition | ⏳ Planned |
 | **18** | Per-part physical testing (FEA templates) | ⏳ Planned |
@@ -167,7 +167,7 @@ This roadmap is the canonical plan of record for RoboCAD. **Do not reorder phase
 | **14A** | MuJoCo/URDF exporter + verified asset bundles | 2–3 mo | Simulation-ready CAD |
 | **14B** | Standard manipulation scene templates | 1 mo | Drop-in task templates |
 | **15A** | LearningRobotics bundle handshake | 1–2 mo | Cross-repo verified handoff |
-| **15B** | RoboCompiler asset pipeline | 2–3 mo | Video → custom part → trained skill |
+| **15B** | RoboCompiler asset pipeline | 2–3 mo | ✅ Video → custom part → trained skill smoke test; variant sweep + skill recommendation live |
 | **16** | Voice/text + sketch input | 2–3 mo | Hands-free CAD edits |
 | **17** | Automatic part decomposition | 3–4 mo | Robot from one prompt |
 | **18** | Templated per-part physical tests | 2–3 mo | Auto stress/drop reports |

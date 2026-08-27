@@ -145,6 +145,41 @@ export async function getHandshakeReport(id, template = 'wedge_push_block') {
   return apiFetch(`/designs/${id}/handshake?${params.toString()}`)
 }
 
+export async function recommendSkill(id, skillDescription = 'push the block to the goal') {
+  return apiFetch(`/designs/${id}/recommend-skill`, {
+    method: 'POST',
+    body: JSON.stringify({ skill_description: skillDescription }),
+  })
+}
+
+export async function trainSkill(id, { skillDescription = 'push the block to the goal', nIters = 20, popSize = 50, evalEpisodes = 10 } = {}) {
+  return apiFetch(`/designs/${id}/train-skill`, {
+    method: 'POST',
+    body: JSON.stringify({
+      skill_description: skillDescription,
+      n_iters: nIters,
+      pop_size: popSize,
+      eval_episodes: evalEpisodes,
+    }),
+  })
+}
+
+export async function getSkills(id) {
+  return apiFetch(`/designs/${id}/skills`)
+}
+
+export async function runVariantSweep(id, { parameterRanges, nVariants = 5, tolerance = 0.1, runStability = true }) {
+  return apiFetch(`/designs/${id}/variant-sweep`, {
+    method: 'POST',
+    body: JSON.stringify({
+      parameter_ranges: parameterRanges,
+      n_variants: nVariants,
+      tolerance,
+      run_stability: runStability,
+    }),
+  })
+}
+
 export async function listOnshapeDocuments(query = '', limit = 20) {
   const params = new URLSearchParams()
   if (query) params.set('q', query)
