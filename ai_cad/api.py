@@ -51,7 +51,7 @@ class RoboCADBackend:
         model: Optional[str] = None,
         max_retries: int = 2,
         temperature: float = 0.0,
-        max_tokens: int = 2048,
+        max_tokens: int = 4096,
         output_dir: Optional[Path] = None,
         timeout: int = 60,
         use_feature_tree: bool = False,

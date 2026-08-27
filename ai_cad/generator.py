@@ -69,16 +69,18 @@ def _looks_like_local_model(model: str) -> bool:
     return ":" in model and not model.startswith("claude-") and not model.startswith("gpt-")
 
 
-def _anthropic_base_url() -> Optional[str]:
-    """Return a proxy base URL if set, otherwise let the SDK use the official endpoint.
+def _anthropic_base_url() -> str:
+    """Return the Anthropic API base URL to use.
 
     Stale process environments sometimes set ANTHROPIC_BASE_URL to the local Ollama
-    endpoint. We must not send Anthropic API calls there.
+    endpoint. We must not send Anthropic API calls there, and passing ``None`` is
+    not enough because the Anthropic SDK still resolves the env var internally, so
+    we explicitly return the official endpoint when the env value looks local.
     """
     base = os.environ.get("ANTHROPIC_BASE_URL")
     if base and ("localhost" in base or "127.0.0.1" in base or ":11434" in base):
-        return None
-    return base
+        return "https://api.anthropic.com"
+    return base or "https://api.anthropic.com"
 
 
 def _first_text_block(response) -> str:
@@ -338,7 +340,7 @@ def generate_model(
     prompt: str,
     model: str = DEFAULT_MODEL,
     temperature: float = 0.0,
-    max_tokens: int = 2048,
+    max_tokens: int = 4096,
     api_key: Optional[str] = None,
 ) -> dict:
     """Generate build123d code from a prompt.
