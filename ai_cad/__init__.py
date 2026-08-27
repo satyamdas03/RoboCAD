@@ -4,11 +4,15 @@ import sys
 
 # The anthropic SDK depends on a vendored "httpx2" fork that has a recursion
 # bug when making HTTPS requests on Python 3.14. Replace it with the standard
-# httpx package before any Anthropic import resolves.
+# httpx/httpcore packages before any Anthropic import resolves. We also map the
+# low-level httpcore2 dependency because the fork uses the same broken fork
+# pattern.
 try:
     import httpx  # noqa: F401
+    import httpcore  # noqa: F401
 
     sys.modules["httpx2"] = httpx
+    sys.modules["httpcore2"] = httpcore
 except ImportError:
     pass
 
@@ -19,6 +23,8 @@ from ai_cad.exporter import export_model
 from ai_cad.generator import generate_model
 from ai_cad.models import CADParameter, ExportPaths, GenerationResult, ValidationReport
 from ai_cad.parameters import extract_parameters
+from ai_cad.assembly import transpile_assembly
+from ai_cad.transpiler import transpile
 from ai_cad.validator import validate_model
 
 __all__ = [

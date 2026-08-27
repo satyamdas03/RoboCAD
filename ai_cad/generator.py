@@ -94,6 +94,14 @@ def _first_text_block(response) -> str:
     return ""
 
 
+def _response_has_text(response) -> bool:
+    """Return True if the Anthropic response contains at least one text block."""
+    return any(
+        getattr(block, "type", None) == "text" and hasattr(block, "text")
+        for block in response.content
+    )
+
+
 def _build_messages(prompt: str, examples: list[dict]) -> list[dict]:
     """Build the chat message list used by both Anthropic and OpenAI paths."""
     messages: list[dict] = []
@@ -290,26 +298,40 @@ def generate_feature_tree(
         api_key=api_key,
         base_url=_anthropic_base_url(),
     )
-    try:
-        response = _anthropic_create(
-            client,
-            model=model,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            system=system_prompt,
-            messages=messages,
-        )
-    except Exception as exc:
+    last_exc: Optional[Exception] = None
+    for attempt in range(3):
+        try:
+            response = _anthropic_create(
+                client,
+                model=model,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                system=system_prompt,
+                messages=messages,
+            )
+        except Exception as exc:
+            last_exc = exc
+            continue
+
+        raw_response = _first_text_block(response)
+        if raw_response:
+            return _wrap_feature_tree_result(raw_response, model)
+
+    if last_exc is not None:
         return {
             "success": False,
             "feature_tree": None,
             "raw_response": "",
             "model": model,
-            "error": f"API error: {exc}",
+            "error": f"API error: {last_exc}",
         }
-
-    raw_response = _first_text_block(response)
-    return _wrap_feature_tree_result(raw_response, model)
+    return {
+        "success": False,
+        "feature_tree": None,
+        "raw_response": "",
+        "model": model,
+        "error": "Model returned no text block after retries.",
+    }
 
 
 def generate_model(
@@ -356,26 +378,40 @@ def generate_model(
         api_key=api_key,
         base_url=_anthropic_base_url(),
     )
-    try:
-        response = _anthropic_create(
-            client,
-            model=model,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            system=system_prompt,
-            messages=messages,
-        )
-    except Exception as exc:
+    last_exc: Optional[Exception] = None
+    for attempt in range(3):
+        try:
+            response = _anthropic_create(
+                client,
+                model=model,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                system=system_prompt,
+                messages=messages,
+            )
+        except Exception as exc:
+            last_exc = exc
+            continue
+
+        raw_response = _first_text_block(response)
+        if raw_response:
+            return _wrap_result(raw_response, model)
+
+    if last_exc is not None:
         return {
             "success": False,
             "code": None,
             "raw_response": "",
             "model": model,
-            "error": f"API error: {exc}",
+            "error": f"API error: {last_exc}",
         }
-
-    raw_response = _first_text_block(response)
-    return _wrap_result(raw_response, model)
+    return {
+        "success": False,
+        "code": None,
+        "raw_response": "",
+        "model": model,
+        "error": "Model returned no text block after retries.",
+    }
 
 
 def self_correct_feature_tree(
