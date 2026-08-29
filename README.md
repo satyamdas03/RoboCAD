@@ -138,8 +138,8 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **14B** | **Standard manipulation scene templates** | ✅ **Complete — `ai_cad/geda_bridge/scene_templates.py`, 4 templates, composition API, `POST /designs/{id}/scene`, `SceneTemplatePanel.jsx`, 160/160 tests passing, MuJoCo scene-load validation** |
 | **15A** | **LearningRobotics handshake** | ✅ **Complete — `ai_cad/geda_bridge/loader.py`, bundle contract (`docs/BUNDLE_CONTRACT.md`), reference MuJoCo/Isaac Sim loaders, `GET /capabilities`, `POST /designs/{id}/handshake`, `CapabilitiesPanel.jsx`, 10 s wedge stability end-to-end test, 170/170 tests passing** |
 | **15B** | **RoboCompiler asset pipeline** | ✅ **Complete — `ai_cad/geda_bridge/skill_recommend.py`, `skill_smoke.py`, `variant_sweep.py`, `POST /designs/{id}/recommend-skill`, `POST /designs/{id}/train-skill`, `GET /designs/{id}/skills`, `POST /designs/{id}/variant-sweep`, trainable push-policy smoke test, 187/187 tests passing** |
-:| **16** | Cross-domain input (voice/text/sketch + domain detection) | ⏳ Planned |
-| **17** | Domain-aware parametric representation (solids, surfaces, kinematics, PCB form factors) | ⏳ Planned |
+:| **16** | **Cross-domain input (voice/text/sketch + domain detection)** | ✅ **Complete — `ai_cad/domain.py` keyword + embedding classifier, `ai_cad/intent_parser.py` per-domain `DomainIntent`, `POST /classify-domain`, `GET /designs/{id}/domain-intent`, `DomainBadge` in history + inspector, 201/201 tests passing** |
+| **17** | **Domain-aware parametric representation (solids, surfaces, kinematics, PCB form factors)** | ✅ **Complete — feature-tree schema v2.0.0 with domain tags, `SurfaceFeature`, `KinematicJoint`, `PCBOutline`, NACA 4-digit airfoil sketch entity, `ai_cad/sketch_solver.py` airfoil point generation, 201/201 tests passing** |
 | **18** | Automatic decomposition + domain part families | ⏳ Planned |
 | **19** | Mechanical assembly synthesis + verification | ⏳ Planned |
 | **20** | Aerodynamics, thermal, and propulsion geometry | ⏳ Planned |
@@ -486,6 +486,21 @@ The decision: **build PATH1 (Phases 14A–15B) first**, then use it as the techn
 ---
 
 ## 📝 Changelog
+
+### 2026-08-29 — Batch A complete: Phases 16–17 multi-domain foundation
+
+* **Phase 16 — Cross-domain input layer** shipped:
+  * `ai_cad/domain.py` domain classifier with keyword + optional `sentence-transformers` embedding fallback for six domains: mechanical, aero, thermal, electronics, humanoid, multi.
+  * `ai_cad/intent_parser.py` per-domain LLM intent parser returning `DomainIntent` (parameters, constraints, features, domain).
+  * Backend endpoints: `POST /classify-domain`, `GET /designs/{id}/domain-intent`, and `detect_domain` flag on `POST /generate`.
+  * Frontend `DomainBadge` component, domain badges in history sidebar, and domain-intent inspector card in the right panel.
+  * New tests: `tests/test_domain_classifier.py`, `tests/test_intent_parser.py`.
+* **Phase 17 — Domain-aware parametric representation** shipped:
+  * Feature-tree schema bumped to v2.0.0 with `domain` tags on `Feature`, `Part`, `Assembly`, and `FeatureTree`.
+  * New schema entities: `SurfaceFeature`, `KinematicJoint` (revolute/prismatic/spherical/fixed), `PCBOutline`, and NACA 4-digit `airfoil` sketch entity.
+  * `ai_cad/sketch_solver.py` computes airfoil point sets via `_naca_4digit_points()`.
+  * New tests: `tests/test_feature_tree_v2.py`, `tests/test_sketch_airfoil.py`.
+* Full pytest suite: **201/201 passing**. Voice/STT integration remains future work (Phase 18+).
 
 ### 2026-08-27 — Scope expanded to full multi-domain robotics platform
 

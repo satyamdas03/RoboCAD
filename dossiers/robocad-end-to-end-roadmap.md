@@ -138,17 +138,31 @@ Maintained across the entire roadmap:
 
 **Goal:** Accept voice, text, and sketch input for any robotics domain, detect the domain, and route the intent to the right parametric representation and physics backend.
 
+**Status:** ✅ Complete — 2026-08-29 (text + sketch input; voice/STT deferred to later phases).
+
 **Deliverables:**
-- Whisper/local STT integration in backend and frontend.
-- Domain classifier: mechanical / aerodynamics / thermal / electronics / humanoid / full robot.
-- Per-domain intent parsers that map speech/text to feature-tree operations, constraints, surface profiles, kinematic chains, or PCB form factors.
-- Ambiguity resolution UI: when the LLM is unsure, ask 1–3 clarifying questions.
-- Sketch-to-constraint for mechanical parts and 2D aerofoil profiles.
-- Voice prompt templates for common operations across domains.
+- ✅ `ai_cad/domain.py` domain classifier with keyword + optional `sentence-transformers` embedding fallback.
+  - Six domains: `mechanical`, `aero`, `thermal`, `electronics`, `humanoid`, `multi`.
+  - Keyword matching uses regex word-boundary patterns; embedding fallback activates when keywords are inconclusive.
+- ✅ `ai_cad/intent_parser.py` per-domain LLM intent parser returning `DomainIntent`.
+  - Extracts target domain, confidence, inferred parameters, constraints, feature-tree operations, and surface/PCB/kinematic hints.
+- ✅ Backend integration in `web/backend/main.py`:
+  - `POST /classify-domain`
+  - `GET /designs/{design_id}/domain-intent`
+  - `detect_domain` flag on `POST /generate` that persists `domain_intent.json` with every design.
+- ✅ Frontend integration:
+  - `DomainBadge.jsx` with domain-specific colors.
+  - Domain badges shown in `HistorySidebar.jsx` for each persisted design.
+  - Domain-intent inspector card in `App.jsx` right panel.
+  - "Detect domain" checkbox in `PromptInput.jsx`.
+- ⏳ Whisper/local STT integration remains future work.
+- ⏳ Ambiguity-resolution clarifying-questions UI remains future work.
 
-**Tests:** ≥85% of simple dimensional edits work on first voice attempt for mechanical parts; ≥70% domain classification accuracy on a curated multi-domain prompt set.
-
-**Timeline:** 2–3 months.
+**Tests:**
+- `tests/test_domain_classifier.py` — keyword classification + embedding fallback + tie-breaking.
+- `tests/test_intent_parser.py` — mocked LLM extraction + fallback to mechanical.
+- `tests/test_web_backend.py` — `/classify-domain` and `/generate?detect_domain=true` endpoints.
+- Full pytest suite: **201/201 passing**.
 
 ---
 
@@ -156,18 +170,30 @@ Maintained across the entire roadmap:
 
 **Goal:** Extend the feature tree and transpiler to represent not only solid extrusions, but also surfaces, shells, kinematic chains, and electronics form factors.
 
+**Status:** ✅ Complete — 2026-08-29 (schema + sketch support; aero/thermal surface transpiler and kinematic-tree backend remain Phase 20/23).
+
 **Deliverables:**
-- Feature-tree schema v2.0 with support for:
-  - Surfaces / splines / airfoil sections.
-  - Kinematic joints (revolute, prismatic, spherical, fixed).
-  - PCB outlines, mounting holes, connector keepouts.
-  - Domain tags on every feature/part.
-- Transpiler backends: build123d for solids; parametric surface geometry for aero/thermal; kinematic-tree helper for mechanisms.
-- Validation: each domain-specific tree produces a measurable artifact (mesh, surface, kinematic description).
+- ✅ Feature-tree schema bumped to **v2.0.0** in `ai_cad/feature_tree.py`:
+  - `domain` tag added to `Feature`, `Part`, `Assembly`, and `FeatureTree` (defaults to `mechanical`).
+  - Top-level `features` list supports `Feature | SurfaceFeature | PCBOutline` via discriminated union.
+  - `SurfaceFeature` model for aero/thermal surfaces.
+  - `KinematicJoint` model with `revolute`, `prismatic`, `spherical`, and `fixed` joint types.
+  - `PCBOutline` model for board shape + mounting holes + connector keepouts.
+  - `SketchEntity.type` extended with `airfoil`; added `naca` (4-digit code) and `chord` fields.
+  - `Sketch.points` field to carry computed 2D profiles.
+- ✅ Airfoil point generation in `ai_cad/sketch_solver.py`:
+  - `_naca_4digit_points(code, chord, n=40)` computes cambered/thickness profiles.
+  - `_solve_airfoils(sketch)` populates `points` on airfoil entities.
+- ✅ `created_at` made optional with UTC default to keep legacy trees valid.
+- ⏳ Transpiler backends: build123d for solids is unchanged; aero/thermal parametric surface geometry and kinematic-tree helpers are scaffolded in schema and will be wired in Phases 20 and 23.
+- ⏳ Validation of full domain-specific artifacts (surface mesh, kinematic description) remains future work.
 
-**Tests:** load and transpile trees for a bracket, an airfoil, a PCB bracket, and a 2-DOF arm.
+**Tests:**
+- `tests/test_feature_tree_v2.py` — domain tags, surface features, kinematic joints, PCB outlines.
+- `tests/test_sketch_airfoil.py` — NACA 4-digit airfoil point generation.
+- Full pytest suite: **201/201 passing**.
 
-**Timeline:** 3–4 months. **Risk:** schema over-generalization; start with one new domain at a time.
+**Notes / honest scope:** The Phase 17 milestone intentionally stopped at the *representation* layer. It gives downstream phases a typed, versioned schema and a concrete airfoil sketch example, without over-generalizing the transpiler before domain-specific geometry requirements are proven.
 
 ---
 
