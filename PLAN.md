@@ -703,7 +703,7 @@ PATH2 is the long-term North Star: a full-stack robotics design operating system
 
 **Tests:** arm, gripper (parallel-jaw prismatic), and fixed assemblies load in MuJoCo; full pytest suite **251/251 passing**.
 
-**Shipped:** 2026-08-29. Phase 20 is next.
+**Shipped:** 2026-08-29. Phase 21 is next.
 
 **Effort:** 3–4 months.
 

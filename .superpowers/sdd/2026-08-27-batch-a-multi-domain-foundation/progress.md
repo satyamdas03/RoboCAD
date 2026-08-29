@@ -26,6 +26,7 @@
 - [x] Task 9: Final verification and push — complete; full pytest suite **201/201 passing** on 2026-08-29.
 - [x] Phase 18 follow-up: automatic decomposition + part families + composed assembly — complete (commit f03ca77, `ai_cad/part_families.py`, `ai_cad/decomposition.py`, `ai_cad/composer.py`, `tests/test_composer.py`, `tests/test_part_families.py`, `tests/test_decomposition.py`); full suite now **228/228 passing** after post-ship bug fixes.
 - [x] Phase 19 follow-up: mechanical assembly synthesis — complete (`ai_cad/mate_inference.py`, `ai_cad/assembly_collision.py`, `ai_cad/assembly.py` revolute/prismatic + pose sampling, `ai_cad/geda_bridge/exporter.py` joints/actuators/sensors, backend assembly endpoints, frontend `AssemblyReplayPanel.jsx` / `AssemblyCollisionPanel.jsx`); after tightening the default robot arm gripper to a parallel-jaw prismatic mechanism, full suite now **251/251 passing**.
+- [x] Phase 20 follow-up: aerodynamics, thermal, and propulsion geometry — complete (`ai_cad/transpiler.py` `SurfaceFeature` transpilation for airfoil/wing/propeller_blade/heat_sink, `ai_cad/sketch_solver.py` NACA 4-digit airfoil point generation, `ai_cad/aero.py`, `ai_cad/thermal.py`, `ai_cad/cfd.py`, backend `/aero-report`, `/thermal-report`, `/cfd-mesh` endpoints, frontend `AeroPanel.jsx` / `ThermalPanel.jsx`); full suite now **276/276 passing**.
 
 ## Rulings
 

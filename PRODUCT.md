@@ -31,8 +31,8 @@ The meaningful difference is **parametric code, not mesh soup**. Most text-to-3D
 
 ## Capabilities and Constraints
 
-- **Capabilities:** natural-language prompt-to-CAD, parameter editing via sliders and face-click guessing, design history with search/filter/tags, component library with seeded robotics templates, remix from any prior design, manufacturing report (volume, overhangs, hole diameter, print-time heuristic), one-click STEP upload to Onshape, feature-tree editing, multi-part assembly with LCS mates, DFM/tolerance/FEA verification, Claude 5 + local Ollama model support, simulation-ready MuJoCo/URDF bundle export (Phase 14A), future voice/sketch input and world-model training.
-- **Constraints:** backend runs locally (FastAPI + build123d + optional Ollama/Claude); the 3D viewer is three.js / react-three-fiber; exports are STL/STEP/3MF and (in Phase 14A) MuJoCo/URDF bundles; local SQLite/JSON is the source of truth for history; Onshape integration requires user-provided HMAC credentials stored in `.env`.
+- **Capabilities:** natural-language prompt-to-CAD, parameter editing via sliders and face-click guessing, design history with search/filter/tags, component library with seeded robotics templates, remix from any prior design, manufacturing report (volume, overhangs, hole diameter, print-time heuristic), one-click STEP upload to Onshape, feature-tree editing, multi-part assembly with LCS mates, DFM/tolerance/FEA verification, Claude 5 + local Ollama model support, simulation-ready MuJoCo/URDF bundle export (Phase 14A), domain classification + per-domain intent parsing (Phase 16), automatic system decomposition into part families (Phase 18), mechanical assembly synthesis with mates/joints/collision checks (Phase 19), aero/thermal/propulsion geometry with NACA airfoils/wings/heat sinks/propellers and CFD mesh stubs (Phase 20), future voice/sketch input and world-model training.
+- **Constraints:** backend runs locally (FastAPI + build123d + optional Ollama/Claude); the 3D viewer is three.js / react-three-fiber; exports are STL/STEP/3MF, MuJoCo/URDF bundles, and SU2/OpenFOAM CFD mesh/config stubs; local SQLite/JSON is the source of truth for history; Onshape integration requires user-provided HMAC credentials stored in `.env`; full silicon EDA and high-fidelity CFD solvers remain external tools.
 - **Terminology:** prompt, design, parameters, export, regeneration, remix, face/parameter guessing, component library, manufacturing report, Onshape upload, feature tree, assembly, mate, DFM, FEA, bundle, scene template, world model, HERMES.
 - **Brand:** name kept as **RoboCAD**; visual direction is *Kinetic Precision* — a dark scientific engineering workstation with surgical cyan accent (#00e5ff), near-black ground (#121315), obsidian panels, and `Inter` + `JetBrains Mono` typography. The earlier *Precision Lab Instrument* light theme was superseded by this darker, denser workstation aesthetic. No future redesign may revert to generic SaaS gradients, cartoon UI, cyberpunk neon, or military-industrial steel tropes without a new user decision.
 
@@ -51,16 +51,16 @@ The Google Stitch redesign was driven by `STITCH_BRIEF.md` and the generated `st
 ## Evidence on Hand
 
 - Working end-to-end web app with FastAPI backend and a Google Stitch *Kinetic Precision* dark workstation React frontend.
-- **134/134 pytest tests passing.**
-- Frontend production build passes; live end-to-end generation verified (base plate and NEMA-17 mount both succeeded with manifold/watertight geometry and full parameter panels).
+- **276/276 pytest tests passing.**
+- Frontend production build passes; live end-to-end generation verified for mechanical parts, robot-arm assemblies, NACA airfoil wings, and aero/thermal/CFD reports.
 - 12 standard robotics component templates in `ComponentLibrary`.
-- Feature-tree backend, sketch constraint solver, assembly system, and DFM/tolerance/FEA verification all implemented and tested.
+- Feature-tree backend, sketch constraint solver, assembly system, DFM/tolerance/FEA verification, domain classification, automatic decomposition, mechanical assembly synthesis, and aero/thermal/propulsion geometry all implemented and tested.
 - Claude 5 integration complete with Anthropic SDK compatibility fixes; first Claude Sonnet 5 Phase 8 benchmark run reached 21/30 (70.0%), with **T1–T4 at 87.5% (21/24)**.
-- Latest generator fix (`06a373c`) hardens code extraction against nested markdown fences from self-correction responses.
+- Latest generator fixes harden code extraction against nested markdown fences from self-correction responses and resolve NACA airfoil parameter-name chords.
 - Generated Stitch reference files (`stitch_precision_engineering_interface/`) retained for provenance.
 - README-embedded end-to-end demo: `assets/robocad_kinetic_precision_demo.webm` + `assets/robocad_kinetic_precision_demo.gif` + `assets/robocad_kinetic_precision_demo_poster.jpg`, plus `scripts/record_demo.py` Playwright recorder for reproducible demos.
-- README, PLAN.md, PRODUCT.md, and memory files document current phases, architecture, design context, and the PATH1/PATH2 strategic roadmap.
-- Phase 14A GEDA Bridge (simulation-ready MuJoCo/URDF bundle export) is the next build target.
+- README, PLAN.md, PRODUCT.md, dossiers, and memory files document current phases, architecture, design context, and the PATH1/PATH2 strategic roadmap.
+- Phase 21 — electronics and mechatronics integration — is the next build target.
 
 ## Product Principles
 
