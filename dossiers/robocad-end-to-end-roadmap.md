@@ -1,9 +1,10 @@
 # RoboCAD End-to-End Vision Roadmap
 
-**Date:** 2026-08-27  
+**Date:** 2026-08-29  
 **Horizon:** ~5–7 years  
 **North Star:** voice/text/sketch → multi-domain parametric CAD → per-part multi-physics testing → assembly → world-model simulation → HERMES oversight → robot brain trained on synthetic data with retraining loops.  
 **First commercial milestone:** PATH1 / GEDA Bridge (Phases 14A–15B).  
+**Current milestone:** Batch A multi-domain foundation (Phases 16–18) complete; Phase 19 mechanical assembly synthesis is next.  
 **Domain tracks:** mechanical assemblies, aerodynamics / thermal / propulsion geometry, electronics / mechatronics form-factor co-design, humanoid / full-robot system synthesis.  
 **Related:** [`PLAN.md`](../PLAN.md) Sections 10–14, [`PATH1_PATH2_analysis.md`](PATH1_PATH2_analysis.md)
 
@@ -201,17 +202,22 @@ Maintained across the entire roadmap:
 
 **Goal:** Split complex system intents into parts and choose domain-specific part families/templates.
 
-**Deliverables:**
-- Decomposition planner with domain heuristics (LLM + rules).
-- Part-family library:
-  - Mechanical: brackets, links, hubs, pulleys.
-  - Aero/thermal: airfoils, wings, ducts, heat sinks, propeller blades.
-  - Electronics: PCB brackets, enclosures, connector mounts, cable guides.
-  - Humanoid/robot: limb segments, torso plates, end effectors, feet.
-- Interface library per domain: mechanical mates, wing spar joints, PCB mounting patterns, humanoid joint limits.
-- Validation: no part intersections, statically determined assembly, reachable workspace check where applicable.
+**Status:** ✅ Complete — 2026-08-29.
 
-**Tests:** generate 3–5 standard assemblies from single prompts per domain; verify no intersections.
+**Deliverables:**
+- ✅ `ai_cad/decomposition.py` — rule-based system decomposer for quadcopter, robot arm, humanoid, fixed-wing, with LLM hook and single-part fallback.
+- ✅ `ai_cad/part_families.py` — `PartFamily` registry of 12 families across mechanical, aero, thermal, electronics, and humanoid domains.
+- ✅ `ai_cad/composer.py` — `compose_feature_tree()` builds a complete `FeatureTree` with global parameters, per-domain parts, assembly, instances, and inferred mates.
+- ✅ Backend: `POST /decompose` and `decompose=True` flag on `POST /generate`.
+- ✅ Frontend: `DecomposePanel.jsx` + auto-decompose checkbox in `PromptInput.jsx`.
+- ⏳ Interface library per domain: mechanical mates, wing spar joints, PCB mounting patterns, humanoid joint limits — partially scaffolded via mates in `composer.py`; full library in Phase 19/20/21.
+- ⏳ Assembly-level collision/intersection checks remain Phase 19 scope.
+
+**Tests:**
+- `tests/test_decomposition.py` — rule-based decomposition for standard systems.
+- `tests/test_part_families.py` — registry, parameter merging, interface frames.
+- `tests/test_composer.py` — compose + transpile + execute assemblies.
+- Full pytest suite: **228/228 passing**.
 
 **Timeline:** 3–4 months. **Risk:** fully open-ended decomposition is unsolved; start with parameterized part families.
 
@@ -431,7 +437,7 @@ Maintained across the entire roadmap:
 
 ## Immediate next action
 
-Start **Phase 16 — Cross-domain input layer**: build the domain classifier, per-domain intent parsers, and sketch-to-constraint for mechanical parts and 2D airfoil profiles. Keep PATH1 (GEDA Bridge) under maintenance and keep the 187-test suite green as the multi-domain layers land.
+Start **Phase 19 — Mechanical assembly synthesis**: mate inference from part interfaces and intent, kinematic-loop solver for closed chains, assembly-level collision/clearance checks, full-subsystem MJCF/URDF export with joints/actuators/sensors, and browser range-of-motion replay. Keep Batch A (Phases 16–18) under maintenance and the 228-test suite green as assembly synthesis lands.
 
 ---
 

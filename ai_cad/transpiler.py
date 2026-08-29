@@ -86,7 +86,7 @@ def _transpile_part(part: Part, parameters: dict[str, float], var_name: str = "p
     for feature in part.features:
         if not feature.enabled:
             continue
-        feature_blocks.append(_transpile_feature(feature, part))
+        feature_blocks.append(_transpile_feature(feature, part, var_name=var_name))
 
     body_lines = []
     for block in sketch_blocks + feature_blocks:
@@ -165,7 +165,7 @@ def _transpile_entity(entity: SketchEntity) -> str:
     raise ValueError(f"Unsupported sketch entity type: {etype}")
 
 
-def _transpile_feature(feature: Feature, part: Part) -> str:
+def _transpile_feature(feature: Feature, part: Part, var_name: str = "part") -> str:
     ftype = feature.type
     params = feature.parameters
 
@@ -193,14 +193,14 @@ def _transpile_feature(feature: Feature, part: Part) -> str:
 
     if ftype == "fillet":
         radius = _render_value(params.get("radius"), default=1)
-        selector = _render_edge_selector(params.get("edges"))
+        selector = _render_edge_selector(params.get("edges"), var_name=var_name)
         return f"fillet({selector}, radius={radius})"
 
     if ftype == "chamfer":
         distance = _render_value(params.get("distance"), default=1)
         distance1 = params.get("distance1")
         distance2 = params.get("distance2")
-        selector = _render_edge_selector(params.get("edges"))
+        selector = _render_edge_selector(params.get("edges"), var_name=var_name)
         if distance1 is not None and distance2 is not None:
             return f"chamfer({selector}, length={_render_value(distance1)}, length2={_render_value(distance2)})"
         return f"chamfer({selector}, length={distance})"
@@ -209,10 +209,14 @@ def _transpile_feature(feature: Feature, part: Part) -> str:
         thickness = _render_value(params.get("thickness"), default=1)
         faces = params.get("faces_to_remove", [])
         if faces:
-            # Map semantic face names to selectors.
-            face_expr = ", ".join(f"part.faces().sort_by(Axis.Z)[-1]" if f == "top" else f"part.faces().sort_by(Axis.Z)[0]" for f in faces)
-            return f"shell({face_expr}, thickness={thickness})"
-        return f"shell(part.faces(), thickness={thickness})"
+            # Map semantic face names to selectors and wrap in a list for hollow().
+            face_exprs = [
+                f"{var_name}.faces().sort_by(Axis.Z)[-1]" if f == "top" else f"{var_name}.faces().sort_by(Axis.Z)[0]"
+                for f in faces
+            ]
+            face_expr = ", ".join(face_exprs)
+            return f"{var_name}.part.hollow([{face_expr}], thickness={thickness})"
+        return f"{var_name}.part.hollow([], thickness={thickness})"
 
     if ftype == "mirror":
         feature_ids = params.get("feature_ids", [])
@@ -260,18 +264,18 @@ def _render_value(value: NumericOrString | None, default: NumericOrString | None
     return str(float(value))
 
 
-def _render_edge_selector(selector: Any) -> str:
+def _render_edge_selector(selector: Any, var_name: str = "part") -> str:
     if selector is None:
-        return "part.edges()"
+        return f"{var_name}.edges()"
     if isinstance(selector, dict):
         sel_type = selector.get("type")
         if sel_type == "all":
-            return "part.edges()"
+            return f"{var_name}.edges()"
         if sel_type == "feature_edges":
-            fid = selector.get("feature_id", "part")
+            fid = selector.get("feature_id", var_name)
             return f"{fid}.edges()"
         if sel_type == "last_feature":
-            return "part.edges()"
+            return f"{var_name}.edges()"
     if isinstance(selector, EdgeSelector):
-        return _render_edge_selector(selector.model_dump())
-    return "part.edges()"
+        return _render_edge_selector(selector.model_dump(), var_name=var_name)
+    return f"{var_name}.edges()"

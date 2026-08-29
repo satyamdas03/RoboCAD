@@ -73,7 +73,9 @@ Read every file in this directory:
 - `dfm.py` — DFM rule engine (Phase 12).
 - `tolerances.py` — Fit/clearance checks (Phase 12).
 - `fea.py` — Simple static analysis (Phase 12).
-- `geda_bridge/exporter.py` — MuJoCo/URDF bundle exporter (Phase 14A, next).
+- `geda_bridge/exporter.py` — MuJoCo/URDF bundle exporter (Phase 14A–15B complete).
+- `domain.py`, `intent_parser.py` — Cross-domain classification and intent parsing (Phases 16–17).
+- `part_families.py`, `decomposition.py`, `composer.py` — Automatic system decomposition and part families (Phase 18, current).
 - `prompts/system_prompt.txt` — System prompt the LLM sees.
 - `prompts/examples.json` — Few-shot examples.
 
@@ -206,4 +208,4 @@ npm run build
 5. Run the pytest suite and the frontend build.
 6. Only then continue the current phase.
 
-**Current active phase:** Phase 13 completion + Phase 14A GEDA Bridge scoping. Stabilize the Claude Sonnet 5 Phase 8 benchmark to ≥80% on T1–T4, then sketch `ai_cad/geda_bridge/exporter.py` for MuJoCo/URDF bundle export. See `PLAN.md` Section 9 and `.claude/memory/robocad-end-to-end-roadmap.md`.
+**Current active phase:** Phase 18 complete; Phase 19 mechanical assembly synthesis is next. Before starting Phase 19, run `python -m pytest` and verify `/generate?decompose=True` works end-to-end with a quadcopter or robot-arm prompt. See `PLAN.md` Section 9 and `.claude/memory/robocad-end-to-end-roadmap.md`.

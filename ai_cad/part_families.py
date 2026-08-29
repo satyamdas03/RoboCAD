@@ -407,15 +407,12 @@ def _aero_duct() -> PartFamily:
         Parameter(name="duct_length", value=120.0, unit="mm"),
         Parameter(name="duct_wall", value=2.0, unit="mm"),
     ]
-    sketch = _circle_sketch("duct_outer", "duct_diameter")
-    sketch.entities[0].radius = "duct_diameter / 2"
-    feature = _extrude_feature("duct_body", "duct_outer", "duct_length")
-    # Shell feature to hollow the cylinder
-    shell = Feature(
-        id="duct_shell",
-        type="shell",
-        parameters={"thickness": "duct_wall"},
-    )
+    outer = _circle_sketch("duct_outer", "duct_diameter")
+    outer.entities[0].radius = "duct_diameter / 2"
+    inner = _circle_sketch("duct_inner", "duct_diameter")
+    inner.entities[0].radius = "duct_diameter / 2 - duct_wall"
+    outer_feature = _extrude_feature("duct_body", "duct_outer", "duct_length")
+    inner_cut = _extrude_feature("duct_hollow", "duct_inner", "duct_length", mode="subtract")
     interface = CoordinateSystem(
         id="duct_interface",
         name="duct axis start",
@@ -429,8 +426,8 @@ def _aero_duct() -> PartFamily:
         domain="aero",
         display_name="Cylindrical duct / shroud",
         default_parameters=params,
-        sketches=[sketch],
-        features=[feature, shell],
+        sketches=[outer, inner],
+        features=[outer_feature, inner_cut],
         interface_csys=interface,
     )
 

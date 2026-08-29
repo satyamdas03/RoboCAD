@@ -40,6 +40,25 @@ def test_compose_robot_arm_executes(tmp_path):
     assert exec_result["success"] is True
 
 
+def test_compose_quadcopter_with_aero_shell_executes(tmp_path):
+    """Regression: duct-family shell feature used an undefined 'part' variable in assemblies."""
+    result = decompose("450 mm quadcopter with four motor arms and an aerodynamic shell", use_llm=False)
+    assert result.multi_domain is True
+    assert any(p.family == "duct" for p in result.parts)
+
+    tree = compose_feature_tree(result)
+    code = transpile_assembly(tree)
+    # Duct is now a hollow tube via outer + inner subtract, not Shell.
+    assert "extrude(duct_outer.sketch" in code
+    assert "extrude(duct_inner.sketch" in code
+    assert "Mode.SUBTRACT" in code
+    assert "part_3.part" in code
+
+    exec_result = execute_code(code, output_dir=tmp_path, timeout=120)
+    assert exec_result["success"] is True
+    assert exec_result["stl_path"] is not None
+
+
 def test_compose_global_parameters_include_defaults():
     result = decompose("450 mm quadcopter with four motor arms", use_llm=False)
     tree = compose_feature_tree(result)

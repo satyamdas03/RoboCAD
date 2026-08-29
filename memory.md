@@ -15,7 +15,7 @@
 | **Mission** | AI-powered parametric CAD for robotics hardware: describe parts/assemblies in language, get editable manufacturable models and simulation-ready bundles. |
 | **Owner** | Satyam Das (@satyamdas03, satyamdas03@gmail.com) |
 | **Start date** | 2026-08-21 |
-| **Current date** | 2026-08-27 |
+| **Current date** | 2026-08-29 |
 
 ---
 
@@ -134,16 +134,20 @@ LearningRobotics → world model → policy training → sim-to-real
 | **14A** | **GEDA Bridge: MuJoCo / URDF exporter + bundles** | ✅ **Complete — `ai_cad/geda_bridge/`, backend endpoints, `SimulatePanel.jsx`, 152/152 tests passing, MuJoCo runtime validation** |
 | **14B** | Standard manipulation scene templates | ✅ **Complete — `ai_cad/geda_bridge/scene_templates.py`, 4 templates, composition API, `POST /designs/{id}/scene`, `SceneTemplatePanel.jsx`, 160/160 tests passing** |
 | **15A** | LearningRobotics handshake | ✅ **Complete — `ai_cad/geda_bridge/loader.py`, bundle contract, reference loaders, `GET /capabilities`, `POST /designs/{id}/handshake`, `CapabilitiesPanel.jsx`, 10 s wedge stability test, 170/170 tests passing** |
-| **15B** | RoboCompiler asset pipeline | ⏳ Planned |
-| **16** | Voice/text + sketch input | ⏳ Planned |
-| **17** | Automatic part decomposition | ⏳ Planned |
-| **18** | Per-part physical testing (FEA templates) | ⏳ Planned |
-| **19** | Assembly synthesis + verification | ⏳ Planned |
-| **20** | World-model simulation builder | ⏳ Planned |
-| **21** | Robot brain training loop | ⏳ Planned |
-| **22** | HERMES conversational supervisor | ⏳ Planned |
-| **23** | Sim-to-real feedback loop | ⏳ Planned |
-| **24** | Distribution + commercialization | ⏳ Planned |
+| **15B** | RoboCompiler asset pipeline | ✅ **Complete — skill recommendation, variant sweep, trainable push-policy smoke test, 187/187 tests passing** |
+| **16** | Cross-domain input (voice/text/sketch + domain detection) | ✅ **Complete — `ai_cad/domain.py` classifier, `ai_cad/intent_parser.py`, `POST /classify-domain`, domain badges, 201/201 tests passing** |
+| **17** | Domain-aware parametric representation | ✅ **Complete — feature-tree schema v2.0.0, `SurfaceFeature`, `KinematicJoint`, `PCBOutline`, NACA airfoil sketch, 201/201 tests passing** |
+| **18** | Automatic decomposition + domain part families | ✅ **Complete — `ai_cad/part_families.py`, `ai_cad/decomposition.py`, `ai_cad/composer.py`, `POST /decompose`, `/generate?decompose`, `DecomposePanel.jsx`, **228/228 tests passing** |
+| **19** | Mechanical assembly synthesis + verification | ⏳ **Next** |
+| **20** | Aerodynamics, thermal, and propulsion geometry | ⏳ Planned |
+| **21** | Electronics and mechatronics integration | ⏳ Planned |
+| **22** | Multi-physics verification engine | ⏳ Planned |
+| **23** | Humanoid and full-robot system synthesis | ⏳ Planned |
+| **24** | World-model simulation builder | ⏳ Planned |
+| **25** | Robot brain training loop | ⏳ Planned |
+| **26** | HERMES conversational supervisor | ⏳ Planned |
+| **27** | Sim-to-real feedback loop | ⏳ Planned |
+| **28** | Distribution + commercialization + advanced co-design plugins | ⏳ Planned |
 
 See `PLAN.md` for full details. See `.claude/memory/robocad-path-analysis.md` and `.claude/memory/robocad-end-to-end-roadmap.md` for the PATH1/PATH2 strategic analysis.
 
@@ -215,20 +219,18 @@ RoboCAD/
 
 ## 9. Current status snapshot
 
-- Repo created at `https://github.com/satyamdas03/RoboCAD`.
-- Phases 0–13 committed and pushed.
-- `ai_cad/` package implements generation, execution, validation, parameter extraction, self-correction, Onshape upload, manufacturing reports, face-click parameter guessing, feature trees, sketch constraints, assemblies, DFM/tolerances/FEA, and Claude 5 compatibility.
-- Latest commit `06a373c` hardens `_extract_code_block()` against nested markdown fences and increases empty-text retries from 3 to 5.
+- Repo at `https://github.com/satyamdas03/RoboCAD`; `master` pushed and in sync with local.
+- Phases 0–18 committed and pushed.
+- `ai_cad/` package implements generation, execution, validation, parameter extraction, self-correction, Onshape upload, manufacturing reports, face-click parameter guessing, feature trees, sketch constraints, assemblies, DFM/tolerances/FEA, Claude 5 compatibility, GEDA Bridge bundle export, scene templates, LearningRobotics handshake, RoboCompiler skill pipeline, domain classification, per-domain intent parsing, and automatic decomposition/part families.
 - Web app has FastAPI backend + React frontend with Kinetic Precision dark workstation UI.
-- Test suite: **152/152 passing tests**.
-- Phase 14A GEDA Bridge complete: `ai_cad/geda_bridge/` exports MuJoCo/URDF bundles and passes MuJoCo runtime validation tests.
-- Live end-to-end verified for base plates, NEMA-17 mounts, component-library seed flows, feature-tree regeneration, and assembly display.
-- Strategic analysis complete: PATH1 (GEDA Bridge) will be built before PATH2 (full voice-to-world-model vision).
-- **Phase 13 quality gate achieved:** `claude-sonnet-5-20250501` T1–T4 **87.5% (21/24)**.
+- Test suite: **228/228 passing tests**.
+- Latest fixes: transpiler shell/fillet/chamfer now use the correct per-part `BuildPart` variable; duct family creates a hollow tube via outer + inner subtract instead of the fragile `shell` operation.
+- Live end-to-end verified: `/decompose`, `/classify-domain`, and `/generate?decompose=True` all work for the quadcopter-with-shell prompt.
+- Strategic decision maintained: PATH1 (GEDA Bridge) shipped first; PATH2 (voice/world-model-to-robot) is the long-term North Star.
 
 **Next work:**
-1. **Phase 14B — Standard manipulation scene templates:** build drop-in MuJoCo/Isaac Sim task scenes for gripper cube grasp, bracket hook hang, wedge push, and peg insertion.
-2. Complete cross-repo handshake with `LearningRobotics` (Phase 15A).
+1. **Phase 19 — Mechanical assembly synthesis:** mate inference, kinematic-loop solver, collision/clearance checks, full-subsystem MJCF/URDF export, browser range-of-motion replay.
+2. Keep Batch A (Phases 16–18) under maintenance and the test suite green.
 3. Continue local-model fine-tuning (`robocad-ft:latest`) as a background experiment.
 
 ---
@@ -332,8 +334,8 @@ To force a full sync at any time, type:
 
 If you are resuming this session with no other context:
 
-> We are building **RoboCAD**, an AI-powered parametric CAD tool for robotics hardware. The repo is at `https://github.com/satyamdas03/RoboCAD`. **Phases 0–13 are committed and pushed** (prompt → build123d → STL/STEP → Onshape → manufacturing report → component library → dark Kinetic Precision UI → feature tree → sketch constraints → assemblies → DFM/tolerances/FEA → model specialization → Claude 5 integration, **134 tests passing**). **Phase 13 is green on the T1–T4 ≥80% gate** (87.5% with `claude-sonnet-5-20250501`). The immediate next phase is **Phase 14A GEDA Bridge**: connect RoboCAD designs to the `LearningRobotics` MuJoCo simulation + skill-verification stack via verified MuJoCo/URDF bundles. Strategic decision: ship PATH1 (GEDA Bridge) before PATH2 (voice-to-CAD-to-world-model). See `.claude/memory/robocad-path-analysis.md` and `.claude/memory/robocad-end-to-end-roadmap.md`. Say `:POINTBREAK` to force a full dossier sync.
+> We are building **RoboCAD**, an AI-powered parametric CAD tool for robotics hardware. The repo is at `https://github.com/satyamdas03/RoboCAD`. **Phases 0–18 are committed and pushed** (prompt → build123d → STL/STEP → Onshape → manufacturing report → component library → dark Kinetic Precision UI → feature tree → sketch constraints → assemblies → DFM/tolerances/FEA → model specialization → Claude 5 integration → GEDA Bridge → scene templates → LearningRobotics handshake → RoboCompiler pipeline → cross-domain input → domain-aware representation → automatic decomposition + part families, **228 tests passing**). The immediate next phase is **Phase 19 — Mechanical assembly synthesis**: mate inference, kinematic-loop solver, collision/clearance checks, full-subsystem MJCF/URDF export, browser range-of-motion replay. Strategic decision: ship PATH1 (GEDA Bridge) before PATH2 (voice-to-CAD-to-world-model). See `.claude/memory/robocad-path-analysis.md` and `.claude/memory/robocad-end-to-end-roadmap.md`. Say `:POINTBREAK` to force a full dossier sync.
 
 ---
 
-*Last updated: 2026-08-27 (Phases 0–14A complete; Phase 14A GEDA Bridge verified with MuJoCo runtime tests; 152/152 tests passing; Phase 14B is next)*
+*Last updated: 2026-08-29 (Phases 0–18 complete; Batch A multi-domain foundation + Phase 18 decomposition/part families shipped and verified live; 228/228 tests passing; Phase 19 mechanical assembly synthesis is next)*
