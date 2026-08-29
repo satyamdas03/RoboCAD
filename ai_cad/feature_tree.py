@@ -1,20 +1,27 @@
-"""Structured parametric feature-tree model for RoboCAD Phase 9.
+"""Structured parametric feature-tree model for RoboCAD.
 
-This module defines Pydantic models for the Feature-Tree JSON Schema v1.0.0
+This module defines Pydantic models for the Feature-Tree JSON Schema v2.0.0
 documented in ``docs/feature_tree_schema.md``. A feature tree is a symbolic,
 editable design history that can be transpiled to ``build123d`` code.
 
-For Phase 9 the scope is intentionally limited:
+Phase 9 scope:
 - single-part designs
 - base-plane sketches (XY, YZ, ZX)
 - rectangle, circle, line, arc sketch entities
 - extrude, revolve, fillet, chamfer, shell, mirror, linear_pattern,
   circular_pattern features
 - constraints and dimensions stored but not yet solved (Phase 10)
+
+Phase 16-17 additions:
+- domain tags on features, parts, assemblies, and the top-level tree
+- kinematic joints for mechanisms and humanoid/robot systems
+- surface features for aero/thermal geometry
+- PCB outlines for electronics co-design
 """
 from __future__ import annotations
 
-from typing import Any, Literal
+from datetime import datetime, timezone
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -110,6 +117,10 @@ class Sketch(BaseModel):
     entities: list[SketchEntity] = Field(default_factory=list)
     constraints: list[Constraint] = Field(default_factory=list)
     dimensions: list[Dimension] = Field(default_factory=list)
+    points: dict[str, list[tuple[float, float]]] = Field(
+        default_factory=dict,
+        description="Solved point sets for special entities such as airfoils.",
+    )
 
 
 class EdgeSelector(BaseModel):
@@ -122,7 +133,10 @@ class EdgeSelector(BaseModel):
 class Feature(BaseModel):
     """Single modeling operation (extrude, fillet, pattern, etc.)."""
 
+    model_config = {"extra": "allow"}
+
     id: str
+    domain: str = "mechanical"
     type: Literal[
         "extrude",
         "revolve",
@@ -146,15 +160,51 @@ class Feature(BaseModel):
         return self
 
 
+class KinematicJoint(BaseModel):
+    """Joint connecting two links in a mechanism or robot."""
+
+    id: str
+    type: Literal["revolute", "prismatic", "spherical", "fixed"]
+    parent_link: str
+    child_link: str
+    origin: tuple[float, float, float]
+    axis: tuple[float, float, float] | None = None
+    limits: tuple[float, float] | None = None
+
+
+class SurfaceFeature(BaseModel):
+    """Aero/thermal surface feature such as an airfoil, wing, duct, or heat sink."""
+
+    model_config = {"extra": "allow"}
+
+    id: str
+    domain: str = "aero"
+    type: Literal["airfoil", "wing", "duct", "heat_sink", "propeller_blade"]
+    profile: dict[str, Any]
+
+
+class PCBOutline(BaseModel):
+    """Electronics co-design outline: board shape, mounting holes, keepouts."""
+
+    model_config = {"extra": "allow"}
+
+    id: str
+    domain: str = "electronics"
+    board_shape: list[tuple[float, float]]
+    mounting_holes: list[tuple[float, float, float]] = Field(default_factory=list)
+    keepouts: list[dict[str, Any]] = Field(default_factory=list)
+
+
 class Part(BaseModel):
     """Named sequence of sketches + features."""
 
     id: str
+    domain: str = "mechanical"
     name: str | None = None
     color: str | None = None
     material: str | None = None
     sketches: list[Sketch] = Field(default_factory=list)
-    features: list[Feature] = Field(default_factory=list)
+    features: list[Annotated[Feature | SurfaceFeature | PCBOutline, Field()]] = Field(default_factory=list)
     default_csys_id: str = "origin"
 
 
@@ -196,21 +246,26 @@ class Instance(BaseModel):
 
 
 class Assembly(BaseModel):
-    """Collection of instances + mates."""
+    """Collection of instances + mates + joints."""
 
     id: str
+    domain: str = "mechanical"
     name: str | None = None
     instances: list[Instance] = Field(default_factory=list)
     mates: list[Mate] = Field(default_factory=list)
+    joints: list[KinematicJoint] = Field(default_factory=list)
 
 
 class FeatureTree(BaseModel):
     """Top-level document representing an editable parametric design."""
 
-    schema_version: str = "1.0.0"
+    schema_version: str = "2.0.0"
     design_id: str
+    domain: str = "mechanical"
     prompt: str
-    created_at: str
+    created_at: str = Field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
     model: str | None = None
     units: str = "mm"
     parameters: list[Parameter] = Field(default_factory=list)
@@ -228,6 +283,10 @@ class FeatureTree(BaseModel):
     )
     parts: list[Part] = Field(default_factory=list)
     assemblies: list[Assembly] = Field(default_factory=list)
+    features: list[Annotated[Feature | SurfaceFeature | PCBOutline, Field()]] = Field(
+        default_factory=list,
+        description="Top-level domain-specific features that are not tied to a single part.",
+    )
 
     def parameter_dict(self) -> dict[str, NumericOrString]:
         """Return name → value mapping for all parameters."""
