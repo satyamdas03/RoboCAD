@@ -142,7 +142,7 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **17** | **Domain-aware parametric representation (solids, surfaces, kinematics, PCB form factors)** | ✅ **Complete — feature-tree schema v2.0.0 with domain tags, `SurfaceFeature`, `KinematicJoint`, `PCBOutline`, NACA 4-digit airfoil sketch entity, `ai_cad/sketch_solver.py` airfoil point generation, 201/201 tests passing** |
 | **18** | **Automatic decomposition + domain part families** | ✅ **Complete — `ai_cad/part_families.py`, `ai_cad/decomposition.py`, `ai_cad/composer.py`, rule-based system decomposer, 12 cross-domain part families, `POST /decompose`, `/generate?decompose`, `DecomposePanel.jsx` + auto-decompose checkbox, **228/228 tests passing** |
 | **19** | **Mechanical assembly synthesis + verification** | ✅ **Complete — mate inference from part-family `Interface`s, kinematic solver for revolute/prismatic joints, assembly collision/clearance checks, joint-aware MJCF/URDF export, browser range-of-motion replay; default "robot arm with gripper" synthesizes a true parallel-jaw prismatic gripper; **251/251 tests passing** |
-| **20** | Aerodynamics, thermal, and propulsion geometry | ⏳ Planned |
+| **20** | **Aerodynamics, thermal, and propulsion geometry** | ✅ **Complete — NACA 4-digit airfoils, straight wings, propeller blades, heat sinks, SU2/OpenFOAM CFD mesh stubs, `AeroPanel.jsx`, `ThermalPanel.jsx`, **276/276 tests passing** |
 | **21** | Electronics and mechatronics integration (form-factor co-design, not silicon layout) | ⏳ Planned |
 | **22** | Multi-physics verification engine (FEA / CFD / thermal / dynamics) | ⏳ Planned |
 | **23** | Humanoid and full-robot system synthesis | ⏳ Planned |
