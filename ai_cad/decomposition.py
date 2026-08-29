@@ -52,7 +52,7 @@ DOMAIN_DEFAULT_FAMILY = {
     "mechanical": "bracket",
     "aero": "airfoil",
     "thermal": "heat_sink",
-    "electronics": "pcb_bracket",
+    "electronics": "pcb",
     "humanoid": "limb_segment",
 }
 
@@ -74,8 +74,13 @@ FAMILY_KEYWORDS = {
         "heat_sink": ["heat sink", "heatsink", "fin", "cooler"],
     },
     "electronics": {
-        "pcb_bracket": ["pcb", "board mount", "raspberry pi", "arduino"],
+        "pcb": ["pcb", "board", "raspberry pi", "arduino", "flight controller", "esc", "motor driver"],
         "enclosure": ["enclosure", "box", "case", "housing"],
+        "connector": ["connector", "header", "d-sub", "terminal block", "jst", "pin header", "usb"],
+        "cable_channel": ["cable", "wire", "channel", "clip", "harness", "conduit"],
+        "fan_mount": ["fan", "vent", "cooler", "blower"],
+        "heat_spreader": ["heat spreader", "thermal pad", "vapor chamber", "spreader"],
+        "pcb_bracket": ["pcb bracket", "board mount", "standoff"],
     },
     "humanoid": {
         "limb_segment": ["arm", "leg", "limb", "link"],
@@ -205,7 +210,7 @@ Available families by domain:
 - mechanical: bracket, link, hub, mount
 - aero: airfoil, wing, duct
 - thermal: heat_sink
-- electronics: pcb_bracket, enclosure
+- electronics: pcb, pcb_bracket, enclosure, connector, cable_channel, fan_mount, heat_spreader
 - humanoid: limb_segment, end_effector, foot
 """
     messages = [{"role": "user", "content": f"Prompt: {prompt}\n\nReturn only JSON."}]
@@ -502,6 +507,86 @@ def _rule_decompose(prompt: str) -> DecompositionResult | None:
             multi_domain=True,
             parts=parts,
             notes=["Rule-based fixed-wing decomposition."],
+        )
+
+    # Electronics stack / PCB + enclosure + accessories
+    electronics_system_keywords = {
+        "raspberry pi",
+        "arduino",
+        "pcb with enclosure",
+        "electronics enclosure",
+        "motor driver stack",
+        "flight controller",
+        "esc",
+        "board with case",
+    }
+    if any(w in text for w in electronics_system_keywords):
+        parts = [
+            DecomposedPart(
+                id="pcb",
+                name="PCB",
+                domain="electronics",
+                family="pcb",
+                sub_prompt="Main PCB",
+            )
+        ]
+        if any(w in text for w in {"enclosure", "box", "case", "housing"}):
+            parts.append(
+                DecomposedPart(
+                    id="enclosure",
+                    name="Enclosure",
+                    domain="electronics",
+                    family="enclosure",
+                    sub_prompt="Electronics enclosure",
+                )
+            )
+        if any(w in text for w in {"fan", "vent", "cooler"}):
+            parts.append(
+                DecomposedPart(
+                    id="fan_mount",
+                    name="Fan mount",
+                    domain="electronics",
+                    family="fan_mount",
+                    sub_prompt="Fan vent mount",
+                )
+            )
+        if any(w in text for w in {"connector", "header", "usb", "pin header"}):
+            parts.append(
+                DecomposedPart(
+                    id="connector",
+                    name="Connector",
+                    domain="electronics",
+                    family="connector",
+                    sub_prompt="Board connector",
+                    count=2,
+                )
+            )
+        if any(w in text for w in {"cable", "wire", "channel", "clip", "harness"}):
+            parts.append(
+                DecomposedPart(
+                    id="cable_channel",
+                    name="Cable channel",
+                    domain="electronics",
+                    family="cable_channel",
+                    sub_prompt="Cable routing channel",
+                )
+            )
+        if any(w in text for w in {"heat spreader", "thermal pad", "spreader"}):
+            parts.append(
+                DecomposedPart(
+                    id="heat_spreader",
+                    name="Heat spreader",
+                    domain="electronics",
+                    family="heat_spreader",
+                    sub_prompt="Thermal heat spreader",
+                )
+            )
+        return DecompositionResult(
+            prompt=prompt,
+            primary_domain="electronics",
+            multi_domain=True,
+            parts=parts,
+            notes=["Rule-based electronics stack decomposition."],
         )
 
     return None

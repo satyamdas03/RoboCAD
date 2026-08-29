@@ -38,9 +38,16 @@ Example parameters: chord, span, naca_code, sweep, twist, fin_count, fin_height.
 Return JSON with keys: parameters, features, constraints, notes, confidence.
 Example parameters: fin_count, fin_height, base_length, base_width, thermal_load.
 """,
-    "electronics": """Extract structured parameters and features for an electronics/mechanical co-design part from the user prompt.
+    "electronics": """Extract structured parameters and features for an electronics/mechatronics co-design from the user prompt.
 Return JSON with keys: parameters, features, constraints, notes, confidence.
-Example parameters: board_length, board_width, mounting_hole_diameter, connector_count.
+Recognize these part categories: pcb, enclosure, connector, cable_channel, fan_mount, heat_spreader.
+Example parameters:
+- pcb: board_length, board_width, board_thickness, mounting_hole_diameter, connector_count, edge_clearance, keepout_count.
+- enclosure: enc_length, enc_width, enc_height, wall_thickness, standoff_height, standoff_diameter.
+- connector: connector_length, connector_width, connector_height, pin_count.
+- cable_channel: channel_length, channel_width, channel_height, wall_thickness.
+- fan_mount: frame_length, frame_width, fan_diameter, fan_thickness, hole_diameter.
+- heat_spreader: spread_length, spread_width, spread_thickness, mounting_hole_diameter.
 """,
     "humanoid": """Extract structured parameters and features for a humanoid/robot subsystem from the user prompt.
 Return JSON with keys: parameters, features, constraints, notes, confidence.

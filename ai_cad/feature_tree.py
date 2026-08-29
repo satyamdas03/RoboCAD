@@ -189,15 +189,23 @@ class SurfaceFeature(BaseModel):
 
 
 class PCBOutline(BaseModel):
-    """Electronics co-design outline: board shape, mounting holes, keepouts."""
+    """Electronics co-design outline: board shape, mounting holes, keepouts.
+
+    Phase 21 adds board thickness, edge clearance, connector cutout positions,
+    and layer count so the outline can be transpiled into a realistic 3D PCB.
+    """
 
     model_config = {"extra": "allow"}
 
     id: str
     domain: str = "electronics"
     board_shape: list[tuple[float, float]]
+    board_thickness: float = 1.6
+    edge_clearance: float = 1.0
     mounting_holes: list[tuple[float, float, float]] = Field(default_factory=list)
     keepouts: list[dict[str, Any]] = Field(default_factory=list)
+    connector_positions: list[dict[str, Any]] = Field(default_factory=list)
+    layer_count: int = 2
 
 
 class Part(BaseModel):

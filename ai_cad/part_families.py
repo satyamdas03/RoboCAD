@@ -166,6 +166,34 @@ def _mounting_hole_pattern(
     )
 
 
+def _corner_hole_sketch(
+    sketch_id: str,
+    hole_diameter_param: str,
+    pitch_x_param: str,
+    pitch_y_param: str,
+    plane: str = "XY",
+) -> Sketch:
+    """Four holes at the corners of a rectangle, without an outer rectangle."""
+    holes = []
+    for idx, (sx, sy) in enumerate([(1, 1), (1, -1), (-1, 1), (-1, -1)]):
+        holes.append(
+            SketchEntity(
+                type="circle",
+                id=f"{sketch_id}_hole_{idx}",
+                center=(f"{sx} * {pitch_x_param} / 2", f"{sy} * {pitch_y_param} / 2"),
+                radius=f"{hole_diameter_param} / 2",
+            )
+        )
+    return Sketch(
+        id=sketch_id,
+        name=f"{sketch_id}_holes",
+        plane=PlaneReference(type="base", name=plane),
+        entities=holes,
+        constraints=[],
+        dimensions=[],
+    )
+
+
 def _extrude_feature(feature_id: str, sketch_id: str, amount_param: str, *, mode: str = "add") -> Feature:
     return Feature(
         id=feature_id,
@@ -683,7 +711,70 @@ def _thermal_heat_sink() -> PartFamily:
 # ---------------------------------------------------------------------------
 
 
+def _electronics_pcb() -> PartFamily:
+    """Parametric printed circuit board outline with mounting holes."""
+    params = [
+        Parameter(name="board_length", value=85.0, unit="mm"),
+        Parameter(name="board_width", value=56.0, unit="mm"),
+        Parameter(name="board_thickness", value=1.6, unit="mm"),
+        Parameter(name="mounting_hole_diameter", value=2.5, unit="mm"),
+        Parameter(name="corner_offset", value=3.5, unit="mm"),
+        Parameter(name="edge_clearance", value=1.0, unit="mm"),
+    ]
+    board = _rect_sketch("pcb_profile", "board_length", "board_width")
+    holes = _corner_hole_sketch(
+        "pcb_holes",
+        "mounting_hole_diameter",
+        "board_length - 2 * corner_offset",
+        "board_width - 2 * corner_offset",
+    )
+    body = _extrude_feature("pcb_body", "pcb_profile", "board_thickness")
+    hole_cut = _extrude_feature("pcb_hole_cut", "pcb_holes", "board_thickness", mode="subtract")
+    top_face = CoordinateSystem(
+        id="pcb_top_face",
+        name="pcb top face",
+        origin=(0, 0, 1.6),
+        x_axis=(1, 0, 0),
+        y_axis=(0, 1, 0),
+        z_axis=(0, 0, 1),
+    )
+    bottom_face = CoordinateSystem(
+        id="pcb_bottom_face",
+        name="pcb bottom face",
+        origin=(0, 0, 0),
+        x_axis=(1, 0, 0),
+        y_axis=(0, 1, 0),
+        z_axis=(0, 0, 1),
+    )
+    interfaces = [
+        Interface(
+            id="top_face",
+            csys=top_face,
+            type="face",
+            mate_hint="fixed",
+            mate_with=["pcb/top_face", "enclosure/standoff", "heat_spreader/thermal_face"],
+        ),
+        Interface(
+            id="bottom_face",
+            csys=bottom_face,
+            type="face",
+            mate_hint="fixed",
+            mate_with=["pcb/bottom_face", "enclosure/standoff"],
+        ),
+    ]
+    return PartFamily(
+        name="pcb",
+        domain="electronics",
+        display_name="Parametric printed circuit board",
+        default_parameters=params,
+        sketches=[board, holes],
+        features=[body, hole_cut],
+        interfaces=interfaces,
+    )
+
+
 def _electronics_pcb_bracket() -> PartFamily:
+    """Legacy flat PCB mounting bracket / standoff plate."""
     params = [
         Parameter(name="pcb_length", value=85.0, unit="mm"),
         Parameter(name="pcb_width", value=56.0, unit="mm"),
@@ -723,19 +814,43 @@ def _electronics_pcb_bracket() -> PartFamily:
 
 
 def _electronics_enclosure() -> PartFamily:
+    """Hollow electronics enclosure shell with integral corner standoffs."""
     params = [
-        Parameter(name="enc_length", value=100.0, unit="mm"),
-        Parameter(name="enc_width", value=80.0, unit="mm"),
+        Parameter(name="enc_length", value=120.0, unit="mm"),
+        Parameter(name="enc_width", value=90.0, unit="mm"),
         Parameter(name="enc_height", value=40.0, unit="mm"),
         Parameter(name="wall_thickness", value=2.0, unit="mm"),
         Parameter(name="lid_overlap", value=4.0, unit="mm"),
+        Parameter(name="standoff_height", value=6.0, unit="mm"),
+        Parameter(name="standoff_diameter", value=4.0, unit="mm"),
     ]
-    base = _rect_sketch("enc_outer", "enc_length", "enc_width")
+    outer = _rect_sketch("enc_outer", "enc_length", "enc_width")
+    inner = _rect_sketch(
+        "enc_inner",
+        "enc_length - 2 * wall_thickness",
+        "enc_width - 2 * wall_thickness",
+    )
+    standoffs = _corner_hole_sketch(
+        "standoff_posts",
+        "standoff_diameter",
+        "enc_length - 2 * wall_thickness - standoff_diameter",
+        "enc_width - 2 * wall_thickness - standoff_diameter",
+    )
     body = _extrude_feature("enc_body", "enc_outer", "enc_height")
+    cavity = _extrude_feature("enc_hollow", "enc_inner", "enc_height - wall_thickness", mode="subtract")
+    posts = _extrude_feature("standoffs", "standoff_posts", "standoff_height")
     mount_face = CoordinateSystem(
         id="enc_mount_face",
         name="enclosure base",
         origin=(0, 0, 0),
+        x_axis=(1, 0, 0),
+        y_axis=(0, 1, 0),
+        z_axis=(0, 0, 1),
+    )
+    standoff_face = CoordinateSystem(
+        id="enc_standoff_face",
+        name="enclosure standoff top",
+        origin=(0, 0, 6.0),
         x_axis=(1, 0, 0),
         y_axis=(0, 1, 0),
         z_axis=(0, 0, 1),
@@ -747,15 +862,197 @@ def _electronics_enclosure() -> PartFamily:
             type="face",
             mate_hint="fixed",
             mate_with=["enclosure/mount_face", "pcb_bracket/mount_face", "heat_sink/thermal_face"],
-        )
+        ),
+        Interface(
+            id="standoff",
+            csys=standoff_face,
+            type="face",
+            mate_hint="fixed",
+            mate_with=["enclosure/standoff", "pcb/top_face", "pcb/bottom_face"],
+        ),
     ]
     return PartFamily(
         name="enclosure",
         domain="electronics",
-        display_name="Rectangular electronics enclosure",
+        display_name="Hollow electronics enclosure with standoffs",
         default_parameters=params,
-        sketches=[base],
-        features=[body],
+        sketches=[outer, inner, standoffs],
+        features=[body, cavity, posts],
+        interfaces=interfaces,
+    )
+
+
+def _electronics_connector() -> PartFamily:
+    """Generic parametric connector body (approximation for assembly / IDF)."""
+    params = [
+        Parameter(name="conn_length", value=20.0, unit="mm"),
+        Parameter(name="conn_width", value=10.0, unit="mm"),
+        Parameter(name="conn_height", value=8.0, unit="mm"),
+        Parameter(name="pin_count", value=4, unit=""),
+        Parameter(name="pin_pitch", value=2.54, unit="mm"),
+        Parameter(name="pin_diameter", value=1.0, unit="mm"),
+    ]
+    body = _rect_sketch("conn_body", "conn_length", "conn_width")
+    body_feature = _extrude_feature("conn_body_f", "conn_body", "conn_height")
+    mount_face = CoordinateSystem(
+        id="conn_mount_face",
+        name="connector base",
+        origin=(0, 0, 0),
+        x_axis=(1, 0, 0),
+        y_axis=(0, 1, 0),
+        z_axis=(0, 0, 1),
+    )
+    interfaces = [
+        Interface(
+            id="mount_face",
+            csys=mount_face,
+            type="face",
+            mate_hint="fixed",
+            mate_with=["connector/mount_face", "pcb/top_face", "enclosure/standoff"],
+        )
+    ]
+    return PartFamily(
+        name="connector",
+        domain="electronics",
+        display_name="Generic parametric connector",
+        default_parameters=params,
+        sketches=[body],
+        features=[body_feature],
+        interfaces=interfaces,
+    )
+
+
+def _electronics_cable_channel() -> PartFamily:
+    """U-shaped cable routing channel / clip."""
+    params = [
+        Parameter(name="channel_length", value=50.0, unit="mm"),
+        Parameter(name="channel_width", value=12.0, unit="mm"),
+        Parameter(name="channel_height", value=6.0, unit="mm"),
+        Parameter(name="wall_thickness", value=1.5, unit="mm"),
+    ]
+    outer = _rect_sketch("chan_outer", "channel_width", "channel_height")
+    inner = _rect_sketch(
+        "chan_inner",
+        "channel_width - 2 * wall_thickness",
+        "channel_height - wall_thickness",
+    )
+    body = _extrude_feature("chan_body", "chan_outer", "channel_length")
+    cavity = _extrude_feature("chan_cavity", "chan_inner", "channel_length", mode="subtract")
+    mount_face = CoordinateSystem(
+        id="chan_mount_face",
+        name="cable channel base",
+        origin=(0, 0, 0),
+        x_axis=(1, 0, 0),
+        y_axis=(0, 1, 0),
+        z_axis=(0, 0, 1),
+    )
+    interfaces = [
+        Interface(
+            id="mount_face",
+            csys=mount_face,
+            type="face",
+            mate_hint="fixed",
+            mate_with=["cable_channel/mount_face", "enclosure/mount_face"],
+        )
+    ]
+    return PartFamily(
+        name="cable_channel",
+        domain="electronics",
+        display_name="Cable routing channel",
+        default_parameters=params,
+        sketches=[outer, inner],
+        features=[body, cavity],
+        interfaces=interfaces,
+    )
+
+
+def _electronics_fan_mount() -> PartFamily:
+    """Square fan frame with central opening and corner mounting holes."""
+    params = [
+        Parameter(name="fan_diameter", value=40.0, unit="mm"),
+        Parameter(name="frame_size", value=44.0, unit="mm"),
+        Parameter(name="frame_thickness", value=4.0, unit="mm"),
+        Parameter(name="hole_pitch", value=32.0, unit="mm"),
+        Parameter(name="hole_diameter", value=3.0, unit="mm"),
+    ]
+    outer = _rect_sketch("fan_outer", "frame_size", "frame_size")
+    opening = _circle_sketch("fan_opening", "fan_diameter")
+    opening.entities[0].radius = "fan_diameter / 2"
+    holes = _corner_hole_sketch("fan_holes", "hole_diameter", "hole_pitch", "hole_pitch")
+    body = _extrude_feature("fan_body", "fan_outer", "frame_thickness")
+    opening_cut = _extrude_feature("fan_opening_cut", "fan_opening", "frame_thickness", mode="subtract")
+    hole_cut = _extrude_feature("fan_hole_cut", "fan_holes", "frame_thickness", mode="subtract")
+    mount_face = CoordinateSystem(
+        id="fan_mount_face",
+        name="fan mount face",
+        origin=(0, 0, 0),
+        x_axis=(1, 0, 0),
+        y_axis=(0, 1, 0),
+        z_axis=(0, 0, 1),
+    )
+    interfaces = [
+        Interface(
+            id="mount_face",
+            csys=mount_face,
+            type="face",
+            mate_hint="fixed",
+            mate_with=["fan_mount/mount_face", "enclosure/mount_face", "heat_sink/thermal_face"],
+        )
+    ]
+    return PartFamily(
+        name="fan_mount",
+        domain="electronics",
+        display_name="Fan mount frame",
+        default_parameters=params,
+        sketches=[outer, opening, holes],
+        features=[body, opening_cut, hole_cut],
+        interfaces=interfaces,
+    )
+
+
+def _electronics_heat_spreader() -> PartFamily:
+    """Flat thermal spreader plate with mounting holes."""
+    params = [
+        Parameter(name="spread_length", value=60.0, unit="mm"),
+        Parameter(name="spread_width", value=40.0, unit="mm"),
+        Parameter(name="spread_thickness", value=3.0, unit="mm"),
+        Parameter(name="mounting_hole_diameter", value=2.5, unit="mm"),
+        Parameter(name="hole_pitch_x", value=50.0, unit="mm"),
+        Parameter(name="hole_pitch_y", value=30.0, unit="mm"),
+    ]
+    base = _rect_sketch("spread_base", "spread_length", "spread_width")
+    holes = _corner_hole_sketch(
+        "spread_holes",
+        "mounting_hole_diameter",
+        "hole_pitch_x",
+        "hole_pitch_y",
+    )
+    body = _extrude_feature("spread_body", "spread_base", "spread_thickness")
+    hole_cut = _extrude_feature("spread_hole_cut", "spread_holes", "spread_thickness", mode="subtract")
+    thermal_face = CoordinateSystem(
+        id="spread_thermal_face",
+        name="heat spreader thermal face",
+        origin=(0, 0, 3.0),
+        x_axis=(1, 0, 0),
+        y_axis=(0, 1, 0),
+        z_axis=(0, 0, 1),
+    )
+    interfaces = [
+        Interface(
+            id="thermal_face",
+            csys=thermal_face,
+            type="face",
+            mate_hint="fixed",
+            mate_with=["heat_spreader/thermal_face", "pcb/top_face", "heat_sink/thermal_face"],
+        )
+    ]
+    return PartFamily(
+        name="heat_spreader",
+        domain="electronics",
+        display_name="Thermal heat spreader plate",
+        default_parameters=params,
+        sketches=[base, holes],
+        features=[body, hole_cut],
         interfaces=interfaces,
     )
 
@@ -933,8 +1230,13 @@ _FAMILY_BUILDERS: dict[str, Any] = {
     "propeller_blade": _aero_propeller_blade,
     "duct": _aero_duct,
     "heat_sink": _thermal_heat_sink,
+    "pcb": _electronics_pcb,
     "pcb_bracket": _electronics_pcb_bracket,
     "enclosure": _electronics_enclosure,
+    "connector": _electronics_connector,
+    "cable_channel": _electronics_cable_channel,
+    "fan_mount": _electronics_fan_mount,
+    "heat_spreader": _electronics_heat_spreader,
     "limb_segment": _humanoid_limb_segment,
     "end_effector": _humanoid_end_effector,
 }

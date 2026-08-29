@@ -18,8 +18,13 @@ def test_registry_contains_all_phase18_families():
         "propeller_blade",
         "duct",
         "heat_sink",
+        "pcb",
         "pcb_bracket",
         "enclosure",
+        "connector",
+        "cable_channel",
+        "fan_mount",
+        "heat_spreader",
         "limb_segment",
         "end_effector",
     }

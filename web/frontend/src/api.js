@@ -281,3 +281,18 @@ export async function exportCFDMesh(id, { solver = 'su2_stub', angleOfAttackDeg 
     }),
   })
 }
+
+export async function runElectronicsAnalysis(id) {
+  return apiFetch(`/designs/${id}/electronics-report`, { method: 'POST' })
+}
+
+export async function getElectronicsReport(id) {
+  return apiFetch(`/designs/${id}/electronics-report`)
+}
+
+export async function exportIDF(id, { boardName = 'ROBOCAD_PCB' } = {}) {
+  return apiFetch(`/designs/${id}/idf-export`, {
+    method: 'POST',
+    body: JSON.stringify({ board_name: boardName }),
+  })
+}

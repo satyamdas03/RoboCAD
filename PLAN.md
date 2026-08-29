@@ -736,21 +736,28 @@ PATH2 is the long-term North Star: a full-stack robotics design operating system
 
 **Effort:** 3–4 months. **Risk:** accurate CFD automation is hard; scope is geometry + template generation, not autonomous high-fidelity analysis.
 
-### Phase 21 — Electronics and mechatronics integration
+### Phase 21 — Electronics and mechatronics integration ✅
 
 **Goal:** Design PCB form factors, enclosures, connectors, cable routing, and thermal management hardware that integrate with external EDA tools — *not* to replace full silicon EDA, but to close the mechanical-electrical co-design loop.
 
-**Deliverables:**
-- Component footprint / connector library (KiCad-standard and generic).
-- PCB outline + mounting holes + keepout generation.
-- Connector and cable-channel routing geometry.
-- Heat sink / spreader / fan-mount geometry tied to thermal loads.
-- Export IDF / STEP for board-level EDA tools.
-- **Explicit out-of-scope:** transistor-level IC design, SPICE simulation, and lithography/PnR. These remain external EDA domains; RoboCAD handles packages, boards, and mounts.
+**Deliverables shipped:**
+- `FeatureTree.PCBOutline` extended with board thickness, edge clearance, mounting holes, keepouts, connector positions, and layer count; transpiled into 3D board geometry.
+- New electronics part families: `pcb`, `enclosure`, `connector`, `cable_channel`, `fan_mount`, `heat_spreader`.
+- Domain decomposition rule for Raspberry Pi / Arduino / motor-driver / flight-controller style electronics stacks.
+- Composer layout `_place_electronics_stack`: PCB on enclosure standoffs, heat spreader underneath, fan mount above, cable channel at the back, connectors along the PCB edge; all mates are fixed.
+- `ai_cad/electronics.py`: `ElectronicsReport`, `run_electronics_analysis`, and `export_idf` (IDF v3.0 `.emn`/`.emp` + ISO-10303-21 STEP placeholder).
+- Backend endpoints: `POST /designs/{id}/electronics-report`, `GET /designs/{id}/electronics-report`, `POST /designs/{id}/idf-export`.
+- Frontend: `ElectronicsPanel.jsx` with analysis runner and IDF download links; wired into `App.jsx` for `electronics` and `multi` domains.
+- **Explicit out-of-scope (kept):** transistor-level IC design, SPICE simulation, and lithography/PnR. RoboCAD handles packages, boards, and mounts.
 
-**Tests:** generate an electronics enclosure + mounting bracket for a Raspberry Pi / motor-driver stack; export loads in KiCad or FreeCAD.
+**Tests:** `tests/test_pcb_transpiler.py`, `tests/test_part_families_electronics.py`, `tests/test_electronics_analysis.py`, `tests/test_idf_export.py`; full pytest suite **299/299 passing**.
 
-**Effort:** 2–3 months.
+**Shipped:** 2026-08-29. Phase 22 is next.
+
+**Caveats / deferred:**
+- IDF export writes a textual board outline and package library plus a minimal STEP placeholder. Component pin/pad geometries and copper nets are not included because those live in external ECAD.
+- Cable-length estimate is a simple 2-D centroid distance heuristic; real wire routing remains a Phase 22+ multi-physics / path-planning task.
+- Electronics stack layout uses fixed mates; future phases can add sliding/docking connectors once kinematic mate inference covers small-form-factor connectors.
 
 ### Phase 22 — Multi-physics verification engine
 
@@ -920,4 +927,4 @@ Full analysis is saved in `.claude/memory/robocad-path-analysis.md` and the end-
 
 ---
 
-*Last updated: 2026-08-29 (Phases 14A–15B, 16–20 complete; 276/276 tests passing; scope expanded to full multi-domain robotics: mechanical, aero/thermal, electronics, and humanoid/robot systems; Phase 21 — electronics/mechatronics integration — is next)*
+*Last updated: 2026-08-29 (Phases 14A–15B, 16–21 complete; 299/299 tests passing; scope expanded to full multi-domain robotics: mechanical, aero/thermal, electronics, and humanoid/robot systems; Phase 22 — multi-physics verification engine — is next)*

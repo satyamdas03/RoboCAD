@@ -24,6 +24,7 @@ import DomainBadge from './components/DomainBadge.jsx'
 import DecomposePanel from './components/DecomposePanel.jsx'
 import AeroPanel from './components/AeroPanel.jsx'
 import ThermalPanel from './components/ThermalPanel.jsx'
+import ElectronicsPanel from './components/ElectronicsPanel.jsx'
 import {
   checkHealth,
   generateDesign,
@@ -328,6 +329,9 @@ export default function App() {
               )}
               {(result?.domain === 'thermal' || result?.domain === 'multi') && (
                 <ThermalPanel designId={selectedId} />
+              )}
+              {(result?.domain === 'electronics' || result?.domain === 'multi') && (
+                <ElectronicsPanel designId={selectedId} />
               )}
               <OnshapeUpload designId={selectedId} prompt={result?.prompt} />
               <TagEditor tags={result?.tags || []} onUpdate={handleUpdateTags} />

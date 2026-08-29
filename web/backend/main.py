@@ -78,6 +78,7 @@ from ai_cad.parameters import extract_parameters
 from ai_cad.tolerances import check_fit
 from ai_cad.aero import run_aero_analysis
 from ai_cad.cfd import export_cfd_mesh_from_stl
+from ai_cad.electronics import export_idf, run_electronics_analysis
 from ai_cad.thermal import run_thermal_analysis
 from ai_cad.transpiler import transpile
 from ai_cad.validator import validate_model
@@ -249,6 +250,10 @@ class CFDMeshRequest(BaseModel):
     angle_of_attack_deg: float = Field(default=0.0, description="Freestream angle of attack in degrees.")
     flow_velocity_ms: float = Field(default=10.0, gt=0, description="Freestream velocity in m/s.")
     characteristic_length_m: float = Field(default=0.1, gt=0, description="Reference length for Reynolds number.")
+
+
+class IDFExportRequest(BaseModel):
+    board_name: str = Field(default="ROBOCAD_PCB", description="Board name written into the IDF .emn file.")
 
 
 class SceneTemplateRequest(BaseModel):
@@ -1149,6 +1154,100 @@ def get_thermal_report(design_id: str) -> dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"Failed to read thermal report: {exc}")
 
     return {"design_id": design_id, "report": report}
+
+
+@app.post("/designs/{design_id}/electronics-report")
+def electronics_report_post(design_id: str) -> dict[str, Any]:
+    """Run electronics/mechatronics analysis on a design's feature tree."""
+    design_dir = DESIGNS_DIR / design_id
+    meta_path = design_dir / "metadata.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Design not found.")
+
+    feature_tree_path = design_dir / "feature_tree.json"
+    if not feature_tree_path.exists():
+        raise HTTPException(status_code=422, detail="No feature tree found for this design.")
+
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        tree_data = json.loads(feature_tree_path.read_text(encoding="utf-8"))
+        tree = FeatureTree(**tree_data)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read design data: {exc}")
+
+    try:
+        elec_dir = design_dir / "electronics"
+        elec_dir.mkdir(parents=True, exist_ok=True)
+        result = run_electronics_analysis(tree, elec_dir)
+        _write_json(elec_dir / "electronics_report.json", result.model_dump())
+        meta.setdefault("exports", {})
+        meta["exports"]["electronics_report"] = "electronics/electronics_report.json"
+        _write_json(meta_path, meta)
+        return {"design_id": design_id, "report": result.model_dump()}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to run electronics analysis: {exc}")
+
+
+@app.get("/designs/{design_id}/electronics-report")
+def electronics_report_get(design_id: str) -> dict[str, Any]:
+    """Return the persisted electronics/mechatronics report for a design."""
+    design_dir = DESIGNS_DIR / design_id
+    meta_path = design_dir / "metadata.json"
+    report_path = design_dir / "electronics" / "electronics_report.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Design not found.")
+    if not report_path.exists():
+        raise HTTPException(status_code=404, detail="No electronics report found for this design.")
+
+    try:
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read electronics report: {exc}")
+
+    return {"design_id": design_id, "report": report}
+
+
+@app.post("/designs/{design_id}/idf-export")
+def idf_export(design_id: str, request: IDFExportRequest) -> dict[str, Any]:
+    """Export an IDF v3.0 board (.emn), package library (.emp), and STEP placeholder."""
+    design_dir = DESIGNS_DIR / design_id
+    meta_path = design_dir / "metadata.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Design not found.")
+
+    feature_tree_path = design_dir / "feature_tree.json"
+    if not feature_tree_path.exists():
+        raise HTTPException(status_code=422, detail="No feature tree found for this design.")
+
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        tree_data = json.loads(feature_tree_path.read_text(encoding="utf-8"))
+        tree = FeatureTree(**tree_data)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read design data: {exc}")
+
+    try:
+        idf_dir = design_dir / "idf"
+        idf_dir.mkdir(parents=True, exist_ok=True)
+        paths = export_idf(
+            tree,
+            idf_dir,
+            design_id,
+            board_name=request.board_name,
+        )
+        meta.setdefault("exports", {})
+        meta["exports"]["idf"] = "idf"
+        _write_json(meta_path, meta)
+        return {
+            "design_id": design_id,
+            "board_name": request.board_name,
+            "files": {k: str(v.relative_to(design_dir).as_posix()) for k, v in paths.items()},
+            "download_urls": {
+                k: f"/exports/{design_id}/idf/{v.name}" for k, v in paths.items()
+            },
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to export IDF: {exc}")
 
 
 @app.post("/designs/{design_id}/cfd-mesh")

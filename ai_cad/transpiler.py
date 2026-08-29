@@ -21,6 +21,7 @@ from ai_cad.feature_tree import (
     Feature,
     FeatureTree,
     NumericOrString,
+    PCBOutline,
     Parameter,
     Part,
     PlaneReference,
@@ -111,6 +112,8 @@ def _transpile_part(part: Part, parameters: dict[str, float], var_name: str = "p
             feature_blocks.append(
                 _transpile_surface_feature(feature, part, solved_sketches, parameters, var_name=var_name)
             )
+        elif isinstance(feature, PCBOutline):
+            feature_blocks.append(_transpile_pcb_outline(feature, parameters, var_name=var_name))
 
     body_lines = []
     for block in sketch_blocks + feature_blocks:
@@ -360,6 +363,71 @@ def _transpile_surface_feature(
         return _transpile_duct(feature, parameters)
 
     raise ValueError(f"Unsupported surface feature type: {ftype}")
+
+
+def _transpile_pcb_outline(
+    feature: PCBOutline,
+    parameters: dict[str, float],
+    var_name: str = "part",
+) -> str:
+    """Emit build123d code for a PCBOutline: extruded board shape minus holes/cutouts."""
+    pts = feature.board_shape
+    if len(pts) < 3:
+        return "pass  # insufficient board shape points"
+    pts_expr = "[\n" + ",\n".join(
+        f"        ({float(x):.6f}, {float(y):.6f})" for x, y in pts
+    ) + "\n    ]"
+    thickness = float(feature.board_thickness)
+
+    # Build the board body from the outline polygon.
+    lines = [
+        f"with BuildLine(Plane.XY) as {feature.id}_wire:",
+        f"    Polyline({pts_expr}, close=True)",
+        f"with BuildSketch(Plane.XY) as {feature.id}_sketch:",
+        f"    make_face({feature.id}_wire.wire())",
+        f"extrude({feature.id}_sketch.sketch, amount={_render_value(thickness)}, mode=Mode.ADD)",
+    ]
+
+    # Mounting holes.
+    for idx, (x, y, d) in enumerate(feature.mounting_holes):
+        lines.append(f"with Locations(({float(x):.6f}, {float(y):.6f}, 0)):")
+        lines.append(
+            f"    Cylinder(radius={float(d) / 2:.6f}, height={_render_value(thickness)}, mode=Mode.SUBTRACT)"
+        )
+
+    # Keepouts (rectangular or circular).
+    for idx, keepout in enumerate(feature.keepouts):
+        ktype = keepout.get("type", "circle")
+        kx = float(keepout.get("x", 0))
+        ky = float(keepout.get("y", 0))
+        if ktype == "circle":
+            kd = float(keepout.get("diameter", 3))
+            lines.append(f"with Locations(({kx:.6f}, {ky:.6f}, 0)):")
+            lines.append(
+                f"    Cylinder(radius={kd / 2:.6f}, height={_render_value(thickness)}, mode=Mode.SUBTRACT)"
+            )
+        elif ktype == "rectangle":
+            kw = float(keepout.get("width", 5))
+            kh = float(keepout.get("height", 5))
+            lines.append(f"with BuildSketch(Plane.XY) as {feature.id}_ko_{idx}:")
+            lines.append(
+                f"    Rectangle(width={kw:.6f}, height={kh:.6f}, align=Align.CENTER).move(Location(({kx:.6f}, {ky:.6f})))"
+            )
+            lines.append(f"extrude({feature.id}_ko_{idx}.sketch, amount={_render_value(thickness)}, mode=Mode.SUBTRACT)")
+
+    # Connector cutout positions.
+    for idx, conn in enumerate(feature.connector_positions):
+        cx = float(conn.get("x", 0))
+        cy = float(conn.get("y", 0))
+        cw = float(conn.get("width", 10))
+        ch = float(conn.get("height", 4))
+        lines.append(f"with BuildSketch(Plane.XY) as {feature.id}_conn_{idx}:")
+        lines.append(
+            f"    Rectangle(width={cw:.6f}, height={ch:.6f}, align=Align.CENTER).move(Location(({cx:.6f}, {cy:.6f})))"
+        )
+        lines.append(f"extrude({feature.id}_conn_{idx}.sketch, amount={_render_value(thickness)}, mode=Mode.SUBTRACT)")
+
+    return "\n".join(lines)
 
 
 def _resolve_profile_value(value: Any, parameters: dict[str, float], default: float) -> float:

@@ -4,7 +4,7 @@
 >
 > **Core bet:** The AI writes **parametric CAD code** (build123d / FeatureScript), not throwaway meshes. The model you get is editable, versionable, and exportable for 3D printing, machining, or Onshape.
 >
-> **Latest milestone:** Phases 14A–15B, **16–19**, and **20 are complete**. RoboCAD now generates aero/thermal/propulsion surface geometry: NACA 4-digit airfoils, straight wings, propeller blades, and parametric fin-array heat sinks; it transpiles `SurfaceFeature`s through `BuildLine`/`BuildSketch`/`extrude`, exports surface meshes and lightweight SU2/OpenFOAM CFD stubs, and runs fast dependency-free aero/thermal estimates from any STL. The backend exposes `/designs/{id}/aero-report`, `/designs/{id}/thermal-report`, and `/designs/{id}/cfd-mesh`; the frontend adds `AeroPanel` (domain-gated for aero/multi) and `ThermalPanel` (domain-gated for thermal/multi). Full pytest suite: **276 passed**. Phase 21 — electronics/mechatronics integration — is next.
+> **Latest milestone:** Phases 14A–15B, **16–20**, and **21 are complete**. RoboCAD now closes the mechanical-electrical co-design loop: PCB outlines with mounting holes/keepouts/connector cutouts, electronics part families (`pcb`, `enclosure`, `connector`, `cable_channel`, `fan_mount`, `heat_spreader`), automatic electronics-stack decomposition, PCB-on-standoffs composer layout, lightweight electronics analysis, and IDF v3.0 (`.emn`/`.emp`) + STEP placeholder export. The backend exposes `/designs/{id}/electronics-report` and `/designs/{id}/idf-export`; the frontend adds `ElectronicsPanel` (domain-gated for electronics/multi). Full pytest suite: **299 passed**. Phase 22 — multi-physics verification engine — is next.
 
 ---
 
@@ -143,7 +143,7 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **18** | **Automatic decomposition + domain part families** | ✅ **Complete — `ai_cad/part_families.py`, `ai_cad/decomposition.py`, `ai_cad/composer.py`, rule-based system decomposer, 12 cross-domain part families, `POST /decompose`, `/generate?decompose`, `DecomposePanel.jsx` + auto-decompose checkbox, **228/228 tests passing** |
 | **19** | **Mechanical assembly synthesis + verification** | ✅ **Complete — mate inference from part-family `Interface`s, kinematic solver for revolute/prismatic joints, assembly collision/clearance checks, joint-aware MJCF/URDF export, browser range-of-motion replay; default "robot arm with gripper" synthesizes a true parallel-jaw prismatic gripper; **251/251 tests passing** |
 | **20** | **Aerodynamics, thermal, and propulsion geometry** | ✅ **Complete — NACA 4-digit airfoils, straight wings, propeller blades, heat sinks, SU2/OpenFOAM CFD mesh stubs, `AeroPanel.jsx`, `ThermalPanel.jsx`, **276/276 tests passing** |
-| **21** | Electronics and mechatronics integration (form-factor co-design, not silicon layout) | ⏳ Planned |
+| **21** | Electronics and mechatronics integration (form-factor co-design, not silicon layout) | ✅ **Complete — `PCBOutline` transpilation, electronics part families, stack decomposition + composer layout, electronics analysis, IDF/STEP export, `ElectronicsPanel.jsx`, **299/299 tests passing** |
 | **22** | Multi-physics verification engine (FEA / CFD / thermal / dynamics) | ⏳ Planned |
 | **23** | Humanoid and full-robot system synthesis | ⏳ Planned |
 | **24** | World-model simulation builder | ⏳ Planned |

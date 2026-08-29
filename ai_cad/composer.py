@@ -305,6 +305,201 @@ def _place_robot_arm(result: DecompositionResult) -> tuple[list[Instance], list[
     return instances, mates
 
 
+def _param_value(
+    parts: list[DecomposedPart],
+    part_id: str,
+    param_name: str,
+    default: float,
+) -> float:
+    """Read a numeric parameter from a decomposed part or its family defaults."""
+    for dp in parts:
+        if dp.id != part_id:
+            continue
+        for p in dp.parameters:
+            if p.name == param_name:
+                try:
+                    return float(p.value)
+                except (TypeError, ValueError):
+                    return default
+        try:
+            family = get_family(dp.family)
+            for p in family.default_parameters:
+                if p.name == param_name:
+                    try:
+                        return float(p.value)
+                    except (TypeError, ValueError):
+                        return default
+        except KeyError:
+            return default
+    return default
+
+
+def _place_electronics_stack(
+    result: DecompositionResult,
+) -> tuple[list[Instance], list[Mate]] | None:
+    """If the result matches an electronics stack, return instances + mates."""
+    text = result.prompt.lower()
+    if not any(
+        w in text
+        for w in {
+            "raspberry pi",
+            "arduino",
+            "pcb with enclosure",
+            "electronics enclosure",
+            "motor driver stack",
+            "flight controller",
+            "esc",
+            "board with case",
+        }
+    ):
+        return None
+
+    instances: list[Instance] = []
+    mates: list[Mate] = []
+
+    has_pcb = any(dp.id == "pcb" for dp in result.parts)
+    has_enclosure = any(dp.id == "enclosure" for dp in result.parts)
+    has_fan = any(dp.id == "fan_mount" for dp in result.parts)
+    has_cable = any(dp.id == "cable_channel" for dp in result.parts)
+    has_spreader = any(dp.id == "heat_spreader" for dp in result.parts)
+    has_connector = any(dp.id == "connector" for dp in result.parts)
+
+    standoff_height = _param_value(result.parts, "enclosure", "standoff_height", 6.0)
+    enc_height = _param_value(result.parts, "enclosure", "enc_height", 40.0)
+
+    # Enclosure shell sits at the origin; its standoffs point upward.
+    if has_enclosure:
+        instances.append(
+            Instance(id="i_enclosure", part_id="enclosure", name="Enclosure")
+        )
+
+    # PCB rests on top of the standoffs.
+    if has_pcb:
+        pcb_z = standoff_height if has_enclosure else 0.0
+        instances.append(
+            Instance(
+                id="i_pcb",
+                part_id="pcb",
+                name="PCB",
+                transform={"translation": (0.0, 0.0, pcb_z)},
+            )
+        )
+        if has_enclosure:
+            mates.append(
+                Mate(
+                    id="m_pcb_enclosure",
+                    type="fixed",
+                    entities=[
+                        MateEntity(instance_id="i_pcb"),
+                        MateEntity(instance_id="i_enclosure"),
+                    ],
+                )
+            )
+
+    # Heat spreader sits between the PCB and the enclosure floor.
+    if has_spreader:
+        spreader_thickness = _param_value(
+            result.parts, "heat_spreader", "spread_thickness", 3.0
+        )
+        spreader_z = (
+            standoff_height - spreader_thickness if has_enclosure else 0.0
+        )
+        instances.append(
+            Instance(
+                id="i_heat_spreader",
+                part_id="heat_spreader",
+                name="Heat spreader",
+                transform={"translation": (0.0, 0.0, spreader_z)},
+            )
+        )
+        if has_enclosure:
+            mates.append(
+                Mate(
+                    id="m_spreader_enclosure",
+                    type="fixed",
+                    entities=[
+                        MateEntity(instance_id="i_heat_spreader"),
+                        MateEntity(instance_id="i_enclosure"),
+                    ],
+                )
+            )
+
+    # Fan mount on top of the enclosure lid.
+    if has_fan:
+        fan_z = enc_height if has_enclosure else 40.0
+        instances.append(
+            Instance(
+                id="i_fan_mount",
+                part_id="fan_mount",
+                name="Fan mount",
+                transform={"translation": (0.0, 0.0, fan_z)},
+            )
+        )
+        if has_enclosure:
+            mates.append(
+                Mate(
+                    id="m_fan_enclosure",
+                    type="fixed",
+                    entities=[
+                        MateEntity(instance_id="i_fan_mount"),
+                        MateEntity(instance_id="i_enclosure"),
+                    ],
+                )
+            )
+
+    # Cable channel runs along the back of the enclosure.
+    if has_cable:
+        cable_y = -60.0
+        instances.append(
+            Instance(
+                id="i_cable_channel",
+                part_id="cable_channel",
+                name="Cable channel",
+                transform={"translation": (0.0, cable_y, 10.0)},
+            )
+        )
+        if has_enclosure:
+            mates.append(
+                Mate(
+                    id="m_cable_enclosure",
+                    type="fixed",
+                    entities=[
+                        MateEntity(instance_id="i_cable_channel"),
+                        MateEntity(instance_id="i_enclosure"),
+                    ],
+                )
+            )
+
+    # Generic connectors sit on the PCB top face along one edge.
+    if has_connector and has_pcb:
+        for idx, _ in enumerate(
+            [dp for dp in result.parts if dp.id == "connector"]
+        ):
+            for side in range(2):
+                instances.append(
+                    Instance(
+                        id=f"i_connector_{idx}_{side}",
+                        part_id="connector",
+                        name=f"Connector {idx + 1}-{side + 1}",
+                        transform={
+                            "translation": (-20.0 + side * 40.0, 30.0, pcb_z + 1.6)
+                        },
+                    )
+                )
+                mates.append(
+                    Mate(
+                        id=f"m_connector_{idx}_{side}_pcb",
+                        type="fixed",
+                        entities=[
+                            MateEntity(instance_id=f"i_connector_{idx}_{side}"),
+                            MateEntity(instance_id="i_pcb"),
+                        ],
+                    )
+                )
+
+    return instances, mates
+
+
 def _generic_layout(result: DecompositionResult) -> tuple[list[Instance], list[Mate]]:
     """Fallback layout: place instances in a row along X."""
     instances: list[Instance] = []
@@ -345,6 +540,9 @@ def _layout_parts(result: DecompositionResult) -> tuple[list[Instance], list[Mat
     if layout:
         return layout
     layout = _place_robot_arm(result)
+    if layout:
+        return layout
+    layout = _place_electronics_stack(result)
     if layout:
         return layout
     return _generic_layout(result)
