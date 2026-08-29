@@ -10,6 +10,7 @@ export default function PromptInput({ onGenerate, loading, seedPrompt }) {
   const [prompt, setPrompt] = useState('')
   const [maxRetries, setMaxRetries] = useState(2)
   const [model, setModel] = useState('')
+  const [detectDomain, setDetectDomain] = useState(false)
 
   useEffect(() => {
     if (seedPrompt) {
@@ -20,7 +21,7 @@ export default function PromptInput({ onGenerate, loading, seedPrompt }) {
   const handleSubmit = (e) => {
     e.preventDefault()
     if (!prompt.trim()) return
-    onGenerate({ prompt: prompt.trim(), max_retries: maxRetries, model: model || null })
+    onGenerate({ prompt: prompt.trim(), max_retries: maxRetries, model: model || null, detectDomain })
   }
 
   return (
@@ -73,6 +74,18 @@ export default function PromptInput({ onGenerate, loading, seedPrompt }) {
               placeholder="default"
               disabled={loading}
             />
+          </div>
+
+          <div className="kp-field kp-flex kp-align-center kp-gap-2" style={{ minWidth: '140px', flex: '1 1 140px' }}>
+            <input
+              id="detect-domain"
+              type="checkbox"
+              checked={detectDomain}
+              onChange={(e) => setDetectDomain(e.target.checked)}
+              disabled={loading}
+              className="kp-checkbox"
+            />
+            <label htmlFor="detect-domain" className="kp-label" style={{ margin: 0 }}>Detect domain</label>
           </div>
 
           <button

@@ -17,11 +17,28 @@ export async function checkHealth() {
   return apiFetch('/health')
 }
 
-export async function generateDesign({ prompt, max_retries = 2, model = null }) {
+export async function generateDesign({ prompt, max_retries = 2, model = null, detectDomain = false }) {
   return apiFetch('/generate', {
     method: 'POST',
-    body: JSON.stringify({ prompt, max_retries, model }),
+    body: JSON.stringify({ prompt, max_retries, model, detect_domain: detectDomain }),
   })
+}
+
+export async function classifyDomain(prompt) {
+  const resp = await fetch(`${API_BASE}/classify-domain`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt }),
+  })
+  if (!resp.ok) throw new Error('domain classification failed')
+  return resp.json()
+}
+
+export async function loadDomainIntent(id) {
+  const resp = await fetch(`${API_BASE}/designs/${id}/domain-intent`)
+  if (resp.status === 404) return null
+  if (!resp.ok) throw new Error('failed to load domain intent')
+  return resp.json()
 }
 
 export async function listDesigns() {

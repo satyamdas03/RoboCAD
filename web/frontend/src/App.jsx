@@ -18,11 +18,13 @@ import AssemblyPanel from './components/AssemblyPanel.jsx'
 import SimulatePanel from './components/SimulatePanel.jsx'
 import SceneTemplatePanel from './components/SceneTemplatePanel.jsx'
 import CapabilitiesPanel from './components/CapabilitiesPanel.jsx'
+import DomainBadge from './components/DomainBadge.jsx'
 import {
   checkHealth,
   generateDesign,
   listDesigns,
   loadDesign,
+  loadDomainIntent,
   regenerateDesign,
   regenerateFromFeatureTree,
   remixDesign,
@@ -42,6 +44,7 @@ export default function App() {
   const [selectedParameter, setSelectedParameter] = useState(null)
   const [guessResult, setGuessResult] = useState(null)
   const [nudge, setNudge] = useState(null)
+  const [domainIntent, setDomainIntent] = useState(null)
   const [inspectorOpen, setInspectorOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
@@ -61,15 +64,19 @@ export default function App() {
     }
   }
 
-  async function handleGenerate({ prompt, max_retries, model }) {
+  async function handleGenerate({ prompt, max_retries, model, detectDomain = false }) {
     setLoading(true)
     setError(null)
     setResult(null)
+    setDomainIntent(null)
     clearFaceSelection()
     try {
-      const data = await generateDesign({ prompt, max_retries, model })
+      const data = await generateDesign({ prompt, max_retries, model, detectDomain })
       setResult(data)
       setSelectedId(data.design_id)
+      if (data.domain_intent) {
+        setDomainIntent(data.domain_intent)
+      }
       await refreshHistory()
     } catch (err) {
       setError(err.message)
@@ -82,14 +89,18 @@ export default function App() {
     setLoading(true)
     setError(null)
     clearFaceSelection()
+    setDomainIntent(null)
     try {
-      const data = await loadDesign(id)
+      const [data, intent] = await Promise.all([loadDesign(id), loadDomainIntent(id)])
       setResult({
         ...data,
         design_id: data.id,
         export_urls: data.export_urls,
       })
       setSelectedId(id)
+      if (intent) {
+        setDomainIntent(intent)
+      }
       setSidebarOpen(false)
     } catch (err) {
       setError(err.message)
@@ -140,6 +151,7 @@ export default function App() {
     setLoading(true)
     setError(null)
     setResult(null)
+    setDomainIntent(null)
     clearFaceSelection()
     try {
       const data = await remixDesign(selectedId, { prompt, max_retries, model })
@@ -228,6 +240,7 @@ export default function App() {
               clearFaceSelection()
               setResult(null)
               setSelectedId(null)
+              setDomainIntent(null)
               setError(null)
               setSeedPrompt('')
             }}
@@ -371,6 +384,48 @@ export default function App() {
               </div>
             ) : (
               <p className="kp-text-muted kp-small">No validation data yet.</p>
+            )}
+          </div>
+
+          <div className="kp-panel" style={{ borderRadius: 0, border: 'none', borderBottom: '1px solid var(--kp-outline-variant)', boxShadow: 'none' }}>
+            <div className="kp-panel-header">
+              <h3 className="kp-panel-title">Domain intent</h3>
+            </div>
+            {domainIntent ? (
+              <div className="kp-flex-col kp-gap-2" style={{ fontSize: '0.8rem' }}>
+                <div className="kp-flex kp-justify-between kp-align-center">
+                  <span className="kp-text-muted">Domain</span>
+                  <DomainBadge domain={domainIntent.domain} multi={domainIntent.domain === 'multi'} />
+                </div>
+                {domainIntent.confidence != null && (
+                  <div className="kp-flex kp-justify-between">
+                    <span className="kp-text-muted">Confidence</span>
+                    <span className="kp-mono">{(domainIntent.confidence * 100).toFixed(0)}%</span>
+                  </div>
+                )}
+                {domainIntent.parameters && domainIntent.parameters.length > 0 && (
+                  <div className="kp-flex-col kp-gap-1">
+                    <span className="kp-text-muted">Parameters</span>
+                    <div className="kp-flex kp-gap-1 kp-flex-wrap">
+                      {domainIntent.parameters.map((p) => (
+                        <span key={p.name} className="kp-tag">{p.name}: {p.value}{p.unit || 'mm'}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {domainIntent.notes && domainIntent.notes.length > 0 && (
+                  <div className="kp-flex-col kp-gap-1">
+                    <span className="kp-text-muted">Notes</span>
+                    <ul className="kp-small kp-text-subtle" style={{ paddingLeft: '1rem', margin: 0 }}>
+                      {domainIntent.notes.map((note, idx) => (
+                        <li key={idx}>{note}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="kp-text-muted kp-small">No domain intent yet. Enable domain detection when generating.</p>
             )}
           </div>
 

@@ -1,5 +1,7 @@
 import { useState } from 'react'
 
+import DomainBadge from './DomainBadge'
+
 export default function HistorySidebar({ designs, selectedId, onSelect, onRefresh }) {
   const [search, setSearch] = useState('')
   const [tagFilter, setTagFilter] = useState('')
@@ -73,7 +75,10 @@ export default function HistorySidebar({ designs, selectedId, onSelect, onRefres
                   </span>
                   {d.prompt.slice(0, 60)}{d.prompt.length > 60 ? '…' : ''}
                 </span>
-                <span className="kp-small kp-text-subtle kp-mono">{d.latency_seconds?.toFixed(1) || '?'}s</span>
+                <div className="kp-flex kp-align-center kp-gap-2">
+                  {d.domain && <DomainBadge domain={d.domain} multi={d.domain === 'multi'} />}
+                  <span className="kp-small kp-text-subtle kp-mono">{d.latency_seconds?.toFixed(1) || '?'}s</span>
+                </div>
               </div>
               <div className="kp-small kp-text-subtle kp-mt-2 kp-flex kp-align-center kp-gap-2 kp-flex-wrap">
                 <span>{new Date(d.created_at).toLocaleString()}</span>
