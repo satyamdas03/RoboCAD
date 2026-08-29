@@ -171,6 +171,69 @@ def test_fit_check_endpoint(tmp_path: Path):
     assert report["classification"] in ("clearance", "transition", "interference")
 
 
+def test_classify_domain_endpoint():
+    from ai_cad.domain import DomainPrediction
+
+    with mock.patch(
+        "web.backend.main.classify_domain",
+        return_value=DomainPrediction(
+            primary="aero",
+            scores={"mechanical": 0.0, "aero": 1.0, "thermal": 0.0, "electronics": 0.0, "humanoid": 0.0},
+            reasoning="keyword",
+            multi_domain=False,
+        ),
+    ):
+        response = client.post("/classify-domain", json={"prompt": "NACA 2412 airfoil"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["primary"] == "aero"
+
+
+def test_generate_with_domain_detection(tmp_path: Path, monkeypatch):
+    from ai_cad.domain import DomainPrediction
+
+    monkeypatch.setenv("ROBOCAD_DESIGNS_DIR", str(tmp_path))
+    monkeypatch.setattr(
+        "ai_cad.intent_parser._llm_extract",
+        lambda p, d: {
+            "parameters": [{"name": "chord", "value": 200.0, "unit": "mm"}],
+            "features": [{"type": "airfoil", "id": "af1"}],
+            "constraints": [],
+            "notes": [],
+            "confidence": 0.9,
+        },
+    )
+    monkeypatch.setattr(
+        "web.backend.main.classify_domain",
+        lambda p: DomainPrediction(
+            primary="aero",
+            scores={"mechanical": 0.0, "aero": 1.0, "thermal": 0.0, "electronics": 0.0, "humanoid": 0.0},
+            reasoning="keyword",
+            multi_domain=False,
+        ),
+    )
+
+    stl_path = tmp_path / "model.stl"
+    stl_path.write_text("fake stl")
+    backend = RoboCADBackendStub(
+        api_key="fake-key",
+        result=make_generation_result(
+            prompt="NACA 2412 airfoil",
+            success=True,
+            code="",
+            parameters=[],
+            exports={"stl": str(stl_path), "step": None, "script": None},
+        ),
+    )
+    with mock.patch("web.backend.main.backend", backend):
+        response = client.post("/generate", json={"prompt": "NACA 2412 airfoil", "detect_domain": True, "max_retries": 0})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data.get("domain") == "aero"
+    assert (main_module.DESIGNS_DIR / data["design_id"] / "domain_intent.json").exists()
+
+
 # Helpers
 
 class RoboCADBackendStub:

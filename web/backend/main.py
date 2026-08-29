@@ -41,11 +41,13 @@ from pydantic import BaseModel, Field
 
 from ai_cad.api import RoboCADBackend
 from ai_cad.code_ops import update_parameters
+from ai_cad.domain import classify_domain
 from ai_cad.executor import execute_code
 from ai_cad.assembly import transpile_assembly
 from ai_cad.dfm import analyze_dfm
 from ai_cad.feature_store import save as save_feature_tree
 from ai_cad.feature_tree import Assembly, FeatureTree
+from ai_cad.intent_parser import parse_domain_intent
 from ai_cad.fea import run_static_analysis
 from ai_cad.geda_bridge import (
     build_scene,
@@ -105,6 +107,11 @@ class GenerateRequest(BaseModel):
     max_retries: int = Field(default=2, ge=0, le=5, description="Self-correction attempts.")
     model: str | None = Field(default=None, description="Optional LLM model override.")
     use_assembly: bool = Field(default=False, description="Generate as a multi-part assembly if the model returns one.")
+    detect_domain: bool = Field(default=False, description="Classify the prompt domain and extract a domain intent.")
+
+
+class ClassifyDomainRequest(BaseModel):
+    prompt: str = Field(..., min_length=1, description="Natural-language part description.")
 
 
 class GenerateResponse(GenerationResult):
@@ -112,6 +119,8 @@ class GenerateResponse(GenerationResult):
     export_urls: dict[str, str | None] = Field(default_factory=dict)
     parent_id: str | None = None
     tags: list[str] = Field(default_factory=list)
+    domain: str | None = None
+    domain_intent: dict[str, Any] | None = None
 
 
 class DesignSummary(BaseModel):
@@ -125,6 +134,7 @@ class DesignSummary(BaseModel):
     export_urls: dict[str, str | None]
     parent_id: str | None = None
     tags: list[str] = Field(default_factory=list)
+    domain: str | None = None
 
 
 class RegenerateRequest(BaseModel):
@@ -197,6 +207,11 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.post("/classify-domain")
+def classify_domain_endpoint(req: ClassifyDomainRequest) -> dict[str, Any]:
+    return classify_domain(req.prompt).model_dump()
+
+
 @app.post("/generate", response_model=GenerateResponse)
 def generate(request: GenerateRequest) -> GenerateResponse:
     if not backend.api_key:
@@ -212,12 +227,22 @@ def generate(request: GenerateRequest) -> GenerateResponse:
         use_assembly=request.use_assembly,
     )
 
+    domain: str | None = None
+    domain_intent_data: dict[str, Any] | None = None
+    if request.detect_domain:
+        domain = classify_domain(request.prompt).primary
+        intent = parse_domain_intent(request.prompt, domain=domain)
+        domain_intent_data = intent.model_dump(mode="json")
+        _write_json(DESIGNS_DIR / design_id / "domain_intent.json", domain_intent_data)
+
     return GenerateResponse(
         **result.model_dump(),
         design_id=design_id,
         export_urls=_build_export_urls(design_id, metadata["exports"]),
         parent_id=metadata.get("parent_id"),
         tags=metadata.get("tags", []),
+        domain=domain,
+        domain_intent=domain_intent_data,
     )
 
 
@@ -261,6 +286,7 @@ def list_designs(
                 export_urls=_build_export_urls(meta["id"], meta.get("exports", {})),
                 parent_id=meta.get("parent_id"),
                 tags=meta.get("tags", []),
+                domain=meta.get("domain"),
             )
         )
 
@@ -316,6 +342,14 @@ def get_design(design_id: str) -> dict[str, Any]:
         "export_urls": _build_export_urls(design_id, meta.get("exports", {})),
         "versions": versions,
     }
+
+
+@app.get("/designs/{design_id}/domain-intent")
+def get_domain_intent(design_id: str) -> JSONResponse:
+    path = DESIGNS_DIR / design_id / "domain_intent.json"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="No domain intent for this design")
+    return JSONResponse(content=json.loads(path.read_text(encoding="utf-8")))
 
 
 @app.get("/designs/{design_id}/assembly")
