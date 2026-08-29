@@ -25,7 +25,16 @@ def _keyword_scores(prompt: str) -> dict[str, float]:
     text = prompt.lower()
     scores: dict[str, float] = {}
     for domain, keywords in DOMAIN_KEYWORDS.items():
-        score = sum(1 for kw in keywords if kw in text)
+        score = 0
+        for kw in keywords:
+            # Use word-boundary matching for single-word keywords; substring for
+            # multi-word phrases so "heat sink" matches even without boundaries.
+            if " " in kw:
+                score += 1 if kw in text else 0
+            else:
+                pattern = f"\\b{re.escape(kw)}\\w*\\b"
+                found = re.findall(pattern, text)
+                score += len(found)
         scores[domain] = score / max(len(keywords), 1)
     return scores
 
