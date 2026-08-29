@@ -66,7 +66,9 @@ class PlaneReference(BaseModel):
 class SketchEntity(BaseModel):
     """2D entity inside a sketch."""
 
-    type: Literal["rectangle", "circle", "line", "arc", "polygon"]
+    model_config = {"extra": "allow"}
+
+    type: Literal["rectangle", "circle", "line", "arc", "polygon", "airfoil"]
     id: str
     # Common geometric fields. Not all apply to every type.
     center: tuple[NumericOrString, NumericOrString] | None = None
@@ -79,6 +81,9 @@ class SketchEntity(BaseModel):
     start_angle: NumericOrString | None = None
     end_angle: NumericOrString | None = None
     sides: int | None = None
+    # Airfoil-specific fields.
+    naca: str | None = None
+    chord: NumericOrString | None = None
 
 
 class Constraint(BaseModel):

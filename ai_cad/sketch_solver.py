@@ -17,7 +17,14 @@ from typing import Any
 import numpy as np
 from scipy.optimize import least_squares
 
-from ai_cad.feature_tree import Constraint, Dimension, NumericOrString, Sketch, SketchEntity
+from ai_cad.feature_tree import (
+    Constraint,
+    Dimension,
+    NumericOrString,
+    PlaneReference,
+    Sketch,
+    SketchEntity,
+)
 
 
 @dataclass(frozen=True)
@@ -96,6 +103,56 @@ def _to_float(v: NumericOrString | None) -> float:
         return float(v)
     except ValueError:
         return 0.0
+
+
+def _naca_4digit_points(code: str, chord: float, n: int = 40) -> list[tuple[float, float]]:
+    """Return a simplified NACA 4-digit airfoil point set.
+
+    The profile uses the standard NACA 4-digit thickness form. Camber is ignored
+    in this simplified sketch representation; the result is a symmetric foil.
+    """
+    code = code.strip()
+    if len(code) != 4 or not code.isdigit():
+        raise ValueError(f"NACA 4-digit code must be four digits, got {code!r}")
+    m = int(code[0]) / 100.0
+    p = int(code[1]) / 10.0
+    tt = int(code[2:4]) / 100.0
+    pts: list[tuple[float, float]] = []
+    # Upper surface from leading to trailing edge.
+    for i in range(n + 1):
+        x = (i / n) * chord
+        xc = x / chord
+        yt = 5 * tt * (
+            0.2969 * xc**0.5
+            - 0.1260 * xc
+            - 0.3516 * xc**2
+            + 0.2843 * xc**3
+            - 0.1015 * xc**4
+        )
+        pts.append((x, yt))
+    # Lower surface from trailing to leading edge.
+    for i in range(n, -1, -1):
+        x = (i / n) * chord
+        xc = x / chord
+        yt = 5 * tt * (
+            0.2969 * xc**0.5
+            - 0.1260 * xc
+            - 0.3516 * xc**2
+            + 0.2843 * xc**3
+            - 0.1015 * xc**4
+        )
+        pts.append((x, -yt))
+    return pts
+
+
+def _solve_airfoils(sketch: Sketch) -> dict[str, list[tuple[float, float]]]:
+    """Compute point sets for any airfoil entities in the sketch."""
+    points: dict[str, list[tuple[float, float]]] = {}
+    for entity in sketch.entities:
+        if entity.type == "airfoil" and entity.naca and entity.chord is not None:
+            chord = _to_float(entity.chord)
+            points[entity.id] = _naca_4digit_points(entity.naca, chord)
+    return points
 
 
 def _build_variables(sketch: Sketch) -> tuple[np.ndarray, _VariableSet]:
@@ -278,20 +335,34 @@ def _build_residuals(
     return residuals
 
 
-def solve_sketch(sketch: Sketch, parameters: dict[str, float] | None = None) -> Sketch:
+def solve_sketch(sketch: Sketch | list[SketchEntity], parameters: dict[str, float] | None = None) -> Sketch:
     """Return a new Sketch with constraints and driving dimensions solved.
 
     Uses scipy.optimize.least_squares to minimize the residuals. If no constraints
     or dimensions are present, the original sketch is returned unchanged.
+    Airfoil entities are always converted to point sets.
     """
-    if not sketch.constraints and not sketch.dimensions:
-        return sketch
+    if isinstance(sketch, list):
+        sketch = Sketch(
+            id="sketch",
+            plane=PlaneReference(type="base", name="XY"),
+            entities=sketch,
+        )
 
     parameters = parameters or {}
+    airfoil_points = _solve_airfoils(sketch)
+
+    if not sketch.constraints and not sketch.dimensions:
+        if airfoil_points:
+            return sketch.model_copy(update={"points": airfoil_points}, deep=True)
+        return sketch
+
     vars_vec, var_set = _build_variables(sketch)
     residuals = _build_residuals(sketch, var_set, parameters)
 
     if not residuals:
+        if airfoil_points:
+            return sketch.model_copy(update={"points": airfoil_points}, deep=True)
         return sketch
 
     def objective(v: np.ndarray) -> np.ndarray:
@@ -334,6 +405,9 @@ def solve_sketch(sketch: Sketch, parameters: dict[str, float] | None = None) -> 
             data["angle"] = round(float(math.degrees(solved[var_set.angle_indices[entity.id]])), 6)
         new_entities.append(SketchEntity(**data))
 
+    # Merge any airfoil points into the solved sketch points.
+    final_points = {**airfoil_points, **sketch.points}
+
     return Sketch(
         id=sketch.id,
         name=sketch.name,
@@ -341,4 +415,5 @@ def solve_sketch(sketch: Sketch, parameters: dict[str, float] | None = None) -> 
         entities=new_entities,
         constraints=sketch.constraints,
         dimensions=sketch.dimensions,
+        points=final_points,
     )
