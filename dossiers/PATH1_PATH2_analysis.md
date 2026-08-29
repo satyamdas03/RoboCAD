@@ -1,7 +1,7 @@
 # RoboCAD Strategic Analysis: PATH1 vs PATH2
 
-**Date:** 2026-08-25 (updated 2026-08-27)  
-**Status:** Decision made; PATH1 first, PATH2 as multi-domain North Star  
+**Date:** 2026-08-25 (updated 2026-08-29)  
+**Status:** Decision made; PATH1 complete, Batch A (Phases 16–18) complete, Phase 19 next  
 **Related:** [`PLAN.md`](../PLAN.md) Sections 12–14, [`robocad-end-to-end-roadmap.md`](robocad-end-to-end-roadmap.md)
 
 ---
@@ -13,7 +13,7 @@ Two strategic directions were analyzed for RoboCAD:
 - **PATH1 (GEDA Bridge):** RoboCAD → MuJoCo/URDF/inertial bundle for `LearningRobotics`.
 - **PATH2 (multi-domain North Star):** voice/text/sketch → multi-domain parametric CAD (mechanical, aero/thermal, electronics, humanoid) → per-part multi-physics testing → assembly → world-model simulation → HERMES oversight → robot brain trained on synthetic data with sim-to-real feedback.
 
-**Decision: build PATH1 first.** It is technically reachable from the current codebase, addresses a real market need, and produces the exact asset format and API surface that PATH2 needs. PATH2 remains the 5–7 year North Star and is now mapped into **Phases 16–28** as a set of domain tracks (mechanical, aero/thermal/propulsion, electronics, humanoid/full-robot) layered on top of the same feature-tree and bundle core.
+**Decision: build PATH1 first, then Batch A multi-domain foundation, then mechanical assembly synthesis.** PATH1 is technically reachable from the current codebase, addresses a real market need, and produces the exact asset format and API surface that PATH2 needs. PATH2 remains the 5–7 year North Star and is now mapped into **Phases 16–28** as a set of domain tracks (mechanical, aero/thermal/propulsion, electronics, humanoid/full-robot) layered on top of the same feature-tree and bundle core.
 
 ---
 
@@ -162,7 +162,8 @@ A full-stack, multi-domain robotics design operating system. It now spans **Phas
 3. **Phase C:** Build standard manipulation scene templates (Phase 14B). ✅ Done — 4 templates, composition API, backend + frontend, 160/160 tests passing.
 4. **Phase D:** Cross-repo handshake with LearningRobotics (Phase 15A). ✅ Done — bundle contract, reference loaders, /capabilities, 10 s stability rollout, 170/170 tests passing. Three solvable caveats fixed during acceptance (Isaac Sim skeleton, nightly CI, real wedge test seed + exporter/loader bug fixes).
 5. **Phase E:** RoboCompiler asset pipeline (Phase 15B). ✅ Done — skill recommendation (`recommend-skill`), part variant sweep (`variant-sweep`), batch bundle export, and a NumPy-only CEM push-policy smoke test (`train-skill`) end-to-end on generated wedge meshes. 187/187 tests passing. Video-to-skill ingestion remains future work.
-6. **Phase F:** Add cross-domain input (16), domain-aware representation (17), decomposition + domain part families (18), mechanical assembly synthesis (19), aero/thermal/propulsion geometry (20), electronics / mechatronics integration (21), multi-physics verification (22), humanoid / full-robot synthesis (23), world-model simulation (24), robot brain training (25), HERMES cross-domain supervisor (26), sim-to-real feedback (27), and distribution / ecosystem / advanced co-design (28) — in that order.
+6. ✅ Add cross-domain input (16), domain-aware representation (17), and decomposition + domain part families (18) — Batch A complete, **228/228 tests passing** after post-ship hardening.
+7. **Phase G:** Mechanical assembly synthesis (19), aero/thermal/propulsion geometry (20), electronics / mechatronics integration (21), multi-physics verification (22), humanoid / full-robot synthesis (23), world-model simulation (24), robot brain training (25), HERMES cross-domain supervisor (26), sim-to-real feedback (27), and distribution / ecosystem / advanced co-design (28) — in that order.
 
 ---
 

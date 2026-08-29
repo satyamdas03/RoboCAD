@@ -3,8 +3,8 @@
 **Date:** 2026-08-29  
 **Horizon:** ~5–7 years  
 **North Star:** voice/text/sketch → multi-domain parametric CAD → per-part multi-physics testing → assembly → world-model simulation → HERMES oversight → robot brain trained on synthetic data with retraining loops.  
-**First commercial milestone:** PATH1 / GEDA Bridge (Phases 14A–15B).  
-**Current milestone:** Batch A multi-domain foundation (Phases 16–18) complete; Phase 19 mechanical assembly synthesis is next.  
+**First commercial milestone:** PATH1 / GEDA Bridge (Phases 14A–15B) — complete, 187/187 tests.  
+**Current milestone:** Batch A multi-domain foundation (Phases 16–18) — complete, 228/228 tests after hardening; Phase 19 mechanical assembly synthesis is next.  
 **Domain tracks:** mechanical assemblies, aerodynamics / thermal / propulsion geometry, electronics / mechatronics form-factor co-design, humanoid / full-robot system synthesis.  
 **Related:** [`PLAN.md`](../PLAN.md) Sections 10–14, [`PATH1_PATH2_analysis.md`](PATH1_PATH2_analysis.md)
 
