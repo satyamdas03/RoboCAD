@@ -197,7 +197,7 @@ npm run build
 | 11 | Multi-part assembly system | `ai_cad/assembly.py` |
 | 12 | DFM / tolerance / FEA verification | `ai_cad/dfm.py`, `ai_cad/tolerances.py`, `ai_cad/fea.py` |
 | 13 | Model specialization + Claude 5 integration (T1–T4 gate achieved) | `scripts/build_training_dataset.py`, `scripts/build_ollama_modelfile.py`, `ai_cad/generator.py` |
-| 14A–24 | End-to-end vision roadmap (Phase 14A GEDA Bridge next) | `PLAN.md`, `.claude/memory/robocad-end-to-end-roadmap.md` |
+| 14A–28 | End-to-end vision roadmap (Phase 21 electronics/mechatronics integration next) | `PLAN.md`, `.claude/memory/robocad-end-to-end-roadmap.md` |
 
 ---
 
@@ -210,4 +210,4 @@ npm run build
 5. Run the pytest suite and the frontend build.
 6. Only then continue the current phase.
 
-**Current active phase:** Phase 19 complete; Phase 20 (aerodynamics, thermal, and propulsion geometry) is next. Before starting Phase 20, run `python -m pytest` and verify `/generate?decompose=True` still works end-to-end with a quadcopter or robot-arm prompt. See `PLAN.md` Section 9 and `.claude/memory/robocad-end-to-end-roadmap.md`.
+**Current active phase:** Phase 20 complete (276/276 tests passing); Phase 21 — electronics and mechatronics integration — is next. Before starting Phase 21, run `python -m pytest` and verify the `/aero-report`, `/thermal-report`, and `/cfd-mesh` endpoints still work end-to-end with a wing or heat-sink prompt. See `PLAN.md` Section 12 and `.claude/memory/robocad-end-to-end-roadmap.md`.
