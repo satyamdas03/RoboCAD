@@ -145,12 +145,29 @@ def _naca_4digit_points(code: str, chord: float, n: int = 40) -> list[tuple[floa
     return pts
 
 
-def _solve_airfoils(sketch: Sketch) -> dict[str, list[tuple[float, float]]]:
+def _resolve_value(value: NumericOrString | None, parameters: dict[str, float]) -> float:
+    """Resolve a sketch value that may be a parameter name or a literal."""
+    if value is None:
+        return 0.0
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        if value in parameters:
+            return float(parameters[value])
+        try:
+            return float(value)
+        except ValueError:
+            return 0.0
+    return 0.0
+
+
+def _solve_airfoils(sketch: Sketch, parameters: dict[str, float] | None = None) -> dict[str, list[tuple[float, float]]]:
     """Compute point sets for any airfoil entities in the sketch."""
+    parameters = parameters or {}
     points: dict[str, list[tuple[float, float]]] = {}
     for entity in sketch.entities:
         if entity.type == "airfoil" and entity.naca and entity.chord is not None:
-            chord = _to_float(entity.chord)
+            chord = _resolve_value(entity.chord, parameters)
             points[entity.id] = _naca_4digit_points(entity.naca, chord)
     return points
 
@@ -350,7 +367,7 @@ def solve_sketch(sketch: Sketch | list[SketchEntity], parameters: dict[str, floa
         )
 
     parameters = parameters or {}
-    airfoil_points = _solve_airfoils(sketch)
+    airfoil_points = _solve_airfoils(sketch, parameters)
 
     if not sketch.constraints and not sketch.dimensions:
         if airfoil_points:

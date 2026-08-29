@@ -26,6 +26,7 @@ from ai_cad.feature_tree import (
     PlaneReference,
     Sketch,
     SketchEntity,
+    SurfaceFeature,
 )
 from ai_cad.sketch_solver import solve_sketch
 
@@ -59,12 +60,10 @@ def _emit_parameter(param: Parameter) -> str:
     """Emit a module-level parameter assignment."""
     value = param.value
     if isinstance(value, str):
-        # Try to emit as a literal float/int if the string is numeric.
-        try:
-            float(value)
-            rendered = value
-        except ValueError:
-            rendered = value
+        # String parameters (e.g., NACA codes like \"0012\") must be quoted so the
+        # generated Python script is syntactically valid. Numeric-looking strings
+        # with leading zeros would otherwise create invalid integer literals.
+        rendered = repr(value)
     else:
         rendered = str(int(value)) if isinstance(value, int) and value == int(value) else str(float(value))
 
@@ -77,16 +76,41 @@ def _transpile_part(part: Part, parameters: dict[str, float], var_name: str = "p
     lines: list[str] = []
     lines.append(f"with BuildPart() as {var_name}:")
 
-    sketch_blocks: list[str] = []
+    # Solve all sketches up front so SurfaceFeatures can consume airfoil point sets.
+    solved_sketches: dict[str, Sketch] = {}
     for sketch in part.sketches:
-        solved = solve_sketch(sketch, parameters)
+        solved_sketches[sketch.id] = solve_sketch(sketch, parameters)
+
+    # SurfaceFeatures of type airfoil/wing/propeller_blade own their airfoil sketch;
+    # do not emit a separate empty sketch block for those.
+    consumed_airfoil_sketches: set[str] = set()
+    for feature in part.features:
+        if isinstance(feature, SurfaceFeature) and feature.type in (
+            "airfoil",
+            "wing",
+            "propeller_blade",
+        ):
+            sketch_id = _find_airfoil_sketch_id(part, solved_sketches)
+            if sketch_id is not None:
+                consumed_airfoil_sketches.add(sketch_id)
+
+    sketch_blocks: list[str] = []
+    for sketch_id, solved in solved_sketches.items():
+        if sketch_id in consumed_airfoil_sketches and _sketch_has_only_airfoil(solved):
+            # The SurfaceFeature will emit the sketch block inline.
+            continue
         sketch_blocks.append(_transpile_sketch(solved))
 
     feature_blocks: list[str] = []
     for feature in part.features:
-        if not feature.enabled:
-            continue
-        feature_blocks.append(_transpile_feature(feature, part, var_name=var_name))
+        if isinstance(feature, Feature):
+            if not feature.enabled:
+                continue
+            feature_blocks.append(_transpile_feature(feature, part, var_name=var_name))
+        elif isinstance(feature, SurfaceFeature):
+            feature_blocks.append(
+                _transpile_surface_feature(feature, part, solved_sketches, parameters, var_name=var_name)
+            )
 
     body_lines = []
     for block in sketch_blocks + feature_blocks:
@@ -162,6 +186,10 @@ def _transpile_entity(entity: SketchEntity) -> str:
         center = _render_point(entity.center, default=(0, 0))
         radius = _render_value(entity.radius, default=5)
         return f"RegularPolygon(radius={radius}, side_count={sides}).move(Location({center}))"
+    if etype == "airfoil":
+        # Airfoil points are consumed by the owning SurfaceFeature; emit a harmless
+        # placeholder so BuildSketch does not fail if the sketch is not consumed.
+        return "pass  # airfoil profile resolved by SurfaceFeature"
     raise ValueError(f"Unsupported sketch entity type: {etype}")
 
 
@@ -241,6 +269,154 @@ def _transpile_feature(feature: Feature, part: Part, var_name: str = "part") -> 
         return f"with PolarLocations(radius=0, count={count}, start_angle=0, stop_angle={total_angle}):\n    pass"
 
     raise ValueError(f"Unsupported feature type: {ftype}")
+
+
+def _find_airfoil_sketch_id(part: Part, solved_sketches: dict[str, Sketch]) -> str | None:
+    """Return the first sketch that contains an airfoil entity."""
+    for sketch_id, solved in solved_sketches.items():
+        if any(e.type == "airfoil" for e in solved.entities):
+            return sketch_id
+    return None
+
+
+def _sketch_has_only_airfoil(sketch: Sketch) -> bool:
+    """Return True if every entity in the sketch is an airfoil."""
+    return bool(sketch.entities) and all(e.type == "airfoil" for e in sketch.entities)
+
+
+def _airfoil_points(sketch: Sketch) -> list[tuple[float, float]]:
+    """Extract the solved airfoil point loop from a sketch."""
+    for entity in sketch.entities:
+        if entity.type == "airfoil" and entity.id in sketch.points:
+            return sketch.points[entity.id]
+    return []
+
+
+def _transpile_surface_feature(
+    feature: SurfaceFeature,
+    part: Part,
+    solved_sketches: dict[str, Sketch],
+    parameters: dict[str, float],
+    var_name: str = "part",
+) -> str:
+    """Emit build123d code for an aero/thermal SurfaceFeature."""
+    ftype = feature.type
+    profile = feature.profile or {}
+
+    if ftype in ("airfoil", "wing", "propeller_blade"):
+        sketch_id = _find_airfoil_sketch_id(part, solved_sketches)
+        if sketch_id is None:
+            return "pass  # no airfoil sketch found for SurfaceFeature"
+        pts = _airfoil_points(solved_sketches[sketch_id])
+        if len(pts) < 3:
+            return "pass  # insufficient airfoil points"
+        pts_expr = "[\n" + ",\n".join(
+            f"        ({float(x):.6f}, {float(y):.6f})" for x, y in pts
+        ) + "\n    ]"
+
+    if ftype == "airfoil":
+        # Thin solid section for a 2D airfoil profile.
+        chord = _resolve_profile_value(profile.get("chord_param", profile.get("chord", "chord")), parameters, 200.0)
+        thickness = max(float(chord) * 0.005, 0.1)
+        block = (
+            f"with BuildLine(Plane.XY) as {feature.id}_wire:\n"
+            f"    Polyline({pts_expr}, close=True)\n"
+            f"with BuildSketch(Plane.XY) as {feature.id}_sketch:\n"
+            f"    make_face({feature.id}_wire.wire())\n"
+            f"extrude({feature.id}_sketch.sketch, amount={_render_value(thickness)}, mode=Mode.ADD)"
+        )
+        return block
+
+    if ftype == "wing":
+        span = _resolve_profile_value(profile.get("span_param", profile.get("span", "wing_span")), parameters, 400.0)
+        # Place airfoil on XZ plane so extrusion along Y becomes the wing span.
+        block = (
+            f"with BuildLine(Plane.XZ) as {feature.id}_wire:\n"
+            f"    Polyline({pts_expr}, close=True)\n"
+            f"with BuildSketch(Plane.XZ) as {feature.id}_sketch:\n"
+            f"    make_face({feature.id}_wire.wire())\n"
+            f"extrude({feature.id}_sketch.sketch, amount={_render_value(span)}, mode=Mode.ADD)"
+        )
+        return block
+
+    if ftype == "propeller_blade":
+        # Approximate blade: tapered extrusion of the airfoil section.
+        span = _resolve_profile_value(profile.get("span_param", profile.get("span", "blade_span")), parameters, 100.0)
+        block = (
+            f"with BuildLine(Plane.XZ) as {feature.id}_wire:\n"
+            f"    Polyline({pts_expr}, close=True)\n"
+            f"with BuildSketch(Plane.XZ) as {feature.id}_sketch:\n"
+            f"    make_face({feature.id}_wire.wire())\n"
+            f"extrude({feature.id}_sketch.sketch, amount={_render_value(span)}, mode=Mode.ADD)"
+        )
+        return block
+
+    if ftype == "heat_sink":
+        return _transpile_heat_sink(feature, parameters)
+
+    if ftype == "duct":
+        # Ducts are handled by regular solid features by default; this path is a
+        # thin-walled fallback when no extrudes are present.
+        return _transpile_duct(feature, parameters)
+
+    raise ValueError(f"Unsupported surface feature type: {ftype}")
+
+
+def _resolve_profile_value(value: Any, parameters: dict[str, float], default: float) -> float:
+    """Resolve a SurfaceFeature profile value that may be a parameter name."""
+    if value is None:
+        return float(default)
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        if value in parameters:
+            return float(parameters[value])
+        try:
+            return float(value)
+        except ValueError:
+            return float(default)
+    return float(default)
+
+
+def _transpile_heat_sink(feature: SurfaceFeature, parameters: dict[str, float]) -> str:
+    """Emit a parametric fin-array heat sink as a single SurfaceFeature block."""
+    profile = feature.profile or {}
+    base_length = _resolve_profile_value(profile.get("base_length", "base_length"), parameters, 60.0)
+    base_width = _resolve_profile_value(profile.get("base_width", "base_width"), parameters, 60.0)
+    base_height = _resolve_profile_value(profile.get("base_height", "base_height"), parameters, 6.0)
+    fin_count = int(_resolve_profile_value(profile.get("fin_count", "fin_count"), parameters, 9.0))
+    fin_height = _resolve_profile_value(profile.get("fin_height", "fin_height"), parameters, 25.0)
+    fin_thickness = _resolve_profile_value(profile.get("fin_thickness", "fin_thickness"), parameters, 2.0)
+
+    block = (
+        f"with BuildSketch(Plane.XY) as {feature.id}_base:\n"
+        f"    Rectangle(width={_render_value(base_length)}, height={_render_value(base_width)}, align=Align.CENTER)\n"
+        f"extrude({feature.id}_base.sketch, amount={_render_value(base_height)}, mode=Mode.ADD)\n"
+        f"with BuildSketch(Plane.XY) as {feature.id}_fin:\n"
+        f"    Rectangle(width={_render_value(fin_thickness)}, height={_render_value(base_width)}, align=Align.CENTER)\n"
+        f"with GridLocations({_render_value(base_length)} / {fin_count}, 0, {fin_count}, 1):\n"
+        f"    extrude({feature.id}_fin.sketch, amount={_render_value(fin_height)}, mode=Mode.ADD)"
+    )
+    return block
+
+
+def _transpile_duct(feature: SurfaceFeature, parameters: dict[str, float]) -> str:
+    """Thin-walled cylindrical duct fallback for SurfaceFeature-only ducts."""
+    profile = feature.profile or {}
+    diameter = _resolve_profile_value(profile.get("diameter", "duct_diameter"), parameters, 80.0)
+    length = _resolve_profile_value(profile.get("length", "duct_length"), parameters, 120.0)
+    wall = _resolve_profile_value(profile.get("wall", "duct_wall"), parameters, 2.0)
+    outer_d = diameter
+    inner_d = float(diameter) - 2.0 * float(wall)
+    block = (
+        f"with BuildSketch(Plane.XY) as {feature.id}_outer:\n"
+        f"    Circle(radius={_render_value(outer_d)} / 2)\n"
+        f"extrude({feature.id}_outer.sketch, amount={_render_value(length)}, mode=Mode.ADD)\n"
+        f"with BuildSketch(Plane.XY) as {feature.id}_inner:\n"
+        f"    Circle(radius={_render_value(inner_d)} / 2)\n"
+        f"extrude({feature.id}_inner.sketch, amount={_render_value(length)}, mode=Mode.SUBTRACT)"
+    )
+    return block
 
 
 def _render_point(value: Any, default: tuple[Any, Any]) -> str:

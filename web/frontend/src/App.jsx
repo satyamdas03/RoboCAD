@@ -22,6 +22,8 @@ import SceneTemplatePanel from './components/SceneTemplatePanel.jsx'
 import CapabilitiesPanel from './components/CapabilitiesPanel.jsx'
 import DomainBadge from './components/DomainBadge.jsx'
 import DecomposePanel from './components/DecomposePanel.jsx'
+import AeroPanel from './components/AeroPanel.jsx'
+import ThermalPanel from './components/ThermalPanel.jsx'
 import {
   checkHealth,
   generateDesign,
@@ -321,6 +323,12 @@ export default function App() {
               <DFMReport designId={selectedId} />
               <ToleranceReport designId={selectedId} designs={designs} />
               <FEAPanel designId={selectedId} />
+              {(result?.domain === 'aero' || result?.domain === 'multi') && (
+                <AeroPanel designId={selectedId} />
+              )}
+              {(result?.domain === 'thermal' || result?.domain === 'multi') && (
+                <ThermalPanel designId={selectedId} />
+              )}
               <OnshapeUpload designId={selectedId} prompt={result?.prompt} />
               <TagEditor tags={result?.tags || []} onUpdate={handleUpdateTags} />
               <RemixPanel designId={selectedId} onRemix={handleRemix} loading={loading} />

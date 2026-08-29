@@ -243,3 +243,41 @@ export async function getAssemblyPoses(id, { samplesPerJoint = 8 } = {}) {
   params.set('samples_per_joint', String(samplesPerJoint))
   return apiFetch(`/designs/${id}/assembly-poses?${params.toString()}`)
 }
+
+export async function runAeroAnalysis(id, { naca = '0012', angleOfAttackDeg = 0.0, flowVelocityMs = 10.0 } = {}) {
+  return apiFetch(`/designs/${id}/aero-report`, {
+    method: 'POST',
+    body: JSON.stringify({ naca, angle_of_attack_deg: angleOfAttackDeg, flow_velocity_ms: flowVelocityMs }),
+  })
+}
+
+export async function getAeroReport(id) {
+  return apiFetch(`/designs/${id}/aero-report`)
+}
+
+export async function runThermalAnalysis(id, { heatFluxW = 10.0, ambientTempC = 25.0, convectionCoefficientWPerM2K = 50.0 } = {}) {
+  return apiFetch(`/designs/${id}/thermal-report`, {
+    method: 'POST',
+    body: JSON.stringify({
+      heat_flux_w: heatFluxW,
+      ambient_temp_c: ambientTempC,
+      convection_coefficient_w_per_m2_k: convectionCoefficientWPerM2K,
+    }),
+  })
+}
+
+export async function getThermalReport(id) {
+  return apiFetch(`/designs/${id}/thermal-report`)
+}
+
+export async function exportCFDMesh(id, { solver = 'su2_stub', angleOfAttackDeg = 0.0, flowVelocityMs = 10.0, characteristicLengthM = 0.1 } = {}) {
+  return apiFetch(`/designs/${id}/cfd-mesh`, {
+    method: 'POST',
+    body: JSON.stringify({
+      solver,
+      angle_of_attack_deg: angleOfAttackDeg,
+      flow_velocity_ms: flowVelocityMs,
+      characteristic_length_m: characteristicLengthM,
+    }),
+  })
+}

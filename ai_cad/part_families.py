@@ -512,6 +512,67 @@ def _aero_wing() -> PartFamily:
     )
 
 
+def _aero_propeller_blade() -> PartFamily:
+    params = [
+        Parameter(name="blade_span", value=120.0, unit="mm"),
+        Parameter(name="blade_chord", value=50.0, unit="mm"),
+        Parameter(name="blade_naca", value="0012", unit=""),
+        Parameter(name="blade_thickness", value=4.0, unit="mm"),
+    ]
+    sketch = Sketch(
+        id="blade_profile",
+        name="blade_profile",
+        plane=PlaneReference(type="base", name="XY"),
+        entities=[
+            SketchEntity(
+                type="airfoil",
+                id="blade_airfoil",
+                naca="0012",
+                chord="blade_chord",
+            )
+        ],
+        points={"blade_airfoil": []},
+        constraints=[],
+        dimensions=[],
+    )
+    surface = SurfaceFeature(
+        id="blade_surface",
+        type="propeller_blade",
+        domain="aero",
+        profile={
+            "naca": "blade_naca",
+            "chord_param": "blade_chord",
+            "span_param": "blade_span",
+        },
+    )
+    root = CoordinateSystem(
+        id="blade_root",
+        name="blade root",
+        origin=(0, 0, 0),
+        x_axis=(1, 0, 0),
+        y_axis=(0, 1, 0),
+        z_axis=(0, 0, 1),
+    )
+    interfaces = [
+        Interface(
+            id="root",
+            csys=root,
+            type="face",
+            mate_hint="fixed",
+            mate_with=["propeller_blade/root", "hub/bore"],
+        )
+    ]
+    return PartFamily(
+        name="propeller_blade",
+        domain="aero",
+        display_name="Parametric propeller blade",
+        default_parameters=params,
+        sketches=[sketch],
+        features=[surface],
+        interfaces=interfaces,
+    )
+
+
 def _aero_duct() -> PartFamily:
     params = [
         Parameter(name="duct_diameter", value=80.0, unit="mm"),
@@ -576,10 +637,19 @@ def _thermal_heat_sink() -> PartFamily:
         Parameter(name="fin_height", value=25.0, unit="mm"),
         Parameter(name="fin_thickness", value=2.0, unit="mm"),
     ]
-    base = _rect_sketch("hs_base", "base_length", "base_width")
-    base_feature = _extrude_feature("hs_base_body", "hs_base", "base_height")
-    fin = _rect_sketch("hs_fin", "fin_thickness", "base_width")
-    fin_feature = _extrude_feature("hs_fin_body", "hs_fin", "fin_height")
+    surface = SurfaceFeature(
+        id="heat_sink_surface",
+        type="heat_sink",
+        domain="thermal",
+        profile={
+            "base_length": "base_length",
+            "base_width": "base_width",
+            "base_height": "base_height",
+            "fin_count": "fin_count",
+            "fin_height": "fin_height",
+            "fin_thickness": "fin_thickness",
+        },
+    )
     thermal_face = CoordinateSystem(
         id="hs_thermal_face",
         name="heat sink base",
@@ -602,8 +672,8 @@ def _thermal_heat_sink() -> PartFamily:
         domain="thermal",
         display_name="Pin/fin heat sink",
         default_parameters=params,
-        sketches=[base, fin],
-        features=[base_feature, fin_feature],
+        sketches=[],
+        features=[surface],
         interfaces=interfaces,
     )
 
@@ -860,6 +930,7 @@ _FAMILY_BUILDERS: dict[str, Any] = {
     "mount": _mechanical_mount,
     "airfoil": _aero_airfoil,
     "wing": _aero_wing,
+    "propeller_blade": _aero_propeller_blade,
     "duct": _aero_duct,
     "heat_sink": _thermal_heat_sink,
     "pcb_bracket": _electronics_pcb_bracket,

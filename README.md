@@ -4,7 +4,7 @@
 >
 > **Core bet:** The AI writes **parametric CAD code** (build123d / FeatureScript), not throwaway meshes. The model you get is editable, versionable, and exportable for 3D printing, machining, or Onshape.
 >
-> **Latest milestone:** Phases 14A–15B, **16–18**, and **19 are complete**. RoboCAD now synthesizes articulated mechanical assemblies: it infers mates from part-family interfaces, solves kinematic chains and closed loops, checks assembly-level collision/clearance, exports full MJCF/URDF with joints/actuators/sensors, and previews range-of-motion in the browser. The backend exposes `/designs/{id}/synthesize-assembly`, `/designs/{id}/assembly-collision`, and `/designs/{id}/assembly-poses`; the frontend adds `AssemblyReplayPanel` and `AssemblyCollisionPanel`. Full pytest suite: **250 passed**. Phase 20 — aerodynamics, thermal, and propulsion geometry — is next.
+> **Latest milestone:** Phases 14A–15B, **16–19**, and **20 are complete**. RoboCAD now generates aero/thermal/propulsion surface geometry: NACA 4-digit airfoils, straight wings, propeller blades, and parametric fin-array heat sinks; it transpiles `SurfaceFeature`s through `BuildLine`/`BuildSketch`/`extrude`, exports surface meshes and lightweight SU2/OpenFOAM CFD stubs, and runs fast dependency-free aero/thermal estimates from any STL. The backend exposes `/designs/{id}/aero-report`, `/designs/{id}/thermal-report`, and `/designs/{id}/cfd-mesh`; the frontend adds `AeroPanel` (domain-gated for aero/multi) and `ThermalPanel` (domain-gated for thermal/multi). Full pytest suite: **276 passed**. Phase 21 — electronics/mechatronics integration — is next.
 
 ---
 

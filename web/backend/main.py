@@ -76,6 +76,9 @@ from ai_cad.models import CADParameter, ExportPaths, GenerationResult, Manufactu
 from ai_cad.onshape import OnshapeClient
 from ai_cad.parameters import extract_parameters
 from ai_cad.tolerances import check_fit
+from ai_cad.aero import run_aero_analysis
+from ai_cad.cfd import export_cfd_mesh_from_stl
+from ai_cad.thermal import run_thermal_analysis
 from ai_cad.transpiler import transpile
 from ai_cad.validator import validate_model
 
@@ -225,6 +228,27 @@ class FEARequest(BaseModel):
 class SimulateRequest(BaseModel):
     material: str = Field(default="PLA", description="Material name for density lookup.")
     tolerance: float = Field(default=0.1, gt=0, le=1.0, description="Mesh tessellation tolerance in mm.")
+
+
+class AeroAnalysisRequest(BaseModel):
+    naca: str = Field(default="0012", description="NACA 4-digit airfoil code.")
+    angle_of_attack_deg: float = Field(default=0.0, description="Freestream angle of attack in degrees.")
+    flow_velocity_ms: float = Field(default=10.0, gt=0, description="Freestream velocity in m/s.")
+
+
+class ThermalAnalysisRequest(BaseModel):
+    heat_flux_w: float = Field(default=10.0, ge=0, description="Applied thermal load in watts.")
+    ambient_temp_c: float = Field(default=25.0, description="Ambient temperature in degrees Celsius.")
+    convection_coefficient_w_per_m2_k: float = Field(
+        default=50.0, gt=0, description="Convective heat transfer coefficient in W/(m^2*K)."
+    )
+
+
+class CFDMeshRequest(BaseModel):
+    solver: str = Field(default="su2_stub", description="CFD solver stub format: su2_stub or openfoam_stub.")
+    angle_of_attack_deg: float = Field(default=0.0, description="Freestream angle of attack in degrees.")
+    flow_velocity_ms: float = Field(default=10.0, gt=0, description="Freestream velocity in m/s.")
+    characteristic_length_m: float = Field(default=0.1, gt=0, description="Reference length for Reynolds number.")
 
 
 class SceneTemplateRequest(BaseModel):
@@ -1017,6 +1041,151 @@ def get_simulation_report(design_id: str) -> dict[str, Any]:
         "manifest": manifest.model_dump(),
         "bundle_url": f"/exports/{design_id}/simulation/bundle.zip",
     }
+
+
+@app.post("/designs/{design_id}/aero-report")
+def aero_report(design_id: str, request: AeroAnalysisRequest) -> dict[str, Any]:
+    """Run a lightweight aero estimate on a design's STL."""
+    design_dir = DESIGNS_DIR / design_id
+    meta_path = design_dir / "metadata.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Design not found.")
+
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read metadata: {exc}")
+
+    stl_path = _resolve_export_path(design_id, meta.get("exports", {}).get("stl"))
+    if not stl_path or not stl_path.exists():
+        raise HTTPException(status_code=422, detail="No STL export found for this design.")
+
+    try:
+        result = run_aero_analysis(
+            stl_path,
+            naca=request.naca,
+            angle_of_attack_deg=request.angle_of_attack_deg,
+            flow_velocity_ms=request.flow_velocity_ms,
+        )
+        aero_dir = design_dir / "aero"
+        aero_dir.mkdir(parents=True, exist_ok=True)
+        _write_json(aero_dir / "aero_report.json", result.model_dump())
+        meta.setdefault("exports", {})
+        meta["exports"]["aero_report"] = "aero/aero_report.json"
+        _write_json(meta_path, meta)
+        return {"design_id": design_id, "report": result.model_dump()}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to run aero analysis: {exc}")
+
+
+@app.get("/designs/{design_id}/aero-report")
+def get_aero_report(design_id: str) -> dict[str, Any]:
+    """Return the persisted aero report for a design."""
+    design_dir = DESIGNS_DIR / design_id
+    meta_path = design_dir / "metadata.json"
+    report_path = design_dir / "aero" / "aero_report.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Design not found.")
+    if not report_path.exists():
+        raise HTTPException(status_code=404, detail="No aero report found for this design.")
+
+    try:
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read aero report: {exc}")
+
+    return {"design_id": design_id, "report": report}
+
+
+@app.post("/designs/{design_id}/thermal-report")
+def thermal_report(design_id: str, request: ThermalAnalysisRequest) -> dict[str, Any]:
+    """Run a lightweight thermal estimate on a design's STL."""
+    design_dir = DESIGNS_DIR / design_id
+    meta_path = design_dir / "metadata.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Design not found.")
+
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read metadata: {exc}")
+
+    stl_path = _resolve_export_path(design_id, meta.get("exports", {}).get("stl"))
+    if not stl_path or not stl_path.exists():
+        raise HTTPException(status_code=422, detail="No STL export found for this design.")
+
+    try:
+        result = run_thermal_analysis(
+            stl_path,
+            heat_flux_w=request.heat_flux_w,
+            ambient_temp_c=request.ambient_temp_c,
+            convection_coefficient_w_per_m2_k=request.convection_coefficient_w_per_m2_k,
+        )
+        thermal_dir = design_dir / "thermal"
+        thermal_dir.mkdir(parents=True, exist_ok=True)
+        _write_json(thermal_dir / "thermal_report.json", result.model_dump())
+        meta.setdefault("exports", {})
+        meta["exports"]["thermal_report"] = "thermal/thermal_report.json"
+        _write_json(meta_path, meta)
+        return {"design_id": design_id, "report": result.model_dump()}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to run thermal analysis: {exc}")
+
+
+@app.get("/designs/{design_id}/thermal-report")
+def get_thermal_report(design_id: str) -> dict[str, Any]:
+    """Return the persisted thermal report for a design."""
+    design_dir = DESIGNS_DIR / design_id
+    meta_path = design_dir / "metadata.json"
+    report_path = design_dir / "thermal" / "thermal_report.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Design not found.")
+    if not report_path.exists():
+        raise HTTPException(status_code=404, detail="No thermal report found for this design.")
+
+    try:
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read thermal report: {exc}")
+
+    return {"design_id": design_id, "report": report}
+
+
+@app.post("/designs/{design_id}/cfd-mesh")
+def cfd_mesh(design_id: str, request: CFDMeshRequest) -> dict[str, Any]:
+    """Export a CFD surface mesh + solver stub for a design."""
+    design_dir = DESIGNS_DIR / design_id
+    meta_path = design_dir / "metadata.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Design not found.")
+
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read metadata: {exc}")
+
+    stl_path = _resolve_export_path(design_id, meta.get("exports", {}).get("stl"))
+    if not stl_path or not stl_path.exists():
+        raise HTTPException(status_code=422, detail="No STL export found for this design.")
+
+    try:
+        cfd_dir = design_dir / "cfd"
+        cfd_dir.mkdir(parents=True, exist_ok=True)
+        result = export_cfd_mesh_from_stl(
+            stl_path,
+            cfd_dir,
+            solver=request.solver,
+            angle_of_attack_deg=request.angle_of_attack_deg,
+            flow_velocity_ms=request.flow_velocity_ms,
+            characteristic_length_m=request.characteristic_length_m,
+        )
+        meta.setdefault("exports", {})
+        if result.success:
+            meta["exports"]["cfd_mesh"] = "cfd"
+            _write_json(meta_path, meta)
+        return {"design_id": design_id, "report": result.model_dump()}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to export CFD mesh: {exc}")
 
 
 @app.get("/designs/{design_id}/bundle")

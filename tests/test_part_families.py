@@ -15,6 +15,7 @@ def test_registry_contains_all_phase18_families():
         "mount",
         "airfoil",
         "wing",
+        "propeller_blade",
         "duct",
         "heat_sink",
         "pcb_bracket",
@@ -30,7 +31,7 @@ def test_list_families_filter_by_domain():
     assert {f.name for f in mechanical} == {"bracket", "link", "hub", "mount"}
 
     aero = list_families("aero")
-    assert {f.name for f in aero} == {"airfoil", "wing", "duct"}
+    assert {f.name for f in aero} == {"airfoil", "wing", "propeller_blade", "duct"}
 
 
 def test_get_family_unknown_raises():
