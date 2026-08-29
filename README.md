@@ -140,7 +140,7 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **15B** | **RoboCompiler asset pipeline** | ✅ **Complete — `ai_cad/geda_bridge/skill_recommend.py`, `skill_smoke.py`, `variant_sweep.py`, `POST /designs/{id}/recommend-skill`, `POST /designs/{id}/train-skill`, `GET /designs/{id}/skills`, `POST /designs/{id}/variant-sweep`, trainable push-policy smoke test, 187/187 tests passing** |
 :| **16** | **Cross-domain input (voice/text/sketch + domain detection)** | ✅ **Complete — `ai_cad/domain.py` keyword + embedding classifier, `ai_cad/intent_parser.py` per-domain `DomainIntent`, `POST /classify-domain`, `GET /designs/{id}/domain-intent`, `DomainBadge` in history + inspector, 201/201 tests passing** |
 | **17** | **Domain-aware parametric representation (solids, surfaces, kinematics, PCB form factors)** | ✅ **Complete — feature-tree schema v2.0.0 with domain tags, `SurfaceFeature`, `KinematicJoint`, `PCBOutline`, NACA 4-digit airfoil sketch entity, `ai_cad/sketch_solver.py` airfoil point generation, 201/201 tests passing** |
-| **18** | Automatic decomposition + domain part families | ⏳ Planned |
+| **18** | **Automatic decomposition + domain part families** | ✅ **Complete — `ai_cad/part_families.py`, `ai_cad/decomposition.py`, `ai_cad/composer.py`, rule-based system decomposer, 12 cross-domain part families, `POST /decompose`, `/generate?decompose`, `DecomposePanel.jsx` + auto-decompose checkbox, **225/225 tests passing** |
 | **19** | Mechanical assembly synthesis + verification | ⏳ Planned |
 | **20** | Aerodynamics, thermal, and propulsion geometry | ⏳ Planned |
 | **21** | Electronics and mechatronics integration (form-factor co-design, not silicon layout) | ⏳ Planned |
@@ -176,7 +176,7 @@ This roadmap is the canonical plan of record for RoboCAD. **Do not reorder phase
 | **15B** | RoboCompiler asset pipeline | 2–3 mo | ✅ Video → custom part → trained skill smoke test; variant sweep + skill recommendation live |
 | **16** | Cross-domain input (voice/text/sketch + domain detection) | 2–3 mo | Mechanical, aero, electronics, humanoid intents routed correctly |
 | **17** | Domain-aware parametric representation | 3–4 mo | Feature tree supports solids, surfaces, kinematics, PCB form factors |
-| **18** | Automatic decomposition + domain part families | 3–4 mo | System intents split into domain-specific parts |
+| **18** | Automatic decomposition + domain part families | 3–4 mo | ✅ System intents split into domain-specific parts; 12 reusable part families; **225/225 tests** |
 | **19** | Mechanical assembly synthesis + verification | 3–4 mo | Full mechanical subsystem bundle |
 | **20** | Aerodynamics, thermal, and propulsion geometry | 3–4 mo | Airfoil / wing / heat sink / propeller + CFD mesh export |
 | **21** | Electronics and mechatronics integration | 2–3 mo | PCB form-factor / enclosure / connector co-design |
@@ -501,6 +501,17 @@ The decision: **build PATH1 (Phases 14A–15B) first**, then use it as the techn
   * `ai_cad/sketch_solver.py` computes airfoil point sets via `_naca_4digit_points()`.
   * New tests: `tests/test_feature_tree_v2.py`, `tests/test_sketch_airfoil.py`.
 * Full pytest suite: **201/201 passing**. Voice/STT integration remains future work (Phase 18+).
+
+### 2026-08-29 — Phase 18: automatic decomposition + domain part families shipped
+
+* **Phase 18 — Automatic decomposition and domain part families** shipped:
+  * `ai_cad/part_families.py` registry with 12 reusable families across mechanical, aero/thermal, electronics, and humanoid/robot domains.
+  * `ai_cad/decomposition.py` rule-based system decomposer for quadcopter, robot arm, humanoid, and fixed-wing prompts, with a single-part fallback.
+  * `ai_cad/composer.py` builds a complete `FeatureTree` with parts, assembly, instances, and mates from a decomposition plan.
+  * Backend `POST /decompose` endpoint and `decompose` flag on `POST /generate`; system prompts route through the new `_run_decomposed_generation()` path.
+  * Frontend `DecomposePanel.jsx` shows the generated parts list; `PromptInput.jsx` adds an “Auto-decompose systems” checkbox (default checked).
+  * New tests: `tests/test_part_families.py`, `tests/test_decomposition.py`, `tests/test_composer.py`, plus `/decompose` and `/generate?decompose` coverage in `tests/test_web_backend.py`.
+* Full pytest suite: **225/225 passing**.
 
 ### 2026-08-27 — Scope expanded to full multi-domain robotics platform
 

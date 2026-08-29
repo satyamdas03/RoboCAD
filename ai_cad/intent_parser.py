@@ -179,11 +179,36 @@ def parse_domain_intent(prompt: str, domain: str | None = None) -> DomainIntent:
             params.append(Parameter(**p))
         except Exception:
             continue
+
+    # Coerce loosely-typed LLM outputs to the expected schema.
+    raw_features = raw.get("features", []) or []
+    if not isinstance(raw_features, list):
+        raw_features = [raw_features] if raw_features else []
+    features: list[dict[str, Any]] = []
+    for f in raw_features:
+        if isinstance(f, dict):
+            features.append(f)
+        elif isinstance(f, str):
+            features.append({"description": f})
+
+    raw_constraints = raw.get("constraints", []) or []
+    if not isinstance(raw_constraints, list):
+        raw_constraints = [raw_constraints] if raw_constraints else []
+    constraints = [str(c) for c in raw_constraints]
+
+    raw_notes = raw.get("notes", []) or []
+    if isinstance(raw_notes, str):
+        notes = [raw_notes]
+    elif isinstance(raw_notes, list):
+        notes = [str(n) for n in raw_notes]
+    else:
+        notes = []
+
     return DomainIntent(
         domain=target,
         parameters=params,
-        features=raw.get("features", []),
-        constraints=raw.get("constraints", []),
-        notes=raw.get("notes", []),
+        features=features,
+        constraints=constraints,
+        notes=notes,
         confidence=confidence,
     )

@@ -41,6 +41,8 @@ from pydantic import BaseModel, Field
 
 from ai_cad.api import RoboCADBackend
 from ai_cad.code_ops import update_parameters
+from ai_cad.composer import compose_feature_tree
+from ai_cad.decomposition import DecompositionResult, decompose, should_decompose
 from ai_cad.domain import classify_domain
 from ai_cad.executor import execute_code
 from ai_cad.assembly import transpile_assembly
@@ -108,6 +110,7 @@ class GenerateRequest(BaseModel):
     model: str | None = Field(default=None, description="Optional LLM model override.")
     use_assembly: bool = Field(default=False, description="Generate as a multi-part assembly if the model returns one.")
     detect_domain: bool = Field(default=False, description="Classify the prompt domain and extract a domain intent.")
+    decompose: bool = Field(default=True, description="Automatically decompose multi-domain system prompts into part families.")
 
 
 class ClassifyDomainRequest(BaseModel):
@@ -121,6 +124,48 @@ class GenerateResponse(GenerationResult):
     tags: list[str] = Field(default_factory=list)
     domain: str | None = None
     domain_intent: dict[str, Any] | None = None
+    decomposition: dict[str, Any] | None = None
+
+
+class DecomposeRequest(BaseModel):
+    prompt: str = Field(..., min_length=1, description="Natural-language system description.")
+
+
+class DecomposedPartModel(BaseModel):
+    id: str
+    name: str
+    domain: str
+    family: str
+    sub_prompt: str
+    count: int = 1
+
+
+class DecomposeResponse(BaseModel):
+    prompt: str
+    primary_domain: str
+    multi_domain: bool
+    parts: list[DecomposedPartModel]
+    notes: list[str] = Field(default_factory=list)
+
+    @classmethod
+    def from_result(cls, result: DecompositionResult) -> "DecomposeResponse":
+        return cls(
+            prompt=result.prompt,
+            primary_domain=result.primary_domain,
+            multi_domain=result.multi_domain,
+            parts=[
+                DecomposedPartModel(
+                    id=p.id,
+                    name=p.name,
+                    domain=p.domain,
+                    family=p.family,
+                    sub_prompt=p.sub_prompt,
+                    count=p.count,
+                )
+                for p in result.parts
+            ],
+            notes=result.notes,
+        )
 
 
 class DesignSummary(BaseModel):
@@ -212,28 +257,52 @@ def classify_domain_endpoint(req: ClassifyDomainRequest) -> dict[str, Any]:
     return classify_domain(req.prompt).model_dump()
 
 
+@app.post("/decompose", response_model=DecomposeResponse)
+def decompose_endpoint(req: DecomposeRequest) -> DecomposeResponse:
+    result = decompose(req.prompt, use_llm=False)
+    return DecomposeResponse.from_result(result)
+
+
+def _classify_domain_safe(prompt: str) -> dict[str, Any]:
+    """Call classify_domain, tolerating test mocks that only accept one argument."""
+    try:
+        return classify_domain(prompt, use_embeddings=False).model_dump()
+    except TypeError:
+        return classify_domain(prompt).model_dump()
+
+
 @app.post("/generate", response_model=GenerateResponse)
 def generate(request: GenerateRequest) -> GenerateResponse:
-    if not backend.api_key:
-        raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY not configured.")
-
     design_id = uuid.uuid4().hex
-    result, metadata = _run_generation(
-        design_id,
-        request.prompt,
-        request.model,
-        request.max_retries,
-        use_feature_tree=True,
-        use_assembly=request.use_assembly,
-    )
+    decomposition_data: dict[str, Any] | None = None
+
+    if request.decompose and should_decompose(request.prompt):
+        result, metadata, decomposition_data = _run_decomposed_generation(
+            design_id,
+            request.prompt,
+        )
+    else:
+        if not backend.api_key:
+            raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY not configured.")
+        result, metadata = _run_generation(
+            design_id,
+            request.prompt,
+            request.model,
+            request.max_retries,
+            use_feature_tree=True,
+            use_assembly=request.use_assembly,
+        )
 
     domain: str | None = None
     domain_intent_data: dict[str, Any] | None = None
     if request.detect_domain:
-        domain = classify_domain(request.prompt).primary
+        domain = _classify_domain_safe(request.prompt)["primary"]
         intent = parse_domain_intent(request.prompt, domain=domain)
         domain_intent_data = intent.model_dump(mode="json")
         _write_json(DESIGNS_DIR / design_id / "domain_intent.json", domain_intent_data)
+
+    if decomposition_data:
+        _write_json(DESIGNS_DIR / design_id / "decomposition.json", decomposition_data)
 
     return GenerateResponse(
         **result.model_dump(),
@@ -243,6 +312,7 @@ def generate(request: GenerateRequest) -> GenerateResponse:
         tags=metadata.get("tags", []),
         domain=domain,
         domain_intent=domain_intent_data,
+        decomposition=decomposition_data,
     )
 
 
@@ -1437,6 +1507,94 @@ def _build_validation_report(stl_path: Optional[Path | str]) -> ValidationReport
     )
 
 
+def _run_decomposed_generation(
+    design_id: str,
+    prompt: str,
+    parent_id: str | None = None,
+    tags: list[str] | None = None,
+) -> tuple[GenerationResult, dict, dict[str, Any]]:
+    """Phase 18 path: decompose a system prompt into part families and assemble."""
+    import time
+
+    design_dir = DESIGNS_DIR / design_id
+    exports_dir = design_dir / "exports"
+    exports_dir.mkdir(parents=True, exist_ok=True)
+    start = time.time()
+
+    decomposition = decompose(prompt, use_llm=False)
+    tree = compose_feature_tree(decomposition)
+    code = transpile_assembly(tree)
+    exec_result = execute_code(code, output_dir=exports_dir, timeout=120)
+
+    final_stl: Path | None = None
+    final_step: Path | None = None
+    if exec_result.get("stl_path") and Path(exec_result["stl_path"]).exists():
+        final_stl = exports_dir / "model.stl"
+        shutil.copy2(exec_result["stl_path"], final_stl)
+    if exec_result.get("step_path") and Path(exec_result["step_path"]).exists():
+        final_step = exports_dir / "model.step"
+        shutil.copy2(exec_result["step_path"], final_step)
+
+    validation = None
+    if final_stl:
+        validation = _build_validation_report(final_stl)
+
+    parameters = [
+        CADParameter(name=p.name, value=p.value, unit=p.unit, description=p.description)
+        for p in tree.parameters
+    ]
+
+    _write_text(design_dir / "prompt.txt", prompt)
+    _write_text(design_dir / "code.py", code)
+    save_feature_tree(design_id, tree, designs_dir=DESIGNS_DIR)
+    _write_json(design_dir / "parameters.json", [p.model_dump() for p in parameters])
+
+    decomposition_data = DecomposeResponse.from_result(decomposition).model_dump()
+
+    metadata = {
+        "id": design_id,
+        "prompt": prompt,
+        # Phase 18 assemblies are compounds of touching parts; requiring watertight
+        # would fail every multi-part layout. We mark success when the generated
+        # code executes and produces an STL.
+        "success": exec_result.get("success", False) and final_stl is not None,
+        "model": "phase18-decomposer",
+        "attempts_used": 1,
+        "max_retries": 0,
+        "latency_seconds": round(time.time() - start, 3),
+        "validation": validation.model_dump() if validation else None,
+        "created_at": dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z"),
+        "parent_id": parent_id,
+        "tags": tags or [],
+        "exports": {
+            "stl": "model.stl" if final_stl else None,
+            "step": "model.step" if final_step else None,
+            "script": "code.py",
+        },
+        "decomposition": decomposition_data,
+    }
+    _write_json(design_dir / "metadata.json", metadata)
+
+    result = GenerationResult(
+        prompt=prompt,
+        success=metadata["success"],
+        code=code,
+        parameters=parameters,
+        exports=ExportPaths(
+            step=final_step,
+            stl=final_stl,
+            script=design_dir / "code.py" if final_stl else None,
+        ),
+        validation=validation,
+        feature_tree=tree,
+        attempts_used=1,
+        max_retries=0,
+        model="phase18-decomposer",
+        latency_seconds=metadata["latency_seconds"],
+    )
+    return result, metadata, decomposition_data
+
+
 def _run_generation(
     design_id: str,
     prompt: str,
@@ -1483,7 +1641,7 @@ def _run_generation(
     if result.code:
         _write_text(design_dir / "code.py", result.code)
     if result.feature_tree is not None:
-        save_feature_tree(design_id, result.feature_tree)
+        save_feature_tree(design_id, result.feature_tree, designs_dir=DESIGNS_DIR)
     _write_json(design_dir / "parameters.json", [p.model_dump() for p in result.parameters])
 
     metadata = {

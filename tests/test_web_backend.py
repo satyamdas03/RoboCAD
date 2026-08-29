@@ -234,6 +234,66 @@ def test_generate_with_domain_detection(tmp_path: Path, monkeypatch):
     assert (main_module.DESIGNS_DIR / data["design_id"] / "domain_intent.json").exists()
 
 
+def test_decompose_endpoint(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("ROBOCAD_DESIGNS_DIR", str(tmp_path))
+    response = client.post("/decompose", json={"prompt": "450 mm quadcopter with four motor arms"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["primary_domain"] == "mechanical"
+    assert data["multi_domain"] is True
+    ids = {p["id"] for p in data["parts"]}
+    assert "frame_hub" in ids
+    assert "motor_arm" in ids
+    motor_arm = next(p for p in data["parts"] if p["id"] == "motor_arm")
+    assert motor_arm["count"] == 4
+
+
+def test_generate_with_decompose_system_prompt(tmp_path: Path, monkeypatch):
+    """A system prompt with decompose=True uses the Phase 18 composer path."""
+    monkeypatch.setenv("ROBOCAD_DESIGNS_DIR", str(tmp_path))
+    response = client.post(
+        "/generate",
+        json={"prompt": "450 mm quadcopter with four motor arms", "decompose": True, "detect_domain": True},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    assert data["model"] == "phase18-decomposer"
+    assert data.get("decomposition") is not None
+    assert data["decomposition"]["primary_domain"] == "mechanical"
+
+    design_dir = main_module.DESIGNS_DIR / data["design_id"]
+    assert (design_dir / "decomposition.json").exists()
+    assert (design_dir / "feature_tree.json").exists()
+    assert (design_dir / "code.py").exists()
+
+
+def test_generate_with_decompose_false_uses_backend(tmp_path: Path, monkeypatch):
+    """A system prompt with decompose=False falls back to the normal LLM backend."""
+    monkeypatch.setenv("ROBOCAD_DESIGNS_DIR", str(tmp_path))
+    stl_path = tmp_path / "model.stl"
+    stl_path.write_text("fake stl")
+    backend = RoboCADBackendStub(
+        api_key="fake-key",
+        result=make_generation_result(
+            prompt="450 mm quadcopter with four motor arms",
+            success=True,
+            code="",
+            parameters=[],
+            exports={"stl": str(stl_path), "step": None, "script": None},
+        ),
+    )
+    with mock.patch("web.backend.main.backend", backend):
+        response = client.post(
+            "/generate",
+            json={"prompt": "450 mm quadcopter with four motor arms", "decompose": False, "max_retries": 0},
+        )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["model"] == "fake-model"
+    assert data.get("decomposition") is None
+
+
 # Helpers
 
 class RoboCADBackendStub:

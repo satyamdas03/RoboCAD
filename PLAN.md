@@ -665,7 +665,7 @@ PATH2 is the long-term North Star: a full-stack robotics design operating system
 
 **Effort:** 3–4 months. **Risk:** schema over-generalization; start with one new domain at a time.
 
-### Phase 18 — Automatic decomposition and domain part families
+### Phase 18 — Automatic decomposition and domain part families ✅
 
 **Goal:** Split complex system intents into parts and choose domain-specific part families/templates.
 
@@ -679,7 +679,9 @@ PATH2 is the long-term North Star: a full-stack robotics design operating system
 - Interface library per domain: mechanical mates, wing spar joints, PCB mounting patterns, humanoid joint limits.
 - Validation: no part intersections, statically determined assembly, reachable workspace check where applicable.
 
-**Tests:** generate 3–5 standard assemblies from single prompts per domain; verify no intersections.
+**Tests:** generate 3–5 standard assemblies from single prompts per domain; verify no intersections. ✅ 24 new tests; full pytest suite **225/225 passing**.
+
+**Shipped:** 2026-08-29. `ai_cad/part_families.py`, `ai_cad/decomposition.py`, `ai_cad/composer.py`, backend `/decompose` + `/generate?decompose` endpoints, frontend `DecomposePanel` + auto-decompose checkbox.
 
 **Effort:** 3–4 months. **Risk:** fully open-ended decomposition is unsolved; start with parameterized part families.
 
@@ -852,7 +854,7 @@ PATH2 is the long-term North Star: a full-stack robotics design operating system
 | 15B (RoboCompiler pipeline) | 15A | ✅ Complete — 187/187 tests; PATH1 monetization |
 | 16 (cross-domain input) | Phase 13 | 17, 22 |
 | 17 (domain representation) | Phase 13, 16 | 18 |
-| 18 (decomposition + families) | Phase 17 | 19, 20, 21 |
+| 18 (decomposition + families) | Phase 17 | ✅ Complete — 225/225 tests; 19, 20, 21 |
 | 19 (mechanical assembly) | 14A, 17, 18 | 23, 24 |
 | 20 (aero/thermal geometry) | 17, 18 | 22 |
 | 21 (electronics integration) | 17, 18 | 22 |
@@ -897,4 +899,4 @@ Full analysis is saved in `.claude/memory/robocad-path-analysis.md` and the end-
 
 ---
 
-*Last updated: 2026-08-27 (Phases 14A, 14B, 15A & 15B complete; 187/187 tests passing; scope expanded to full multi-domain robotics: mechanical, aero/thermal, electronics, and humanoid/robot systems; Phase 16 — cross-domain input — is next)*
+*Last updated: 2026-08-29 (Phases 14A, 14B, 15A, 15B, 16–17, and 18 complete; 225/225 tests passing; scope expanded to full multi-domain robotics: mechanical, aero/thermal, electronics, and humanoid/robot systems; Phase 19 — mechanical assembly synthesis — is next)*

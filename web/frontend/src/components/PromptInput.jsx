@@ -11,6 +11,7 @@ export default function PromptInput({ onGenerate, loading, seedPrompt }) {
   const [maxRetries, setMaxRetries] = useState(2)
   const [model, setModel] = useState('')
   const [detectDomain, setDetectDomain] = useState(false)
+  const [autoDecompose, setAutoDecompose] = useState(true)
 
   useEffect(() => {
     if (seedPrompt) {
@@ -21,7 +22,7 @@ export default function PromptInput({ onGenerate, loading, seedPrompt }) {
   const handleSubmit = (e) => {
     e.preventDefault()
     if (!prompt.trim()) return
-    onGenerate({ prompt: prompt.trim(), max_retries: maxRetries, model: model || null, detectDomain })
+    onGenerate({ prompt: prompt.trim(), max_retries: maxRetries, model: model || null, detectDomain, decompose: autoDecompose })
   }
 
   return (
@@ -86,6 +87,18 @@ export default function PromptInput({ onGenerate, loading, seedPrompt }) {
               className="kp-checkbox"
             />
             <label htmlFor="detect-domain" className="kp-label" style={{ margin: 0 }}>Detect domain</label>
+          </div>
+
+          <div className="kp-field kp-flex kp-align-center kp-gap-2" style={{ minWidth: '160px', flex: '1 1 160px' }} title="Split multi-domain system prompts into part families">
+            <input
+              id="auto-decompose"
+              type="checkbox"
+              checked={autoDecompose}
+              onChange={(e) => setAutoDecompose(e.target.checked)}
+              disabled={loading}
+              className="kp-checkbox"
+            />
+            <label htmlFor="auto-decompose" className="kp-label" style={{ margin: 0 }}>Auto-decompose systems</label>
           </div>
 
           <button

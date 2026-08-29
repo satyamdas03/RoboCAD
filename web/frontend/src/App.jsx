@@ -19,6 +19,7 @@ import SimulatePanel from './components/SimulatePanel.jsx'
 import SceneTemplatePanel from './components/SceneTemplatePanel.jsx'
 import CapabilitiesPanel from './components/CapabilitiesPanel.jsx'
 import DomainBadge from './components/DomainBadge.jsx'
+import DecomposePanel from './components/DecomposePanel.jsx'
 import {
   checkHealth,
   generateDesign,
@@ -45,6 +46,7 @@ export default function App() {
   const [guessResult, setGuessResult] = useState(null)
   const [nudge, setNudge] = useState(null)
   const [domainIntent, setDomainIntent] = useState(null)
+  const [decomposition, setDecomposition] = useState(null)
   const [inspectorOpen, setInspectorOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
@@ -64,18 +66,22 @@ export default function App() {
     }
   }
 
-  async function handleGenerate({ prompt, max_retries, model, detectDomain = false }) {
+  async function handleGenerate({ prompt, max_retries, model, detectDomain = false, decompose = true }) {
     setLoading(true)
     setError(null)
     setResult(null)
     setDomainIntent(null)
+    setDecomposition(null)
     clearFaceSelection()
     try {
-      const data = await generateDesign({ prompt, max_retries, model, detectDomain })
+      const data = await generateDesign({ prompt, max_retries, model, detectDomain, decompose })
       setResult(data)
       setSelectedId(data.design_id)
       if (data.domain_intent) {
         setDomainIntent(data.domain_intent)
+      }
+      if (data.decomposition) {
+        setDecomposition(data.decomposition)
       }
       await refreshHistory()
     } catch (err) {
@@ -100,6 +106,11 @@ export default function App() {
       setSelectedId(id)
       if (intent) {
         setDomainIntent(intent)
+      }
+      if (data.decomposition) {
+        setDecomposition(data.decomposition)
+      } else {
+        setDecomposition(null)
       }
       setSidebarOpen(false)
     } catch (err) {
@@ -291,6 +302,7 @@ export default function App() {
 
           {selectedId && (
             <div className="kp-panels-grid">
+              <DecomposePanel prompt={result?.prompt} decomposition={decomposition} />
               <AssemblyPanel designId={selectedId} />
               <SimulatePanel designId={selectedId} />
               <SceneTemplatePanel designId={selectedId} />

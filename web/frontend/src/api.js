@@ -17,10 +17,17 @@ export async function checkHealth() {
   return apiFetch('/health')
 }
 
-export async function generateDesign({ prompt, max_retries = 2, model = null, detectDomain = false }) {
+export async function generateDesign({ prompt, max_retries = 2, model = null, detectDomain = false, decompose = true }) {
   return apiFetch('/generate', {
     method: 'POST',
-    body: JSON.stringify({ prompt, max_retries, model, detect_domain: detectDomain }),
+    body: JSON.stringify({ prompt, max_retries, model, detect_domain: detectDomain, decompose }),
+  })
+}
+
+export async function decomposePrompt(prompt) {
+  return apiFetch('/decompose', {
+    method: 'POST',
+    body: JSON.stringify({ prompt }),
   })
 }
 
