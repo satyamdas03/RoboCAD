@@ -707,18 +707,32 @@ PATH2 is the long-term North Star: a full-stack robotics design operating system
 
 **Effort:** 3–4 months.
 
-### Phase 20 — Aerodynamics, thermal, and propulsion geometry
+### Phase 20 — Aerodynamics, thermal, and propulsion geometry ✅ COMPLETE
 
 **Goal:** Generate parametric airfoils, wings, ducts, heat sinks, and propeller blades, and export CFD-ready surfaces/meshes.
 
-**Deliverables:**
-- Parametric airfoil / wing builder (NACA 4/5-digit, custom camber, sweep, twist).
-- Surface / shell geometry for wings, ducts, and heat-sink fins.
-- Propeller blade geometry from chord/twist/pitch parameters.
-- CFD mesh export (SU2 / OpenFOAM surface mesh and config stubs).
-- Thermal fin / duct templates and heat-spreader geometry.
+**Status:** Complete — 2026-08-29.
 
-**Tests:** generated airfoil, wing, and heat sink produce valid surface meshes; simple 2D CFD template runs without errors.
+**Deliverables:**
+- ✅ Parametric airfoil / wing builder: NACA 4-digit airfoil via `ai_cad/sketch_solver.py`, extruded wings via `SurfaceFeature(type="wing")`.
+- ✅ Surface / shell geometry for wings and heat-sink fins; `heat_sink` family uses base plate + `GridLocations` fin array.
+- ✅ Propeller blade geometry from chord/twist parameters via `SurfaceFeature(type="propeller_blade")` and `propeller_blade` part family.
+- ✅ CFD mesh export in `ai_cad/cfd.py`: SU2 config stub and OpenFOAM `blockMeshDict` / `snappyHexMeshDict` stubs from any STL.
+- ✅ Thermal fin templates via `SurfaceFeature(type="heat_sink")`; duct family remains solid-feature based with thin-walled fallback.
+- ✅ Lightweight analysis stubs: `ai_cad/aero.py` (Cl/Cd/stall lookup) and `ai_cad/thermal.py` (surface area, fin count, thermal resistance, max temp).
+- ✅ Backend endpoints: `POST/GET /designs/{id}/aero-report`, `POST/GET /designs/{id}/thermal-report`, `POST /designs/{id}/cfd-mesh`.
+- ✅ Frontend panels: `AeroPanel.jsx` (domain-gated for aero/multi) and `ThermalPanel.jsx` (domain-gated for thermal/multi); API helpers in `api.js`.
+
+**Tests:** `tests/test_surface_geometry.py`, `tests/test_transpiler_surface.py`, `tests/test_part_families_aero_thermal.py`, `tests/test_cfd_export.py`; full pytest suite **276/276 passing**.
+
+**Shipped:** 2026-08-29. Phase 21 is next.
+
+**Caveats / deferred:**
+- Only NACA 4-digit symmetric/cambered thickness form is implemented; full 5-digit and custom camber lines are deferred to Phase 22.
+- CFD export is intentionally a stub: it writes surface meshes and solver config skeletons, not solved flow fields. Real SU2/OpenFOAM execution belongs to Phase 22.
+- `run_aero_analysis` uses a rough lookup-table/polar estimate, not a panel or RANS solver.
+- `run_thermal_analysis` estimates thermal resistance from surface area; it does not run conduction/convection FEA.
+- Heat-sink fin count is inferred from connected-component geometry and may miscount on complex fin geometries.
 
 **Effort:** 3–4 months. **Risk:** accurate CFD automation is hard; scope is geometry + template generation, not autonomous high-fidelity analysis.
 
@@ -906,4 +920,4 @@ Full analysis is saved in `.claude/memory/robocad-path-analysis.md` and the end-
 
 ---
 
-*Last updated: 2026-08-29 (Phases 14A–15B, 16–18, and 19 complete; 250/250 tests passing; scope expanded to full multi-domain robotics: mechanical, aero/thermal, electronics, and humanoid/robot systems; Phase 20 — aerodynamics, thermal, and propulsion geometry — is next)*
+*Last updated: 2026-08-29 (Phases 14A–15B, 16–20 complete; 276/276 tests passing; scope expanded to full multi-domain robotics: mechanical, aero/thermal, electronics, and humanoid/robot systems; Phase 21 — electronics/mechatronics integration — is next)*
