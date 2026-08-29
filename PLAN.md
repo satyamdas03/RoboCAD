@@ -699,8 +699,9 @@ PATH2 is the long-term North Star: a full-stack robotics design operating system
 - ✅ `ai_cad/geda_bridge/exporter.py` hierarchy-aware MJCF/URDF with joints, actuators, and sensors.
 - ✅ Backend endpoints: `POST /designs/{id}/synthesize-assembly`, `POST /designs/{id}/assembly-collision`, `GET /designs/{id}/assembly-poses`.
 - ✅ Frontend `AssemblyReplayPanel.jsx` and `AssemblyCollisionPanel.jsx`.
+- ✅ Default `robot arm with gripper` layout now synthesizes a true parallel-jaw **prismatic gripper** on the forearm.
 
-**Tests:** arm, gripper, and fixed assemblies load in MuJoCo; full pytest suite **250/250 passing**.
+**Tests:** arm, gripper (parallel-jaw prismatic), and fixed assemblies load in MuJoCo; full pytest suite **251/251 passing**.
 
 **Shipped:** 2026-08-29. Phase 20 is next.
 

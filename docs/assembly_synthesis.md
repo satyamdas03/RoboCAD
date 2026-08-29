@@ -30,3 +30,7 @@ Phase 19 turns RoboCAD's fixed part assemblies into articulated mechanisms:
 - `ai_cad/geda_bridge/exporter.py` — hierarchy-aware MJCF/URDF with joints/actuators/sensors.
 - `web/backend/main.py` — new assembly endpoints.
 - `web/frontend/src/components/AssemblyReplayPanel.jsx` / `AssemblyCollisionPanel.jsx`.
+
+## Default robot arm demo
+
+The `robot arm with gripper` system prompt now resolves to a true parallel-jaw **prismatic gripper**: two `gripper` jaws slide relative to the forearm along a prismatic joint. This is covered by `tests/test_composer.py::test_compose_robot_arm_has_prismatic_gripper`.

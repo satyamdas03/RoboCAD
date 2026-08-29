@@ -198,6 +198,7 @@ def infer_mates(
     *,
     use_llm: bool = False,
     prompt: str | None = None,
+    respect_existing_mates: bool = True,
 ) -> tuple[list[Mate], list[KinematicJoint]]:
     """Infer mates and kinematic joints for an assembly.
 
@@ -206,6 +207,8 @@ def infer_mates(
         assembly: The assembly whose instances should be mated.
         use_llm: If True, call the LLM fallback when no deterministic mates are found.
         prompt: Optional user prompt for the LLM fallback.
+        respect_existing_mates: If True, do not emit an inferred mate for a pair
+            that already has an explicit mate in ``assembly.mates``.
 
     Returns:
         A tuple of inferred ``(mates, joints)``.
@@ -213,11 +216,17 @@ def infer_mates(
     mates: list[Mate] = []
     joints: list[KinematicJoint] = []
     seen_pairs: set[frozenset[str]] = set()
+    explicit_pairs: set[frozenset[str]] = set()
+    if respect_existing_mates:
+        for m in assembly.mates:
+            if len(m.entities) >= 2:
+                explicit_pairs.add(frozenset(e.instance_id for e in m.entities))
+
     parent_exists = any(_is_parent_candidate(inst.part_id) for inst in assembly.instances)
 
     for inst_a, inst_b in itertools.combinations(assembly.instances, 2):
         pair = frozenset({inst_a.id, inst_b.id})
-        if pair in seen_pairs:
+        if pair in seen_pairs or pair in explicit_pairs:
             continue
         seen_pairs.add(pair)
 

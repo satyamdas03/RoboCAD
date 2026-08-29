@@ -255,9 +255,26 @@ def _place_robot_arm(result: DecompositionResult) -> tuple[list[Instance], list[
         )
     )
 
-    # Gripper jaws at forearm end.
+    # Gripper jaws at forearm end — parallel-jaw prismatic mechanism.
     if any(dp.id == "gripper" for dp in result.parts):
-        for side, offset in enumerate((-10.0, 10.0)):
+        jaw_spacing = 10.0
+        jaw_travel = 15.0
+        for dp in result.parts:
+            if dp.id == "gripper" and dp.parameters:
+                for p in dp.parameters:
+                    if p.name == "gripper_gap":
+                        try:
+                            jaw_spacing = float(p.value)
+                        except (TypeError, ValueError):
+                            pass
+                    elif p.name == "jaw_travel":
+                        try:
+                            jaw_travel = float(p.value)
+                        except (TypeError, ValueError):
+                            pass
+
+        for side, sign in enumerate((-1.0, 1.0)):
+            offset = sign * jaw_spacing / 2
             instances.append(
                 Instance(
                     id=f"i_gripper_{side}",
@@ -269,14 +286,16 @@ def _place_robot_arm(result: DecompositionResult) -> tuple[list[Instance], list[
                     },
                 )
             )
+            # Each jaw slides relative to the forearm along the local Y axis.
             mates.append(
                 Mate(
-                    id=f"m_gripper_forearm_{side}",
-                    type="fixed",
+                    id=f"m_gripper_{side}_forearm",
+                    type="prismatic",
                     entities=[
                         MateEntity(instance_id=f"i_gripper_{side}"),
                         MateEntity(instance_id="i_forearm_link"),
                     ],
+                    parameters={"distance": sign * jaw_travel},
                 )
             )
 
@@ -380,11 +399,114 @@ def compose_feature_tree(
                     assemblies=[draft_assembly],
                 ),
                 draft_assembly,
+                respect_existing_mates=False,
             )
         except Exception:
             inferred_mates, inferred_joints = [], []
+
+        # Explicit motion mates (e.g. prismatic gripper jaws) are authoritative:
+        # do not let inference attach the moving child to any other parent, and do
+        # not let inference add redundant fixed mates for already-fixed parts.
+        motion_children: set[str] = set()
+        fixed_instances: set[str] = set()
+        for m in mates:
+            if len(m.entities) < 2:
+                continue
+            ids = [e.instance_id for e in m.entities]
+            if m.type in ("revolute", "prismatic"):
+                # In explicit motion mates the first entity is the moving child.
+                motion_children.add(ids[0])
+            else:
+                fixed_instances.update(ids)
+
+        def _motion_pair(joint: KinematicJoint) -> frozenset[str]:
+            return frozenset({joint.parent_link, joint.child_link})
+
+        inferred_mates = [
+            m
+            for m in inferred_mates
+            if len(m.entities) >= 2
+            and not any(e.instance_id in motion_children for e in m.entities)
+            and not (
+                m.type == "fixed"
+                and any(e.instance_id in fixed_instances for e in m.entities)
+            )
+        ]
+        inferred_joints = [
+            j
+            for j in inferred_joints
+            if not (j.parent_link in motion_children or j.child_link in motion_children)
+            and not (
+                j.type == "fixed"
+                and (j.parent_link in fixed_instances or j.child_link in fixed_instances)
+            )
+        ]
+
+        # Inferred mates replace explicit layout mates when they are more
+        # specific (e.g. prismatic gripper jaws vs fixed). Deduplicate by
+        # instance pair, preferring non-fixed, motion-carrying mates.
         if inferred_mates:
-            mates = inferred_mates
+            seen_pairs: set[frozenset[str]] = set()
+            merged: list[Mate] = []
+            for m in mates + inferred_mates:
+                if len(m.entities) < 2:
+                    continue
+                pair = frozenset(e.instance_id for e in m.entities)
+                if pair in seen_pairs:
+                    continue
+                seen_pairs.add(pair)
+                existing_idx = next(
+                    (
+                        i
+                        for i, x in enumerate(merged)
+                        if frozenset(e.instance_id for e in x.entities) == pair
+                    ),
+                    None,
+                )
+                if existing_idx is None:
+                    merged.append(m)
+                elif merged[existing_idx].type == "fixed" and m.type != "fixed":
+                    merged[existing_idx] = m
+            mates = merged
+
+        # Emit joints for explicit motion mates (layout provides these when the
+        # composer already knows the mechanism, e.g. a parallel-jaw gripper).
+        instances_by_id = {inst.id: inst for inst in instances}
+        for m in mates:
+            if m.type not in ("revolute", "prismatic"):
+                continue
+            child_id = m.entities[0].instance_id
+            parent_id = m.entities[1].instance_id
+            if child_id not in instances_by_id or parent_id not in instances_by_id:
+                continue
+            child_t = instances_by_id[child_id].transform or {}
+            parent_t = instances_by_id[parent_id].transform or {}
+            c_origin = child_t.get("translation") or (0.0, 0.0, 0.0)
+            p_origin = parent_t.get("translation") or (0.0, 0.0, 0.0)
+            dx = c_origin[0] - p_origin[0]
+            dy = c_origin[1] - p_origin[1]
+            dz = c_origin[2] - p_origin[2]
+            length = math.sqrt(dx * dx + dy * dy + dz * dz)
+            if length > 1e-9:
+                axis = (dx / length, dy / length, dz / length)
+            else:
+                axis = (0.0, 0.0, 1.0)
+            if m.type == "revolute":
+                limits = (-180.0, 180.0)
+            else:
+                dist = abs(float(m.parameters.get("distance", 15.0))) if m.parameters else 15.0
+                limits = (0.0, dist)
+            inferred_joints.append(
+                KinematicJoint(
+                    id=f"j_{parent_id}_{child_id}",
+                    type=m.type,
+                    parent_link=parent_id,
+                    child_link=child_id,
+                    origin=c_origin,
+                    axis=axis,
+                    limits=limits,
+                )
+            )
 
     # Deduplicate instance IDs (safety) and ensure every part_id exists.
     seen_ids: set[str] = set()

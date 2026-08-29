@@ -32,7 +32,7 @@ These files are in `C:\Users\point\.claude\projects\C--Users-point-projects-Robo
 12. `claude5-integration-fixes.md` — Anthropic SDK fixes and latest Claude Sonnet 5 benchmark numbers (21/30, T1–T4 87.5%).
 13. `robocad-path-analysis.md` — PATH1 (GEDA Bridge) vs PATH2 (voice-to-world-model) strategic analysis; Phase 13 gate cleared.
 14. `robocad-end-to-end-roadmap.md` — Phased 13–24 plan to the full vision.
-15. `phase19-assembly-synthesis.md` — Mate inference, kinematic solver, collision checks, joint-aware MJCF/URDF export, browser replay (Phase 19, current).
+15. `phase19-assembly-synthesis.md` — Mate inference, kinematic solver, collision checks, joint-aware MJCF/URDF export, browser replay; 251/251 tests passing (Phase 19, complete; Phase 20 next).
 
 ---
 
@@ -210,4 +210,4 @@ npm run build
 5. Run the pytest suite and the frontend build.
 6. Only then continue the current phase.
 
-**Current active phase:** Phase 18 complete; Phase 19 mechanical assembly synthesis is next. Before starting Phase 19, run `python -m pytest` and verify `/generate?decompose=True` works end-to-end with a quadcopter or robot-arm prompt. See `PLAN.md` Section 9 and `.claude/memory/robocad-end-to-end-roadmap.md`.
+**Current active phase:** Phase 19 complete; Phase 20 (aerodynamics, thermal, and propulsion geometry) is next. Before starting Phase 20, run `python -m pytest` and verify `/generate?decompose=True` still works end-to-end with a quadcopter or robot-arm prompt. See `PLAN.md` Section 9 and `.claude/memory/robocad-end-to-end-roadmap.md`.

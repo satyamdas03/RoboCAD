@@ -1,3 +1,5 @@
+import pytest
+
 from ai_cad.assembly import transpile_assembly
 from ai_cad.composer import compose_feature_tree
 from ai_cad.decomposition import decompose
@@ -15,7 +17,9 @@ def test_compose_quadcopter_feature_tree():
 
     assembly = tree.assemblies[0]
     assert len(assembly.instances) == 9  # hub + 4 arms + 4 mounts
-    assert len(assembly.mates) == 8
+    # Layout mates are preserved; inferred hub-mount mates add 4 more.
+    assert len(assembly.mates) >= 8
+    assert all(len(m.entities) == 2 for m in assembly.mates)
 
 
 def test_compose_quadcopter_transpiles_and_executes(tmp_path):
@@ -38,6 +42,22 @@ def test_compose_robot_arm_executes(tmp_path):
     code = transpile_assembly(tree)
     exec_result = execute_code(code, output_dir=tmp_path, timeout=120)
     assert exec_result["success"] is True
+
+
+def test_compose_robot_arm_has_prismatic_gripper():
+    """The default robot arm layout now produces a parallel-jaw prismatic gripper."""
+    result = decompose("robot arm with gripper", use_llm=False)
+    tree = compose_feature_tree(result)
+    assembly = tree.assemblies[0]
+
+    gripper_mates = [m for m in assembly.mates if m.id.startswith("m_gripper_")]
+    assert len(gripper_mates) == 2
+    assert all(m.type == "prismatic" for m in gripper_mates)
+
+    gripper_joints = [j for j in assembly.joints if j.parent_link == "i_forearm_link" or j.child_link.startswith("i_gripper")]
+    assert len(gripper_joints) == 2
+    assert all(j.type == "prismatic" for j in gripper_joints)
+    assert all(j.limits == pytest.approx((0.0, 15.0)) for j in gripper_joints)
 
 
 def test_compose_quadcopter_with_aero_shell_executes(tmp_path):

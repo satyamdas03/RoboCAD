@@ -4,7 +4,7 @@
 **Horizon:** ~5–7 years  
 **North Star:** voice/text/sketch → multi-domain parametric CAD → per-part multi-physics testing → assembly → world-model simulation → HERMES oversight → robot brain trained on synthetic data with retraining loops.  
 **First commercial milestone:** PATH1 / GEDA Bridge (Phases 14A–15B) — complete, 187/187 tests.  
-**Current milestone:** Batch A multi-domain foundation (Phases 16–18) — complete, 228/228 tests after hardening; Phase 19 mechanical assembly synthesis is next.  
+**Current milestone:** Mechanical assembly synthesis (Phase 19) — complete, 251/251 tests; default "robot arm with gripper" synthesizes a parallel-jaw prismatic gripper; Phase 20 aerodynamics/thermal/propulsion geometry is next.  
 **Domain tracks:** mechanical assemblies, aerodynamics / thermal / propulsion geometry, electronics / mechatronics form-factor co-design, humanoid / full-robot system synthesis.  
 **Related:** [`PLAN.md`](../PLAN.md) Sections 10–14, [`PATH1_PATH2_analysis.md`](PATH1_PATH2_analysis.md)
 
@@ -237,8 +237,9 @@ Maintained across the entire roadmap:
 - ✅ `ai_cad/geda_bridge/exporter.py` hierarchy-aware MJCF/URDF with joints, actuators, and sensors.
 - ✅ Backend endpoints: `POST /designs/{id}/synthesize-assembly`, `POST /designs/{id}/assembly-collision`, `GET /designs/{id}/assembly-poses`.
 - ✅ Frontend `AssemblyReplayPanel.jsx` and `AssemblyCollisionPanel.jsx`.
+- ✅ Default `robot arm with gripper` layout synthesizes a true parallel-jaw **prismatic gripper** on the forearm.
 
-**Tests:** arm, gripper, and fixed-only assemblies load in MuJoCo; full pytest suite **250/250 passing**.
+**Tests:** arm, parallel-jaw prismatic gripper, and fixed-only assemblies load in MuJoCo; full pytest suite **251/251 passing**.
 
 **Timeline:** 3–4 months.
 
@@ -441,7 +442,7 @@ Maintained across the entire roadmap:
 
 ## Immediate next action
 
-Start **Phase 19 — Mechanical assembly synthesis**: mate inference from part interfaces and intent, kinematic-loop solver for closed chains, assembly-level collision/clearance checks, full-subsystem MJCF/URDF export with joints/actuators/sensors, and browser range-of-motion replay. Keep Batch A (Phases 16–18) under maintenance and the 228-test suite green as assembly synthesis lands.
+Start **Phase 20 — Aerodynamics, thermal, and propulsion geometry**: parametric airfoils/wings/ducts/heat sinks/propeller blades, surface/shell geometry, and CFD-ready mesh export (SU2 / OpenFOAM stubs). Keep Phases 16–19 under maintenance and the 251-test suite green as aero/thermal geometry lands.
 
 ---
 

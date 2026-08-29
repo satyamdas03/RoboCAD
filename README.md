@@ -141,7 +141,7 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **16** | **Cross-domain input (voice/text/sketch + domain detection)** | ✅ **Complete — `ai_cad/domain.py` keyword + embedding classifier, `ai_cad/intent_parser.py` per-domain `DomainIntent`, `POST /classify-domain`, `GET /designs/{id}/domain-intent`, `DomainBadge` in history + inspector, 201/201 tests passing** |
 | **17** | **Domain-aware parametric representation (solids, surfaces, kinematics, PCB form factors)** | ✅ **Complete — feature-tree schema v2.0.0 with domain tags, `SurfaceFeature`, `KinematicJoint`, `PCBOutline`, NACA 4-digit airfoil sketch entity, `ai_cad/sketch_solver.py` airfoil point generation, 201/201 tests passing** |
 | **18** | **Automatic decomposition + domain part families** | ✅ **Complete — `ai_cad/part_families.py`, `ai_cad/decomposition.py`, `ai_cad/composer.py`, rule-based system decomposer, 12 cross-domain part families, `POST /decompose`, `/generate?decompose`, `DecomposePanel.jsx` + auto-decompose checkbox, **228/228 tests passing** |
-| **19** | Mechanical assembly synthesis + verification | ⏳ Planned |
+| **19** | **Mechanical assembly synthesis + verification** | ✅ **Complete — mate inference from part-family `Interface`s, kinematic solver for revolute/prismatic joints, assembly collision/clearance checks, joint-aware MJCF/URDF export, browser range-of-motion replay; default "robot arm with gripper" synthesizes a true parallel-jaw prismatic gripper; **251/251 tests passing** |
 | **20** | Aerodynamics, thermal, and propulsion geometry | ⏳ Planned |
 | **21** | Electronics and mechatronics integration (form-factor co-design, not silicon layout) | ⏳ Planned |
 | **22** | Multi-physics verification engine (FEA / CFD / thermal / dynamics) | ⏳ Planned |
@@ -177,7 +177,7 @@ This roadmap is the canonical plan of record for RoboCAD. **Do not reorder phase
 | **16** | Cross-domain input (voice/text/sketch + domain detection) | 2–3 mo | Mechanical, aero, electronics, humanoid intents routed correctly |
 | **17** | Domain-aware parametric representation | 3–4 mo | Feature tree supports solids, surfaces, kinematics, PCB form factors |
 | **18** | Automatic decomposition + domain part families | 3–4 mo | ✅ System intents split into domain-specific parts; 12 reusable part families; **228/228 tests** |
-| **19** | Mechanical assembly synthesis + verification | 3–4 mo | Full mechanical subsystem bundle |
+| **19** | Mechanical assembly synthesis + verification | 3–4 mo | ✅ Mate inference + kinematic solver + collision checks + joint-aware export; **251/251 tests** |
 | **20** | Aerodynamics, thermal, and propulsion geometry | 3–4 mo | Airfoil / wing / heat sink / propeller + CFD mesh export |
 | **21** | Electronics and mechatronics integration | 2–3 mo | PCB form-factor / enclosure / connector co-design |
 | **22** | Multi-physics verification engine | 4–6 mo | Structural / thermal / CFD / dynamic checks |
@@ -524,7 +524,8 @@ The decision: **build PATH1 (Phases 14A–15B) first**, then use it as the techn
   * Backend endpoints: `POST /designs/{id}/synthesize-assembly`, `POST /designs/{id}/assembly-collision`, `GET /designs/{id}/assembly-poses`.
   * Frontend `AssemblyReplayPanel.jsx` and `AssemblyCollisionPanel.jsx` for browser preview.
   * New tests: `tests/test_mate_inference.py`, `tests/test_kinematic_solver.py`, `tests/test_assembly_collision.py`, `tests/test_geda_bridge_mechanism.py`, plus endpoint coverage in `tests/test_web_backend.py`.
-* Full pytest suite: **250/250 passing**.
+  * Tightened the default robot arm layout: `robot arm with gripper` now synthesizes a **parallel-jaw prismatic gripper** attached to the forearm, verified by `tests/test_composer.py::test_compose_robot_arm_has_prismatic_gripper`.
+* Full pytest suite: **251/251 passing**.
 
 ### 2026-08-27 — Scope expanded to full multi-domain robotics platform
 
