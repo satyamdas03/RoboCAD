@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
+import warnings
 
 import numpy as np
 import trimesh
@@ -106,12 +107,16 @@ def check_fit(
     mean_d = float(np.mean(distances))
 
     # Interference volume: signed distance integration is hard; use trimesh boolean if available.
+    # Suppress the harmless divide-by-zero RuntimeWarning trimesh emits on a
+    # zero-volume intersection (e.g. separated clearance-fit parts).
     interference_volume: Optional[float] = None
     try:
         if mesh_a.is_watertight and mesh_b.is_watertight:
             intersection = mesh_a.intersection(mesh_b)
-            if intersection is not None and hasattr(intersection, "volume"):
-                interference_volume = float(intersection.volume)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", RuntimeWarning)
+                if intersection is not None and hasattr(intersection, "volume"):
+                    interference_volume = float(intersection.volume)
     except Exception:
         interference_volume = None
 

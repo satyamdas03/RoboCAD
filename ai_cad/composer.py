@@ -274,15 +274,18 @@ def _place_robot_arm(result: DecompositionResult) -> tuple[list[Instance], list[
                             pass
 
         for side, sign in enumerate((-1.0, 1.0)):
-            offset = sign * jaw_spacing / 2
+            # The end_effector family draws one jaw on the +Y side of the pivot.
+            # Mirror the second jaw 180° around its local X axis so the two jaws
+            # sit on opposite sides of the gripper center line with the requested gap.
+            rotation = (0.0, 90.0, 0.0) if side == 0 else (180.0, 90.0, 0.0)
             instances.append(
                 Instance(
                     id=f"i_gripper_{side}",
                     part_id="gripper",
                     name=f"Gripper jaw {side + 1}",
                     transform={
-                        "translation": (link_length + 20.0, offset, link_length / 2 + 10.0),
-                        "rotation": (0.0, 90.0, 0.0),
+                        "translation": (link_length + 20.0, 0.0, link_length / 2 + 10.0),
+                        "rotation": rotation,
                     },
                 )
             )
@@ -399,7 +402,7 @@ def compose_feature_tree(
                     assemblies=[draft_assembly],
                 ),
                 draft_assembly,
-                respect_existing_mates=False,
+                respect_existing_mates=True,
             )
         except Exception:
             inferred_mates, inferred_joints = [], []

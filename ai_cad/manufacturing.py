@@ -11,6 +11,7 @@ from __future__ import annotations
 import math
 from pathlib import Path
 from typing import Any, Optional
+import warnings
 
 import numpy as np
 import trimesh
@@ -166,8 +167,13 @@ def analyze_model(
 
     if mesh.extents is not None:
         result["bounds_mm"] = tuple(float(x) for x in mesh.extents)
-    if mesh.volume is not None and mesh.volume > 0:
-        result["volume_cm3"] = round(mesh.volume / 1000.0, 4)
+    # Degenerate meshes can make trimesh emit a divide-by-zero RuntimeWarning when
+    # computing volume; suppress it while reading the value.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        volume = mesh.volume
+    if volume is not None and volume > 0:
+        result["volume_cm3"] = round(volume / 1000.0, 4)
     if mesh.area is not None and mesh.area > 0:
         result["surface_area_cm2"] = round(mesh.area / 100.0, 4)
 

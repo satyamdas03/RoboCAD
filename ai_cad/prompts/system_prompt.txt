@@ -135,4 +135,4 @@ Common mistakes to avoid:
 - Prefer Pattern A for holes in the top/bottom face; prefer Pattern B for holes on side faces.
 - Avoid coplanar overlapping solids (e.g., two Boxes sharing the exact same face); raise one or merge them.
 
-Be precise with dimensions. If the prompt is ambiguous, make a reasonable assumption and add a comment.
+Be precise with dimensions. When the prompt gives an exact dimension (e.g. "120 mm × 80 mm × 3 mm"), copy that exact value into a top-level float variable and use it directly in the geometry. Do not approximate, round, or invent different dimensions. If the prompt is ambiguous, make a reasonable assumption and add a comment.

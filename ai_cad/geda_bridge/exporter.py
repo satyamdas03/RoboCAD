@@ -9,6 +9,7 @@ from __future__ import annotations
 import datetime as dt
 import math
 import re
+import warnings
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any, Optional
@@ -90,26 +91,30 @@ def compute_inertial(mesh_mm: trimesh.Trimesh, material: str | None = None) -> I
     mesh_m.vertices = mesh_m.vertices * MM_TO_M
     mesh_m.density = density
 
-    mass = float(mesh_m.mass)
-    com = tuple(float(x) for x in mesh_m.center_mass)
-    inertia = mesh_m.moment_inertia
-    # trimesh returns inertia tensor about center of mass in kg·m².
-    inertia_tuple = (
-        float(inertia[0, 0]),
-        float(inertia[1, 1]),
-        float(inertia[2, 2]),
-        float(inertia[0, 1]),
-        float(inertia[0, 2]),
-        float(inertia[1, 2]),
-    )
+    # Suppress trimesh's divide-by-zero RuntimeWarning on degenerate / tiny meshes
+    # (e.g. flat collision test cubes) while still reading whatever value it returns.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        mass = float(mesh_m.mass)
+        com = tuple(float(x) for x in mesh_m.center_mass)
+        inertia = mesh_m.moment_inertia
+        # trimesh returns inertia tensor about center of mass in kg·m².
+        inertia_tuple = (
+            float(inertia[0, 0]),
+            float(inertia[1, 1]),
+            float(inertia[2, 2]),
+            float(inertia[0, 1]),
+            float(inertia[0, 2]),
+            float(inertia[1, 2]),
+        )
 
-    try:
-        principal_moments, principal_axes = mesh_m.principal_inertia_components, mesh_m.principal_inertia_vectors
-        pm = tuple(float(x) for x in principal_moments)
-        pa = [tuple(float(v) for v in axis) for axis in principal_axes]
-    except Exception:
-        pm = None
-        pa = None
+        try:
+            principal_moments, principal_axes = mesh_m.principal_inertia_components, mesh_m.principal_inertia_vectors
+            pm = tuple(float(x) for x in principal_moments)
+            pa = [tuple(float(v) for v in axis) for axis in principal_axes]
+        except Exception:
+            pm = None
+            pa = None
 
     return InertialData(
         mass_kg=mass,

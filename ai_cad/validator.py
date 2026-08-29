@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any, Optional
+import warnings
 
 import trimesh
 
@@ -52,7 +53,12 @@ def validate_model(stl_path: Optional[Path]) -> dict[str, Any]:
     result["manifold"] = bool(mesh.is_watertight and mesh.is_winding_consistent)
     result["watertight"] = bool(mesh.is_watertight)
     result["bounds_mm"] = tuple(float(x) for x in mesh.extents) if mesh.extents is not None else None
-    result["volume_mm3"] = float(mesh.volume) if mesh.volume is not None else None
+    # Degenerate or flat meshes can make trimesh emit a divide-by-zero RuntimeWarning
+    # while computing volume; suppress it and read whatever value is returned.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        volume = mesh.volume
+    result["volume_mm3"] = float(volume) if volume is not None else None
     result["surface_area_mm2"] = float(mesh.area) if mesh.area is not None else None
 
     if not result["watertight"]:

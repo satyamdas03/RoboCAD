@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from itertools import combinations
 from pathlib import Path
 from typing import Any
+import warnings
 
 import numpy as np
 import trimesh
@@ -84,8 +85,13 @@ def _boolean_intersection_volume(
     try:
         if mesh_a.is_watertight and mesh_b.is_watertight:
             intersection = mesh_a.intersection(mesh_b)
-            if intersection is not None and hasattr(intersection, "volume"):
-                return float(intersection.volume)
+            # Separated meshes can produce a zero-volume intersection that still
+            # reports a volume property; reading it triggers trimesh's divide-by-zero
+            # RuntimeWarning on degenerate faces.
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", RuntimeWarning)
+                if intersection is not None and hasattr(intersection, "volume"):
+                    return float(intersection.volume)
     except Exception:
         return None
     return None

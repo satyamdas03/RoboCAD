@@ -18,5 +18,9 @@
   {
     "prompt": "A differential-drive robot chassis base, 150 mm × 100 mm, with two NEMA-17 motor mounts and a caster clearance hole.",
     "code": "from build123d import *\n\nlength = 150.0\nwidth = 100.0\nbase_thickness = 3.0\nmount_w = 42.3\nmount_h = 42.3\nmount_t = 5.0\n\nwith BuildPart() as chassis:\n    Box(length, width, base_thickness)\n    with Locations((-length/2 + mount_w/2 + 10, width/2 - mount_h/2 - 10, base_thickness + mount_t/2)):\n        Box(mount_w, mount_h, mount_t)\n    with Locations((length/2 - mount_w/2 - 10, width/2 - mount_h/2 - 10, base_thickness + mount_t/2)):\n        Box(mount_w, mount_h, mount_t)\n    with Locations((0, -width/2 + 20, 0)):\n        Cylinder(radius=12.0/2, height=base_thickness + 0.2, mode=Mode.SUBTRACT)\n\nresult = chassis.part"
+  },
+  {
+    "prompt": "A rectangular mounting bracket, 60 mm wide, 40 mm deep, 5 mm thick, with a single 8 mm diameter hole in the center.",
+    "code": "from build123d import *\n\n# Use the exact dimensions from the prompt.\nwidth = 60.0          # prompt: 60 mm\ndepth = 40.0          # prompt: 40 mm\nthickness = 5.0       # prompt: 5 mm\nhole_diameter = 8.0   # prompt: 8 mm\n\nwith BuildPart() as bracket:\n    Box(width, depth, thickness)\n    with Locations((0, 0, 0)):\n        Cylinder(radius=hole_diameter / 2, height=thickness + 0.2, mode=Mode.SUBTRACT)\n\nresult = bracket.part"
   }
 ]
