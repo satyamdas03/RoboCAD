@@ -15,6 +15,8 @@ import FEAPanel from './components/FEAPanel.jsx'
 import OnshapeUpload from './components/OnshapeUpload.jsx'
 import FeatureTreePanel from './components/FeatureTreePanel.jsx'
 import AssemblyPanel from './components/AssemblyPanel.jsx'
+import AssemblyReplayPanel from './components/AssemblyReplayPanel.jsx'
+import AssemblyCollisionPanel from './components/AssemblyCollisionPanel.jsx'
 import SimulatePanel from './components/SimulatePanel.jsx'
 import SceneTemplatePanel from './components/SceneTemplatePanel.jsx'
 import CapabilitiesPanel from './components/CapabilitiesPanel.jsx'
@@ -304,6 +306,8 @@ export default function App() {
             <div className="kp-panels-grid">
               <DecomposePanel prompt={result?.prompt} decomposition={decomposition} />
               <AssemblyPanel designId={selectedId} />
+              <AssemblyReplayPanel designId={selectedId} />
+              <AssemblyCollisionPanel designId={selectedId} />
               <SimulatePanel designId={selectedId} />
               <SceneTemplatePanel designId={selectedId} />
               <CapabilitiesPanel designId={selectedId} />

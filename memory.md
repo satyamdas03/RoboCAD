@@ -138,7 +138,8 @@ LearningRobotics → world model → policy training → sim-to-real
 | **16** | Cross-domain input (voice/text/sketch + domain detection) | ✅ **Complete — `ai_cad/domain.py` classifier, `ai_cad/intent_parser.py`, `POST /classify-domain`, domain badges, 201/201 tests passing** |
 | **17** | Domain-aware parametric representation | ✅ **Complete — feature-tree schema v2.0.0, `SurfaceFeature`, `KinematicJoint`, `PCBOutline`, NACA airfoil sketch, 201/201 tests passing** |
 | **18** | Automatic decomposition + domain part families | ✅ **Complete — `ai_cad/part_families.py`, `ai_cad/decomposition.py`, `ai_cad/composer.py`, `POST /decompose`, `/generate?decompose`, `DecomposePanel.jsx`, **228/228 tests passing** |
-| **19** | Mechanical assembly synthesis + verification | ⏳ **Next** |
+| **19** | Mechanical assembly synthesis + verification | ✅ **Complete — `Interface` library, `mate_inference.py`, revolute/prismatic solver, `assembly_collision.py`, MJCF/URDF joints/actuators/sensors, `/synthesize-assembly`, `/assembly-collision`, `/assembly-poses`, `AssemblyReplayPanel.jsx`, **250/250 tests passing** |
+| **20** | Aerodynamics, thermal, and propulsion geometry | ⏳ **Next** |
 | **20** | Aerodynamics, thermal, and propulsion geometry | ⏳ Planned |
 | **21** | Electronics and mechatronics integration | ⏳ Planned |
 | **22** | Multi-physics verification engine | ⏳ Planned |
@@ -220,17 +221,17 @@ RoboCAD/
 ## 9. Current status snapshot
 
 - Repo at `https://github.com/satyamdas03/RoboCAD`; `master` pushed and in sync with local.
-- Phases 0–18 committed and pushed.
-- `ai_cad/` package implements generation, execution, validation, parameter extraction, self-correction, Onshape upload, manufacturing reports, face-click parameter guessing, feature trees, sketch constraints, assemblies, DFM/tolerances/FEA, Claude 5 compatibility, GEDA Bridge bundle export, scene templates, LearningRobotics handshake, RoboCompiler skill pipeline, domain classification, per-domain intent parsing, and automatic decomposition/part families.
+- Phases 0–19 committed and pushed.
+- `ai_cad/` package implements generation, execution, validation, parameter extraction, self-correction, Onshape upload, manufacturing reports, face-click parameter guessing, feature trees, sketch constraints, assemblies, DFM/tolerances/FEA, Claude 5 compatibility, GEDA Bridge bundle export, scene templates, LearningRobotics handshake, RoboCompiler skill pipeline, domain classification, per-domain intent parsing, automatic decomposition/part families, and mechanical assembly synthesis (mate inference, kinematic solver, collision checks, joint-aware MJCF/URDF export).
 - Web app has FastAPI backend + React frontend with Kinetic Precision dark workstation UI.
-- Test suite: **228/228 passing tests**.
+- Test suite: **250/250 passing tests**.
 - Latest fixes: transpiler shell/fillet/chamfer now use the correct per-part `BuildPart` variable; duct family creates a hollow tube via outer + inner subtract instead of the fragile `shell` operation.
-- Live end-to-end verified: `/decompose`, `/classify-domain`, and `/generate?decompose=True` all work for the quadcopter-with-shell prompt.
+- Live end-to-end verified: `/decompose`, `/classify-domain`, `/generate?decompose=True`, `/designs/{id}/assembly-collision`, and `/designs/{id}/assembly-poses` all work.
 - Strategic decision maintained: PATH1 (GEDA Bridge) shipped first; PATH2 (voice/world-model-to-robot) is the long-term North Star.
 
 **Next work:**
-1. **Phase 19 — Mechanical assembly synthesis:** mate inference, kinematic-loop solver, collision/clearance checks, full-subsystem MJCF/URDF export, browser range-of-motion replay.
-2. Keep Batch A (Phases 16–18) under maintenance and the test suite green.
+1. **Phase 20 — Aerodynamics, thermal, and propulsion geometry:** parametric airfoils/wings/ducts/heat sinks, CFD-ready surface mesh export.
+2. Keep Batch A + Phase 19 under maintenance and the test suite green.
 3. Continue local-model fine-tuning (`robocad-ft:latest`) as a background experiment.
 
 ---

@@ -17,7 +17,7 @@ import numpy as np
 import trimesh
 
 from ai_cad.executor import execute_code
-from ai_cad.feature_tree import FeatureTree
+from ai_cad.feature_tree import FeatureTree, KinematicJoint
 from ai_cad.geda_bridge.models import (
     BundleManifest,
     BundlePart,
@@ -262,17 +262,115 @@ def _build_bundle_part(
     )
 
 
-def _build_urdf(parts: list[BundlePart], output_path: Path, robot_name: str) -> Path:
-    """Write a URDF file with one link per part instance fixed to a world link."""
+def _resolve_link_name(ref: str, parts: list[BundlePart]) -> str:
+    """Map a joint parent_link/child_link reference to a BundlePart link name."""
+    name_map = {p.name: p for p in parts}
+    if ref in name_map:
+        return ref
+    for p in parts:
+        if p.instance_id == ref:
+            return p.name
+    for p in parts:
+        if p.part_id == ref:
+            return p.name
+    return _sanitize_name(ref)
+
+
+def _joint_origin_m(joint: KinematicJoint) -> tuple[float, float, float]:
+    """Return the joint origin in meters (FeatureTree stores mm by default)."""
+    return tuple(float(v) * MM_TO_M for v in joint.origin)
+
+
+def _joint_limits_native(joint: KinematicJoint) -> tuple[float, float]:
+    """Return joint limits in native URDF/MuJoCo units (radians / meters)."""
+    if joint.limits is not None:
+        lower, upper = joint.limits
+        if joint.type == "revolute":
+            return math.radians(lower), math.radians(upper)
+        if joint.type == "prismatic":
+            return float(lower) * MM_TO_M, float(upper) * MM_TO_M
+    if joint.type == "revolute":
+        return -math.pi, math.pi
+    if joint.type == "prismatic":
+        return -0.05, 0.05
+    return 0.0, 0.0
+
+
+def _joint_axis(joint: KinematicJoint) -> tuple[float, float, float]:
+    """Return a normalized joint axis with sensible defaults."""
+    if joint.axis is not None:
+        a = np.array(joint.axis, dtype=float)
+        norm = np.linalg.norm(a)
+        if norm > 1e-9:
+            return tuple(float(v) for v in a / norm)
+    if joint.type == "prismatic":
+        return (1.0, 0.0, 0.0)
+    return (0.0, 0.0, 1.0)
+
+
+def _build_body_hierarchy(
+    parts: list[BundlePart], joints: list[KinematicJoint]
+) -> tuple[dict[str, BundlePart], dict[str, str], dict[str, list[str]], list[BundlePart], list[tuple[KinematicJoint, str, str]]]:
+    """Group bodies by parent-child links from real (non-fixed) joints.
+
+    Returns:
+        name_to_part mapping, parent map, children map, root bodies, and a list
+        of (joint, parent_name, child_name) tuples for real joints.
+    """
+    name_to_part = {p.name: p for p in parts}
+    parent_map: dict[str, str] = {}
+    children_map: dict[str, list[str]] = {}
+    processed: list[tuple[KinematicJoint, str, str]] = []
+    seen_children: set[str] = set()
+
+    for joint in joints:
+        if joint.type == "fixed":
+            continue
+        parent = _resolve_link_name(joint.parent_link, parts)
+        child = _resolve_link_name(joint.child_link, parts)
+        if parent == child or child in seen_children:
+            continue
+        seen_children.add(child)
+        parent_map[child] = parent
+        children_map.setdefault(parent, []).append(child)
+        processed.append((joint, parent, child))
+
+    roots = [p for p in parts if p.name not in parent_map]
+    return name_to_part, parent_map, children_map, roots, processed
+
+
+def _part_world_pos_quat(part: BundlePart) -> tuple[tuple[float, float, float], tuple[float, float, float, float]]:
+    """Return the world position and quaternion of a part instance in meters."""
+    if part.transform_m is not None:
+        M = np.array(part.transform_m)
+        return _matrix_to_pos_quat(M)
+    return (0.0, 0.0, 0.0), (1.0, 0.0, 0.0, 0.0)
+
+
+def _build_urdf(
+    parts: list[BundlePart],
+    output_path: Path,
+    robot_name: str,
+    joints: Optional[list[KinematicJoint]] = None,
+) -> Path:
+    """Write a URDF file with one link per part instance.
+
+    Parts that are children of a real (non-fixed) joint are connected by that
+    joint; all other parts remain fixed to the world link.
+    """
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    joints = joints or []
 
     robot = ET.Element("robot", {"name": _sanitize_name(robot_name)})
 
     world_link = ET.SubElement(robot, "link", {"name": "world"})
     _urdf_inertial(world_link, 0.0, (0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
 
-    for idx, part in enumerate(parts):
+    _, _, _, _, real_joints = _build_body_hierarchy(parts, joints)
+    real_joint_children = {child for _, _, child in real_joints}
+
+    for part in parts:
         link_name = _sanitize_name(part.name)
         link = ET.SubElement(robot, "link", {"name": link_name})
 
@@ -293,6 +391,11 @@ def _build_urdf(parts: list[BundlePart], output_path: Path, robot_name: str) -> 
         ET.SubElement(collision, "origin", {"xyz": "0 0 0", "rpy": "0 0 0"})
         cgeom = ET.SubElement(collision, "geometry")
         ET.SubElement(cgeom, "mesh", {"filename": part.mesh_file, "scale": "1 1 1"})
+
+    for part in parts:
+        link_name = _sanitize_name(part.name)
+        if link_name in real_joint_children:
+            continue
 
         if part.transform_m is not None:
             M = np.array(part.transform_m)
@@ -316,6 +419,44 @@ def _build_urdf(parts: list[BundlePart], output_path: Path, robot_name: str) -> 
                 "rpy": f"{rpy[0]:.6f} {rpy[1]:.6f} {rpy[2]:.6f}",
             },
         )
+
+    for joint, parent_name, child_name in real_joints:
+        joint_name = _sanitize_name(joint.id)
+        joint_elem = ET.SubElement(
+            robot,
+            "joint",
+            {"name": joint_name, "type": joint.type},
+        )
+        ET.SubElement(joint_elem, "parent", {"link": _sanitize_name(parent_name)})
+        ET.SubElement(joint_elem, "child", {"link": _sanitize_name(child_name)})
+        origin_m = _joint_origin_m(joint)
+        ET.SubElement(
+            joint_elem,
+            "origin",
+            {
+                "xyz": f"{origin_m[0]:.6f} {origin_m[1]:.6f} {origin_m[2]:.6f}",
+                "rpy": "0 0 0",
+            },
+        )
+        if joint.type in ("revolute", "prismatic"):
+            axis = _joint_axis(joint)
+            ET.SubElement(
+                joint_elem,
+                "axis",
+                {"xyz": f"{axis[0]:.6f} {axis[1]:.6f} {axis[2]:.6f}"},
+            )
+            if joint.limits is not None:
+                lower, upper = _joint_limits_native(joint)
+                ET.SubElement(
+                    joint_elem,
+                    "limit",
+                    {
+                        "lower": f"{lower:.6f}",
+                        "upper": f"{upper:.6f}",
+                        "effort": "10",
+                        "velocity": "10",
+                    },
+                )
 
     tree = ET.ElementTree(robot)
     _write_pretty_xml(tree, output_path)
@@ -346,10 +487,24 @@ def _urdf_inertial(parent, mass: float, com: tuple[float, float, float], inertia
     )
 
 
-def _build_mjcf(parts: list[BundlePart], output_path: Path, model_name: str) -> Path:
-    """Write a MuJoCo MJCF file with one body per part instance."""
+def _build_mjcf(
+    parts: list[BundlePart],
+    output_path: Path,
+    model_name: str,
+    joints: Optional[list[KinematicJoint]] = None,
+) -> Path:
+    """Write a MuJoCo MJCF file with nested bodies and real joints.
+
+    Child bodies are placed inside their parent body according to the joint
+    hierarchy. Each real joint becomes a ``<joint>`` inside its child body, and
+    actuators/sensors are emitted for every revolute/prismatic joint.
+    """
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    joints = joints or []
+
+    name_to_part, _, children_map, roots, real_joints = _build_body_hierarchy(parts, joints)
+    actuated_joints = [joint for joint, _, _ in real_joints if joint.type in ("revolute", "prismatic")]
 
     mujoco = ET.Element("mujoco", {"model": _sanitize_name(model_name)})
     ET.SubElement(mujoco, "compiler", {"meshdir": "meshes", "autolimits": "true"})
@@ -358,31 +513,37 @@ def _build_mjcf(parts: list[BundlePart], output_path: Path, model_name: str) -> 
 
     for part in parts:
         mesh_name = _sanitize_name(part.name)
-        # meshdir="meshes" is already set on the compiler, so the file path
-        # here must be relative to that directory (i.e. just the STL filename).
         ET.SubElement(asset, "mesh", {"name": mesh_name, "file": Path(part.mesh_file).name})
 
-    for part in parts:
+    built: set[str] = set()
+
+    def _emit_body(parent_elem: ET.Element, part: BundlePart, parent_world_pos: tuple[float, float, float]) -> None:
         body_name = _sanitize_name(part.name)
+        if body_name in built:
+            return
+        built.add(body_name)
+
+        pos_world, quat = _part_world_pos_quat(part)
+        rel_pos = (
+            pos_world[0] - parent_world_pos[0],
+            pos_world[1] - parent_world_pos[1],
+            pos_world[2] - parent_world_pos[2],
+        )
+
+        body = ET.SubElement(
+            parent_elem,
+            "body",
+            {
+                "name": body_name,
+                "pos": f"{rel_pos[0]:.6f} {rel_pos[1]:.6f} {rel_pos[2]:.6f}",
+            },
+        )
+        if not np.allclose(quat, (1.0, 0.0, 0.0, 0.0), atol=1e-6):
+            body.set("quat", f"{quat[0]:.6f} {quat[1]:.6f} {quat[2]:.6f} {quat[3]:.6f}")
+
         i = part.inertial
         com = i.center_of_mass_m
         ixx, iyy, izz, ixy, ixz, iyz = i.inertia_tensor_kg_m2
-
-        if part.transform_m is not None:
-            M = np.array(part.transform_m)
-            pos, quat = _matrix_to_pos_quat(M)
-            body = ET.SubElement(
-                worldbody,
-                "body",
-                {
-                    "name": body_name,
-                    "pos": f"{pos[0]:.6f} {pos[1]:.6f} {pos[2]:.6f}",
-                    "quat": f"{quat[0]:.6f} {quat[1]:.6f} {quat[2]:.6f} {quat[3]:.6f}",
-                },
-            )
-        else:
-            body = ET.SubElement(worldbody, "body", {"name": body_name, "pos": "0 0 0"})
-
         ET.SubElement(
             body,
             "inertial",
@@ -397,6 +558,84 @@ def _build_mjcf(parts: list[BundlePart], output_path: Path, model_name: str) -> 
             "geom",
             {"type": "mesh", "mesh": body_name, "rgba": "0.8 0.8 0.8 1"},
         )
+
+        for joint, _, child_name in real_joints:
+            if child_name != part.name:
+                continue
+            joint_origin_m = _joint_origin_m(joint)
+            joint_rel = (
+                joint_origin_m[0] - pos_world[0],
+                joint_origin_m[1] - pos_world[1],
+                joint_origin_m[2] - pos_world[2],
+            )
+            axis = _joint_axis(joint)
+            lower, upper = _joint_limits_native(joint)
+
+            if joint.type == "revolute":
+                ET.SubElement(
+                    body,
+                    "joint",
+                    {
+                        "name": _sanitize_name(joint.id),
+                        "type": "hinge",
+                        "pos": f"{joint_rel[0]:.6f} {joint_rel[1]:.6f} {joint_rel[2]:.6f}",
+                        "axis": f"{axis[0]:.6f} {axis[1]:.6f} {axis[2]:.6f}",
+                        "range": f"{lower:.6f} {upper:.6f}",
+                    },
+                )
+            elif joint.type == "prismatic":
+                ET.SubElement(
+                    body,
+                    "joint",
+                    {
+                        "name": _sanitize_name(joint.id),
+                        "type": "slide",
+                        "pos": f"{joint_rel[0]:.6f} {joint_rel[1]:.6f} {joint_rel[2]:.6f}",
+                        "axis": f"{axis[0]:.6f} {axis[1]:.6f} {axis[2]:.6f}",
+                        "range": f"{lower:.6f} {upper:.6f}",
+                    },
+                )
+            elif joint.type == "spherical":
+                ET.SubElement(
+                    body,
+                    "joint",
+                    {
+                        "name": _sanitize_name(joint.id),
+                        "type": "ball",
+                        "pos": f"{joint_rel[0]:.6f} {joint_rel[1]:.6f} {joint_rel[2]:.6f}",
+                    },
+                )
+
+        for child_name in children_map.get(body_name, []):
+            child_part = name_to_part.get(child_name)
+            if child_part is not None:
+                _emit_body(body, child_part, pos_world)
+
+    for root in roots:
+        _emit_body(worldbody, root, (0.0, 0.0, 0.0))
+
+    if actuated_joints:
+        actuator = ET.SubElement(mujoco, "actuator")
+        for joint in actuated_joints:
+            jname = _sanitize_name(joint.id)
+            lower, upper = _joint_limits_native(joint)
+            ET.SubElement(
+                actuator,
+                "motor",
+                {
+                    "name": f"{jname}_motor",
+                    "joint": jname,
+                    "ctrlrange": f"{lower:.6f} {upper:.6f}",
+                    "gear": "1",
+                },
+            )
+
+        sensor = ET.SubElement(mujoco, "sensor")
+        for joint in actuated_joints:
+            jname = _sanitize_name(joint.id)
+            ET.SubElement(sensor, "jointpos", {"name": f"{jname}_pos", "joint": jname})
+            ET.SubElement(sensor, "jointvel", {"name": f"{jname}_vel", "joint": jname})
+            ET.SubElement(sensor, "jointactuatorfrc", {"name": f"{jname}_force", "joint": jname})
 
     tree = ET.ElementTree(mujoco)
     _write_pretty_xml(tree, output_path)
@@ -421,11 +660,13 @@ def export_bundle_from_tree(
 
     parameters = tree.parameter_dict()
     parts: list[BundlePart] = []
+    joints: list[KinematicJoint] = []
 
     if tree.assemblies:
         from ai_cad.assembly import compute_instance_transforms
 
         assembly = tree.assemblies[0]
+        joints = assembly.joints
         transforms = compute_instance_transforms(tree, assembly, parameters)
         for inst in assembly.instances:
             part = tree.find_part(inst.part_id)
@@ -471,8 +712,8 @@ def export_bundle_from_tree(
     import json
 
     inertial_path.write_text(json.dumps(inertial_data, indent=2), encoding="utf-8")
-    _build_urdf(parts, urdf_path, name)
-    _build_mjcf(parts, mjcf_path, name)
+    _build_urdf(parts, urdf_path, name, joints=joints)
+    _build_mjcf(parts, mjcf_path, name, joints=joints)
 
     return BundlePaths(
         directory=output_dir,

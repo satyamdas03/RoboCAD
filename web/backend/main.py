@@ -45,11 +45,13 @@ from ai_cad.composer import compose_feature_tree
 from ai_cad.decomposition import DecompositionResult, decompose, should_decompose
 from ai_cad.domain import classify_domain
 from ai_cad.executor import execute_code
-from ai_cad.assembly import transpile_assembly
+from ai_cad.assembly import sample_assembly_poses, solve_assembly, transpile_assembly
+from ai_cad.assembly_collision import check_assembly_collision
 from ai_cad.dfm import analyze_dfm
 from ai_cad.feature_store import save as save_feature_tree
 from ai_cad.feature_tree import Assembly, FeatureTree
 from ai_cad.intent_parser import parse_domain_intent
+from ai_cad.mate_inference import infer_mates
 from ai_cad.fea import run_static_analysis
 from ai_cad.geda_bridge import (
     build_scene,
@@ -437,6 +439,108 @@ def get_assembly(design_id: str) -> dict[str, Any]:
     if not assemblies:
         raise HTTPException(status_code=404, detail="No assembly found for this design.")
     return {"design_id": design_id, "assembly": assemblies[0]}
+
+
+@app.post("/designs/{design_id}/synthesize-assembly")
+def synthesize_assembly(design_id: str) -> dict[str, Any]:
+    """Re-run mate inference and joint synthesis on the design's assembly."""
+    design_dir = DESIGNS_DIR / design_id
+    feature_tree_path = design_dir / "feature_tree.json"
+    if not feature_tree_path.exists():
+        raise HTTPException(status_code=404, detail="No feature tree found for this design.")
+
+    try:
+        data = json.loads(feature_tree_path.read_text(encoding="utf-8"))
+        tree = FeatureTree(**data)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to load feature tree: {exc}")
+
+    if not tree.assemblies:
+        raise HTTPException(status_code=404, detail="No assembly found for this design.")
+
+    assembly = tree.assemblies[0]
+    try:
+        mates, joints = infer_mates(tree, assembly)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Mate inference failed: {exc}")
+
+    # Merge inferred mates/joints, avoiding duplicates.
+    existing_mate_ids = {m.id for m in assembly.mates}
+    existing_joint_ids = {j.id for j in assembly.joints}
+    for mate in mates:
+        if mate.id not in existing_mate_ids:
+            assembly.mates.append(mate)
+    for joint in joints:
+        if joint.id not in existing_joint_ids:
+            assembly.joints.append(joint)
+
+    _write_json(feature_tree_path, tree.model_dump(mode="json"))
+    return {
+        "design_id": design_id,
+        "assembly": json.loads(json.dumps(assembly.model_dump(mode="json"))),
+        "joints_added": len(joints),
+        "mates_added": len(mates),
+    }
+
+
+@app.get("/designs/{design_id}/assembly-poses")
+def get_assembly_poses(
+    design_id: str,
+    samples_per_joint: int = Query(default=8, ge=2, le=32),
+) -> dict[str, Any]:
+    """Return sampled range-of-motion poses for an articulated assembly."""
+    design_dir = DESIGNS_DIR / design_id
+    feature_tree_path = design_dir / "feature_tree.json"
+    if not feature_tree_path.exists():
+        raise HTTPException(status_code=404, detail="No feature tree found for this design.")
+
+    try:
+        tree = FeatureTree(**json.loads(feature_tree_path.read_text(encoding="utf-8")))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to load feature tree: {exc}")
+
+    if not tree.assemblies:
+        raise HTTPException(status_code=404, detail="No assembly found for this design.")
+
+    try:
+        poses = sample_assembly_poses(tree, samples_per_joint=samples_per_joint)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Failed to sample poses: {exc}")
+
+    return {"design_id": design_id, **poses}
+
+
+@app.post("/designs/{design_id}/assembly-collision")
+def assembly_collision(design_id: str) -> dict[str, Any]:
+    """Check pairwise collision / clearance between assembly instances."""
+    design_dir = DESIGNS_DIR / design_id
+    feature_tree_path = design_dir / "feature_tree.json"
+    if not feature_tree_path.exists():
+        raise HTTPException(status_code=404, detail="No feature tree found for this design.")
+
+    try:
+        tree = FeatureTree(**json.loads(feature_tree_path.read_text(encoding="utf-8")))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to load feature tree: {exc}")
+
+    if not tree.assemblies:
+        raise HTTPException(status_code=404, detail="No assembly found for this design.")
+
+    try:
+        reports = check_assembly_collision(tree, design_dir / "collision", samples=1000)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to run collision check: {exc}")
+
+    pairs = [r.model_dump() for r in reports]
+    worst = None
+    if pairs:
+        worst = min(pairs, key=lambda p: p["min_clearance_mm"])
+    return {
+        "design_id": design_id,
+        "pair_count": len(pairs),
+        "pairs": pairs,
+        "worst": worst,
+    }
 
 
 @app.get("/designs/{design_id}/feature-tree")

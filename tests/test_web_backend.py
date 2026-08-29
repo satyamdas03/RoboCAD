@@ -12,6 +12,17 @@ import pytest
 import trimesh
 from fastapi.testclient import TestClient
 
+from ai_cad.feature_tree import (
+    Assembly,
+    Feature,
+    FeatureTree,
+    Instance,
+    Part,
+    PlaneReference,
+    Sketch,
+    SketchEntity,
+)
+
 # Ensure repo root is on sys.path for `ai_cad` imports.
 REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
@@ -294,6 +305,56 @@ def test_generate_with_decompose_false_uses_backend(tmp_path: Path, monkeypatch)
     assert data.get("decomposition") is None
 
 
+def test_assembly_poses_endpoint(tmp_path: Path):
+    """GET /designs/{id}/assembly-poses returns sampled poses."""
+    design_id = "pose_test"
+    design_dir = tmp_path / "designs" / design_id
+    design_dir.mkdir(parents=True)
+    tree = {
+        "schema_version": "2.0.0",
+        "design_id": design_id,
+        "prompt": "test arm",
+        "parts": [],
+        "assemblies": [
+            {
+                "id": "asm",
+                "instances": [
+                    {"id": "base", "part_id": "base"},
+                    {"id": "arm", "part_id": "arm", "transform": {"translation": [100, 0, 0]}},
+                ],
+                "joints": [
+                    {
+                        "id": "j1",
+                        "type": "revolute",
+                        "parent_link": "base",
+                        "child_link": "arm",
+                        "origin": [0, 0, 0],
+                        "axis": [0, 0, 1],
+                        "limits": [-90, 90],
+                    }
+                ],
+            }
+        ],
+    }
+    (design_dir / "feature_tree.json").write_text(json.dumps(tree))
+    response = client.get(f"/designs/{design_id}/assembly-poses?samples_per_joint=4")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["joint_count"] == 1
+    assert len(data["frames"]) == 4
+
+
+def test_assembly_collision_endpoint(tmp_path: Path):
+    """POST /designs/{id}/assembly-collision returns pairwise clearance report."""
+    design_id = "collision_test"
+    design_dir, _ = _seed_feature_tree_design(tmp_path, design_id)
+    response = client.post(f"/designs/{design_id}/assembly-collision")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["pair_count"] == 1
+    assert data["worst"]["classification"] == "clearance"
+
+
 # Helpers
 
 class RoboCADBackendStub:
@@ -416,6 +477,44 @@ def _seed_wedge_design(
     }
     (design_dir / "metadata.json").write_text(json.dumps(metadata))
     return design_dir, stl_path
+
+
+def _seed_feature_tree_design(tmp_path: Path, design_id: str):
+    """Create a persisted design whose feature tree has two separated cubes."""
+    cube = Part(
+        id="cube",
+        sketches=[
+            Sketch(
+                id="profile",
+                plane=PlaneReference(type="base", name="XY"),
+                entities=[
+                    SketchEntity(type="rectangle", id="base", center=(0, 0), width=10, height=10)
+                ],
+            )
+        ],
+        features=[
+            Feature(id="extrude1", type="extrude", sketch_id="profile", parameters={"amount": 10, "mode": "add"})
+        ],
+    )
+    tree = FeatureTree(
+        design_id=design_id,
+        prompt="two cubes",
+        parts=[cube],
+        assemblies=[
+            Assembly(
+                id="asm",
+                instances=[
+                    Instance(id="i1", part_id="cube"),
+                    Instance(id="i2", part_id="cube", transform={"translation": [20, 0, 0]}),
+                ],
+            )
+        ],
+    )
+
+    design_dir = tmp_path / "designs" / design_id
+    design_dir.mkdir(parents=True)
+    (design_dir / "feature_tree.json").write_text(json.dumps(tree.model_dump(mode="json")))
+    return design_dir, None
 
 
 def test_simulate_endpoint_stl_fallback(tmp_path: Path):

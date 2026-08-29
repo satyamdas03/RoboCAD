@@ -57,7 +57,10 @@ def _default_part_csys(part_id: str) -> CoordinateSystem:
 def _find_csys_for_entity(tree: FeatureTree, entity: MateEntity) -> CoordinateSystem:
     """Locate the coordinate system referenced by a mate entity."""
     if entity.csys_id:
-        return _csys_by_id(tree, entity.csys_id)
+        try:
+            return _csys_by_id(tree, entity.csys_id)
+        except ValueError:
+            return _default_part_csys(entity.instance_id)
     return _default_part_csys(entity.instance_id)
 
 
@@ -153,7 +156,7 @@ def compute_instance_transforms(
                 target = (M1[:3, 3] + M2[:3, 3]) / 2
                 deltas[e1.instance_id].append(_move_origin(transforms[e1.instance_id], target - M1[:3, 3]))
                 deltas[e2.instance_id].append(_move_origin(transforms[e2.instance_id], target - M2[:3, 3]))
-            elif mt == "concentric":
+            elif mt in ("concentric", "revolute"):
                 target = (M1[:3, 3] + M2[:3, 3]) / 2
                 deltas[e1.instance_id].append(_move_origin(transforms[e1.instance_id], target - M1[:3, 3]))
                 deltas[e2.instance_id].append(_move_origin(transforms[e2.instance_id], target - M2[:3, 3]))
@@ -162,6 +165,18 @@ def compute_instance_transforms(
                 new_z = (z1 + z2) / 2
                 deltas[e1.instance_id].append(_set_z_axis(transforms[e1.instance_id], new_z))
                 deltas[e2.instance_id].append(_set_z_axis(transforms[e2.instance_id], new_z))
+            elif mt == "prismatic":
+                # Align Z axes; keep X/Y origin coincident while leaving the Z slide
+                # as a degree of freedom. We set a nominal zero offset.
+                z1 = M1[:3, 2]
+                z2 = M2[:3, 2]
+                new_z = (z1 + z2) / 2
+                deltas[e1.instance_id].append(_set_z_axis(transforms[e1.instance_id], new_z))
+                deltas[e2.instance_id].append(_set_z_axis(transforms[e2.instance_id], new_z))
+                # Coincide X/Y to define the prismatic rail origin.
+                delta_xy = M1[:3, 3] - M2[:3, 3]
+                delta_xy[2] = 0.0
+                deltas[e2.instance_id].append(_move_origin(transforms[e2.instance_id], delta_xy / 2))
             elif mt == "distance":
                 offset = _resolve_value(mate.parameters.get("distance", 0), parameters)
                 z = (M1[:3, 2] + M2[:3, 2]) / 2
@@ -192,6 +207,115 @@ def compute_instance_transforms(
                 transforms[inst.id] = avg
 
     return transforms
+
+
+def solve_assembly(
+    tree: FeatureTree,
+    assembly: Assembly,
+    parameters: dict[str, float] | None = None,
+    max_iterations: int = 40,
+    tolerance: float = 1e-2,
+) -> dict[str, Any]:
+    """Solve instance transforms and report convergence / constraint residual.
+
+    Returns a dict with:
+        transforms: dict[str, np.ndarray]
+        overconstrained: bool
+        residual_mm: float
+        iterations: int
+    """
+    parameters = parameters or tree.parameter_dict()
+    transforms = {inst.id: _explicit_transform(inst) for inst in assembly.instances}
+    residual = float("inf")
+    iterations = 0
+    overconstrained = False
+
+    for iteration in range(max_iterations):
+        deltas: dict[str, list[np.ndarray]] = {inst.id: [] for inst in assembly.instances}
+        for mate in assembly.mates:
+            if len(mate.entities) < 2:
+                continue
+            e1, e2 = mate.entities[0], mate.entities[1]
+            if e1.instance_id not in transforms or e2.instance_id not in transforms:
+                continue
+            c1 = _find_csys_for_entity(tree, e1)
+            c2 = _find_csys_for_entity(tree, e2)
+            M1 = transforms[e1.instance_id] @ _csys_matrix(c1)
+            M2 = transforms[e2.instance_id] @ _csys_matrix(c2)
+            mt = mate.type
+
+            if mt == "fixed":
+                continue
+            if mt == "coincident":
+                target = (M1[:3, 3] + M2[:3, 3]) / 2
+                deltas[e1.instance_id].append(_move_origin(transforms[e1.instance_id], target - M1[:3, 3]))
+                deltas[e2.instance_id].append(_move_origin(transforms[e2.instance_id], target - M2[:3, 3]))
+            elif mt in ("concentric", "revolute"):
+                target = (M1[:3, 3] + M2[:3, 3]) / 2
+                deltas[e1.instance_id].append(_move_origin(transforms[e1.instance_id], target - M1[:3, 3]))
+                deltas[e2.instance_id].append(_move_origin(transforms[e2.instance_id], target - M2[:3, 3]))
+                z1 = M1[:3, 2]
+                z2 = M2[:3, 2]
+                new_z = (z1 + z2) / 2
+                deltas[e1.instance_id].append(_set_z_axis(transforms[e1.instance_id], new_z))
+                deltas[e2.instance_id].append(_set_z_axis(transforms[e2.instance_id], new_z))
+            elif mt == "distance":
+                offset = _resolve_value(mate.parameters.get("distance", 0), parameters)
+                z = (M1[:3, 2] + M2[:3, 2]) / 2
+                z = z / (np.linalg.norm(z) + 1e-12)
+                target = M1[:3, 3] + z * offset
+                deltas[e2.instance_id].append(_move_origin(transforms[e2.instance_id], target - M2[:3, 3]))
+            elif mt == "angle":
+                continue
+            elif mt == "parallel":
+                z = (M1[:3, 2] + M2[:3, 2]) / 2
+                deltas[e1.instance_id].append(_set_z_axis(transforms[e1.instance_id], z))
+                deltas[e2.instance_id].append(_set_z_axis(transforms[e2.instance_id], z))
+            elif mt == "perpendicular":
+                z1 = M1[:3, 2]
+                z2 = M2[:3, 2]
+                new_z2 = np.cross(z1, np.cross(z2, z1))
+                norm = np.linalg.norm(new_z2)
+                if norm > 1e-9:
+                    new_z2 = new_z2 / norm
+                    deltas[e2.instance_id].append(_set_z_axis(transforms[e2.instance_id], new_z2))
+            elif mt == "prismatic":
+                z1 = M1[:3, 2]
+                z2 = M2[:3, 2]
+                new_z = (z1 + z2) / 2
+                deltas[e1.instance_id].append(_set_z_axis(transforms[e1.instance_id], new_z))
+                deltas[e2.instance_id].append(_set_z_axis(transforms[e2.instance_id], new_z))
+                delta_xy = M1[:3, 3] - M2[:3, 3]
+                delta_xy[2] = 0.0
+                deltas[e2.instance_id].append(_move_origin(transforms[e2.instance_id], delta_xy / 2))
+
+        if not any(deltas[inst.id] for inst in assembly.instances):
+            residual = 0.0
+            iterations = iteration
+            break
+
+        # Compute residual from average delta magnitudes.
+        delta_norms: list[float] = []
+        for inst in assembly.instances:
+            inst_deltas = deltas[inst.id]
+            if inst_deltas:
+                avg = np.mean(np.stack(inst_deltas), axis=0)
+                delta_norms.append(float(np.linalg.norm(avg[:3, 3])))
+                transforms[inst.id] = avg
+        residual = max(delta_norms) if delta_norms else 0.0
+        iterations = iteration + 1
+        if residual < tolerance:
+            break
+
+    if residual >= tolerance:
+        overconstrained = True
+
+    return {
+        "transforms": transforms,
+        "overconstrained": overconstrained,
+        "residual_mm": residual,
+        "iterations": iterations,
+    }
 
 
 def _move_origin(M: np.ndarray, delta: np.ndarray) -> np.ndarray:
@@ -290,3 +414,140 @@ def transpile_assembly(tree: FeatureTree, assembly: Assembly | None = None) -> s
 def _single_part_fallback(tree: FeatureTree) -> str:
     from ai_cad.transpiler import transpile
     return transpile(tree)
+
+
+def _joint_subtree(joints: list, root_child: str) -> set[str]:
+    """Return all instance ids reachable from root_child via joints."""
+    parent_map: dict[str, str] = {}
+    for j in joints:
+        parent_map[j.child_link] = j.parent_link
+
+    # Build children adjacency (parent -> children) from the joints.
+    children: dict[str, set[str]] = {}
+    for j in joints:
+        children.setdefault(j.parent_link, set()).add(j.child_link)
+
+    visited: set[str] = set()
+    stack = [root_child]
+    while stack:
+        node = stack.pop()
+        if node in visited:
+            continue
+        visited.add(node)
+        stack.extend(children.get(node, set()) - visited)
+    return visited
+
+
+def _joint_transform_matrix(joint, value: float) -> np.ndarray:
+    """Return a 4x4 transform representing the joint value relative to zero."""
+    ax = np.array(joint.axis or (0.0, 0.0, 1.0), dtype=float)
+    norm = np.linalg.norm(ax)
+    if norm < 1e-9:
+        ax = np.array([0.0, 0.0, 1.0])
+    else:
+        ax = ax / norm
+
+    delta = np.eye(4)
+    if joint.type == "revolute":
+        theta = math.radians(value)
+        c, s = math.cos(theta), math.sin(theta)
+        # Rodrigues' rotation matrix for axis ax.
+        x, y, z = ax
+        R = np.array(
+            [
+                [c + x * x * (1 - c), x * y * (1 - c) - z * s, x * z * (1 - c) + y * s],
+                [y * x * (1 - c) + z * s, c + y * y * (1 - c), y * z * (1 - c) - x * s],
+                [z * x * (1 - c) - y * s, z * y * (1 - c) + x * s, c + z * z * (1 - c)],
+            ]
+        )
+        delta[:3, :3] = R
+    elif joint.type == "prismatic":
+        delta[:3, 3] = ax * value
+    return delta
+
+
+def sample_assembly_poses(
+    tree: FeatureTree,
+    assembly: Assembly | None = None,
+    *,
+    samples_per_joint: int = 8,
+) -> dict[str, Any]:
+    """Sample range-of-motion poses for an articulated assembly.
+
+    Returns:
+        {
+            "joint_count": int,
+            "overconstrained": bool,
+            "frames": [
+                {
+                    "joint_states": {joint_id: value},
+                    "transforms": {instance_id: {position, rotation_deg}}
+                }
+            ]
+        }
+    """
+    if assembly is None:
+        assembly = tree.assemblies[0] if tree.assemblies else None
+    if assembly is None:
+        return {"joint_count": 0, "overconstrained": False, "frames": []}
+
+    solved = solve_assembly(tree, assembly)
+    nominal = solved["transforms"]
+    joints = assembly.joints or []
+
+    def _serialize(transforms: dict[str, np.ndarray]) -> dict[str, dict[str, tuple]]:
+        out: dict[str, dict[str, tuple]] = {}
+        for inst_id, M in transforms.items():
+            pos, rot = _matrix_to_pos_rot(M)
+            out[inst_id] = {
+                "position": tuple(float(v) for v in pos),
+                "rotation_deg": tuple(float(v) for v in rot),
+            }
+        return out
+
+    if not joints or samples_per_joint < 2:
+        return {
+            "joint_count": len(joints),
+            "overconstrained": solved["overconstrained"],
+            "frames": [
+                {"joint_states": {}, "transforms": _serialize(nominal)}
+            ],
+        }
+
+    frames: list[dict[str, Any]] = []
+    for joint in joints:
+        limits = joint.limits
+        if limits is None:
+            lo, hi = -180.0, 180.0
+        else:
+            lo, hi = float(limits[0]), float(limits[1])
+        for i in range(samples_per_joint):
+            t = i / (samples_per_joint - 1)
+            value = lo + (hi - lo) * t
+            joint_states = {j.id: 0.0 for j in joints}
+            joint_states[joint.id] = round(value, 3)
+
+            transforms = {k: v.copy() for k, v in nominal.items()}
+            joint_origin = np.array(joint.origin, dtype=float)
+            T_origin = np.eye(4)
+            T_origin[:3, 3] = joint_origin
+            T_origin_inv = np.linalg.inv(T_origin)
+            delta = _joint_transform_matrix(joint, value)
+            world_delta = T_origin @ delta @ T_origin_inv
+
+            for child_id in _joint_subtree(joints, joint.child_link):
+                if child_id in transforms:
+                    transforms[child_id] = world_delta @ transforms[child_id]
+
+            frames.append(
+                {
+                    "joint_states": joint_states,
+                    "transforms": _serialize(transforms),
+                }
+            )
+
+    return {
+        "joint_count": len(joints),
+        "overconstrained": solved["overconstrained"],
+        "frames": frames,
+    }

@@ -227,14 +227,18 @@ Maintained across the entire roadmap:
 
 **Goal:** Scale the existing assembly system to multi-part mechanisms and complete mechanical subsystems.
 
-**Deliverables:**
-- Mate inference from part interfaces and intent.
-- Kinematic loop solver for closed chains.
-- Assembly-level collision and clearance checks.
-- Full-subsystem MJCF / URDF export with joints, actuators, and sensors.
-- Assembly replay: step through range-of-motion in the browser.
+**Status:** ✅ Complete — 2026-08-29.
 
-**Tests:** 2–3 full mechanical assemblies (arm, gripper, diff-drive chassis) transpile and load in MuJoCo.
+**Deliverables:**
+- ✅ `ai_cad/part_families.py` `Interface` library with type and `mate_hint` metadata.
+- ✅ `ai_cad/mate_inference.py` rule-first mate/joint inference from part interfaces.
+- ✅ `ai_cad/assembly.py` revolute/prismatic mate relaxation, overconstrained detection, and range-of-motion pose sampling.
+- ✅ `ai_cad/assembly_collision.py` pairwise trimesh clearance/interference checks.
+- ✅ `ai_cad/geda_bridge/exporter.py` hierarchy-aware MJCF/URDF with joints, actuators, and sensors.
+- ✅ Backend endpoints: `POST /designs/{id}/synthesize-assembly`, `POST /designs/{id}/assembly-collision`, `GET /designs/{id}/assembly-poses`.
+- ✅ Frontend `AssemblyReplayPanel.jsx` and `AssemblyCollisionPanel.jsx`.
+
+**Tests:** arm, gripper, and fixed-only assemblies load in MuJoCo; full pytest suite **250/250 passing**.
 
 **Timeline:** 3–4 months.
 

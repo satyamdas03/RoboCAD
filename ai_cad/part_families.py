@@ -1,14 +1,18 @@
-"""Domain part-family library for RoboCAD Phase 18.
+"""Domain part-family library for RoboCAD Phase 18/19.
 
 A part family is a reusable, domain-tagged template that produces a symbolic
 ``Part`` (sketches + features) for common robotics subsystems. Families are not
 meshes; they are feature-tree snippets that feed the existing transpiler and can
 be overridden by per-sub-part intent parameters.
+
+Phase 19 adds an explicit ``Interface`` library to each family so assembly
+synthesis can infer mates, connection types, and kinematic roles from the
+family metadata.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
 
 from ai_cad.feature_tree import (
     Constraint,
@@ -27,6 +31,30 @@ from ai_cad.feature_tree import (
 
 
 @dataclass
+class Interface:
+    """A local connection frame on a part family with mate semantics.
+
+    Attributes:
+        id: Stable interface identifier within the family (e.g., ``mount_face``).
+        csys: The 3D coordinate system locating and orienting the interface.
+        type: Physical interface category.
+        mate_hint: Preferred mate relationship when this interface is used in an
+            assembly (``None`` if the family does not prescribe one).
+        mate_with: Compatibility tags in ``family/interface`` form. Used by
+            assembly synthesis to decide which interfaces may join.
+    """
+
+    id: str
+    csys: CoordinateSystem
+    type: Literal["mount", "pin", "bore", "slot", "flange", "face"]
+    mate_hint: (
+        Literal["fixed", "revolute", "prismatic", "concentric", "coincident"]
+        | None
+    ) = None
+    mate_with: list[str] | None = None
+
+
+@dataclass
 class PartFamily:
     """Reusable template for a domain-specific part.
 
@@ -38,7 +66,7 @@ class PartFamily:
         sketches: Default 2D sketches (may be empty for surface-only families).
         features: Default modeling operations or domain features.
         mates: Default mate relationships relative to other families.
-        interface_csys: Local connection frame used for assembly placement.
+        interfaces: Local connection frames with mate hints for assembly.
     """
 
     name: str
@@ -48,12 +76,13 @@ class PartFamily:
     sketches: list[Sketch] = field(default_factory=list)
     features: list[Any] = field(default_factory=list)
     mates: list[Mate] = field(default_factory=list)
-    interface_csys: CoordinateSystem | None = None
+    interfaces: list[Interface] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
 # Helpers for common sketch/feature patterns
 # ---------------------------------------------------------------------------
+
 
 def _rect_sketch(
     sketch_id: str,
@@ -150,6 +179,7 @@ def _extrude_feature(feature_id: str, sketch_id: str, amount_param: str, *, mode
 # Mechanical families
 # ---------------------------------------------------------------------------
 
+
 def _mechanical_bracket() -> PartFamily:
     params = [
         Parameter(name="bracket_width", value=60.0, unit="mm"),
@@ -161,14 +191,23 @@ def _mechanical_bracket() -> PartFamily:
     ]
     sketch = _mounting_hole_pattern("bracket_base", "bolt_diameter", "hole_pitch_x", "hole_pitch_y")
     feature = _extrude_feature("bracket_body", "bracket_base", "bracket_thickness")
-    interface = CoordinateSystem(
-        id="bracket_interface",
+    mount_face = CoordinateSystem(
+        id="bracket_mount_face",
         name="bracket mount face",
         origin=(0, 0, 0),
         x_axis=(1, 0, 0),
         y_axis=(0, 1, 0),
         z_axis=(0, 0, 1),
     )
+    interfaces = [
+        Interface(
+            id="mount_face",
+            csys=mount_face,
+            type="mount",
+            mate_hint="fixed",
+            mate_with=["bracket/mount_face", "mount/mount_face", "hub/flange_a"],
+        )
+    ]
     return PartFamily(
         name="bracket",
         domain="mechanical",
@@ -176,7 +215,7 @@ def _mechanical_bracket() -> PartFamily:
         default_parameters=params,
         sketches=[sketch],
         features=[feature],
-        interface_csys=interface,
+        interfaces=interfaces,
     )
 
 
@@ -217,14 +256,38 @@ def _mechanical_link() -> PartFamily:
         dimensions=[],
     )
     feature = _extrude_feature("link_body", "link_profile", "link_thickness")
-    interface = CoordinateSystem(
-        id="link_interface_a",
+    pin_a = CoordinateSystem(
+        id="link_pin_a",
         name="link end A",
-        origin=(0, 0, 0),
+        origin=(10.0, 0, 0),
         x_axis=(1, 0, 0),
         y_axis=(0, 1, 0),
         z_axis=(0, 0, 1),
     )
+    pin_b = CoordinateSystem(
+        id="link_pin_b",
+        name="link end B",
+        origin=(110.0, 0, 0),
+        x_axis=(1, 0, 0),
+        y_axis=(0, 1, 0),
+        z_axis=(0, 0, 1),
+    )
+    interfaces = [
+        Interface(
+            id="pin_a",
+            csys=pin_a,
+            type="pin",
+            mate_hint="revolute",
+            mate_with=["link/pin_b", "hub/bore", "mount/bore"],
+        ),
+        Interface(
+            id="pin_b",
+            csys=pin_b,
+            type="pin",
+            mate_hint="revolute",
+            mate_with=["link/pin_a", "hub/bore", "mount/bore"],
+        ),
+    ]
     return PartFamily(
         name="link",
         domain="mechanical",
@@ -232,7 +295,7 @@ def _mechanical_link() -> PartFamily:
         default_parameters=params,
         sketches=[sketch],
         features=[feature],
-        interface_csys=interface,
+        interfaces=interfaces,
     )
 
 
@@ -248,19 +311,40 @@ def _mechanical_hub() -> PartFamily:
     outer = _circle_sketch("hub_outer", "hub_diameter")
     outer.entities[0].radius = "hub_diameter / 2"
     bore = _circle_sketch("hub_bore", "bore_diameter")
-    # The outer and bore are on the same sketch in a real part; here we model
-    # them as two sketches and two extrudes, which the current transpiler can
-    # handle by union / cut semantics.
     outer_feature = _extrude_feature("hub_body", "hub_outer", "hub_thickness")
     bore_feature = _extrude_feature("hub_bore_cut", "hub_bore", "hub_thickness", mode="subtract")
-    interface = CoordinateSystem(
-        id="hub_interface",
+    flange_a = CoordinateSystem(
+        id="hub_flange_a",
         name="hub face",
         origin=(0, 0, 8.0),
         x_axis=(1, 0, 0),
         y_axis=(0, 1, 0),
         z_axis=(0, 0, 1),
     )
+    bore_csys = CoordinateSystem(
+        id="hub_bore_csys",
+        name="hub bore center",
+        origin=(0, 0, 0),
+        x_axis=(1, 0, 0),
+        y_axis=(0, 1, 0),
+        z_axis=(0, 0, 1),
+    )
+    interfaces = [
+        Interface(
+            id="flange_a",
+            csys=flange_a,
+            type="flange",
+            mate_hint="fixed",
+            mate_with=["bracket/mount_face", "mount/mount_face", "hub/flange_a"],
+        ),
+        Interface(
+            id="bore",
+            csys=bore_csys,
+            type="bore",
+            mate_hint="concentric",
+            mate_with=["link/pin_a", "link/pin_b", "limb_segment/pin_a", "limb_segment/pin_b"],
+        ),
+    ]
     return PartFamily(
         name="hub",
         domain="mechanical",
@@ -268,7 +352,7 @@ def _mechanical_hub() -> PartFamily:
         default_parameters=params,
         sketches=[outer, bore],
         features=[outer_feature, bore_feature],
-        interface_csys=interface,
+        interfaces=interfaces,
     )
 
 
@@ -282,17 +366,25 @@ def _mechanical_mount() -> PartFamily:
         Parameter(name="corner_hole_diameter", value=2.5, unit="mm"),
         Parameter(name="corner_pitch", value=32.0, unit="mm"),
     ]
-    # Outer plate plus corner mounting holes in a single sketch.
     base = _mounting_hole_pattern("mount_base", "corner_hole_diameter", "mount_width", "mount_height")
     feature = _extrude_feature("mount_body", "mount_base", "mount_thickness")
-    interface = CoordinateSystem(
-        id="mount_interface",
+    mount_face = CoordinateSystem(
+        id="mount_face_csys",
         name="mount face",
         origin=(0, 0, 0),
         x_axis=(1, 0, 0),
         y_axis=(0, 1, 0),
         z_axis=(0, 0, 1),
     )
+    interfaces = [
+        Interface(
+            id="mount_face",
+            csys=mount_face,
+            type="mount",
+            mate_hint="fixed",
+            mate_with=["bracket/mount_face", "hub/flange_a", "mount/mount_face"],
+        )
+    ]
     return PartFamily(
         name="mount",
         domain="mechanical",
@@ -300,13 +392,14 @@ def _mechanical_mount() -> PartFamily:
         default_parameters=params,
         sketches=[base],
         features=[feature],
-        interface_csys=interface,
+        interfaces=interfaces,
     )
 
 
 # ---------------------------------------------------------------------------
 # Aero / thermal families
 # ---------------------------------------------------------------------------
+
 
 def _aero_airfoil() -> PartFamily:
     params = [
@@ -335,7 +428,7 @@ def _aero_airfoil() -> PartFamily:
         type="airfoil",
         profile={"naca": "naca", "chord_param": "chord"},
     )
-    interface = CoordinateSystem(
+    root = CoordinateSystem(
         id="airfoil_root",
         name="airfoil root",
         origin=(0, 0, 0),
@@ -343,6 +436,15 @@ def _aero_airfoil() -> PartFamily:
         y_axis=(0, 1, 0),
         z_axis=(0, 0, 1),
     )
+    interfaces = [
+        Interface(
+            id="root",
+            csys=root,
+            type="face",
+            mate_hint="fixed",
+            mate_with=["airfoil/root", "wing/root"],
+        )
+    ]
     return PartFamily(
         name="airfoil",
         domain="aero",
@@ -350,7 +452,7 @@ def _aero_airfoil() -> PartFamily:
         default_parameters=params,
         sketches=[sketch],
         features=[surface],
-        interface_csys=interface,
+        interfaces=interfaces,
     )
 
 
@@ -382,7 +484,7 @@ def _aero_wing() -> PartFamily:
         type="wing",
         profile={"naca": "wing_naca", "chord_param": "wing_chord", "span_param": "wing_span"},
     )
-    interface = CoordinateSystem(
+    root = CoordinateSystem(
         id="wing_root",
         name="wing root",
         origin=(0, 0, 0),
@@ -390,6 +492,15 @@ def _aero_wing() -> PartFamily:
         y_axis=(0, 1, 0),
         z_axis=(0, 0, 1),
     )
+    interfaces = [
+        Interface(
+            id="root",
+            csys=root,
+            type="face",
+            mate_hint="fixed",
+            mate_with=["airfoil/root", "wing/root"],
+        )
+    ]
     return PartFamily(
         name="wing",
         domain="aero",
@@ -397,7 +508,7 @@ def _aero_wing() -> PartFamily:
         default_parameters=params,
         sketches=[sketch],
         features=[surface],
-        interface_csys=interface,
+        interfaces=interfaces,
     )
 
 
@@ -413,14 +524,38 @@ def _aero_duct() -> PartFamily:
     inner.entities[0].radius = "duct_diameter / 2 - duct_wall"
     outer_feature = _extrude_feature("duct_body", "duct_outer", "duct_length")
     inner_cut = _extrude_feature("duct_hollow", "duct_inner", "duct_length", mode="subtract")
-    interface = CoordinateSystem(
-        id="duct_interface",
+    face_a = CoordinateSystem(
+        id="duct_face_a",
         name="duct axis start",
         origin=(0, 0, 0),
         x_axis=(1, 0, 0),
         y_axis=(0, 1, 0),
         z_axis=(0, 0, 1),
     )
+    bore = CoordinateSystem(
+        id="duct_bore",
+        name="duct bore center",
+        origin=(0, 0, 0),
+        x_axis=(1, 0, 0),
+        y_axis=(0, 1, 0),
+        z_axis=(0, 0, 1),
+    )
+    interfaces = [
+        Interface(
+            id="face_a",
+            csys=face_a,
+            type="face",
+            mate_hint="coincident",
+            mate_with=["duct/face_a", "hub/flange_a"],
+        ),
+        Interface(
+            id="bore",
+            csys=bore,
+            type="bore",
+            mate_hint="concentric",
+            mate_with=["hub/bore", "propeller/bore"],
+        ),
+    ]
     return PartFamily(
         name="duct",
         domain="aero",
@@ -428,7 +563,7 @@ def _aero_duct() -> PartFamily:
         default_parameters=params,
         sketches=[outer, inner],
         features=[outer_feature, inner_cut],
-        interface_csys=interface,
+        interfaces=interfaces,
     )
 
 
@@ -443,17 +578,25 @@ def _thermal_heat_sink() -> PartFamily:
     ]
     base = _rect_sketch("hs_base", "base_length", "base_width")
     base_feature = _extrude_feature("hs_base_body", "hs_base", "base_height")
-    # Single centered fin for Phase 18; multi-fin patterns are Phase 19/20 scope.
     fin = _rect_sketch("hs_fin", "fin_thickness", "base_width")
     fin_feature = _extrude_feature("hs_fin_body", "hs_fin", "fin_height")
-    interface = CoordinateSystem(
-        id="hs_interface",
+    thermal_face = CoordinateSystem(
+        id="hs_thermal_face",
         name="heat sink base",
         origin=(0, 0, 6.0),
         x_axis=(1, 0, 0),
         y_axis=(0, 1, 0),
         z_axis=(0, 0, 1),
     )
+    interfaces = [
+        Interface(
+            id="thermal_face",
+            csys=thermal_face,
+            type="face",
+            mate_hint="fixed",
+            mate_with=["heat_sink/thermal_face", "pcb_bracket/mount_face", "enclosure/mount_face"],
+        )
+    ]
     return PartFamily(
         name="heat_sink",
         domain="thermal",
@@ -461,13 +604,14 @@ def _thermal_heat_sink() -> PartFamily:
         default_parameters=params,
         sketches=[base, fin],
         features=[base_feature, fin_feature],
-        interface_csys=interface,
+        interfaces=interfaces,
     )
 
 
 # ---------------------------------------------------------------------------
 # Electronics families
 # ---------------------------------------------------------------------------
+
 
 def _electronics_pcb_bracket() -> PartFamily:
     params = [
@@ -480,14 +624,23 @@ def _electronics_pcb_bracket() -> PartFamily:
     ]
     outline = _rect_sketch("pcb_outline", "pcb_length", "pcb_width")
     bracket = _extrude_feature("bracket_base", "pcb_outline", "bracket_thickness")
-    interface = CoordinateSystem(
-        id="pcb_interface",
+    mount_face = CoordinateSystem(
+        id="pcb_mount_face",
         name="pcb mounting face",
         origin=(0, 0, 3.0),
         x_axis=(1, 0, 0),
         y_axis=(0, 1, 0),
         z_axis=(0, 0, 1),
     )
+    interfaces = [
+        Interface(
+            id="mount_face",
+            csys=mount_face,
+            type="face",
+            mate_hint="fixed",
+            mate_with=["pcb_bracket/mount_face", "enclosure/mount_face", "bracket/mount_face"],
+        )
+    ]
     return PartFamily(
         name="pcb_bracket",
         domain="electronics",
@@ -495,7 +648,7 @@ def _electronics_pcb_bracket() -> PartFamily:
         default_parameters=params,
         sketches=[outline],
         features=[bracket],
-        interface_csys=interface,
+        interfaces=interfaces,
     )
 
 
@@ -509,14 +662,23 @@ def _electronics_enclosure() -> PartFamily:
     ]
     base = _rect_sketch("enc_outer", "enc_length", "enc_width")
     body = _extrude_feature("enc_body", "enc_outer", "enc_height")
-    interface = CoordinateSystem(
-        id="enc_interface",
+    mount_face = CoordinateSystem(
+        id="enc_mount_face",
         name="enclosure base",
         origin=(0, 0, 0),
         x_axis=(1, 0, 0),
         y_axis=(0, 1, 0),
         z_axis=(0, 0, 1),
     )
+    interfaces = [
+        Interface(
+            id="mount_face",
+            csys=mount_face,
+            type="face",
+            mate_hint="fixed",
+            mate_with=["enclosure/mount_face", "pcb_bracket/mount_face", "heat_sink/thermal_face"],
+        )
+    ]
     return PartFamily(
         name="enclosure",
         domain="electronics",
@@ -524,13 +686,14 @@ def _electronics_enclosure() -> PartFamily:
         default_parameters=params,
         sketches=[base],
         features=[body],
-        interface_csys=interface,
+        interfaces=interfaces,
     )
 
 
 # ---------------------------------------------------------------------------
 # Humanoid / robot families
 # ---------------------------------------------------------------------------
+
 
 def _humanoid_limb_segment() -> PartFamily:
     params = [
@@ -569,14 +732,38 @@ def _humanoid_limb_segment() -> PartFamily:
         dimensions=[],
     )
     feature = _extrude_feature("limb_body", "limb_profile", "segment_thickness")
-    interface = CoordinateSystem(
-        id="limb_interface_a",
+    pin_a = CoordinateSystem(
+        id="limb_pin_a",
         name="limb joint A",
-        origin=(0, 0, 0),
+        origin=(15.0, 0, 0),
         x_axis=(1, 0, 0),
         y_axis=(0, 1, 0),
         z_axis=(0, 0, 1),
     )
+    pin_b = CoordinateSystem(
+        id="limb_pin_b",
+        name="limb joint B",
+        origin=(135.0, 0, 0),
+        x_axis=(1, 0, 0),
+        y_axis=(0, 1, 0),
+        z_axis=(0, 0, 1),
+    )
+    interfaces = [
+        Interface(
+            id="pin_a",
+            csys=pin_a,
+            type="pin",
+            mate_hint="revolute",
+            mate_with=["limb_segment/pin_b", "hub/bore", "mount/bore"],
+        ),
+        Interface(
+            id="pin_b",
+            csys=pin_b,
+            type="pin",
+            mate_hint="revolute",
+            mate_with=["limb_segment/pin_a", "end_effector/pivot", "hub/bore"],
+        ),
+    ]
     return PartFamily(
         name="limb_segment",
         domain="humanoid",
@@ -584,7 +771,7 @@ def _humanoid_limb_segment() -> PartFamily:
         default_parameters=params,
         sketches=[sketch],
         features=[feature],
-        interface_csys=interface,
+        interfaces=interfaces,
     )
 
 
@@ -619,14 +806,38 @@ def _humanoid_end_effector() -> PartFamily:
         dimensions=[],
     )
     feature = _extrude_feature("gripper_body", "gripper_profile", "jaw_thickness")
-    interface = CoordinateSystem(
-        id="gripper_interface",
+    pivot = CoordinateSystem(
+        id="gripper_pivot_csys",
         name="gripper pivot",
         origin=(0, 0, 0),
         x_axis=(1, 0, 0),
         y_axis=(0, 1, 0),
         z_axis=(0, 0, 1),
     )
+    slot_a = CoordinateSystem(
+        id="gripper_slot_a",
+        name="gripper jaw slot",
+        origin=(30.0, 15.0, 0),
+        x_axis=(1, 0, 0),
+        y_axis=(0, 1, 0),
+        z_axis=(0, 0, 1),
+    )
+    interfaces = [
+        Interface(
+            id="pivot",
+            csys=pivot,
+            type="pin",
+            mate_hint="revolute",
+            mate_with=["end_effector/pivot", "limb_segment/pin_b"],
+        ),
+        Interface(
+            id="slot_a",
+            csys=slot_a,
+            type="slot",
+            mate_hint="prismatic",
+            mate_with=["end_effector/slot_a"],
+        ),
+    ]
     return PartFamily(
         name="end_effector",
         domain="humanoid",
@@ -634,7 +845,7 @@ def _humanoid_end_effector() -> PartFamily:
         default_parameters=params,
         sketches=[sketch],
         features=[feature],
-        interface_csys=interface,
+        interfaces=interfaces,
     )
 
 
@@ -688,6 +899,47 @@ def _merge_parameters(
     return list(merged.values())
 
 
+def _infer_legacy_interface_type(family: PartFamily) -> Literal[
+    "mount", "pin", "bore", "slot", "flange", "face"
+]:
+    """Infer an interface type from a family's domain/mechanics."""
+    name = family.name
+    domain = family.domain
+    if domain == "mechanical":
+        if "link" in name or "limb" in name:
+            return "pin"
+        if "hub" in name or "pulley" in name:
+            return "flange"
+        if "bracket" in name or "mount" in name:
+            return "mount"
+        return "face"
+    if domain == "aero":
+        return "face"
+    if domain == "thermal":
+        return "face"
+    if domain == "electronics":
+        return "mount"
+    if domain == "humanoid":
+        if "limb" in name or "effector" in name:
+            return "pin"
+        return "face"
+    return "face"
+
+
+def _legacy_interfaces(family: PartFamily) -> list[Interface]:
+    """Convert a pre-Phase-19 ``interface_csys`` into an ``Interface`` list."""
+    legacy_csys = getattr(family, "interface_csys", None)
+    if legacy_csys is None:
+        return []
+    return [
+        Interface(
+            id="interface",
+            csys=legacy_csys,
+            type=_infer_legacy_interface_type(family),
+        )
+    ]
+
+
 def instantiate_family(
     name: str,
     part_id: str,
@@ -698,6 +950,9 @@ def instantiate_family(
     """Create a ``Part`` from a registered family with optional overrides."""
     family = get_family(name)
     params = _merge_parameters(family.default_parameters, parameter_overrides or [])
+    # Backward compatibility: convert any legacy interface_csys into the new
+    # Interface representation on demand (currently kept at the family level).
+    _ = family.interfaces or _legacy_interfaces(family)
     return Part(
         id=part_id,
         name=name_override or family.display_name,

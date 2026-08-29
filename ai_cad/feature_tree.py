@@ -235,6 +235,8 @@ class Mate(BaseModel):
         "parallel",
         "perpendicular",
         "fixed",
+        "revolute",
+        "prismatic",
     ]
     entities: list[MateEntity]
     parameters: dict[str, Any] = Field(default_factory=dict)

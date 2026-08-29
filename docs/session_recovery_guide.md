@@ -32,6 +32,7 @@ These files are in `C:\Users\point\.claude\projects\C--Users-point-projects-Robo
 12. `claude5-integration-fixes.md` — Anthropic SDK fixes and latest Claude Sonnet 5 benchmark numbers (21/30, T1–T4 87.5%).
 13. `robocad-path-analysis.md` — PATH1 (GEDA Bridge) vs PATH2 (voice-to-world-model) strategic analysis; Phase 13 gate cleared.
 14. `robocad-end-to-end-roadmap.md` — Phased 13–24 plan to the full vision.
+15. `phase19-assembly-synthesis.md` — Mate inference, kinematic solver, collision checks, joint-aware MJCF/URDF export, browser replay (Phase 19, current).
 
 ---
 
@@ -75,7 +76,8 @@ Read every file in this directory:
 - `fea.py` — Simple static analysis (Phase 12).
 - `geda_bridge/exporter.py` — MuJoCo/URDF bundle exporter (Phase 14A–15B complete).
 - `domain.py`, `intent_parser.py` — Cross-domain classification and intent parsing (Phases 16–17).
-- `part_families.py`, `decomposition.py`, `composer.py` — Automatic system decomposition and part families (Phase 18, current).
+- `part_families.py`, `decomposition.py`, `composer.py` — Automatic system decomposition and part families (Phase 18).
+- `mate_inference.py`, `assembly.py`, `assembly_collision.py` — Mechanical assembly synthesis: mates, kinematic solver, collision checks (Phase 19, current).
 - `prompts/system_prompt.txt` — System prompt the LLM sees.
 - `prompts/examples.json` — Few-shot examples.
 

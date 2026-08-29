@@ -15,12 +15,14 @@ from ai_cad.feature_tree import (
     CoordinateSystem,
     FeatureTree,
     Instance,
+    KinematicJoint,
     Mate,
     MateEntity,
     Parameter,
     Part,
 )
 from ai_cad.intent_parser import parse_domain_intent
+from ai_cad.mate_inference import infer_mates
 from ai_cad.part_families import get_family, instantiate_family
 
 
@@ -357,6 +359,33 @@ def compose_feature_tree(
 
     instances, mates = _layout_parts(result)
 
+    # Phase 19: for mechanical assemblies, infer mates + kinematic joints from
+    # part-family interfaces. Keep the layout mates if inference returns nothing.
+    inferred_mates: list[Mate] = []
+    inferred_joints: list[KinematicJoint] = []
+    if result.primary_domain == "mechanical" and len(parts) >= 2:
+        draft_assembly = Assembly(
+            id="asm_1",
+            name="Generated assembly",
+            domain=result.primary_domain,
+            instances=instances,
+            mates=mates,
+        )
+        try:
+            inferred_mates, inferred_joints = infer_mates(
+                FeatureTree(
+                    design_id="draft",
+                    prompt=result.prompt,
+                    parts=parts,
+                    assemblies=[draft_assembly],
+                ),
+                draft_assembly,
+            )
+        except Exception:
+            inferred_mates, inferred_joints = [], []
+        if inferred_mates:
+            mates = inferred_mates
+
     # Deduplicate instance IDs (safety) and ensure every part_id exists.
     seen_ids: set[str] = set()
     valid_instances: list[Instance] = []
@@ -382,6 +411,7 @@ def compose_feature_tree(
         domain=result.primary_domain,
         instances=valid_instances,
         mates=valid_mates,
+        joints=inferred_joints,
     )
 
     tree = FeatureTree(

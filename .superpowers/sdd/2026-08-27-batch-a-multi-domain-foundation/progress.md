@@ -25,6 +25,7 @@
 - [x] Task 8: Documentation update for Phases 16–17 — complete (commit dd579e8, `README.md`, `PLAN.md`, dossiers)
 - [x] Task 9: Final verification and push — complete; full pytest suite **201/201 passing** on 2026-08-29.
 - [x] Phase 18 follow-up: automatic decomposition + part families + composed assembly — complete (commit f03ca77, `ai_cad/part_families.py`, `ai_cad/decomposition.py`, `ai_cad/composer.py`, `tests/test_composer.py`, `tests/test_part_families.py`, `tests/test_decomposition.py`); full suite now **228/228 passing** after post-ship bug fixes.
+- [x] Phase 19 follow-up: mechanical assembly synthesis — complete (`ai_cad/mate_inference.py`, `ai_cad/assembly_collision.py`, `ai_cad/assembly.py` revolute/prismatic + pose sampling, `ai_cad/geda_bridge/exporter.py` joints/actuators/sensors, backend assembly endpoints, frontend `AssemblyReplayPanel.jsx` / `AssemblyCollisionPanel.jsx`); full suite now **250/250 passing**.
 
 ## Rulings
 

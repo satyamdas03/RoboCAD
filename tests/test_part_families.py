@@ -65,7 +65,11 @@ def test_instantiate_family_applies_parameter_overrides():
     assert len(part.sketches) == 1
 
 
-def test_family_interface_csys_present():
+def test_family_interfaces_present():
     family = get_family("link")
-    assert family.interface_csys is not None
-    assert family.interface_csys.id == "link_interface_a"
+    assert len(family.interfaces) >= 1
+    iface = next(i for i in family.interfaces if i.id == "pin_a")
+    assert iface.csys.id == "link_pin_a"
+    assert iface.type == "pin"
+    assert iface.mate_hint == "revolute"
+    assert "link/pin_b" in (iface.mate_with or [])

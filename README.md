@@ -4,7 +4,7 @@
 >
 > **Core bet:** The AI writes **parametric CAD code** (build123d / FeatureScript), not throwaway meshes. The model you get is editable, versionable, and exportable for 3D printing, machining, or Onshape.
 >
-> **Latest milestone:** Phases 14A, 14B, 15A, 15B, and **16–18 are complete**. RoboCAD is now a multi-domain generative engineering platform: it classifies prompts into mechanical / aero / thermal / electronics / humanoid domains, parses per-domain intent, extends the feature tree to surfaces/kinematics/PCB form factors, and automatically decomposes system-level prompts (e.g., “450 mm quadcopter with four motor arms and an aerodynamic shell”) into domain-specific part families that compose into a parametric assembly. The backend exposes `/classify-domain`, `/decompose`, and `/generate?decompose=True`; the frontend shows domain badges and a `DecomposePanel`. Full pytest suite: **228 passed**. Phase 19 — mechanical assembly synthesis + verification — is next.
+> **Latest milestone:** Phases 14A–15B, **16–18**, and **19 are complete**. RoboCAD now synthesizes articulated mechanical assemblies: it infers mates from part-family interfaces, solves kinematic chains and closed loops, checks assembly-level collision/clearance, exports full MJCF/URDF with joints/actuators/sensors, and previews range-of-motion in the browser. The backend exposes `/designs/{id}/synthesize-assembly`, `/designs/{id}/assembly-collision`, and `/designs/{id}/assembly-poses`; the frontend adds `AssemblyReplayPanel` and `AssemblyCollisionPanel`. Full pytest suite: **250 passed**. Phase 20 — aerodynamics, thermal, and propulsion geometry — is next.
 
 ---
 
@@ -512,6 +512,19 @@ The decision: **build PATH1 (Phases 14A–15B) first**, then use it as the techn
   * Frontend `DecomposePanel.jsx` shows the generated parts list; `PromptInput.jsx` adds an “Auto-decompose systems” checkbox (default checked).
   * New tests: `tests/test_part_families.py`, `tests/test_decomposition.py`, `tests/test_composer.py`, plus `/decompose` and `/generate?decompose` coverage in `tests/test_web_backend.py`.
 * Full pytest suite: **225/225 passing**.
+
+### 2026-08-29 — Phase 19: mechanical assembly synthesis shipped
+
+* **Phase 19 — Mechanical assembly synthesis** shipped:
+  * `ai_cad/part_families.py` extended with an `Interface` library and `mate_hint` metadata for every family.
+  * `ai_cad/mate_inference.py` rule-first engine emits `Mate` and `KinematicJoint` objects from part interfaces.
+  * `ai_cad/assembly.py` solver handles revolute/prismatic mates, reports overconstrained assemblies, and samples range-of-motion poses.
+  * `ai_cad/assembly_collision.py` performs pairwise trimesh clearance/interference checks between placed instances.
+  * `ai_cad/geda_bridge/exporter.py` exports MJCF/URDF with real joints, actuators, and sensors.
+  * Backend endpoints: `POST /designs/{id}/synthesize-assembly`, `POST /designs/{id}/assembly-collision`, `GET /designs/{id}/assembly-poses`.
+  * Frontend `AssemblyReplayPanel.jsx` and `AssemblyCollisionPanel.jsx` for browser preview.
+  * New tests: `tests/test_mate_inference.py`, `tests/test_kinematic_solver.py`, `tests/test_assembly_collision.py`, `tests/test_geda_bridge_mechanism.py`, plus endpoint coverage in `tests/test_web_backend.py`.
+* Full pytest suite: **250/250 passing**.
 
 ### 2026-08-27 — Scope expanded to full multi-domain robotics platform
 

@@ -229,3 +229,17 @@ export function exportUrl(path) {
 export function getBundleUrl(id) {
   return `${API_BASE}/designs/${id}/bundle`
 }
+
+export async function synthesizeAssembly(id) {
+  return apiFetch(`/designs/${id}/synthesize-assembly`, { method: 'POST' })
+}
+
+export async function getAssemblyCollision(id) {
+  return apiFetch(`/designs/${id}/assembly-collision`)
+}
+
+export async function getAssemblyPoses(id, { samplesPerJoint = 8 } = {}) {
+  const params = new URLSearchParams()
+  params.set('samples_per_joint', String(samplesPerJoint))
+  return apiFetch(`/designs/${id}/assembly-poses?${params.toString()}`)
+}

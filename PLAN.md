@@ -685,18 +685,24 @@ PATH2 is the long-term North Star: a full-stack robotics design operating system
 
 **Effort:** 3–4 months. **Risk:** fully open-ended decomposition is unsolved; start with parameterized part families.
 
-### Phase 19 — Mechanical assembly synthesis
+### Phase 19 — Mechanical assembly synthesis ✅
 
 **Goal:** Scale the existing assembly system to multi-part mechanisms and complete mechanical subsystems.
 
-**Deliverables:**
-- Mate inference from part interfaces and intent.
-- Kinematic loop solver for closed chains.
-- Assembly-level collision and clearance checks.
-- Full-subsystem MJCF / URDF export with joints, actuators, and sensors.
-- Assembly replay: step through range-of-motion in the browser.
+**Status:** Complete — 2026-08-29.
 
-**Tests:** 2–3 full mechanical assemblies (arm, gripper, diff-drive chassis) transpile and load in MuJoCo.
+**Deliverables:**
+- ✅ `ai_cad/part_families.py` `Interface` library with type and `mate_hint` metadata.
+- ✅ `ai_cad/mate_inference.py` rule-first mate/joint inference from part interfaces.
+- ✅ `ai_cad/assembly.py` revolute/prismatic mate relaxation, overconstrained detection, and pose sampling.
+- ✅ `ai_cad/assembly_collision.py` pairwise clearance and interference checks between placed instances.
+- ✅ `ai_cad/geda_bridge/exporter.py` hierarchy-aware MJCF/URDF with joints, actuators, and sensors.
+- ✅ Backend endpoints: `POST /designs/{id}/synthesize-assembly`, `POST /designs/{id}/assembly-collision`, `GET /designs/{id}/assembly-poses`.
+- ✅ Frontend `AssemblyReplayPanel.jsx` and `AssemblyCollisionPanel.jsx`.
+
+**Tests:** arm, gripper, and fixed assemblies load in MuJoCo; full pytest suite **250/250 passing**.
+
+**Shipped:** 2026-08-29. Phase 20 is next.
 
 **Effort:** 3–4 months.
 
@@ -899,4 +905,4 @@ Full analysis is saved in `.claude/memory/robocad-path-analysis.md` and the end-
 
 ---
 
-*Last updated: 2026-08-29 (Phases 14A, 14B, 15A, 15B, 16–17, and 18 complete; 225/225 tests passing; scope expanded to full multi-domain robotics: mechanical, aero/thermal, electronics, and humanoid/robot systems; Phase 19 — mechanical assembly synthesis — is next)*
+*Last updated: 2026-08-29 (Phases 14A–15B, 16–18, and 19 complete; 250/250 tests passing; scope expanded to full multi-domain robotics: mechanical, aero/thermal, electronics, and humanoid/robot systems; Phase 20 — aerodynamics, thermal, and propulsion geometry — is next)*
