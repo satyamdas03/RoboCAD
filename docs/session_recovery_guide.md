@@ -33,7 +33,8 @@ These files are in `C:\Users\point\.claude\projects\C--Users-point-projects-Robo
 13. `robocad-path-analysis.md` — PATH1 (GEDA Bridge) vs PATH2 (voice-to-world-model) strategic analysis; Phase 13 gate cleared.
 14. `robocad-end-to-end-roadmap.md` — Phased 13–28 plan to the full vision.
 15. `phase19-assembly-synthesis.md` — Mate inference, kinematic solver, collision checks, joint-aware MJCF/URDF export, browser replay; 251/251 tests passing (Phase 19 complete; Phase 20 shipped next and is now complete; Phase 21 is the current next phase).
-16. `phase20-aero-thermal-propulsion.md` — NACA airfoils, wings, propeller blades, heat sinks, CFD mesh stubs, aero/thermal analysis endpoints and frontend panels; 276/276 tests passing (Phase 20 complete; Phase 21 next).
+16. `phase20-aero-thermal-propulsion.md` — NACA airfoils, wings, propeller blades, heat sinks, CFD mesh stubs, aero/thermal analysis endpoints and frontend panels; 276/276 tests passing (Phase 20 complete).
+17. `phase21-electronics-mechatronics.md` — PCB outlines, electronics part families, stack decomposition + composer layout, electronics analysis, IDF/STEP export, backend endpoints, domain-gated `ElectronicsPanel`; 299/299 tests passing (Phase 21 complete; Phase 22 next).
 
 ---
 
@@ -67,8 +68,8 @@ Read every file in this directory:
 - `onshape.py` — HMAC-signed Onshape REST API client.
 - `parameters.py` — AST-based numeric parameter extraction from generated code.
 - `validator.py` — STL manifold/watertight validation.
-- `feature_tree.py` — Feature-Tree JSON schema (Phase 9).
-- `transpiler.py` — Feature tree → build123d (Phase 9).
+- `feature_tree.py` — Feature-Tree JSON schema (Phase 9, extended to v2.0.0 in Phases 17/21).
+- `transpiler.py` — Feature tree → build123d (Phase 9, extended for SurfaceFeature and PCBOutline in Phases 20/21).
 - `feature_store.py` — Feature tree persistence (Phase 9).
 - `sketch_solver.py` — 2D constraint solver (Phase 10).
 - `assembly.py` — Multi-part instances + LCS mates (Phase 11).
@@ -76,15 +77,17 @@ Read every file in this directory:
 - `tolerances.py` — Fit/clearance checks (Phase 12).
 - `fea.py` — Simple static analysis (Phase 12).
 - `geda_bridge/exporter.py` — MuJoCo/URDF bundle exporter (Phase 14A–15B complete).
-- `domain.py`, `intent_parser.py` — Cross-domain classification and intent parsing (Phases 16–17).
-- `part_families.py`, `decomposition.py`, `composer.py` — Automatic system decomposition and part families (Phase 18).
-- `mate_inference.py`, `assembly.py`, `assembly_collision.py` — Mechanical assembly synthesis: mates, kinematic solver, collision checks (Phase 19, current).
+- `domain.py`, `intent_parser.py` — Cross-domain classification and intent parsing (Phases 16–17, electronics parameters extended in Phase 21).
+- `part_families.py`, `decomposition.py`, `composer.py` — Automatic system decomposition and part families (Phase 18, electronics families added in Phase 21).
+- `mate_inference.py`, `assembly.py`, `assembly_collision.py` — Mechanical assembly synthesis: mates, kinematic solver, collision checks (Phase 19).
+- `electronics.py` — Phase 21 electronics analysis + IDF/STEP export.
+- `aero.py`, `thermal.py`, `cfd.py` — Phase 20 aero/thermal/CFD stubs.
 - `prompts/system_prompt.txt` — System prompt the LLM sees.
 - `prompts/examples.json` — Few-shot examples.
 
 ### Web backend (`web/backend/`)
 
-- `main.py` — All FastAPI endpoints: `/generate`, `/designs`, `/designs/{id}`, `/regenerate`, `/remix`, `/guess-parameter`, `/manufacturing-report`, `/onshape/*`, `/exports/*`.
+- `main.py` — All FastAPI endpoints: `/generate`, `/designs`, `/designs/{id}`, `/regenerate`, `/remix`, `/guess-parameter`, `/manufacturing-report`, `/electronics-report`, `/idf-export`, `/onshape/*`, `/exports/*`.
 
 ### Frontend (`web/frontend/src/`)
 
@@ -127,6 +130,10 @@ All files in `C:\Users\point\projects\RoboCAD\tests\`:
 - `test_parameters.py`
 - `test_validator.py`
 - `test_web_backend.py`
+- `test_pcb_transpiler.py` — Phase 21 PCB outline transpilation.
+- `test_part_families_electronics.py` — Phase 21 electronics part families.
+- `test_electronics_analysis.py` — Phase 21 electronics analysis.
+- `test_idf_export.py` — Phase 21 IDF/STEP export.
 
 ---
 
@@ -198,7 +205,7 @@ npm run build
 | 11 | Multi-part assembly system | `ai_cad/assembly.py` |
 | 12 | DFM / tolerance / FEA verification | `ai_cad/dfm.py`, `ai_cad/tolerances.py`, `ai_cad/fea.py` |
 | 13 | Model specialization + Claude 5 integration (T1–T4 gate achieved) | `scripts/build_training_dataset.py`, `scripts/build_ollama_modelfile.py`, `ai_cad/generator.py` |
-| 14A–28 | End-to-end vision roadmap (Phase 21 electronics/mechatronics integration next) | `PLAN.md`, `.claude/memory/robocad-end-to-end-roadmap.md` |
+| 14A–28 | End-to-end vision roadmap (Phase 22 multi-physics verification engine next) | `PLAN.md`, `.claude/memory/robocad-end-to-end-roadmap.md` |
 
 ---
 
@@ -211,4 +218,4 @@ npm run build
 5. Run the pytest suite and the frontend build.
 6. Only then continue the current phase.
 
-**Current active phase:** Phase 20 complete (276/276 tests passing); Phase 21 — electronics and mechatronics integration — is next. Before starting Phase 21, run `python -m pytest` and verify the `/aero-report`, `/thermal-report`, and `/cfd-mesh` endpoints still work end-to-end with a wing or heat-sink prompt. See `PLAN.md` Section 12 and `.claude/memory/robocad-end-to-end-roadmap.md`.
+**Current active phase:** Phase 21 complete (299/299 tests passing); Phase 22 — multi-physics verification engine — is next.

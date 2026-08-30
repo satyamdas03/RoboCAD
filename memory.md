@@ -140,8 +140,8 @@ LearningRobotics → world model → policy training → sim-to-real
 | **18** | Automatic decomposition + domain part families | ✅ **Complete — `ai_cad/part_families.py`, `ai_cad/decomposition.py`, `ai_cad/composer.py`, `POST /decompose`, `/generate?decompose`, `DecomposePanel.jsx`, **228/228 tests passing** |
 | **19** | Mechanical assembly synthesis + verification | ✅ **Complete — `Interface` library, `mate_inference.py`, revolute/prismatic solver, `assembly_collision.py`, MJCF/URDF joints/actuators/sensors, `/synthesize-assembly`, `/assembly-collision`, `/assembly-poses`, `AssemblyReplayPanel.jsx`, **251/251 tests passing** |
 | **20** | Aerodynamics, thermal, and propulsion geometry | ✅ **Complete — NACA 4-digit airfoils, straight wings, propeller blades, heat sinks, SU2/OpenFOAM CFD mesh stubs, `AeroPanel.jsx`, `ThermalPanel.jsx`, **276/276 tests passing** |
-| **21** | Electronics and mechatronics integration | ⏳ **Next** |
-| **22** | Multi-physics verification engine | ⏳ Planned |
+| **21** | Electronics and mechatronics integration | ✅ **Complete — `PCBOutline` transpilation, electronics part families, stack decomposition + composer layout, electronics analysis, IDF/STEP export, `ElectronicsPanel.jsx`, **299/299 tests passing** |
+| **22** | Multi-physics verification engine | ⏳ **Next** |
 | **23** | Humanoid and full-robot system synthesis | ⏳ Planned |
 | **24** | World-model simulation builder | ⏳ Planned |
 | **25** | Robot brain training loop | ⏳ Planned |
@@ -193,6 +193,7 @@ RoboCAD/
 │   ├── dfm.py                # Phase 12
 │   ├── tolerances.py         # Phase 12
 │   ├── fea.py                # Phase 12
+│   ├── electronics.py        # Phase 21
 │   ├── aero.py               # Phase 20
 │   ├── thermal.py            # Phase 20
 │   ├── cfd.py                # Phase 20
@@ -235,17 +236,17 @@ RoboCAD/
 ## 9. Current status snapshot
 
 - Repo at `https://github.com/satyamdas03/RoboCAD`; `master` pushed and in sync with local.
-- Phases 0–20 committed and pushed.
-- `ai_cad/` package implements generation, execution, validation, parameter extraction, self-correction, Onshape upload, manufacturing reports, face-click parameter guessing, feature trees, sketch constraints, assemblies, DFM/tolerances/FEA, Claude 5 compatibility, GEDA Bridge bundle export, scene templates, LearningRobotics handshake, RoboCompiler skill pipeline, domain classification, per-domain intent parsing, automatic decomposition/part families, mechanical assembly synthesis (mate inference, kinematic solver, collision checks, joint-aware MJCF/URDF export), and aero/thermal/propulsion geometry (NACA airfoils, wings, propeller blades, heat sinks, CFD mesh stubs, lightweight aero/thermal analysis).
-- Web app has FastAPI backend + React frontend with Kinetic Precision dark workstation UI plus `AeroPanel.jsx` and `ThermalPanel.jsx`.
-- Test suite: **276/276 passing tests**.
-- Latest fixes: transpiler shell/fillet/chamfer now use the correct per-part `BuildPart` variable; duct family creates a hollow tube via outer + inner subtract instead of the fragile `shell` operation; `ai_cad/sketch_solver.py` resolves NACA airfoil parameter-name chords to avoid ZeroDivisionError.
-- Live end-to-end verified: `/decompose`, `/classify-domain`, `/generate?decompose=True`, `/designs/{id}/assembly-collision`, `/designs/{id}/assembly-poses`, `/designs/{id}/aero-report`, `/designs/{id}/thermal-report`, and `/designs/{id}/cfd-mesh` all work.
+- Phases 0–21 committed and pushed.
+- `ai_cad/` package implements generation, execution, validation, parameter extraction, self-correction, Onshape upload, manufacturing reports, face-click parameter guessing, feature trees, sketch constraints, assemblies, DFM/tolerances/FEA, Claude 5 compatibility, GEDA Bridge bundle export, scene templates, LearningRobotics handshake, RoboCompiler skill pipeline, domain classification, per-domain intent parsing, automatic decomposition/part families, mechanical assembly synthesis (mate inference, kinematic solver, collision checks, joint-aware MJCF/URDF export), aero/thermal/propulsion geometry (NACA airfoils, wings, propeller blades, heat sinks, CFD mesh stubs, lightweight aero/thermal analysis), and electronics/mechatronics co-design (PCB outlines, enclosures, connectors, cable channels, fan mounts, heat spreaders, IDF/STEP export).
+- Web app has FastAPI backend + React frontend with Kinetic Precision dark workstation UI plus `AeroPanel.jsx`, `ThermalPanel.jsx`, and `ElectronicsPanel.jsx`.
+- Test suite: **299/299 passing tests**.
+- Latest fixes: transpiler shell/fillet/chamfer now use the correct per-part `BuildPart` variable; duct family creates a hollow tube via outer + inner subtract instead of the fragile `shell` operation; `ai_cad/sketch_solver.py` resolves NACA airfoil parameter-name chords to avoid ZeroDivisionError; electronics stack layout places PCB on enclosure standoffs with optional heat spreader, fan mount, cable channel, and edge connectors.
+- Live end-to-end verified: `/decompose`, `/classify-domain`, `/generate?decompose=True`, `/designs/{id}/assembly-collision`, `/designs/{id}/assembly-poses`, `/designs/{id}/aero-report`, `/designs/{id}/thermal-report`, `/designs/{id}/cfd-mesh`, `/designs/{id}/electronics-report`, and `/designs/{id}/idf-export` all work.
 - Strategic decision maintained: PATH1 (GEDA Bridge) shipped first; PATH2 (voice/world-model-to-robot) is the long-term North Star.
 
 **Next work:**
-1. **Phase 21 — Electronics and mechatronics integration:** PCB form factors, enclosures, connectors, cable routing, thermal co-design, IDF/STEP export for board-level EDA tools.
-2. Keep Batch A + Phases 19–20 under maintenance and the test suite green.
+1. **Phase 22 — Multi-physics verification engine:** structural, thermal, CFD, and dynamic checks from a single verification layer.
+2. Keep Batch A + Phases 19–21 under maintenance and the test suite green.
 3. Continue local-model fine-tuning (`robocad-ft:latest`) as a background experiment.
 
 ---
@@ -349,8 +350,8 @@ To force a full sync at any time, type:
 
 If you are resuming this session with no other context:
 
-> We are building **RoboCAD**, an AI-powered parametric CAD tool for robotics hardware. The repo is at `https://github.com/satyamdas03/RoboCAD`. **Phases 0–20 are committed and pushed** (prompt → build123d → STL/STEP → Onshape → manufacturing report → component library → dark Kinetic Precision UI → feature tree → sketch constraints → assemblies → DFM/tolerances/FEA → model specialization → Claude 5 integration → GEDA Bridge → scene templates → LearningRobotics handshake → RoboCompiler pipeline → cross-domain input → domain-aware representation → automatic decomposition + part families → mechanical assembly synthesis → aero/thermal/propulsion geometry, **276 tests passing**). The immediate next phase is **Phase 21 — Electronics and mechatronics integration**: PCB form factors, enclosures, connectors, cable routing, thermal co-design, IDF/STEP export. Strategic decision: ship PATH1 (GEDA Bridge) before PATH2 (voice-to-CAD-to-world-model). See `.claude/memory/robocad-path-analysis.md` and `.claude/memory/robocad-end-to-end-roadmap.md`. Say `:POINTBREAK` to force a full dossier sync.
+> We are building **RoboCAD**, an AI-powered parametric CAD tool for robotics hardware. The repo is at `https://github.com/satyamdas03/RoboCAD`. **Phases 0–21 are committed and pushed** (prompt → build123d → STL/STEP → Onshape → manufacturing report → component library → dark Kinetic Precision UI → feature tree → sketch constraints → assemblies → DFM/tolerances/FEA → model specialization → Claude 5 integration → GEDA Bridge → scene templates → LearningRobotics handshake → RoboCompiler pipeline → cross-domain input → domain-aware representation → automatic decomposition + part families → mechanical assembly synthesis → aero/thermal/propulsion geometry → electronics/mechatronics co-design, **299 tests passing**). The immediate next phase is **Phase 22 — Multi-physics verification engine**: structural, thermal, CFD, and dynamic checks. Strategic decision: ship PATH1 (GEDA Bridge) before PATH2 (voice-to-CAD-to-world-model). See `.claude/memory/robocad-path-analysis.md` and `.claude/memory/robocad-end-to-end-roadmap.md`. Say `:POINTBREAK` to force a full dossier sync.
 
 ---
 
-*Last updated: 2026-08-29 (Phases 0–20 complete; aero/thermal/propulsion geometry shipped and verified live; 276/276 tests passing; Phase 21 electronics/mechatronics integration is next)*
+*Last updated: 2026-08-29 (Phases 0–21 complete; electronics/mechatronics co-design shipped and verified live; 299/299 tests passing; Phase 22 multi-physics verification engine is next)*

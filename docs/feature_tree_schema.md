@@ -1,6 +1,6 @@
-# RoboCAD Feature-Tree JSON Schema v1.0.0
+# RoboCAD Feature-Tree JSON Schema v2.0.0
 
-**Status:** Phase 8 specification. This document defines the structured representation that RoboCAD will use to replace the monolithic `code.py` artifact in Phases 9–14.
+**Status:** Phase 8 specification, extended in Phases 16–17 and 20–21. This document defines the structured representation that RoboCAD uses as the editable source of truth for multi-domain robotics designs.
 
 **Design goal:** A human-readable, versioned, partially-regenerable parametric feature history that can be transpiled to `build123d` today and to Onshape FeatureScript in the future.
 
@@ -20,8 +20,9 @@
 
 ```json
 {
-  "schema_version": "1.0.0",
+  "schema_version": "2.0.0",
   "design_id": "uuid",
+  "domain": "mechanical",
   "prompt": "A 120 mm × 80 mm × 3 mm base plate with four M3 mounting holes...",
   "created_at": "2026-08-25T12:34:56Z",
   "model": "qwen3-coder:latest",
@@ -29,13 +30,15 @@
   "parameters": [ ... ],
   "coordinate_systems": [ ... ],
   "parts": [ ... ],
-  "assemblies": [ ... ]
+  "assemblies": [ ... ],
+  "features": [ ... ]
 }
 ```
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `schema_version` | string | yes | Semantic version of this schema. Current: `1.0.0`. |
+| `schema_version` | string | yes | Semantic version of this schema. Current: `2.0.0`. |
+| `domain` | string | yes | Design domain: `mechanical`, `aero`, `thermal`, `electronics`, `humanoid`, `multi`. |
 | `design_id` | string | yes | Stable UUID for the design. |
 | `prompt` | string | yes | Original natural-language prompt. |
 | `created_at` | string (ISO 8601) | yes | Timestamp when the tree was first generated. |
@@ -45,6 +48,7 @@
 | `coordinate_systems` | array | no | Named local coordinate systems used by parts and mates. |
 | `parts` | array | yes | One or more parts. Single-part designs contain one part. |
 | `assemblies` | array | no | Zero or more assembly definitions. |
+| `features` | array | no | Top-level domain-specific features (`SurfaceFeature`, `PCBOutline`). |
 
 ---
 
@@ -512,6 +516,8 @@ Supported mate types:
 | `parallel` | Two planes/axes parallel. |
 | `perpendicular` | Two planes/axes perpendicular. |
 | `fixed` | Instance locked at its transform. |
+| `revolute` | Hinge joint about a shared axis (Phase 19). |
+| `prismatic` | Sliding joint along a shared axis (Phase 19). |
 
 Each mate `entity` references:
 - `instance_id` — assembly instance.
@@ -520,11 +526,66 @@ Each mate `entity` references:
 
 ---
 
-## 9. Example: base plate feature tree
+## 9. Domain-specific features
+
+### 9.1 `SurfaceFeature` (Phases 17/20)
+
+Used for aero/thermal/propulsion surfaces: airfoils, wings, ducts, propeller blades, heat sinks.
 
 ```json
 {
-  "schema_version": "1.0.0",
+  "id": "wing_surface",
+  "domain": "aero",
+  "type": "wing",
+  "parameters": {
+    "span": "wing_span",
+    "chord": "wing_chord",
+    "naca": "0012",
+    "thickness_ratio": 0.12
+  }
+}
+```
+
+### 9.2 `PCBOutline` (Phases 17/21)
+
+Used for electronics co-design.
+
+```json
+{
+  "id": "main_pcb",
+  "domain": "electronics",
+  "board_shape": [[-42.0, -28.0], [42.0, -28.0], [42.0, 28.0], [-42.0, 28.0]],
+  "board_thickness": 1.6,
+  "edge_clearance": 1.0,
+  "mounting_holes": [[-37.0, -23.0, 2.8], [37.0, -23.0, 2.8], [37.0, 23.0, 2.8], [-37.0, 23.0, 2.8]],
+  "keepouts": [],
+  "connector_positions": [],
+  "layer_count": 2
+}
+```
+
+### 9.3 `KinematicJoint` (Phase 17)
+
+Articulation definition consumed by MJCF/URDF export.
+
+```json
+{
+  "id": "shoulder",
+  "type": "revolute",
+  "parent": "base_link",
+  "child": "upper_arm",
+  "axis": [0.0, 0.0, 1.0],
+  "limits": [-180.0, 180.0]
+}
+```
+
+---
+
+## 10. Example: base plate feature tree
+
+```json
+{
+  "schema_version": "2.0.0",
   "design_id": "abc123",
   "prompt": "A 120 mm × 80 mm × 3 mm rectangular plate with four M3 mounting holes on a 100 mm × 60 mm grid.",
   "created_at": "2026-08-25T12:34:56Z",
@@ -620,7 +681,7 @@ Each mate `entity` references:
 
 ---
 
-## 10. Versioning and partial regeneration
+## 11. Versioning and partial regeneration
 
 - The feature tree is saved as `feature_tree.json` next to `code.py` in the design directory.
 - Each feature node records a `generated_at` timestamp and optional `hash` of its parameters.
@@ -629,7 +690,7 @@ Each mate `entity` references:
 
 ---
 
-## 11. Mapping to build123d (Phase 9)
+## 12. Mapping to build123d (Phase 9)
 
 | Feature-tree concept | build123d equivalent |
 |---|---|
@@ -649,17 +710,20 @@ A `transpiler.py` will walk the tree in dependency order and emit a single build
 
 ---
 
-## 12. Migration strategy
+## 13. Migration strategy
 
-1. **Phase 8 (now):** schema approved; benchmark shows how often current LLM output can be restructured into the schema.
+1. **Phase 8:** schema approved; benchmark shows how often current LLM output can be restructured into the schema.
 2. **Phase 9:** Add `ai_cad/feature_tree.py`, `ai_cad/transpiler.py`, `ai_cad/feature_store.py`. New designs get both `feature_tree.json` and `code.py`.
 3. **Phase 10:** Add 2D constraint solver; dimensions drive parameter values.
 4. **Phase 11:** Add assembly support; multi-part STEP export.
 5. **Phase 12+:** Verification rules consume the feature tree directly.
+6. **Phase 17:** schema bumped to **v2.0.0**; added `domain` tags, `SurfaceFeature`, `KinematicJoint`, `PCBOutline`, `SketchEntity.airfoil`.
+7. **Phase 20:** `SurfaceFeature` transpiler supports `airfoil`, `wing`, `propeller_blade`, `heat_sink`, `duct`.
+8. **Phase 21:** `PCBOutline` transpiler supports 3D board body, mounting holes, keepouts, connector cutouts.
 
 ---
 
-## 13. Schema evolution rules
+## 14. Schema evolution rules
 
 - `schema_version` is mandatory and must be semver.
 - New schema versions must be backward-compatible for at least one full phase or provide a migration script.
