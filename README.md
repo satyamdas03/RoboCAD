@@ -4,7 +4,7 @@
 >
 > **Core bet:** The AI writes **parametric CAD code** (build123d / FeatureScript), not throwaway meshes. The model you get is editable, versionable, and exportable for 3D printing, machining, or Onshape.
 >
-> **Latest milestone:** Phases 14A–15B, **16–20**, and **21 are complete**. RoboCAD now closes the mechanical-electrical co-design loop: PCB outlines with mounting holes/keepouts/connector cutouts, electronics part families (`pcb`, `enclosure`, `connector`, `cable_channel`, `fan_mount`, `heat_spreader`), automatic electronics-stack decomposition, PCB-on-standoffs composer layout, lightweight electronics analysis, and IDF v3.0 (`.emn`/`.emp`) + STEP placeholder export. The backend exposes `/designs/{id}/electronics-report` and `/designs/{id}/idf-export`; the frontend adds `ElectronicsPanel` (domain-gated for electronics/multi). Full pytest suite: **299 passed**. Phase 22 — multi-physics verification engine — is next.
+> **Latest milestone:** Phases 14A–15B, **16–21**, and **22 are complete**. RoboCAD now runs structural, thermal, CFD, and dynamic checks from a single multi-physics verification layer: a solver abstraction with closed load-case templates, mesh-quality pre-checker, extended material library, backend `/designs/{id}/verify` and `/designs/{id}/mesh-quality-check` endpoints, and a domain-agnostic `VerificationPanel`. The full pytest suite: **330 passed**. Phase 23 — humanoid and full-robot system synthesis — is next.
 
 ---
 
@@ -144,7 +144,7 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **19** | **Mechanical assembly synthesis + verification** | ✅ **Complete — mate inference from part-family `Interface`s, kinematic solver for revolute/prismatic joints, assembly collision/clearance checks, joint-aware MJCF/URDF export, browser range-of-motion replay; default "robot arm with gripper" synthesizes a true parallel-jaw prismatic gripper; **251/251 tests passing** |
 | **20** | **Aerodynamics, thermal, and propulsion geometry** | ✅ **Complete — NACA 4-digit airfoils, straight wings, propeller blades, heat sinks, SU2/OpenFOAM CFD mesh stubs, `AeroPanel.jsx`, `ThermalPanel.jsx`, **276/276 tests passing** |
 | **21** | Electronics and mechatronics integration (form-factor co-design, not silicon layout) | ✅ **Complete — `PCBOutline` transpilation, electronics part families, stack decomposition + composer layout, electronics analysis, IDF/STEP export, `ElectronicsPanel.jsx`, **299/299 tests passing** |
-| **22** | Multi-physics verification engine (FEA / CFD / thermal / dynamics) | ⏳ Planned |
+| **22** | Multi-physics verification engine (FEA / CFD / thermal / dynamics) | ✅ **Complete — `ai_cad/materials.py`, `ai_cad/verification*.py`, `ai_cad/mesh_quality.py`, closed load-case templates, mesh-quality gate, backend `/verify` endpoints, frontend `VerificationPanel`, **330/330 tests passing** |
 | **23** | Humanoid and full-robot system synthesis | ⏳ Planned |
 | **24** | World-model simulation builder | ⏳ Planned |
 | **25** | Robot brain training loop | ⏳ Planned |
@@ -180,7 +180,7 @@ This roadmap is the canonical plan of record for RoboCAD. **Do not reorder phase
 | **19** | Mechanical assembly synthesis + verification | 3–4 mo | ✅ Mate inference + kinematic solver + collision checks + joint-aware export; **251/251 tests** |
 | **20** | Aerodynamics, thermal, and propulsion geometry | 3–4 mo | Airfoil / wing / heat sink / propeller + CFD mesh export |
 | **21** | Electronics and mechatronics integration | 2–3 mo | PCB form-factor / enclosure / connector co-design |
-| **22** | Multi-physics verification engine | 4–6 mo | Structural / thermal / CFD / dynamic checks |
+| **22** | Multi-physics verification engine | 4–6 mo | ✅ Structural / thermal / CFD / dynamic checks; **330/330 tests** |
 | **23** | Humanoid and full-robot system synthesis | 4–6 mo | Biped / quadruped / manipulator system export |
 | **24** | World-model simulation builder | 3–4 mo | Cross-domain training scenes |
 | **25** | Synthetic data + policy training loop | 4–6 mo | Design → trainable brain |

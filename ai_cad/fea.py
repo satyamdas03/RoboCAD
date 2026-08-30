@@ -18,6 +18,8 @@ from typing import Any, Optional
 import numpy as np
 import trimesh
 
+from ai_cad.materials import get_material
+
 
 @dataclass
 class FEAResult:
@@ -178,14 +180,11 @@ def run_static_analysis(
     Returns:
         FEAResult with max stress, displacement, and safety factor.
     """
-    material_props = {
-        "PLA": {"youngs_modulus_mpa": 3500.0, "yield_strength_mpa": 65.0},
-        "PETG": {"youngs_modulus_mpa": 2100.0, "yield_strength_mpa": 80.0},
-        "ABS": {"youngs_modulus_mpa": 2200.0, "yield_strength_mpa": 40.0},
-        "aluminum": {"youngs_modulus_mpa": 70000.0, "yield_strength_mpa": 270.0},
-        "steel": {"youngs_modulus_mpa": 210000.0, "yield_strength_mpa": 250.0},
-    }
-    props = material_props.get(material.lower(), material_props["PLA"])
+    try:
+        mat = get_material(material)
+    except KeyError:
+        mat = get_material("PLA")
+    props = {"youngs_modulus_mpa": mat.youngs_modulus_mpa, "yield_strength_mpa": mat.yield_strength_mpa}
 
     mesh = _load_mesh(stl_path)
     if mesh is None:

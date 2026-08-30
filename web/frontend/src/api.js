@@ -296,3 +296,18 @@ export async function exportIDF(id, { boardName = 'ROBOCAD_PCB' } = {}) {
     body: JSON.stringify({ board_name: boardName }),
   })
 }
+
+export async function runVerification(id, { loadCase = 'static_stress', materials = {}, parameters = {} } = {}) {
+  return apiFetch(`/designs/${id}/verify`, {
+    method: 'POST',
+    body: JSON.stringify({ load_case: loadCase, materials, parameters }),
+  })
+}
+
+export async function getVerificationReport(id, reportId) {
+  return apiFetch(`/designs/${id}/verify-report/${reportId}`)
+}
+
+export async function checkMeshQuality(id) {
+  return apiFetch(`/designs/${id}/mesh-quality-check`, { method: 'POST' })
+}

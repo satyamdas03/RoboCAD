@@ -34,7 +34,8 @@ These files are in `C:\Users\point\.claude\projects\C--Users-point-projects-Robo
 14. `robocad-end-to-end-roadmap.md` — Phased 13–28 plan to the full vision.
 15. `phase19-assembly-synthesis.md` — Mate inference, kinematic solver, collision checks, joint-aware MJCF/URDF export, browser replay; 251/251 tests passing (Phase 19 complete; Phase 20 shipped next and is now complete; Phase 21 is the current next phase).
 16. `phase20-aero-thermal-propulsion.md` — NACA airfoils, wings, propeller blades, heat sinks, CFD mesh stubs, aero/thermal analysis endpoints and frontend panels; 276/276 tests passing (Phase 20 complete).
-17. `phase21-electronics-mechatronics.md` — PCB outlines, electronics part families, stack decomposition + composer layout, electronics analysis, IDF/STEP export, backend endpoints, domain-gated `ElectronicsPanel`; 299/299 tests passing (Phase 21 complete; Phase 22 next).
+17. `phase21-electronics-mechatronics.md` — PCB outlines, electronics part families, stack decomposition + composer layout, electronics analysis, IDF/STEP export, backend endpoints, domain-gated `ElectronicsPanel`; 299/299 tests passing (Phase 21 complete).
+18. `phase22-multi-physics-verification.md` — Closed load-case templates, solver abstraction, mesh-quality gate, material library, backend `/verify` endpoints, frontend `VerificationPanel`; 330/330 tests passing (Phase 22 complete; Phase 23 next).
 
 ---
 
@@ -87,7 +88,7 @@ Read every file in this directory:
 
 ### Web backend (`web/backend/`)
 
-- `main.py` — All FastAPI endpoints: `/generate`, `/designs`, `/designs/{id}`, `/regenerate`, `/remix`, `/guess-parameter`, `/manufacturing-report`, `/electronics-report`, `/idf-export`, `/onshape/*`, `/exports/*`.
+- `main.py` — All FastAPI endpoints: `/generate`, `/designs`, `/designs/{id}`, `/regenerate`, `/remix`, `/guess-parameter`, `/manufacturing-report`, `/electronics-report`, `/idf-export`, `/verify`, `/mesh-quality-check`, `/onshape/*`, `/exports/*`.
 
 ### Frontend (`web/frontend/src/`)
 
@@ -134,6 +135,7 @@ All files in `C:\Users\point\projects\RoboCAD\tests\`:
 - `test_part_families_electronics.py` — Phase 21 electronics part families.
 - `test_electronics_analysis.py` — Phase 21 electronics analysis.
 - `test_idf_export.py` — Phase 21 IDF/STEP export.
+- `test_materials.py`, `test_verification_load_cases.py`, `test_mesh_quality.py`, `test_verification_api.py` — Phase 22 verification layer.
 
 ---
 
@@ -204,8 +206,15 @@ npm run build
 | 10 | 2D sketch constraint solver | `ai_cad/sketch_solver.py` |
 | 11 | Multi-part assembly system | `ai_cad/assembly.py` |
 | 12 | DFM / tolerance / FEA verification | `ai_cad/dfm.py`, `ai_cad/tolerances.py`, `ai_cad/fea.py` |
-| 13 | Model specialization + Claude 5 integration (T1–T4 gate achieved) | `scripts/build_training_dataset.py`, `scripts/build_ollama_modelfile.py`, `ai_cad/generator.py` |
-| 14A–28 | End-to-end vision roadmap (Phase 22 multi-physics verification engine next) | `PLAN.md`, `.claude/memory/robocad-end-to-end-roadmap.md` |
+:| 13 | Model specialization + Claude 5 integration (T1–T4 gate achieved) | `scripts/build_training_dataset.py`, `scripts/build_ollama_modelfile.py`, `ai_cad/generator.py` |
+| 14A–15B | GEDA Bridge: MuJoCo/URDF bundle export, scene templates, LearningRobotics handshake, RoboCompiler pipeline | `ai_cad/geda_bridge/`, `web/backend/main.py` |
+| 16–17 | Cross-domain input + domain-aware feature-tree representation | `ai_cad/domain.py`, `ai_cad/intent_parser.py`, `ai_cad/feature_tree.py` |
+| 18 | Automatic decomposition + domain part families | `ai_cad/decomposition.py`, `ai_cad/part_families.py`, `ai_cad/composer.py` |
+| 19 | Mechanical assembly synthesis | `ai_cad/mate_inference.py`, `ai_cad/assembly.py`, `ai_cad/assembly_collision.py` |
+| 20 | Aerodynamics, thermal, and propulsion geometry | `ai_cad/aero.py`, `ai_cad/thermal.py`, `ai_cad/cfd.py` |
+| 21 | Electronics and mechatronics integration | `ai_cad/electronics.py`, `web/backend/main.py` |
+| 22 | Multi-physics verification engine | `ai_cad/materials.py`, `ai_cad/verification*.py`, `ai_cad/mesh_quality.py`, `web/frontend/src/components/VerificationPanel.jsx` |
+| 23–28 | End-to-end vision roadmap (Phase 23 humanoid/full-robot synthesis next) | `PLAN.md`, `.claude/memory/robocad-end-to-end-roadmap.md` |
 
 ---
 
@@ -218,4 +227,4 @@ npm run build
 5. Run the pytest suite and the frontend build.
 6. Only then continue the current phase.
 
-**Current active phase:** Phase 21 complete (299/299 tests passing); Phase 22 — multi-physics verification engine — is next.
+**Current active phase:** Phase 22 complete (330/330 tests passing); Phase 23 — humanoid and full-robot system synthesis — is next.

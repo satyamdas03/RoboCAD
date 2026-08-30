@@ -82,6 +82,8 @@ from ai_cad.electronics import export_idf, run_electronics_analysis
 from ai_cad.thermal import run_thermal_analysis
 from ai_cad.transpiler import transpile
 from ai_cad.validator import validate_model
+from ai_cad.verification import get_report, run_verification
+from ai_cad.verification_models import LoadCase, VerificationRequest, VerificationResult as VerificationResultModel
 
 app = FastAPI(title="RoboCAD", version="0.3.0")
 
@@ -254,6 +256,16 @@ class CFDMeshRequest(BaseModel):
 
 class IDFExportRequest(BaseModel):
     board_name: str = Field(default="ROBOCAD_PCB", description="Board name written into the IDF .emn file.")
+
+
+class VerifyRequest(BaseModel):
+    load_case: str = Field(..., description="One of the supported verification load-case names.")
+    materials: dict[str, str] = Field(default_factory=dict, description="Map of part_id to material name.")
+    parameters: dict[str, Any] = Field(default_factory=dict, description="Case-specific parameter overrides.")
+
+
+class MeshQualityRequest(BaseModel):
+    part_id: str | None = Field(default=None, description="Optional part id; ignored for single STL designs.")
 
 
 class SceneTemplateRequest(BaseModel):
@@ -1827,6 +1839,83 @@ def get_export(design_id: str, filename: str) -> FileResponse:
         media_type = "text/x-python"
 
     return FileResponse(file_path, media_type=media_type, filename=file_path.name)
+
+
+@app.post("/designs/{design_id}/verify")
+def verify_design(design_id: str, request: VerifyRequest) -> dict[str, Any]:
+    """Run a multi-physics verification load case on a design."""
+    design_dir = DESIGNS_DIR / design_id
+    meta_path = design_dir / "metadata.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Design not found.")
+
+    try:
+        load_case = LoadCase(request.load_case)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported load case: {request.load_case}. Supported: {[c.value for c in LoadCase]}",
+        )
+
+    try:
+        req = VerificationRequest(
+            design_id=design_id,
+            load_case=load_case,
+            materials=request.materials,
+            parameters=request.parameters,
+        )
+        result = run_verification(req, design_dir=design_dir)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Verification failed: {exc}")
+
+    # Persist report for GET retrieval.
+    verify_dir = design_dir / "verification"
+    verify_dir.mkdir(parents=True, exist_ok=True)
+    _write_json(verify_dir / f"{result.report_id}.json", result.model_dump(mode="json"))
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    except Exception:
+        meta = {}
+    meta.setdefault("verification_reports", [])
+    meta["verification_reports"].append(
+        {
+            "report_id": result.report_id,
+            "load_case": result.load_case.value,
+            "passed": result.passed,
+            "created_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        }
+    )
+    _write_json(meta_path, meta)
+
+    return {"design_id": design_id, "report": result.model_dump(mode="json")}
+
+
+@app.get("/designs/{design_id}/verify-report/{report_id}")
+def get_verify_report(design_id: str, report_id: str) -> dict[str, Any]:
+    """Return a cached verification report by id."""
+    result = get_report(report_id)
+    if result is None or result.design_id != design_id:
+        # Try to load from disk.
+        report_path = DESIGNS_DIR / design_id / "verification" / f"{report_id}.json"
+        if report_path.exists():
+            try:
+                data = json.loads(report_path.read_text(encoding="utf-8"))
+                result = VerificationResultModel(**data)
+            except Exception as exc:
+                raise HTTPException(status_code=500, detail=f"Failed to read report: {exc}")
+        else:
+            raise HTTPException(status_code=404, detail="Verification report not found.")
+
+    return {"design_id": design_id, "report": result.model_dump(mode="json")}
+
+
+@app.post("/designs/{design_id}/mesh-quality-check")
+def mesh_quality_check(design_id: str, request: MeshQualityRequest) -> dict[str, Any]:
+    """Run the mesh-quality pre-checker on a design's STL export."""
+    return verify_design(
+        design_id,
+        VerifyRequest(load_case=LoadCase.MESH_QUALITY.value),
+    )
 
 
 def _write_text(path: Path, text: str) -> None:

@@ -141,8 +141,8 @@ LearningRobotics → world model → policy training → sim-to-real
 | **19** | Mechanical assembly synthesis + verification | ✅ **Complete — `Interface` library, `mate_inference.py`, revolute/prismatic solver, `assembly_collision.py`, MJCF/URDF joints/actuators/sensors, `/synthesize-assembly`, `/assembly-collision`, `/assembly-poses`, `AssemblyReplayPanel.jsx`, **251/251 tests passing** |
 | **20** | Aerodynamics, thermal, and propulsion geometry | ✅ **Complete — NACA 4-digit airfoils, straight wings, propeller blades, heat sinks, SU2/OpenFOAM CFD mesh stubs, `AeroPanel.jsx`, `ThermalPanel.jsx`, **276/276 tests passing** |
 | **21** | Electronics and mechatronics integration | ✅ **Complete — `PCBOutline` transpilation, electronics part families, stack decomposition + composer layout, electronics analysis, IDF/STEP export, `ElectronicsPanel.jsx`, **299/299 tests passing** |
-| **22** | Multi-physics verification engine | ⏳ **Next** |
-| **23** | Humanoid and full-robot system synthesis | ⏳ Planned |
+| **22** | Multi-physics verification engine | ✅ **Complete — `ai_cad/materials.py`, `ai_cad/verification*.py`, `ai_cad/mesh_quality.py`, closed load-case templates, mesh-quality gate, backend `/verify` endpoints, frontend `VerificationPanel`, **330/330 tests passing** |
+| **23** | Humanoid and full-robot system synthesis | ⏳ **Next** |
 | **24** | World-model simulation builder | ⏳ Planned |
 | **25** | Robot brain training loop | ⏳ Planned |
 | **26** | HERMES conversational supervisor | ⏳ Planned |
@@ -238,15 +238,15 @@ RoboCAD/
 - Repo at `https://github.com/satyamdas03/RoboCAD`; `master` pushed and in sync with local.
 - Phases 0–21 committed and pushed.
 - `ai_cad/` package implements generation, execution, validation, parameter extraction, self-correction, Onshape upload, manufacturing reports, face-click parameter guessing, feature trees, sketch constraints, assemblies, DFM/tolerances/FEA, Claude 5 compatibility, GEDA Bridge bundle export, scene templates, LearningRobotics handshake, RoboCompiler skill pipeline, domain classification, per-domain intent parsing, automatic decomposition/part families, mechanical assembly synthesis (mate inference, kinematic solver, collision checks, joint-aware MJCF/URDF export), aero/thermal/propulsion geometry (NACA airfoils, wings, propeller blades, heat sinks, CFD mesh stubs, lightweight aero/thermal analysis), and electronics/mechatronics co-design (PCB outlines, enclosures, connectors, cable channels, fan mounts, heat spreaders, IDF/STEP export).
-- Web app has FastAPI backend + React frontend with Kinetic Precision dark workstation UI plus `AeroPanel.jsx`, `ThermalPanel.jsx`, and `ElectronicsPanel.jsx`.
-- Test suite: **299/299 passing tests**.
+- Web app has FastAPI backend + React frontend with Kinetic Precision dark workstation UI plus `AeroPanel.jsx`, `ThermalPanel.jsx`, `ElectronicsPanel.jsx`, and `VerificationPanel.jsx`.
+- Test suite: **330/330 passing tests**.
 - Latest fixes: transpiler shell/fillet/chamfer now use the correct per-part `BuildPart` variable; duct family creates a hollow tube via outer + inner subtract instead of the fragile `shell` operation; `ai_cad/sketch_solver.py` resolves NACA airfoil parameter-name chords to avoid ZeroDivisionError; electronics stack layout places PCB on enclosure standoffs with optional heat spreader, fan mount, cable channel, and edge connectors.
 - Live end-to-end verified: `/decompose`, `/classify-domain`, `/generate?decompose=True`, `/designs/{id}/assembly-collision`, `/designs/{id}/assembly-poses`, `/designs/{id}/aero-report`, `/designs/{id}/thermal-report`, `/designs/{id}/cfd-mesh`, `/designs/{id}/electronics-report`, and `/designs/{id}/idf-export` all work.
 - Strategic decision maintained: PATH1 (GEDA Bridge) shipped first; PATH2 (voice/world-model-to-robot) is the long-term North Star.
 
 **Next work:**
-1. **Phase 22 — Multi-physics verification engine:** structural, thermal, CFD, and dynamic checks from a single verification layer.
-2. Keep Batch A + Phases 19–21 under maintenance and the test suite green.
+1. **Phase 23 — Humanoid and full-robot system synthesis:** biped/quadruped/manipulator-on-base templates, actuator sizing, dynamic stability, whole-system MJCF/URDF export.
+2. Keep Phases 14A–22 under maintenance and the 330-test suite green.
 3. Continue local-model fine-tuning (`robocad-ft:latest`) as a background experiment.
 
 ---
@@ -354,4 +354,4 @@ If you are resuming this session with no other context:
 
 ---
 
-*Last updated: 2026-08-29 (Phases 0–21 complete; electronics/mechatronics co-design shipped and verified live; 299/299 tests passing; Phase 22 multi-physics verification engine is next)*
+*Last updated: 2026-08-29 (Phases 0–22 complete; multi-physics verification engine shipped and verified live; 330/330 tests passing; Phase 23 humanoid/full-robot synthesis is next)*

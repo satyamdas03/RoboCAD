@@ -25,6 +25,7 @@ import DecomposePanel from './components/DecomposePanel.jsx'
 import AeroPanel from './components/AeroPanel.jsx'
 import ThermalPanel from './components/ThermalPanel.jsx'
 import ElectronicsPanel from './components/ElectronicsPanel.jsx'
+import VerificationPanel from './components/VerificationPanel.jsx'
 import {
   checkHealth,
   generateDesign,
@@ -333,6 +334,7 @@ export default function App() {
               {(result?.domain === 'electronics' || result?.domain === 'multi') && (
                 <ElectronicsPanel designId={selectedId} />
               )}
+              <VerificationPanel designId={selectedId} />
               <OnshapeUpload designId={selectedId} prompt={result?.prompt} />
               <TagEditor tags={result?.tags || []} onUpdate={handleUpdateTags} />
               <RemixPanel designId={selectedId} onRemix={handleRemix} loading={loading} />
