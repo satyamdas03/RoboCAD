@@ -23,8 +23,11 @@ from ai_cad.verification_load_cases import (
     drop_test,
     fastener_pull_out,
     fatigue_cycles,
+    gait_feasibility_check,
     heat_sink_thermal_resistance,
+    humanoid_stability_check,
     joint_torque_check,
+    reachable_workspace_check,
     static_stress,
     thermal_expansion,
     wind_tunnel_drag,
@@ -235,6 +238,42 @@ class AssemblyClearanceBackend(SolverBackend):
         )
 
 
+class RoboticEstimateBackend(SolverBackend):
+    """Humanoid / legged robot checks using the kinematic tree and stability gate."""
+
+    name = "robotic_estimate"
+    supported_load_cases = [
+        LoadCase.STABILITY_CHECK,
+        LoadCase.REACHABLE_WORKSPACE,
+        LoadCase.GAIT_FEASIBILITY,
+    ]
+
+    def solve(
+        self,
+        request: VerificationRequest,
+        design_dir: Path,
+        mesh: trimesh.Trimesh | None,
+    ) -> VerificationResult:
+        feature_tree_path = design_dir / "feature_tree.json"
+        if not feature_tree_path.exists():
+            return _error(request, "No feature tree found for robotic check.")
+        try:
+            from ai_cad.feature_tree import FeatureTree
+
+            tree = FeatureTree(**json.loads(feature_tree_path.read_text(encoding="utf-8")))
+        except Exception as exc:
+            return _error(request, f"Failed to load feature tree: {exc}")
+
+        case = request.load_case
+        if case == LoadCase.STABILITY_CHECK:
+            return humanoid_stability_check(request.design_id, tree, request.parameters)
+        if case == LoadCase.REACHABLE_WORKSPACE:
+            return reachable_workspace_check(request.design_id, tree, request.parameters)
+        if case == LoadCase.GAIT_FEASIBILITY:
+            return gait_feasibility_check(request.design_id, tree, request.parameters)
+        return _error(request, f"Unsupported robotic load case: {case}")
+
+
 # ---------------------------------------------------------------------------
 # Engine registry
 # ---------------------------------------------------------------------------
@@ -251,6 +290,7 @@ _register_backend(StructuralFormulaBackend())
 _register_backend(ThermalFormulaBackend())
 _register_backend(CFDEstimateBackend())
 _register_backend(MultibodyEstimateBackend())
+_register_backend(RoboticEstimateBackend())
 _register_backend(MeshQualityBackend())
 _register_backend(AssemblyClearanceBackend())
 

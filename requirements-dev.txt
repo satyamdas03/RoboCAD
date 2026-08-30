@@ -7,3 +7,9 @@ mujoco>=3.0.0
 
 # Batch A multi-domain expansion: optional local offline embedding-based classifier.
 sentence-transformers>=3.0.0
+
+# Test safety: kill hanging tests and cap per-test runtime locally.
+pytest-timeout>=2.3.0
+
+# Optional memory profiling. Only used for local diagnostics; not imported by tests.
+# pytest-memray>=1.5.0

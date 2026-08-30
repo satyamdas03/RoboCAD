@@ -1216,6 +1216,300 @@ def _humanoid_end_effector() -> PartFamily:
     )
 
 
+def _humanoid_foot() -> PartFamily:
+    """Simple flat robot foot with ankle pivot and sole contact frame."""
+    params = [
+        Parameter(name="foot_length", value=80.0, unit="mm"),
+        Parameter(name="foot_width", value=50.0, unit="mm"),
+        Parameter(name="foot_thickness", value=8.0, unit="mm"),
+        Parameter(name="ankle_bore", value=8.0, unit="mm"),
+    ]
+    sketch = Sketch(
+        id="foot_profile",
+        name="foot_profile",
+        plane=PlaneReference(type="base", name="XY"),
+        entities=[
+            SketchEntity(
+                type="rectangle",
+                id="foot_rect",
+                center=("foot_length / 4", 0),
+                width="foot_length / 2",
+                height="foot_width",
+            ),
+            SketchEntity(
+                type="circle",
+                id="foot_ankle_hole",
+                center=(0, 0),
+                radius="ankle_bore / 2",
+            ),
+        ],
+        constraints=[],
+        dimensions=[],
+    )
+    feature = _extrude_feature("foot_body", "foot_profile", "foot_thickness")
+    ankle = CoordinateSystem(
+        id="foot_ankle_csys",
+        name="ankle pivot",
+        origin=(0, 0, 0),
+        x_axis=(1, 0, 0),
+        y_axis=(0, 1, 0),
+        z_axis=(0, 0, 1),
+    )
+    sole = CoordinateSystem(
+        id="foot_sole_csys",
+        name="sole contact",
+        origin=(20.0, 0, 0),
+        x_axis=(1, 0, 0),
+        y_axis=(0, 1, 0),
+        z_axis=(0, 0, 1),
+    )
+    interfaces = [
+        Interface(
+            id="ankle",
+            csys=ankle,
+            type="bore",
+            mate_hint="revolute",
+            mate_with=["limb_segment/pin_b", "hub/bore"],
+        ),
+        Interface(
+            id="sole",
+            csys=sole,
+            type="face",
+            mate_hint="fixed",
+            mate_with=["foot/sole"],
+        ),
+    ]
+    return PartFamily(
+        name="foot",
+        domain="humanoid",
+        display_name="Robot foot",
+        default_parameters=params,
+        sketches=[sketch],
+        features=[feature],
+        interfaces=interfaces,
+    )
+
+
+def _humanoid_torso_plate() -> PartFamily:
+    """Central torso / hip plate that carries legs and optional arms."""
+    params = [
+        Parameter(name="torso_width", value=120.0, unit="mm"),
+        Parameter(name="torso_depth", value=80.0, unit="mm"),
+        Parameter(name="torso_thickness", value=12.0, unit="mm"),
+        Parameter(name="hip_bore", value=10.0, unit="mm"),
+    ]
+    sketch = Sketch(
+        id="torso_profile",
+        name="torso_profile",
+        plane=PlaneReference(type="base", name="XY"),
+        entities=[
+            SketchEntity(
+                type="rectangle",
+                id="torso_rect",
+                center=(0, 0),
+                width="torso_width",
+                height="torso_depth",
+            ),
+            SketchEntity(
+                type="circle",
+                id="torso_hip_hole_l",
+                center=("-torso_width / 4", 0),
+                radius="hip_bore / 2",
+            ),
+            SketchEntity(
+                type="circle",
+                id="torso_hip_hole_r",
+                center=("torso_width / 4", 0),
+                radius="hip_bore / 2",
+            ),
+        ],
+        constraints=[],
+        dimensions=[],
+    )
+    feature = _extrude_feature("torso_body", "torso_profile", "torso_thickness")
+    hip_l = CoordinateSystem(
+        id="torso_hip_l",
+        name="left hip",
+        origin=(-30.0, 0, 0),
+        x_axis=(1, 0, 0),
+        y_axis=(0, 1, 0),
+        z_axis=(0, 0, 1),
+    )
+    hip_r = CoordinateSystem(
+        id="torso_hip_r",
+        name="right hip",
+        origin=(30.0, 0, 0),
+        x_axis=(1, 0, 0),
+        y_axis=(0, 1, 0),
+        z_axis=(0, 0, 1),
+    )
+    shoulder_l = CoordinateSystem(
+        id="torso_shoulder_l",
+        name="left shoulder",
+        origin=(-30.0, 0, 12.0),
+        x_axis=(1, 0, 0),
+        y_axis=(0, 1, 0),
+        z_axis=(0, 0, 1),
+    )
+    shoulder_r = CoordinateSystem(
+        id="torso_shoulder_r",
+        name="right shoulder",
+        origin=(30.0, 0, 12.0),
+        x_axis=(1, 0, 0),
+        y_axis=(0, 1, 0),
+        z_axis=(0, 0, 1),
+    )
+    interfaces = [
+        Interface(
+            id="hip_l",
+            csys=hip_l,
+            type="bore",
+            mate_hint="revolute",
+            mate_with=["limb_segment/pin_a", "hub/bore"],
+        ),
+        Interface(
+            id="hip_r",
+            csys=hip_r,
+            type="bore",
+            mate_hint="revolute",
+            mate_with=["limb_segment/pin_a", "hub/bore"],
+        ),
+        Interface(
+            id="shoulder_l",
+            csys=shoulder_l,
+            type="bore",
+            mate_hint="revolute",
+            mate_with=["limb_segment/pin_a", "hub/bore"],
+        ),
+        Interface(
+            id="shoulder_r",
+            csys=shoulder_r,
+            type="bore",
+            mate_hint="revolute",
+            mate_with=["limb_segment/pin_a", "hub/bore"],
+        ),
+    ]
+    return PartFamily(
+        name="torso_plate",
+        domain="humanoid",
+        display_name="Humanoid torso plate",
+        default_parameters=params,
+        sketches=[sketch],
+        features=[feature],
+        interfaces=interfaces,
+    )
+
+
+def _humanoid_hip_hub() -> PartFamily:
+    """Small hub that joins torso hip bore to thigh limb segment."""
+    params = [
+        Parameter(name="hip_hub_diameter", value=24.0, unit="mm"),
+        Parameter(name="hip_hub_length", value=16.0, unit="mm"),
+        Parameter(name="hip_bore", value=10.0, unit="mm"),
+    ]
+    outer = _circle_sketch("hip_outer", "hip_hub_diameter")
+    outer.entities[0].radius = "hip_hub_diameter / 2"
+    bore = _circle_sketch("hip_bore", "hip_bore")
+    body = _extrude_feature("hip_hub_body", "hip_outer", "hip_hub_length")
+    cut = _extrude_feature("hip_hub_bore", "hip_bore", "hip_hub_length", mode="subtract")
+    flange = CoordinateSystem(
+        id="hip_flange",
+        name="hip flange",
+        origin=(0, 0, 16.0),
+        x_axis=(1, 0, 0),
+        y_axis=(0, 1, 0),
+        z_axis=(0, 0, 1),
+    )
+    bore_csys = CoordinateSystem(
+        id="hip_bore_csys",
+        name="hip bore",
+        origin=(0, 0, 0),
+        x_axis=(1, 0, 0),
+        y_axis=(0, 1, 0),
+        z_axis=(0, 0, 1),
+    )
+    interfaces = [
+        Interface(
+            id="flange",
+            csys=flange,
+            type="flange",
+            mate_hint="fixed",
+            mate_with=["torso_plate/hip_l", "torso_plate/hip_r"],
+        ),
+        Interface(
+            id="bore",
+            csys=bore_csys,
+            type="bore",
+            mate_hint="revolute",
+            mate_with=["limb_segment/pin_a"],
+        ),
+    ]
+    return PartFamily(
+        name="hip_hub",
+        domain="humanoid",
+        display_name="Hip joint hub",
+        default_parameters=params,
+        sketches=[outer, bore],
+        features=[body, cut],
+        interfaces=interfaces,
+    )
+
+
+def _humanoid_shoulder_hub() -> PartFamily:
+    """Small hub that joins torso shoulder bore to upper arm limb segment."""
+    params = [
+        Parameter(name="shoulder_hub_diameter", value=22.0, unit="mm"),
+        Parameter(name="shoulder_hub_length", value=14.0, unit="mm"),
+        Parameter(name="shoulder_bore", value=8.0, unit="mm"),
+    ]
+    outer = _circle_sketch("shoulder_outer", "shoulder_hub_diameter")
+    outer.entities[0].radius = "shoulder_hub_diameter / 2"
+    bore = _circle_sketch("shoulder_bore", "shoulder_bore")
+    body = _extrude_feature("shoulder_hub_body", "shoulder_outer", "shoulder_hub_length")
+    cut = _extrude_feature("shoulder_hub_bore", "shoulder_bore", "shoulder_hub_length", mode="subtract")
+    flange = CoordinateSystem(
+        id="shoulder_flange",
+        name="shoulder flange",
+        origin=(0, 0, 0),
+        x_axis=(1, 0, 0),
+        y_axis=(0, 1, 0),
+        z_axis=(0, 0, 1),
+    )
+    bore_csys = CoordinateSystem(
+        id="shoulder_bore_csys",
+        name="shoulder bore",
+        origin=(0, 0, 14.0),
+        x_axis=(1, 0, 0),
+        y_axis=(0, 1, 0),
+        z_axis=(0, 0, 1),
+    )
+    interfaces = [
+        Interface(
+            id="flange",
+            csys=flange,
+            type="flange",
+            mate_hint="fixed",
+            mate_with=["torso_plate/shoulder_l", "torso_plate/shoulder_r"],
+        ),
+        Interface(
+            id="bore",
+            csys=bore_csys,
+            type="bore",
+            mate_hint="revolute",
+            mate_with=["limb_segment/pin_a"],
+        ),
+    ]
+    return PartFamily(
+        name="shoulder_hub",
+        domain="humanoid",
+        display_name="Shoulder joint hub",
+        default_parameters=params,
+        sketches=[outer, bore],
+        features=[body, cut],
+        interfaces=interfaces,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
@@ -1239,6 +1533,10 @@ _FAMILY_BUILDERS: dict[str, Any] = {
     "heat_spreader": _electronics_heat_spreader,
     "limb_segment": _humanoid_limb_segment,
     "end_effector": _humanoid_end_effector,
+    "foot": _humanoid_foot,
+    "torso_plate": _humanoid_torso_plate,
+    "hip_hub": _humanoid_hip_hub,
+    "shoulder_hub": _humanoid_shoulder_hub,
 }
 
 PART_FAMILY_REGISTRY: dict[str, PartFamily] = {

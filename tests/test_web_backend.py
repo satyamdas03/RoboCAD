@@ -12,6 +12,8 @@ import pytest
 import trimesh
 from fastapi.testclient import TestClient
 
+pytestmark = [pytest.mark.slow]
+
 from ai_cad.feature_tree import (
     Assembly,
     Feature,

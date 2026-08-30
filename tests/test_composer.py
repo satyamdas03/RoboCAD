@@ -5,6 +5,8 @@ from ai_cad.composer import compose_feature_tree
 from ai_cad.decomposition import decompose
 from ai_cad.executor import execute_code
 
+pytestmark = [pytest.mark.heavy, pytest.mark.slow]
+
 
 def test_compose_quadcopter_feature_tree():
     result = decompose("450 mm quadcopter with four motor arms", use_llm=False)

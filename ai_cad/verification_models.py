@@ -18,6 +18,9 @@ class LoadCase(str, Enum):
     WIND_TUNNEL_DRAG = "wind_tunnel_drag"
     HEAT_SINK_THERMAL_RESISTANCE = "heat_sink_thermal_resistance"
     JOINT_TORQUE_CHECK = "joint_torque_check"
+    STABILITY_CHECK = "stability_check"
+    REACHABLE_WORKSPACE = "reachable_workspace"
+    GAIT_FEASIBILITY = "gait_feasibility"
     MESH_QUALITY = "mesh_quality"
     ASSEMBLY_CLEARANCE = "assembly_clearance"
 

@@ -5,6 +5,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = [pytest.mark.heavy, pytest.mark.slow]
+
 from ai_cad.executor import execute_code
 
 

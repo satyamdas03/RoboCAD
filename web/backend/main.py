@@ -84,6 +84,10 @@ from ai_cad.transpiler import transpile
 from ai_cad.validator import validate_model
 from ai_cad.verification import get_report, run_verification
 from ai_cad.verification_models import LoadCase, VerificationRequest, VerificationResult as VerificationResultModel
+from ai_cad.robot_templates import humanoid_template, manipulator_on_base_template, quadruped_template
+from ai_cad.actuator_sizing import actuator_summary, size_actuators_for_tree
+from ai_cad.kinematic_tree import forward_kinematics, sample_reachable_workspace
+from ai_cad.stability import check_stability, stability_summary
 
 app = FastAPI(title="RoboCAD", version="0.3.0")
 
@@ -286,6 +290,20 @@ class VariantSweepRequest(BaseModel):
     n_variants: int = Field(default=5, ge=2, le=20, description="Number of variants to generate.")
     tolerance: float = Field(default=0.1, gt=0, le=1.0, description="Mesh tessellation tolerance in mm.")
     run_stability: bool = Field(default=True, description="Run a 2 s MuJoCo stability check on each variant.")
+
+
+class RobotTemplateRequest(BaseModel):
+    template: str = Field(..., description="One of: humanoid, quadruped, manipulator_on_base.")
+    parameters: dict[str, Any] = Field(default_factory=dict, description="Template parameter overrides.")
+
+
+class RobotAnalysisRequest(BaseModel):
+    payload_kg: float = Field(default=5.0, gt=0, description="Design payload mass in kg.")
+    safety_factor: float = Field(default=2.0, gt=0, description="Actuator safety factor.")
+    robot_mass_kg: float = Field(default=20.0, gt=0, description="Total robot mass estimate in kg.")
+    lateral_accel_m_s2: float = Field(default=0.5, ge=0, description="Lateral acceleration budget for ZMP check in m/s^2.")
+    end_effector_id: str = Field(default="hand_r", description="Instance id used for reachable workspace sampling.")
+    swing_foot_id: str = Field(default="foot_l", description="Foot instance id used for gait feasibility proxy.")
 
 
 
@@ -1916,6 +1934,151 @@ def mesh_quality_check(design_id: str, request: MeshQualityRequest) -> dict[str,
         design_id,
         VerifyRequest(load_case=LoadCase.MESH_QUALITY.value),
     )
+
+
+@app.get("/robot-templates")
+def list_robot_templates() -> dict[str, Any]:
+    """Return the available robot system templates."""
+    return {
+        "templates": [
+            {
+                "name": "humanoid",
+                "description": "Biped humanoid robot with legs and optional arms.",
+                "parameters": ["robot_height", "payload_kg", "robot_mass_kg", "leg_dof", "arm_dof", "gait_style"],
+            },
+            {
+                "name": "quadruped",
+                "description": "Quadruped robot with four legs.",
+                "parameters": ["robot_height", "payload_kg", "robot_mass_kg", "leg_dof", "gait_style"],
+            },
+            {
+                "name": "manipulator_on_base",
+                "description": "Mobile base carrying a serial manipulator.",
+                "parameters": ["base_size", "reach", "payload_kg", "robot_mass_kg", "arm_dof"],
+            },
+        ]
+    }
+
+
+@app.post("/robot-templates")
+def create_robot_template(req: RobotTemplateRequest) -> dict[str, Any]:
+    """Instantiate a parameterized robot-system template as a persisted design."""
+    template_name = req.template.lower()
+    if template_name == "humanoid":
+        tree = humanoid_template()
+    elif template_name == "quadruped":
+        tree = quadruped_template()
+    elif template_name == "manipulator_on_base":
+        tree = manipulator_on_base_template()
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown robot template '{req.template}'. Supported: humanoid, quadruped, manipulator_on_base.",
+        )
+
+    # Apply parameter overrides.
+    for name, value in req.parameters.items():
+        try:
+            tree.update_parameter(name, value)
+        except Exception:
+            # Unknown or unparseable parameter; skip silently.
+            pass
+
+    design_id = uuid.uuid4().hex
+    design_dir = DESIGNS_DIR / design_id
+    design_dir.mkdir(parents=True, exist_ok=True)
+
+    meta = {
+        "id": design_id,
+        "prompt": tree.prompt,
+        "success": True,
+        "model": f"robot-template:{template_name}",
+        "attempts_used": 1,
+        "max_retries": 0,
+        "latency_seconds": 0.0,
+        "created_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "exports": {},
+        "tags": ["robot_template", template_name],
+        "domain": "mechanical",
+    }
+    _write_json(design_dir / "metadata.json", meta)
+    _write_json(design_dir / "feature_tree.json", tree.model_dump(mode="json"))
+    _write_json(design_dir / "parameters.json", [p.model_dump() for p in tree.parameters])
+
+    return {
+        "design_id": design_id,
+        "template": template_name,
+        "feature_tree": tree.model_dump(mode="json"),
+        "export_urls": _build_export_urls(design_id, {}),
+    }
+
+
+@app.post("/designs/{design_id}/robot-analysis")
+def robot_analysis(design_id: str, request: RobotAnalysisRequest) -> dict[str, Any]:
+    """Run actuator sizing, stability, workspace, and gait feasibility on a robot design."""
+    design_dir = DESIGNS_DIR / design_id
+    feature_tree_path = design_dir / "feature_tree.json"
+    if not feature_tree_path.exists():
+        raise HTTPException(status_code=404, detail="Feature tree not found for this design.")
+
+    try:
+        tree = FeatureTree(**json.loads(feature_tree_path.read_text(encoding="utf-8")))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to load feature tree: {exc}")
+
+    if not tree.assemblies:
+        raise HTTPException(status_code=422, detail="No assembly found for robot analysis.")
+
+    # Actuator sizing.
+    actuator_specs = size_actuators_for_tree(
+        tree,
+        payload_kg=request.payload_kg,
+        safety_factor=request.safety_factor,
+    )
+
+    # Stability / ZMP.
+    stability_report = check_stability(
+        tree,
+        robot_mass_kg=request.robot_mass_kg,
+        lateral_accel_m_s2=request.lateral_accel_m_s2,
+    )
+
+    # Reachable workspace of the requested end-effector.
+    workspace = sample_reachable_workspace(
+        tree,
+        end_effector_id=request.end_effector_id,
+        samples_per_joint=5,
+    )
+
+    # Simple gait proxy: can the swing foot move in X and Z?
+    swing_workspace = sample_reachable_workspace(
+        tree,
+        end_effector_id=request.swing_foot_id,
+        samples_per_joint=4,
+    )
+    env = swing_workspace.get("envelope_mm", (0.0, 0.0, 0.0))
+    gait_feasible = stability_report.gait_feasible and env[0] >= 50.0 and env[2] >= 30.0
+
+    # Forward kinematics at zero pose.
+    poses = forward_kinematics(tree)
+    pose_summary = {
+        link: {
+            "position": [float(v) for v in pose.position],
+            "rotation_deg": [float(v) for v in pose.rotation_deg],
+        }
+        for link, pose in poses.items()
+    }
+
+    return {
+        "design_id": design_id,
+        "actuators": {jid: spec.__dict__ for jid, spec in actuator_specs.items()},
+        "actuator_summary": actuator_summary(actuator_specs),
+        "stability": stability_summary(stability_report),
+        "reachable_workspace": workspace,
+        "swing_workspace": swing_workspace,
+        "gait_feasible": gait_feasible,
+        "zero_pose": pose_summary,
+    }
 
 
 def _write_text(path: Path, text: str) -> None:

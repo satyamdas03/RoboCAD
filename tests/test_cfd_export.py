@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = [pytest.mark.heavy]
+
 from ai_cad.cfd import (
     CFDMeshResult,
     export_cfd_mesh,

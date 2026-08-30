@@ -5,6 +5,8 @@ import numpy as np
 import pytest
 import trimesh
 
+pytestmark = [pytest.mark.heavy]
+
 from ai_cad.materials import get_material
 from ai_cad.verification_load_cases import (
     drop_test,

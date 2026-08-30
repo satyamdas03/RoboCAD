@@ -27,6 +27,10 @@ def test_registry_contains_all_phase18_families():
         "heat_spreader",
         "limb_segment",
         "end_effector",
+        "foot",
+        "torso_plate",
+        "hip_hub",
+        "shoulder_hub",
     }
     assert set(PART_FAMILY_REGISTRY) == expected
 

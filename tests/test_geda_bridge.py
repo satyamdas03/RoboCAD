@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = [pytest.mark.heavy]
+
 from ai_cad.feature_tree import (
     Assembly,
     Feature,

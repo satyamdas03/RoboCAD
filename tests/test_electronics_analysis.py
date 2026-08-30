@@ -5,6 +5,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = [pytest.mark.heavy]
+
 from ai_cad.composer import compose_feature_tree
 from ai_cad.decomposition import DecomposedPart, DecompositionResult
 from ai_cad.electronics import run_electronics_analysis

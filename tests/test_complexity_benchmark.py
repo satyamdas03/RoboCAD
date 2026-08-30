@@ -7,6 +7,8 @@ from unittest import mock
 
 import pytest
 
+pytestmark = [pytest.mark.benchmark, pytest.mark.slow]
+
 from ai_cad.models import CADParameter, ExportPaths, GenerationResult, ValidationReport
 from benchmarks.evaluate_complexity import _run_single, _write_markdown_report, main
 

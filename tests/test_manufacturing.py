@@ -7,6 +7,8 @@ import numpy as np
 import pytest
 import trimesh
 
+pytestmark = [pytest.mark.heavy, pytest.mark.slow]
+
 from ai_cad.manufacturing import analyze_model
 
 

@@ -8,6 +8,8 @@ import pytest
 
 pytest.importorskip("mujoco")
 
+pytestmark = [pytest.mark.mujoco, pytest.mark.heavy]
+
 import mujoco
 
 from ai_cad.geda_bridge import (

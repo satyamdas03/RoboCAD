@@ -6,6 +6,8 @@ from pathlib import Path
 import pytest
 import trimesh
 
+pytestmark = [pytest.mark.heavy, pytest.mark.slow]
+
 from ai_cad.fea import run_static_analysis
 
 

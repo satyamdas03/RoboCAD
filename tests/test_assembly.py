@@ -5,6 +5,8 @@ import math
 
 import pytest
 
+pytestmark = [pytest.mark.heavy, pytest.mark.slow]
+
 from ai_cad.assembly import compute_instance_transforms, transpile_assembly
 from ai_cad.feature_tree import (
     Assembly,

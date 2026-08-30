@@ -16,6 +16,8 @@ if str(REPO_ROOT) not in sys.path:
 from web.backend import main as main_module
 from web.backend.main import app
 
+pytestmark = [pytest.mark.heavy, pytest.mark.slow]
+
 client = TestClient(app)
 
 

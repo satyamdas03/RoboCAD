@@ -7,6 +7,8 @@ import pytest
 
 pytest.importorskip("mujoco")
 
+pytestmark = [pytest.mark.mujoco, pytest.mark.heavy]
+
 from ai_cad.geda_bridge import (
     export_bundle_from_shape,
     export_bundle_from_tree,

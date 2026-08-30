@@ -4,6 +4,8 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
+pytestmark = [pytest.mark.heavy]
+
 from ai_cad.feature_tree import FeatureTree, Parameter, Part, PlaneReference, Sketch, SketchEntity, SurfaceFeature
 from ai_cad.transpiler import transpile, _transpile_surface_feature
 

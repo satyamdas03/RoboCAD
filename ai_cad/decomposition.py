@@ -86,6 +86,9 @@ FAMILY_KEYWORDS = {
         "limb_segment": ["arm", "leg", "limb", "link"],
         "end_effector": ["gripper", "hand", "end effector", "jaw"],
         "foot": ["foot", "feet"],
+        "torso_plate": ["torso", "body", "hip plate", "chassis"],
+        "hip_hub": ["hip", "hip joint", "hip hub"],
+        "shoulder_hub": ["shoulder", "shoulder joint", "shoulder hub"],
     },
 }
 
@@ -211,7 +214,7 @@ Available families by domain:
 - aero: airfoil, wing, duct
 - thermal: heat_sink
 - electronics: pcb, pcb_bracket, enclosure, connector, cable_channel, fan_mount, heat_spreader
-- humanoid: limb_segment, end_effector, foot
+- humanoid: limb_segment, end_effector, foot, torso_plate, hip_hub, shoulder_hub
 """
     messages = [{"role": "user", "content": f"Prompt: {prompt}\n\nReturn only JSON."}]
     try:
@@ -438,19 +441,31 @@ def _rule_decompose(prompt: str) -> DecompositionResult | None:
             notes=["Rule-based robot arm decomposition."],
         )
 
-    # Humanoid / biped / quadruped
-    if any(w in text for w in {"humanoid", "biped", "quadruped", "leg", "torso"}):
+    # Humanoid / biped / quadruped / manipulator-on-base
+    if any(w in text for w in {"humanoid", "biped", "quadruped", "leg", "torso", "manipulator on base", "robot on base"}):
         parts = []
         parts.append(
             DecomposedPart(
                 id="torso_plate",
                 name="Torso plate",
-                domain="mechanical",
-                family="bracket",
+                domain="humanoid",
+                family="torso_plate",
                 sub_prompt="Humanoid torso mounting bracket",
             )
         )
         leg_count = 2 if "biped" in text or "humanoid" in text else 4
+        arm_count = 2 if any(w in text for w in {"arm", "shoulder", "manipulator"}) and leg_count == 2 else 0
+        # Hip / shoulder hubs join torso bores to limb segments.
+        parts.append(
+            DecomposedPart(
+                id="hip_hub",
+                name="Hip hub",
+                domain="humanoid",
+                family="hip_hub",
+                sub_prompt="Hip joint hub",
+                count=leg_count,
+            )
+        )
         parts.append(
             DecomposedPart(
                 id="thigh",
@@ -471,12 +486,67 @@ def _rule_decompose(prompt: str) -> DecompositionResult | None:
                 count=leg_count,
             )
         )
+        parts.append(
+            DecomposedPart(
+                id="foot",
+                name="Foot",
+                domain="humanoid",
+                family="foot",
+                sub_prompt="Humanoid foot",
+                count=leg_count,
+            )
+        )
+        if arm_count > 0:
+            parts.append(
+                DecomposedPart(
+                    id="shoulder_hub",
+                    name="Shoulder hub",
+                    domain="humanoid",
+                    family="shoulder_hub",
+                    sub_prompt="Shoulder joint hub",
+                    count=arm_count,
+                )
+            )
+            parts.append(
+                DecomposedPart(
+                    id="upper_arm",
+                    name="Upper arm segment",
+                    domain="humanoid",
+                    family="limb_segment",
+                    sub_prompt="Humanoid upper arm limb segment",
+                    count=arm_count,
+                )
+            )
+            parts.append(
+                DecomposedPart(
+                    id="forearm",
+                    name="Forearm segment",
+                    domain="humanoid",
+                    family="limb_segment",
+                    sub_prompt="Humanoid forearm limb segment",
+                    count=arm_count,
+                )
+            )
+            if any(w in text for w in {"gripper", "hand", "end effector"}):
+                parts.append(
+                    DecomposedPart(
+                        id="hand",
+                        name="Hand / gripper",
+                        domain="humanoid",
+                        family="end_effector",
+                        sub_prompt="Humanoid end effector",
+                        count=arm_count,
+                    )
+                )
+        notes = [f"Rule-based humanoid decomposition, {leg_count} legs"]
+        if arm_count > 0:
+            notes[0] += f", {arm_count} arms"
         return DecompositionResult(
             prompt=prompt,
             primary_domain="humanoid",
             multi_domain=True,
             parts=parts,
-            notes=[f"Rule-based humanoid decomposition, {leg_count} legs."],
+            notes=notes,
         )
 
     # Fixed-wing aircraft / glider

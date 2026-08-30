@@ -545,6 +545,9 @@ def _layout_parts(result: DecompositionResult) -> tuple[list[Instance], list[Mat
     layout = _place_electronics_stack(result)
     if layout:
         return layout
+    layout = _place_humanoid(result)
+    if layout:
+        return layout
     return _generic_layout(result)
 
 
@@ -756,3 +759,269 @@ def compose_feature_tree(
         ],
     )
     return tree
+
+
+# ---------------------------------------------------------------------------
+# Humanoid / legged robot layout
+# ---------------------------------------------------------------------------
+
+
+def _place_humanoid(result: DecompositionResult) -> tuple[list[Instance], list[Mate]] | None:
+    """If the result matches a humanoid/biped/quadruped layout, build an articulated chain."""
+    text = result.prompt.lower()
+    if not any(w in text for w in {"humanoid", "biped", "quadruped", "leg", "torso", "manipulator on base", "robot on base"}):
+        return None
+
+    instances: list[Instance] = []
+    mates: list[Mate] = []
+
+    # Default scaling from prompt keywords.
+    robot_height = 1000.0
+    found = _find_number_near(text, "mm", "tall") or _find_number_near(text, "mm", "height")
+    if found:
+        robot_height = found
+    elif "small" in text or "mini" in text:
+        robot_height = 400.0
+    elif "large" in text:
+        robot_height = 1500.0
+
+    thigh_length = robot_height * 0.22
+    shin_length = robot_height * 0.24
+    foot_length = robot_height * 0.10
+    torso_width = robot_height * 0.12
+    torso_z = thigh_length + shin_length
+
+    # Torso plate at top of legs.
+    instances.append(
+        Instance(
+            id="i_torso",
+            part_id="torso_plate",
+            name="Torso",
+            transform={"translation": (0.0, 0.0, torso_z)},
+        )
+    )
+
+    leg_count = 2 if "biped" in text or "humanoid" in text or "manipulator on base" in text or "robot on base" in text else 4
+    leg_names = ["left", "right"] if leg_count == 2 else ["front_left", "front_right", "back_left", "back_right"]
+    side_signs = [(-1, 1), (1, 1)] if leg_count == 2 else [(-1, 1), (1, 1), (-1, -1), (1, -1)]
+
+    for i, (name, (sx, sy)) in enumerate(zip(leg_names, side_signs)):
+        hip_x = sx * torso_width / 2
+        hip_y = sy * torso_width / 3
+
+        hip_id = f"i_hip_{name}"
+        instances.append(
+            Instance(
+                id=hip_id,
+                part_id="hip_hub",
+                name=f"Hip {name}",
+                transform={"translation": (hip_x, hip_y, torso_z)},
+            )
+        )
+        mates.append(
+            Mate(
+                id=f"m_torso_hip_{name}",
+                type="fixed",
+                entities=[MateEntity(instance_id="i_torso"), MateEntity(instance_id=hip_id)],
+            )
+        )
+
+        thigh_id = f"i_thigh_{name}"
+        # Thigh hangs downward from hip.
+        instances.append(
+            Instance(
+                id=thigh_id,
+                part_id="thigh",
+                name=f"Thigh {name}",
+                transform={
+                    "translation": (hip_x, hip_y, torso_z - thigh_length / 2),
+                    "rotation": (0.0, 0.0, 0.0),
+                },
+            )
+        )
+        mates.append(
+            Mate(
+                id=f"m_hip_thigh_{name}",
+                type="revolute",
+                entities=[MateEntity(instance_id=hip_id), MateEntity(instance_id=thigh_id)],
+            )
+        )
+
+        knee_id = f"i_knee_{name}"
+        knee_z = torso_z - thigh_length
+        instances.append(
+            Instance(
+                id=knee_id,
+                part_id="hip_hub",
+                name=f"Knee {name}",
+                transform={"translation": (hip_x, hip_y, knee_z)},
+            )
+        )
+        mates.append(
+            Mate(
+                id=f"m_thigh_knee_{name}",
+                type="revolute",
+                entities=[MateEntity(instance_id=thigh_id), MateEntity(instance_id=knee_id)],
+            )
+        )
+
+        shin_id = f"i_shin_{name}"
+        instances.append(
+            Instance(
+                id=shin_id,
+                part_id="shin",
+                name=f"Shin {name}",
+                transform={
+                    "translation": (hip_x, hip_y, knee_z - shin_length / 2),
+                    "rotation": (0.0, 0.0, 0.0),
+                },
+            )
+        )
+        mates.append(
+            Mate(
+                id=f"m_knee_shin_{name}",
+                type="revolute",
+                entities=[MateEntity(instance_id=knee_id), MateEntity(instance_id=shin_id)],
+            )
+        )
+
+        foot_id = f"i_foot_{name}"
+        instances.append(
+            Instance(
+                id=foot_id,
+                part_id="foot",
+                name=f"Foot {name}",
+                transform={
+                    "translation": (hip_x + foot_length / 4, hip_y, torso_z - thigh_length - shin_length),
+                    "rotation": (0.0, 0.0, 0.0),
+                },
+            )
+        )
+        mates.append(
+            Mate(
+                id=f"m_shin_foot_{name}",
+                type="revolute",
+                entities=[MateEntity(instance_id=shin_id), MateEntity(instance_id=foot_id)],
+            )
+        )
+
+    # Optional arms for biped/humanoid.
+    arm_parts = {"shoulder_hub", "upper_arm", "forearm", "hand"}
+    has_arms = any(dp.id in arm_parts for dp in result.parts)
+    if has_arms:
+        for side, sx in [("left", -1), ("right", 1)]:
+            shoulder_x = sx * torso_width / 2
+            shoulder_z = torso_z + 20.0
+            shoulder_id = f"i_shoulder_{side}"
+            instances.append(
+                Instance(
+                    id=shoulder_id,
+                    part_id="shoulder_hub",
+                    name=f"Shoulder {side}",
+                    transform={"translation": (shoulder_x, 0.0, shoulder_z)},
+                )
+            )
+            mates.append(
+                Mate(
+                    id=f"m_torso_shoulder_{side}",
+                    type="fixed",
+                    entities=[MateEntity(instance_id="i_torso"), MateEntity(instance_id=shoulder_id)],
+                )
+            )
+            upper_id = f"i_upper_arm_{side}"
+            instances.append(
+                Instance(
+                    id=upper_id,
+                    part_id="upper_arm",
+                    name=f"Upper arm {side}",
+                    transform={
+                        "translation": (shoulder_x, 0.0, shoulder_z - thigh_length * 0.6),
+                        "rotation": (0.0, 0.0, 0.0),
+                    },
+                )
+            )
+            mates.append(
+                Mate(
+                    id=f"m_shoulder_upper_{side}",
+                    type="revolute",
+                    entities=[MateEntity(instance_id=shoulder_id), MateEntity(instance_id=upper_id)],
+                )
+            )
+            elbow_id = f"i_elbow_{side}"
+            instances.append(
+                Instance(
+                    id=elbow_id,
+                    part_id="hip_hub",
+                    name=f"Elbow {side}",
+                    transform={"translation": (shoulder_x, 0.0, shoulder_z - thigh_length * 0.6)},
+                )
+            )
+            mates.append(
+                Mate(
+                    id=f"m_upper_elbow_{side}",
+                    type="revolute",
+                    entities=[MateEntity(instance_id=upper_id), MateEntity(instance_id=elbow_id)],
+                )
+            )
+            forearm_id = f"i_forearm_{side}"
+            instances.append(
+                Instance(
+                    id=forearm_id,
+                    part_id="forearm",
+                    name=f"Forearm {side}",
+                    transform={
+                        "translation": (shoulder_x, 0.0, shoulder_z - thigh_length * 1.1),
+                        "rotation": (0.0, 0.0, 0.0),
+                    },
+                )
+            )
+            mates.append(
+                Mate(
+                    id=f"m_elbow_forearm_{side}",
+                    type="revolute",
+                    entities=[MateEntity(instance_id=elbow_id), MateEntity(instance_id=forearm_id)],
+                )
+            )
+            if any(dp.id == "hand" for dp in result.parts):
+                hand_id = f"i_hand_{side}"
+                instances.append(
+                    Instance(
+                        id=hand_id,
+                        part_id="hand",
+                        name=f"Hand {side}",
+                        transform={
+                            "translation": (shoulder_x, 0.0, shoulder_z - thigh_length * 1.4),
+                            "rotation": (0.0, 90.0, 0.0),
+                        },
+                    )
+                )
+                mates.append(
+                    Mate(
+                        id=f"m_forearm_hand_{side}",
+                        type="revolute",
+                        entities=[MateEntity(instance_id=forearm_id), MateEntity(instance_id=hand_id)],
+                    )
+                )
+
+    return instances, mates
+
+
+def _find_number_near(text: str, unit: str, keyword: str) -> float | None:
+    """Find a number near a keyword followed by a unit, e.g. '1000 mm tall'."""
+    import re
+    pattern = re.compile(r"(\d+(?:\.\d+)?)\s*" + re.escape(unit) + r"\s+" + re.escape(keyword))
+    match = pattern.search(text)
+    if match:
+        try:
+            return float(match.group(1))
+        except (TypeError, ValueError):
+            pass
+    # Try keyword before number.
+    pattern2 = re.compile(re.escape(keyword) + r"\s+(\d+(?:\.\d+)?)\s*" + re.escape(unit))
+    match2 = pattern2.search(text)
+    if match2:
+        try:
+            return float(match2.group(1))
+        except (TypeError, ValueError):
+            pass
+    return None

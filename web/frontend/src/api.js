@@ -311,3 +311,28 @@ export async function getVerificationReport(id, reportId) {
 export async function checkMeshQuality(id) {
   return apiFetch(`/designs/${id}/mesh-quality-check`, { method: 'POST' })
 }
+
+export async function listRobotTemplates() {
+  return apiFetch('/robot-templates')
+}
+
+export async function createRobotTemplate({ template, parameters = {} }) {
+  return apiFetch('/robot-templates', {
+    method: 'POST',
+    body: JSON.stringify({ template, parameters }),
+  })
+}
+
+export async function runRobotAnalysis(id, { payloadKg = 5.0, safetyFactor = 2.0, robotMassKg = 20.0, lateralAccelMS2 = 0.5, endEffectorId = 'hand_r', swingFootId = 'foot_l' } = {}) {
+  return apiFetch(`/designs/${id}/robot-analysis`, {
+    method: 'POST',
+    body: JSON.stringify({
+      payload_kg: payloadKg,
+      safety_factor: safetyFactor,
+      robot_mass_kg: robotMassKg,
+      lateral_accel_m_s2: lateralAccelMS2,
+      end_effector_id: endEffectorId,
+      swing_foot_id: swingFootId,
+    }),
+  })
+}

@@ -5,6 +5,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = [pytest.mark.heavy]
+
 from ai_cad.cfd import export_cfd_mesh
 from ai_cad.feature_tree import FeatureTree
 from ai_cad.part_families import get_family, instantiate_family, list_families

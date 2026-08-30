@@ -13,6 +13,7 @@ from typing import Any
 import numpy as np
 import trimesh
 
+from ai_cad.feature_tree import FeatureTree
 from ai_cad.materials import Material, get_material
 from ai_cad.verification_models import LoadCase, MeshQualityReport, VerificationResult
 
@@ -502,6 +503,151 @@ def joint_torque_check(
         LoadCase.JOINT_TORQUE_CHECK,
         passed,
         metrics,
+        failure_modes=failure_modes,
+        redesign_suggestions=suggestions,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Humanoid / legged robot checks
+# ---------------------------------------------------------------------------
+
+def humanoid_stability_check(
+    design_id: str,
+    tree: FeatureTree,
+    params: dict[str, Any],
+) -> VerificationResult:
+    """Check support polygon, ZMP, and gait feasibility for a legged design."""
+    from ai_cad.stability import StabilityReport, check_stability, stability_summary
+
+    robot_mass_kg = float(params.get("robot_mass_kg", 20.0))
+    com_height_m = params.get("com_height_m")
+    if com_height_m is not None:
+        com_height_m = float(com_height_m)
+    lateral_accel_m_s2 = float(params.get("lateral_accel_m_s2", 0.5))
+
+    report = check_stability(tree, robot_mass_kg, com_height_m, lateral_accel_m_s2)
+    summary = stability_summary(report)
+    passed = report.statically_stable and report.dynamically_stable and report.gait_feasible
+
+    failure_modes: list[str] = []
+    suggestions: list[str] = []
+    if not report.statically_stable:
+        failure_modes.append("static_stability_margin_low")
+        suggestions.append("Increase foot size or stance width; lower CoM height.")
+    if not report.dynamically_stable:
+        failure_modes.append("zmp_exits_support_polygon")
+        suggestions.append("Increase lateral support margin or reduce lateral acceleration budget.")
+    if not report.gait_feasible:
+        failure_modes.append("gait_feasibility_gate_failed")
+        suggestions.append("Increase support polygon area and ensure at least two contact feet.")
+
+    return _result(
+        design_id,
+        LoadCase.STABILITY_CHECK,
+        passed,
+        summary,
+        warnings=report.warnings,
+        failure_modes=failure_modes,
+        redesign_suggestions=suggestions,
+        raw_output=summary,
+    )
+
+
+def reachable_workspace_check(
+    design_id: str,
+    tree: FeatureTree,
+    params: dict[str, Any],
+) -> VerificationResult:
+    """Sample reachable workspace of a target end-effector / foot."""
+    from ai_cad.kinematic_tree import sample_reachable_workspace
+
+    end_effector_id = str(params.get("end_effector_id", "hand_r"))
+    samples_per_joint = int(params.get("samples_per_joint", 5))
+
+    result = sample_reachable_workspace(tree, end_effector_id, samples_per_joint=samples_per_joint)
+    envelope = result.get("envelope_mm", (0.0, 0.0, 0.0))
+    volume = result.get("volume_estimate_mm3", 0.0)
+    min_envelope = float(params.get("min_envelope_mm", 100.0))
+    min_volume = float(params.get("min_volume_mm3", 1e6))
+
+    passed = all(e >= min_envelope for e in envelope) and volume >= min_volume
+
+    failure_modes: list[str] = []
+    suggestions: list[str] = []
+    if not passed:
+        failure_modes.append("reachable_workspace_too_small")
+        suggestions.append("Increase limb segment lengths or joint limits.")
+        suggestions.append("Verify the end-effector id exists in the assembly.")
+
+    metrics = {
+        "end_effector_id": end_effector_id,
+        "point_count": float(result.get("point_count", 0)),
+        "envelope_x_mm": round(envelope[0], 4),
+        "envelope_y_mm": round(envelope[1], 4),
+        "envelope_z_mm": round(envelope[2], 4),
+        "volume_estimate_mm3": round(volume, 4),
+    }
+    return _result(
+        design_id,
+        LoadCase.REACHABLE_WORKSPACE,
+        passed,
+        metrics,
+        failure_modes=failure_modes,
+        redesign_suggestions=suggestions,
+        raw_output=result,
+    )
+
+
+def gait_feasibility_check(
+    design_id: str,
+    tree: FeatureTree,
+    params: dict[str, Any],
+) -> VerificationResult:
+    """Aggregate gait feasibility: stability + workspace of swing foot."""
+    from ai_cad.stability import check_stability
+
+    robot_mass_kg = float(params.get("robot_mass_kg", 20.0))
+    lateral_accel_m_s2 = float(params.get("lateral_accel_m_s2", 0.5))
+    report = check_stability(tree, robot_mass_kg, lateral_accel_m_s2=lateral_accel_m_s2)
+
+    # Workspace check for one foot as a swing leg proxy.
+    from ai_cad.kinematic_tree import sample_reachable_workspace
+
+    swing_foot_id = str(params.get("swing_foot_id", "foot_l"))
+    workspace = sample_reachable_workspace(tree, swing_foot_id, samples_per_joint=4)
+    envelope = workspace.get("envelope_mm", (0.0, 0.0, 0.0))
+    min_step_height = float(params.get("min_step_height_mm", 30.0))
+    min_step_length = float(params.get("min_step_length_mm", 50.0))
+
+    passed = report.gait_feasible and envelope[2] >= min_step_height and envelope[0] >= min_step_length
+
+    failure_modes: list[str] = []
+    suggestions: list[str] = []
+    if not report.gait_feasible:
+        failure_modes.append("stability_gate_failed")
+        suggestions.append("Increase support polygon or lower CoM.")
+    if envelope[2] < min_step_height:
+        failure_modes.append("insufficient_step_height")
+        suggestions.append("Increase shin/ankle length or joint limits to raise foot.")
+    if envelope[0] < min_step_length:
+        failure_modes.append("insufficient_step_length")
+        suggestions.append("Increase thigh length or hip pitch range.")
+
+    metrics = {
+        "gait_feasible": 1.0 if report.gait_feasible else 0.0,
+        "statically_stable": 1.0 if report.statically_stable else 0.0,
+        "dynamically_stable": 1.0 if report.dynamically_stable else 0.0,
+        "swing_envelope_x_mm": round(envelope[0], 4),
+        "swing_envelope_y_mm": round(envelope[1], 4),
+        "swing_envelope_z_mm": round(envelope[2], 4),
+    }
+    return _result(
+        design_id,
+        LoadCase.GAIT_FEASIBILITY,
+        passed,
+        metrics,
+        warnings=report.warnings,
         failure_modes=failure_modes,
         redesign_suggestions=suggestions,
     )

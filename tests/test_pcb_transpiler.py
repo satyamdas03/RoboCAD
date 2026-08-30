@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import pytest
 
+pytestmark = [pytest.mark.heavy]
+
 from ai_cad.executor import execute_code
 from ai_cad.feature_tree import FeatureTree, PCBOutline, Part
 from ai_cad.transpiler import transpile

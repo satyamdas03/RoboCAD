@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import pytest
 
+pytestmark = [pytest.mark.heavy]
+
 from ai_cad.feature_tree import FeatureTree
 from ai_cad.part_families import get_family, instantiate_family
 from ai_cad.sketch_solver import _naca_4digit_points

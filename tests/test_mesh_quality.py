@@ -8,6 +8,8 @@ import numpy as np
 import pytest
 import trimesh
 
+pytestmark = [pytest.mark.heavy, pytest.mark.slow]
+
 from ai_cad.mesh_quality import check_mesh_quality, load_mesh
 
 

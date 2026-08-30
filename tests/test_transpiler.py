@@ -5,6 +5,8 @@ import re
 
 import pytest
 
+pytestmark = [pytest.mark.heavy]
+
 from ai_cad.feature_tree import Feature, FeatureTree, Parameter, Part, PlaneReference, Sketch, SketchEntity
 from ai_cad.transpiler import transpile
 

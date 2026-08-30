@@ -6,6 +6,8 @@ from unittest import mock
 
 import pytest
 
+pytestmark = [pytest.mark.heavy, pytest.mark.slow]
+
 from ai_cad.api import RoboCADBackend
 
 

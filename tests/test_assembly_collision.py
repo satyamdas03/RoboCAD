@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import pytest
 
+pytestmark = [pytest.mark.heavy, pytest.mark.slow]
+
 from ai_cad.assembly_collision import check_assembly_collision, CollisionReport
 from ai_cad.feature_tree import (
     Assembly,
