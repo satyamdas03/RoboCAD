@@ -1,7 +1,7 @@
 # RoboCAD Strategic Analysis: PATH1 vs PATH2
 
 **Date:** 2026-08-25 (updated 2026-08-29)  
-**Status:** Decision made; PATH1 (Phases 14A–15B), Batch A (Phases 16–18), Phase 19, and Phase 20 complete; Phase 21 — electronics and mechatronics integration — is next  
+**Status:** Decision made; PATH1 (Phases 14A–15B), Batch A (Phases 16–18), Phase 19, Phase 20, Phase 21, and Phase 22 complete; Phase 23 — humanoid and full-robot system synthesis — is next  
 **Related:** [`PLAN.md`](../PLAN.md) Sections 12–14, [`robocad-end-to-end-roadmap.md`](robocad-end-to-end-roadmap.md)
 
 ---

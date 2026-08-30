@@ -4,7 +4,7 @@
 **Horizon:** ~5–7 years  
 **North Star:** voice/text/sketch → multi-domain parametric CAD → per-part multi-physics testing → assembly → world-model simulation → HERMES oversight → robot brain trained on synthetic data with retraining loops.  
 **First commercial milestone:** PATH1 / GEDA Bridge (Phases 14A–15B) — complete, 187/187 tests.  
-**Current milestone:** Aerodynamics, thermal, and propulsion geometry (Phase 20) — complete, 276/276 tests; NACA 4-digit airfoils, straight wings, propeller blades, heat sinks, SU2/OpenFOAM CFD mesh stubs, and lightweight aero/thermal analysis endpoints are live; Phase 21 — electronics and mechatronics integration — is next.  
+**Current milestone:** Multi-physics verification engine (Phase 22) — complete, 330/330 tests; material library, mesh-quality pre-checker, closed load-case templates, solver abstraction, backend `/verify` endpoints, and frontend `VerificationPanel` are live; Phase 23 — humanoid and full-robot system synthesis — is next.  
 **Domain tracks:** mechanical assemblies, aerodynamics / thermal / propulsion geometry, electronics / mechatronics form-factor co-design, humanoid / full-robot system synthesis.  
 **Related:** [`PLAN.md`](../PLAN.md) Sections 10–14, [`PATH1_PATH2_analysis.md`](PATH1_PATH2_analysis.md)
 
@@ -278,15 +278,25 @@ Maintained across the entire roadmap:
 
 **Goal:** Design PCB form factors, enclosures, connectors, cable routing, and thermal management hardware that integrate with external EDA tools — *not* to replace full silicon EDA, but to close the mechanical-electrical co-design loop.
 
-**Deliverables:**
-- Component footprint / connector library (KiCad-standard and generic).
-- PCB outline + mounting holes + keepout generation.
-- Connector and cable-channel routing geometry.
-- Heat sink / spreader / fan-mount geometry tied to thermal loads.
-- Export IDF / STEP for board-level EDA tools.
-- **Explicit out-of-scope:** transistor-level IC design, SPICE simulation, and lithography/PnR. These remain external EDA domains; RoboCAD handles packages, boards, and mounts.
+**Status:** ✅ Complete — 2026-08-29.
 
-**Tests:** generate an electronics enclosure + mounting bracket for a Raspberry Pi / motor-driver stack; export loads in KiCad or FreeCAD.
+**Deliverables:**
+- ✅ `ai_cad/electronics.py` — stack layout, footprint / connector registry, cable-channel routing, and heat-spreader/fan-mount geometry.
+- ✅ Electronics part families in `ai_cad/part_families.py` (`pcb`, `enclosure`, `motor_driver`, `raspberry_pi`, `connector`, `fan`, `heat_spreader`).
+- ✅ `PCBOutline` transpilation in `ai_cad/transpiler.py` — board outline, mounting holes, connector keepouts, and component placements.
+- ✅ Stack decomposition + composer layout in `ai_cad/composer.py` for electronics systems.
+- ✅ Lightweight analysis: board area, component count, estimated cable length, and enclosure volume.
+- ✅ IDF v3.0 `.emn` / `.emp` export plus STEP placeholder for board-level EDA ingestion.
+- ✅ Backend endpoints: `POST /designs/{id}/electronics-report` and `POST /designs/{id}/export-idf`.
+- ✅ Frontend `ElectronicsPanel.jsx` (domain-gated for `electronics` / `multi` domains) with stack visualization and IDF download.
+- ✅ **Explicit out-of-scope maintained:** transistor-level IC design, SPICE simulation, and lithography/PnR remain external EDA domains.
+
+**Tests:** `tests/test_pcb_transpiler.py`, `tests/test_part_families_electronics.py`, `tests/test_electronics_analysis.py`, `tests/test_idf_export.py`; full pytest suite **299/299 passing**.
+
+**Caveats / deferred:**
+- IDF export writes a textual board outline and package library plus a minimal STEP placeholder. Component pin/pad geometries and copper nets live in external ECAD.
+- Cable-length estimate is a simple 2-D centroid distance heuristic; real wire routing remains a Phase 22+ multi-physics / path-planning task.
+- Electronics stack layout uses fixed mates; sliding/docking connectors are future work once kinematic mate inference covers small-form-factor connectors.
 
 **Timeline:** 2–3 months.
 
@@ -296,16 +306,27 @@ Maintained across the entire roadmap:
 
 **Goal:** Run structural, thermal, CFD, and dynamic checks on generated designs from a single verification layer.
 
+**Status:** ✅ Complete — 2026-08-29.
+
 **Deliverables:**
-- Solver abstraction layer: plug-in FEA, CFD, thermal, and multibody-dynamics backends.
-- Closed load-case templates: static stress, drop test, thermal expansion, fatigue cycles, fastener pull-out, wind-tunnel drag, heat-sink thermal resistance, joint torque check.
-- Material library extended with conductivity, specific heat, emissivity, and thermal expansion.
-- Failure report with redesign suggestions (thickness, ribs, fin count, duct size).
-- Mesh-quality pre-checker to avoid solver crashes on bad LLM geometry.
+- ✅ `ai_cad/materials.py` — shared 11-material library (`PLA`, `PETG`, `ABS`, `Nylon 12`, `Aluminum 6061`, `Mild Steel`, `Copper`, `Brass`, `Titanium 6Al-4V`, `FR4`, `CopperTrace`) with density, Young’s modulus, Poisson ratio, yield strength, conductivity, specific heat, emissivity, and thermal expansion.
+- ✅ `ai_cad/verification_models.py` — Pydantic models for load cases and reports.
+- ✅ `ai_cad/verification_load_cases.py` — deterministic closed templates: static stress, drop test, thermal expansion, fatigue cycles, fastener pull-out, wind-tunnel drag, heat-sink thermal resistance, and joint torque check.
+- ✅ `ai_cad/mesh_quality.py` — STL pre-checker for watertightness, non-manifold edges, degenerate faces, aspect ratio, and bounding-box sanity.
+- ✅ `ai_cad/verification.py` — pluggable `SolverBackend` registry and `VerificationEngine`.
+- ✅ `ai_cad/fea.py` updated to consume the shared material library.
+- ✅ Backend endpoints: `POST /designs/{id}/verify`, `GET /designs/{id}/verify-report/{report_id}`, `POST /designs/{id}/mesh-quality-check`.
+- ✅ Frontend `VerificationPanel.jsx` with load-case selector, material picker, JSON parameter editor, pass/fail display, metrics, failure modes, and redesign suggestions.
+- ✅ Failure reports include redesign suggestions: increase thickness, add ribs, raise fin count, enlarge duct, etc.
 
-**Tests:** each load-case template runs on at least one standard part family per domain.
+**Tests:** `tests/test_materials.py`, `tests/test_verification_load_cases.py`, `tests/test_mesh_quality.py`, `tests/test_verification_api.py`; full pytest suite **330/330 passing**.
 
-**Timeline:** 4–6 months. **Risk:** arbitrary multi-physics automation is brittle; start with closed templates and graceful degradation.
+**Caveats / deferred:**
+- Solver backends are deterministic pre-solver checks and conservative hand-calculations, not replacements for commercial FEA/CFD execution. Real SU2/OpenFOAM/CalculiX integration remains external-tool or later-phase work.
+- Per-part material assignment in multi-part assemblies is accepted by the API, but only the primary STL (`exports/model.stl`) is analyzed today.
+- Dynamic interference across articulated joint trajectories is deferred to Phase 23.
+
+**Timeline:** 4–6 months. **Risk:** arbitrary multi-physics automation is brittle; mitigated by closed templates and graceful degradation.
 
 ---
 
@@ -430,8 +451,8 @@ Maintained across the entire roadmap:
 | 18 | Phase 17 | 19, 20, 21 |
 | 19 | 14A, 17, 18 | 23, 24 |
 | 20 | 17, 18 | 22 |
-| 21 | 17, 18 | 22 |
-| 22 | 19, 20, 21 | 23, 24 |
+| 21 | 17, 18 | 22 ✅ Complete — 299/299 tests; electronics co-design |
+| 22 | 19, 20, 21 | 23, 24 ✅ Complete — 330/330 tests; multi-physics verification gate |
 | 23 | 19, 22 | 24, 25 |
 | 24 | 15A, 19, 23 | 25 |
 | 25 | 24 | 27 |
@@ -454,7 +475,7 @@ Maintained across the entire roadmap:
 
 ## Immediate next action
 
-Start **Phase 20 — Aerodynamics, thermal, and propulsion geometry**: parametric airfoils/wings/ducts/heat sinks/propeller blades, surface/shell geometry, and CFD-ready mesh export (SU2 / OpenFOAM stubs). Keep Phases 16–19 under maintenance and the 251-test suite green as aero/thermal geometry lands.
+Start **Phase 23 — Humanoid and full-robot system synthesis**: biped / quadruped / manipulator-on-base templates, kinematic tree builder with revolute/prismatic/spherical joints, actuator sizing from payload/speed/safety-factor requirements, dynamic stability checks (support polygon, ZMP estimate, reachable workspace), and whole-system MJCF/URDF export with sensors and actuators. Keep Phases 14A–22 under maintenance and the 330-test suite green as humanoid/robot templates land.
 
 ---
 

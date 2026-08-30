@@ -32,7 +32,7 @@ These files are in `C:\Users\point\.claude\projects\C--Users-point-projects-Robo
 12. `claude5-integration-fixes.md` — Anthropic SDK fixes and latest Claude Sonnet 5 benchmark numbers (21/30, T1–T4 87.5%).
 13. `robocad-path-analysis.md` — PATH1 (GEDA Bridge) vs PATH2 (voice-to-world-model) strategic analysis; Phase 13 gate cleared.
 14. `robocad-end-to-end-roadmap.md` — Phased 13–28 plan to the full vision.
-15. `phase19-assembly-synthesis.md` — Mate inference, kinematic solver, collision checks, joint-aware MJCF/URDF export, browser replay; 251/251 tests passing (Phase 19 complete; Phase 20 shipped next and is now complete; Phase 21 is the current next phase).
+15. `phase19-assembly-synthesis.md` — Mate inference, kinematic solver, collision checks, joint-aware MJCF/URDF export, browser replay; 251/251 tests passing (Phase 19 complete; Phases 20–22 now complete; Phase 23 next).
 16. `phase20-aero-thermal-propulsion.md` — NACA airfoils, wings, propeller blades, heat sinks, CFD mesh stubs, aero/thermal analysis endpoints and frontend panels; 276/276 tests passing (Phase 20 complete).
 17. `phase21-electronics-mechatronics.md` — PCB outlines, electronics part families, stack decomposition + composer layout, electronics analysis, IDF/STEP export, backend endpoints, domain-gated `ElectronicsPanel`; 299/299 tests passing (Phase 21 complete).
 18. `phase22-multi-physics-verification.md` — Closed load-case templates, solver abstraction, mesh-quality gate, material library, backend `/verify` endpoints, frontend `VerificationPanel`; 330/330 tests passing (Phase 22 complete; Phase 23 next).
