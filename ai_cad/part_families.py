@@ -1098,7 +1098,13 @@ def _humanoid_limb_segment() -> PartFamily:
         constraints=[],
         dimensions=[],
     )
-    feature = _extrude_feature("limb_body", "limb_profile", "segment_thickness")
+    body = _extrude_feature("limb_body", "limb_profile", "segment_thickness")
+    hole_a = _circle_sketch("limb_hole_a", "joint_bore")
+    hole_a.entities[0].radius = "joint_bore / 2"
+    hole_b = _circle_sketch("limb_hole_b", "joint_bore")
+    hole_b.entities[0].radius = "joint_bore / 2"
+    hole_a_cut = _extrude_feature("limb_hole_a_cut", "limb_hole_a", "segment_thickness", mode="subtract")
+    hole_b_cut = _extrude_feature("limb_hole_b_cut", "limb_hole_b", "segment_thickness", mode="subtract")
     pin_a = CoordinateSystem(
         id="limb_pin_a",
         name="limb joint A",
@@ -1136,8 +1142,8 @@ def _humanoid_limb_segment() -> PartFamily:
         domain="humanoid",
         display_name="Robot limb tube with joint bores",
         default_parameters=params,
-        sketches=[sketch],
-        features=[feature],
+        sketches=[sketch, hole_a, hole_b],
+        features=[body, hole_a_cut, hole_b_cut],
         interfaces=interfaces,
     )
 
@@ -1172,7 +1178,10 @@ def _humanoid_end_effector() -> PartFamily:
         constraints=[],
         dimensions=[],
     )
-    feature = _extrude_feature("gripper_body", "gripper_profile", "jaw_thickness")
+    body = _extrude_feature("gripper_body", "gripper_profile", "jaw_thickness")
+    pivot_hole = _circle_sketch("gripper_pivot_hole", "pivot_diameter")
+    pivot_hole.entities[0].radius = "pivot_diameter / 2"
+    pivot_cut = _extrude_feature("gripper_pivot_cut", "gripper_pivot_hole", "jaw_thickness", mode="subtract")
     pivot = CoordinateSystem(
         id="gripper_pivot_csys",
         name="gripper pivot",
@@ -1210,8 +1219,8 @@ def _humanoid_end_effector() -> PartFamily:
         domain="humanoid",
         display_name="Parallel-jaw gripper jaw",
         default_parameters=params,
-        sketches=[sketch],
-        features=[feature],
+        sketches=[sketch, pivot_hole],
+        features=[body, pivot_cut],
         interfaces=interfaces,
     )
 
