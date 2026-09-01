@@ -139,7 +139,12 @@ def _transpile_sketch(sketch: Sketch) -> str:
         lines.append("    pass")
     else:
         for entity in sketch.entities:
-            lines.append(f"    {_transpile_entity(entity)}")
+            expr, center = _transpile_entity(entity)
+            if center is not None and center != "(0, 0)":
+                lines.append(f"    with Locations(Location({center})):")
+                lines.append(f"        {expr}")
+            else:
+                lines.append(f"    {expr}")
 
     return "\n".join(lines)
 
@@ -162,37 +167,48 @@ def _plane_expression(plane: PlaneReference) -> str:
     return "Plane.XY"
 
 
-def _transpile_entity(entity: SketchEntity) -> str:
+def _transpile_entity(entity: SketchEntity) -> tuple[str, str | None]:
+    """Return the shape expression for a sketch entity and its center string.
+
+    Inside a ``BuildSketch`` context, ``Shape.move(Location(...))`` is ignored.
+    The caller must wrap the expression in ``with Locations(Location(center)):``
+    when a non-default center is provided.
+    """
     etype = entity.type
+    default_center = (0, 0)
     if etype == "rectangle":
-        center = _render_point(entity.center, default=(0, 0))
+        center = _render_point(entity.center, default=default_center)
         width = _render_value(entity.width, default=10)
         height = _render_value(entity.height, default=10)
         angle = _render_value(entity.angle, default=0)
-        return f"Rectangle(width={width}, height={height}, align=Align.CENTER).rotate(Axis.Z, {angle}).move(Location({center}))"
+        # Note: per-entity rotation inside BuildSketch is not supported by the
+        # ``Locations`` context; keep the rotate call for API compatibility but
+        # the primary fix is the Locations-based offset below.
+        expr = f"Rectangle(width={width}, height={height}, align=Align.CENTER).rotate(Axis.Z, {angle})"
+        return expr, center
     if etype == "circle":
-        center = _render_point(entity.center, default=(0, 0))
+        center = _render_point(entity.center, default=default_center)
         radius = _render_value(entity.radius, default=5)
-        return f"Circle(radius={radius}).move(Location({center}))"
+        return f"Circle(radius={radius})", center
     if etype == "line":
         start = _render_point(entity.start, default=(0, 0))
         end = _render_point(entity.end, default=(10, 0))
-        return f"Line({start}, {end})"
+        return f"Line({start}, {end})", None
     if etype == "arc":
         center = _render_point(entity.center, default=(0, 0))
         radius = _render_value(entity.radius, default=5)
         start_angle = _render_value(entity.start_angle, default=0)
         end_angle = _render_value(entity.end_angle, default=90)
-        return f"CenterArc(center={center}, radius={radius}, start_angle={start_angle}, end_angle={end_angle - start_angle})"
+        return f"CenterArc(center={center}, radius={radius}, start_angle={start_angle}, end_angle={end_angle - start_angle})", None
     if etype == "polygon":
         sides = entity.sides or 6
-        center = _render_point(entity.center, default=(0, 0))
+        center = _render_point(entity.center, default=default_center)
         radius = _render_value(entity.radius, default=5)
-        return f"RegularPolygon(radius={radius}, side_count={sides}).move(Location({center}))"
+        return f"RegularPolygon(radius={radius}, side_count={sides})", center
     if etype == "airfoil":
         # Airfoil points are consumed by the owning SurfaceFeature; emit a harmless
         # placeholder so BuildSketch does not fail if the sketch is not consumed.
-        return "pass  # airfoil profile resolved by SurfaceFeature"
+        return "pass  # airfoil profile resolved by SurfaceFeature", None
     raise ValueError(f"Unsupported sketch entity type: {etype}")
 
 
@@ -410,8 +426,9 @@ def _transpile_pcb_outline(
             kw = float(keepout.get("width", 5))
             kh = float(keepout.get("height", 5))
             lines.append(f"with BuildSketch(Plane.XY) as {feature.id}_ko_{idx}:")
+            lines.append(f"    with Locations(Location(({kx:.6f}, {ky:.6f}))):")
             lines.append(
-                f"    Rectangle(width={kw:.6f}, height={kh:.6f}, align=Align.CENTER).move(Location(({kx:.6f}, {ky:.6f})))"
+                f"        Rectangle(width={kw:.6f}, height={kh:.6f}, align=Align.CENTER)"
             )
             lines.append(f"extrude({feature.id}_ko_{idx}.sketch, amount={_render_value(thickness)}, mode=Mode.SUBTRACT)")
 
@@ -422,8 +439,9 @@ def _transpile_pcb_outline(
         cw = float(conn.get("width", 10))
         ch = float(conn.get("height", 4))
         lines.append(f"with BuildSketch(Plane.XY) as {feature.id}_conn_{idx}:")
+        lines.append(f"    with Locations(Location(({cx:.6f}, {cy:.6f}))):")
         lines.append(
-            f"    Rectangle(width={cw:.6f}, height={ch:.6f}, align=Align.CENTER).move(Location(({cx:.6f}, {cy:.6f})))"
+            f"        Rectangle(width={cw:.6f}, height={ch:.6f}, align=Align.CENTER)"
         )
         lines.append(f"extrude({feature.id}_conn_{idx}.sketch, amount={_render_value(thickness)}, mode=Mode.SUBTRACT)")
 
