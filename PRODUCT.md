@@ -60,7 +60,7 @@ The Google Stitch redesign was driven by `STITCH_BRIEF.md` and the generated `st
 - Generated Stitch reference files (`stitch_precision_engineering_interface/`) retained for provenance.
 - README-embedded end-to-end demo: `assets/robocad_kinetic_precision_demo.webm` + `assets/robocad_kinetic_precision_demo.gif` + `assets/robocad_kinetic_precision_demo_poster.jpg`, plus `scripts/record_demo.py` Playwright recorder for reproducible demos.
 - README, PLAN.md, PRODUCT.md, dossiers, and memory files document current phases, architecture, design context, and the PATH1/PATH2 strategic roadmap.
-- Phase 22 — multi-physics verification engine — is complete. Phase 23 — humanoid and full-robot system synthesis — is the next build target.
+- Phase 22 — multi-physics verification engine — is complete. Phase 23 — humanoid and full-robot system synthesis — is complete and shipped, including a post-ship hardening commit (`87c8f7b`) that fixes the rule-based `robot arm with gripper` layout to use real `limb_segment`/`end_effector` families and interface-aware placement. Phase 24 — world-model simulation builder — is the next build target.
 
 ## Product Principles
 

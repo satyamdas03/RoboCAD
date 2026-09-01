@@ -37,7 +37,7 @@ These files are in `C:\Users\point\.claude\projects\C--Users-point-projects-Robo
 17. `phase21-electronics-mechatronics.md` — PCB outlines, electronics part families, stack decomposition + composer layout, electronics analysis, IDF/STEP export, backend endpoints, domain-gated `ElectronicsPanel`; 299/299 tests passing (Phase 21 complete).
 18. `phase22-multi-physics-verification.md` — Closed load-case templates, solver abstraction, mesh-quality gate, material library, backend `/verify` endpoints, frontend `VerificationPanel`; 330/330 tests passing (Phase 22 complete).
 19. `phase23-hotfix-memory-cpu-hardening.md` — Eliminated RAM/CPU hotspots before continuing humanoid/robot synthesis; 125 default + 212 heavy/slow tests passing; frontend build passes.
-20. `phase23-humanoid-robot-synthesis.md` — Biped/quadruped/manipulator-on-base templates, actuator sizing, stability/workspace/gait checks, whole-system MJCF/URDF export, backend endpoints + frontend `HumanoidPanel`; 357 tests passing (Phase 23 complete; Phase 24 next).
+20. `phase23-humanoid-robot-synthesis.md` — Biped/quadruped/manipulator-on-base templates, actuator sizing, stability/workspace/gait checks, whole-system MJCF/URDF export, backend endpoints + frontend `HumanoidPanel`; 357 tests passing (Phase 23 complete; Phase 24 next). Post-ship commit `87c8f7b` tightened the rule-based `robot arm with gripper` layout to use `limb_segment`/`end_effector` families and interface-aware placement.
 
 ---
 
@@ -230,4 +230,4 @@ npm run build
 5. Run the pytest suite and the frontend build.
 6. Only then continue the current phase.
 
-**Current active phase:** Phase 23 complete (357/357 tests passing); Phase 24 — world-model simulation builder — is next.
+**Current active phase:** Phase 23 complete (357/357 tests passing; post-ship hardening commit `87c8f7b` fixes the rule-based `robot arm with gripper` layout); Phase 24 — world-model simulation builder — is next.

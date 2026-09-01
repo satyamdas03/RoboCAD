@@ -799,6 +799,14 @@ PATH2 is the long-term North Star: a full-stack robotics design operating system
 
 **Tests:** generate and load a biped or quadruped assembly in MuJoCo; verify static stability in a standing pose.
 
+**Shipped:** 2026-09-01. Full suite **357/357 passing**.
+
+**Post-ship hardening (2026-09-01, commit `87c8f7b`):**
+- The rule-based `robot arm with gripper` prompt no longer produces overlapping raw `link`/`mount` boxes.
+- Decomposition now maps upper/forearm links to the `limb_segment` family and the gripper to `end_effector`.
+- Composer lays out instances by aligning limb pin interfaces and emits a parallel-jaw prismatic gripper with an explicit Y-axis.
+- Mate inference now honors `Part.family` instead of guessing from the part id.
+
 **Effort:** 4–6 months. **Risk:** humanoid design is a research area; start with templates and parameterized scaling, not open-ended morphology.
 
 ### Phase 24 — World-model simulation

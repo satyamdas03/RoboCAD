@@ -527,6 +527,14 @@ The decision: **build PATH1 (Phases 14A–15B) first**, then use it as the techn
   * Tightened the default robot arm layout: `robot arm with gripper` now synthesizes a **parallel-jaw prismatic gripper** attached to the forearm, verified by `tests/test_composer.py::test_compose_robot_arm_has_prismatic_gripper`.
 * Full pytest suite: **251/251 passing**.
 
+### 2026-09-01 — Post-ship hardening: rule-based robot arm layout
+
+* Fixed the default `robot arm with gripper` path so it no longer produces overlapping raw boxes.
+* `ai_cad/decomposition.py` now maps the upper/forearm links to the `limb_segment` family and the gripper to `end_effector`.
+* `ai_cad/composer.py` lays out the arm by aligning `limb_segment` pin interfaces, producing a real articulated upper/forearm chain and a parallel-jaw prismatic gripper with an explicit Y-axis.
+* `ai_cad/mate_inference.py` now respects the `Part.family` field instead of guessing from the part id, so parts like `upper_link` use the correct family interfaces.
+* Commit `87c8f7b` pushed to `origin/master`; full non-benchmark suite remains green (332 default+heavy/slow passed, 25 mujoco/benchmark/network skipped; 357 total).
+
 ### 2026-08-27 — Scope expanded to full multi-domain robotics platform
 
 * Expanded RoboCAD target scope from "AI-powered parametric CAD for robotics hardware" to "AI-powered generative engineering platform for the entire robotics world."
