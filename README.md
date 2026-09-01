@@ -527,14 +527,16 @@ The decision: **build PATH1 (Phases 14A–15B) first**, then use it as the techn
   * Tightened the default robot arm layout: `robot arm with gripper` now synthesizes a **parallel-jaw prismatic gripper** attached to the forearm, verified by `tests/test_composer.py::test_compose_robot_arm_has_prismatic_gripper`.
 * Full pytest suite: **251/251 passing**.
 
-### 2026-09-01 — Post-ship hardening: rule-based robot arm layout
+### 2026-09-01 — Post-ship hardening: rule-based robot arm and biped humanoid layouts
 
 * Fixed the default `robot arm with gripper` path so it no longer produces overlapping raw boxes.
 * `ai_cad/decomposition.py` now maps the upper/forearm links to the `limb_segment` family and the gripper to `end_effector`.
 * `ai_cad/composer.py` lays out the arm by aligning `limb_segment` pin interfaces, producing a real articulated upper/forearm chain and a parallel-jaw prismatic gripper with an explicit Y-axis.
 * `ai_cad/mate_inference.py` now respects the `Part.family` field instead of guessing from the part id, so parts like `upper_link` use the correct family interfaces.
-* Commit `87c8f7b` pushed to `origin/master`; commit `980482b` corrected the elbow spacing and gripper jaw mirroring so the upper/forearm connect and the two jaws sit on opposite sides of the Y axis.
-* Full non-benchmark suite remains green (332 default+heavy/slow passed, 25 mujoco/benchmark/network skipped; 357 total).
+* Commit `87c8f7b` mapped the arm to `limb_segment`/`end_effector` families; commit `980482b` corrected the elbow spacing and gripper jaw mirroring so the upper/forearm connect and the two jaws sit on opposite sides of the Y axis; commit `174df8c` fixed assembly solver part-family coordinate-system lookup; commit `4de18d8` fixed sketch entity placement in `BuildSketch` via `Locations`; commit `1b83561` added subtractive joint/pivot holes.
+* Commit `69367a1` fixed sketch-ID / parameter-name collisions in `_humanoid_hip_hub()` and `_humanoid_shoulder_hub()` (subtractive sketches named `hip_bore`/`shoulder_bore` shadowed global parameters), so the rule-based `biped humanoid robot` prompt now succeeds end-to-end with a 382 KB STL and 3840 vertices.
+* Stress-test routing confirmed: full system prompts (robot arm, humanoid, quadruped, quadcopter, fixed-wing, electronics stack) use the rule-based decomposition path with no Anthropic API call; single-domain generic parts (wheel hub, worm gear housing, custom brackets, heat sinks, airfoils) fall back to the LLM path and require `ANTHROPIC_API_KEY`.
+* Full pytest suite remains **357/357 passing**.
 
 ### 2026-08-27 — Scope expanded to full multi-domain robotics platform
 

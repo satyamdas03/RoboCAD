@@ -37,7 +37,7 @@ These files are in `C:\Users\point\.claude\projects\C--Users-point-projects-Robo
 17. `phase21-electronics-mechatronics.md` — PCB outlines, electronics part families, stack decomposition + composer layout, electronics analysis, IDF/STEP export, backend endpoints, domain-gated `ElectronicsPanel`; 299/299 tests passing (Phase 21 complete).
 18. `phase22-multi-physics-verification.md` — Closed load-case templates, solver abstraction, mesh-quality gate, material library, backend `/verify` endpoints, frontend `VerificationPanel`; 330/330 tests passing (Phase 22 complete).
 19. `phase23-hotfix-memory-cpu-hardening.md` — Eliminated RAM/CPU hotspots before continuing humanoid/robot synthesis; 125 default + 212 heavy/slow tests passing; frontend build passes.
-20. `phase23-humanoid-robot-synthesis.md` — Biped/quadruped/manipulator-on-base templates, actuator sizing, stability/workspace/gait checks, whole-system MJCF/URDF export, backend endpoints + frontend `HumanoidPanel`; 357/357 tests passing (Phase 23 complete; Phase 24 next). Post-ship hardening (commits `87c8f7b`, `980482b`, `174df8c`, `4de18d8`, `1b83561`) fixed the rule-based `robot arm with gripper` layout: mapped upper/forearm/gripper to `limb_segment`/`end_effector` families, aligned limb pin interfaces, corrected jaw mirroring, fixed assembly solver part-family csys lookup, corrected sketch entity placement in BuildSketch via `Locations`, and added subtractive joint/pivot holes.
+20. `phase23-humanoid-robot-synthesis.md` — Biped/quadruped/manipulator-on-base templates, actuator sizing, stability/workspace/gait checks, whole-system MJCF/URDF export, backend endpoints + frontend `HumanoidPanel`; 357/357 tests passing (Phase 23 complete; Phase 24 next). Post-ship hardening (commits `87c8f7b`, `980482b`, `174df8c`, `4de18d8`, `1b83561`, `69367a1`) fixed the rule-based `robot arm with gripper` and `biped humanoid robot` layouts: mapped upper/forearm/gripper to `limb_segment`/`end_effector` families, aligned limb pin interfaces, corrected jaw mirroring, fixed assembly solver part-family csys lookup, corrected sketch entity placement in BuildSketch via `Locations`, added subtractive joint/pivot holes, and fixed sketch-ID / parameter-name collisions in humanoid hip/shoulder hubs.
 
 ---
 
@@ -208,7 +208,7 @@ npm run build
 | 10 | 2D sketch constraint solver | `ai_cad/sketch_solver.py` |
 | 11 | Multi-part assembly system | `ai_cad/assembly.py` |
 | 12 | DFM / tolerance / FEA verification | `ai_cad/dfm.py`, `ai_cad/tolerances.py`, `ai_cad/fea.py` |
-:| 13 | Model specialization + Claude 5 integration (T1–T4 gate achieved) | `scripts/build_training_dataset.py`, `scripts/build_ollama_modelfile.py`, `ai_cad/generator.py` |
+| 13 | Model specialization + Claude 5 integration (T1–T4 gate achieved) | `scripts/build_training_dataset.py`, `scripts/build_ollama_modelfile.py`, `ai_cad/generator.py` |
 | 14A–15B | GEDA Bridge: MuJoCo/URDF bundle export, scene templates, LearningRobotics handshake, RoboCompiler pipeline | `ai_cad/geda_bridge/`, `web/backend/main.py` |
 | 16–17 | Cross-domain input + domain-aware feature-tree representation | `ai_cad/domain.py`, `ai_cad/intent_parser.py`, `ai_cad/feature_tree.py` |
 | 18 | Automatic decomposition + domain part families | `ai_cad/decomposition.py`, `ai_cad/part_families.py`, `ai_cad/composer.py` |
@@ -230,4 +230,4 @@ npm run build
 5. Run the pytest suite and the frontend build.
 6. Only then continue the current phase.
 
-**Current active phase:** Phase 23 complete (357/357 tests passing; post-ship hardening commit `87c8f7b` fixes the rule-based `robot arm with gripper` layout); Phase 24 — world-model simulation builder — is next.
+**Current active phase:** Phase 23 complete (357/357 tests passing; post-ship hardening commits `87c8f7b`, `980482b`, `174df8c`, `4de18d8`, `1b83561`, `69367a1` fix the rule-based `robot arm with gripper` and `biped humanoid robot` layouts). Phase 24 — world-model simulation builder — is next. Robot arm cosmetic/mechanical refinement (fillets, chamfers, joint bosses, tapered links, shaped jaws) is also queued.

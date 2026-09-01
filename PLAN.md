@@ -801,13 +801,17 @@ PATH2 is the long-term North Star: a full-stack robotics design operating system
 
 **Shipped:** 2026-09-01. Full suite **357/357 passing**.
 
-**Post-ship hardening (2026-09-01, commits `87c8f7b`, `980482b`, and `174df8c`):**
+**Post-ship hardening (2026-09-01, commits `87c8f7b`, `980482b`, `174df8c`, `4de18d8`, `1b83561`, and `69367a1`):**
 - The rule-based `robot arm with gripper` prompt no longer produces overlapping raw `link`/`mount` boxes.
 - Decomposition now maps upper/forearm links to the `limb_segment` family and the gripper to `end_effector`.
 - Composer lays out instances by aligning limb pin interfaces and emits a parallel-jaw prismatic gripper with an explicit Y-axis.
 - Mate inference now honors `Part.family` instead of guessing from the part id.
 - Commit `980482b` corrected the elbow spacing and gripper jaw mirroring so the upper and forearm connect and the two jaws sit on opposite sides of the Y axis.
 - Commit `174df8c` fixed the assembly solver so it resolves mate coordinate systems through the instance → part → part-family interface chain (`limb_pin_a`, `limb_pin_b`, `gripper_pivot_csys`). Previously the solver only searched `tree.coordinate_systems`, fell back to default origins, and drifted the whole arm chain. The explicit composer transforms now survive solver relaxation unchanged.
+- Commit `4de18d8` fixed the transpiler so centered sketch entities are wrapped in `with Locations(Location(center)):`; build123d ignores `.move()` inside `BuildSketch`, which had left limb-segment bodies at the origin while their pin holes were offset.
+- Commit `1b83561` added separate subtractive circle sketches and extrude-cut features to `limb_segment` and `end_effector` so joint bores and the pivot hole are real holes, not solid disks.
+- Commit `69367a1` fixed sketch-ID / parameter-name collisions in `_humanoid_hip_hub()` and `_humanoid_shoulder_hub()`: subtractive sketches named `hip_bore` and `shoulder_bore` shadowed global parameters of the same name, causing generated code to fail with `TypeError: unsupported operand type(s) for /: 'BuildSketch' and 'int'`. Renaming them to `hip_bore_cut_profile` and `shoulder_bore_cut_profile` removed the shadowing. The rule-based `biped humanoid robot` prompt now succeeds end-to-end.
+- Stress-test routing confirmed: full system prompts (robot arm, humanoid, quadruped, quadcopter, fixed-wing, electronics stack) use the rule-based decomposition path with no Anthropic API call; single-domain generic parts (wheel hub, worm gear housing, custom brackets, heat sinks, airfoils, arbitrary PCBs) fall back to the LLM path and require `ANTHROPIC_API_KEY`.
 
 **Effort:** 4–6 months. **Risk:** humanoid design is a research area; start with templates and parameterized scaling, not open-ended morphology.
 
@@ -948,4 +952,4 @@ Full analysis is saved in `.claude/memory/robocad-path-analysis.md` and the end-
 
 ---
 
-*Last updated: 2026-09-01 (Phases 14A–15B, 16–23 complete; 357 tests passing; scope expanded to full multi-domain robotics: mechanical, aero/thermal, electronics, and humanoid/robot systems; Phase 24 — world-model simulation — is next)*
+*Last updated: 2026-09-01 (Phases 14A–15B, 16–23 complete; 357 tests passing; scope expanded to full multi-domain robotics: mechanical, aero/thermal, electronics, and humanoid/robot systems; post-ship hardening commits `87c8f7b`, `980482b`, `174df8c`, `4de18d8`, `1b83561`, `69367a1` verified rule-based robot arm and biped humanoid layouts end-to-end; Phase 24 — world-model simulation — is next; robot arm cosmetic/mechanical refinement queued)*
