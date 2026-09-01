@@ -1418,9 +1418,9 @@ def _humanoid_hip_hub() -> PartFamily:
     ]
     outer = _circle_sketch("hip_outer", "hip_hub_diameter")
     outer.entities[0].radius = "hip_hub_diameter / 2"
-    bore = _circle_sketch("hip_bore", "hip_bore")
+    bore = _circle_sketch("hip_bore_cut_profile", "hip_bore")
     body = _extrude_feature("hip_hub_body", "hip_outer", "hip_hub_length")
-    cut = _extrude_feature("hip_hub_bore", "hip_bore", "hip_hub_length", mode="subtract")
+    cut = _extrude_feature("hip_hub_bore", "hip_bore_cut_profile", "hip_hub_length", mode="subtract")
     flange = CoordinateSystem(
         id="hip_flange",
         name="hip flange",
@@ -1473,9 +1473,9 @@ def _humanoid_shoulder_hub() -> PartFamily:
     ]
     outer = _circle_sketch("shoulder_outer", "shoulder_hub_diameter")
     outer.entities[0].radius = "shoulder_hub_diameter / 2"
-    bore = _circle_sketch("shoulder_bore", "shoulder_bore")
+    bore = _circle_sketch("shoulder_bore_cut_profile", "shoulder_bore")
     body = _extrude_feature("shoulder_hub_body", "shoulder_outer", "shoulder_hub_length")
-    cut = _extrude_feature("shoulder_hub_bore", "shoulder_bore", "shoulder_hub_length", mode="subtract")
+    cut = _extrude_feature("shoulder_hub_bore", "shoulder_bore_cut_profile", "shoulder_hub_length", mode="subtract")
     flange = CoordinateSystem(
         id="shoulder_flange",
         name="shoulder flange",
