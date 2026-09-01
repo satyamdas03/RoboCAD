@@ -7,11 +7,15 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/generate': 'http://localhost:8000',
-      '/designs': 'http://localhost:8000',
-      '/exports': 'http://localhost:8000',
-      '/health': 'http://localhost:8000',
-      '/onshape': 'http://localhost:8000',
+      '/health': 'http://127.0.0.1:8000',
+      '/generate': 'http://127.0.0.1:8000',
+      '/decompose': 'http://127.0.0.1:8000',
+      '/classify-domain': 'http://127.0.0.1:8000',
+      '/capabilities': 'http://127.0.0.1:8000',
+      '/robot-templates': 'http://127.0.0.1:8000',
+      '/designs': 'http://127.0.0.1:8000',
+      '/exports': 'http://127.0.0.1:8000',
+      '/onshape': 'http://127.0.0.1:8000',
     },
   },
 })
