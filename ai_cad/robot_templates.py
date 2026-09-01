@@ -41,12 +41,32 @@ def _translate_dict(x: float, y: float, z: float) -> dict[str, Any]:
     }
 
 
+def _placement(x: float, y: float, z: float) -> dict[str, Any]:
+    """Return an instance transform dict used by the assembly solver."""
+    return {"translation": (x, y, z), "rotation": (0.0, 0.0, 0.0)}
+
+
 def _link(name: str, length_mm: float = 100.0, radius_mm: float = 15.0) -> Part:
     """Create a minimal link part. The transpiler/family builder will replace it."""
+    family: str | None = None
+    if "foot" in name:
+        family = "foot"
+    elif "torso_plate" in name:
+        family = "torso_plate"
+    elif "hip_hub" in name:
+        family = "hip_hub"
+    elif "shoulder_hub" in name:
+        family = "shoulder_hub"
+    elif "hand" in name:
+        family = "end_effector"
+    elif any(x in name for x in ("thigh", "shin", "upper_arm", "forearm")):
+        family = "limb_segment"
+
     return Part(
         id=name,
         name=name,
         domain="mechanical",
+        family=family,
         sketches=[],
         features=[],
     )
@@ -92,6 +112,8 @@ def humanoid_template(
     upper_arm_length = 180.0 * scale
     forearm_length = 170.0 * scale
     hip_width = torso_width * 0.9
+    torso_z = thigh_length + shin_length
+    shoulder_z = torso_z + 60.0 * scale
 
     parameters = [
         _param("robot_height", height_mm, "mm", "Overall standing height"),
@@ -134,23 +156,23 @@ def humanoid_template(
     ]
 
     instances = [
-        Instance(id="torso", part_id="torso_plate", name="torso"),
-        Instance(id="hip_l", part_id="hip_hub_l", name="hip_l"),
-        Instance(id="hip_r", part_id="hip_hub_r", name="hip_r"),
-        Instance(id="shoulder_l", part_id="shoulder_hub_l", name="shoulder_l"),
-        Instance(id="shoulder_r", part_id="shoulder_hub_r", name="shoulder_r"),
-        Instance(id="thigh_l", part_id="thigh_l", name="thigh_l"),
-        Instance(id="thigh_r", part_id="thigh_r", name="thigh_r"),
-        Instance(id="shin_l", part_id="shin_l", name="shin_l"),
-        Instance(id="shin_r", part_id="shin_r", name="shin_r"),
-        Instance(id="foot_l", part_id="foot_l", name="foot_l"),
-        Instance(id="foot_r", part_id="foot_r", name="foot_r"),
-        Instance(id="upper_arm_l", part_id="upper_arm_l", name="upper_arm_l"),
-        Instance(id="upper_arm_r", part_id="upper_arm_r", name="upper_arm_r"),
-        Instance(id="forearm_l", part_id="forearm_l", name="forearm_l"),
-        Instance(id="forearm_r", part_id="forearm_r", name="forearm_r"),
-        Instance(id="hand_l", part_id="hand_l", name="hand_l"),
-        Instance(id="hand_r", part_id="hand_r", name="hand_r"),
+        Instance(id="torso", part_id="torso_plate", name="torso", transform=_placement(0.0, 0.0, torso_z)),
+        Instance(id="hip_l", part_id="hip_hub_l", name="hip_l", transform=_placement(-hip_width / 2, 0.0, torso_z)),
+        Instance(id="hip_r", part_id="hip_hub_r", name="hip_r", transform=_placement(hip_width / 2, 0.0, torso_z)),
+        Instance(id="shoulder_l", part_id="shoulder_hub_l", name="shoulder_l", transform=_placement(-shoulder_span / 2, 0.0, shoulder_z)),
+        Instance(id="shoulder_r", part_id="shoulder_hub_r", name="shoulder_r", transform=_placement(shoulder_span / 2, 0.0, shoulder_z)),
+        Instance(id="thigh_l", part_id="thigh_l", name="thigh_l", transform=_placement(-hip_width / 2, 0.0, torso_z - thigh_length / 2)),
+        Instance(id="thigh_r", part_id="thigh_r", name="thigh_r", transform=_placement(hip_width / 2, 0.0, torso_z - thigh_length / 2)),
+        Instance(id="shin_l", part_id="shin_l", name="shin_l", transform=_placement(-hip_width / 2, 0.0, shin_length)),
+        Instance(id="shin_r", part_id="shin_r", name="shin_r", transform=_placement(hip_width / 2, 0.0, shin_length)),
+        Instance(id="foot_l", part_id="foot_l", name="foot_l", transform=_placement(-hip_width / 2, 0.0, 0.0)),
+        Instance(id="foot_r", part_id="foot_r", name="foot_r", transform=_placement(hip_width / 2, 0.0, 0.0)),
+        Instance(id="upper_arm_l", part_id="upper_arm_l", name="upper_arm_l", transform=_placement(-shoulder_span / 2, 0.0, shoulder_z - upper_arm_length / 2)),
+        Instance(id="upper_arm_r", part_id="upper_arm_r", name="upper_arm_r", transform=_placement(shoulder_span / 2, 0.0, shoulder_z - upper_arm_length / 2)),
+        Instance(id="forearm_l", part_id="forearm_l", name="forearm_l", transform=_placement(-shoulder_span / 2, 0.0, shoulder_z - upper_arm_length - forearm_length / 2)),
+        Instance(id="forearm_r", part_id="forearm_r", name="forearm_r", transform=_placement(shoulder_span / 2, 0.0, shoulder_z - upper_arm_length - forearm_length / 2)),
+        Instance(id="hand_l", part_id="hand_l", name="hand_l", transform=_placement(-shoulder_span / 2, 0.0, shoulder_z - upper_arm_length - forearm_length)),
+        Instance(id="hand_r", part_id="hand_r", name="hand_r", transform=_placement(shoulder_span / 2, 0.0, shoulder_z - upper_arm_length - forearm_length)),
     ]
 
     joints = [
@@ -168,6 +190,9 @@ def humanoid_template(
         _joint("shoulder_r", "revolute", "torso", "shoulder_r", (shoulder_span / 2, 0.0, thigh_length + shin_length + 60.0 * scale), axis=(0, 1, 0), limits=(-180, 180)),
         _joint("elbow_r", "revolute", "shoulder_r", "upper_arm_r", (shoulder_span / 2, 0.0, thigh_length + shin_length + 60.0 * scale - upper_arm_length), axis=(0, 1, 0), limits=(-135, 0)),
         _joint("wrist_r", "revolute", "upper_arm_r", "forearm_r", (shoulder_span / 2, 0.0, thigh_length + shin_length + 60.0 * scale - upper_arm_length - forearm_length), axis=(0, 1, 0), limits=(-90, 90)),
+        # Fixed attachments from forearm to hand so the hand is a reachable leaf.
+        _joint("hand_fixed_l", "fixed", "forearm_l", "hand_l", (-shoulder_span / 2, 0.0, shoulder_z - upper_arm_length - forearm_length), axis=None),
+        _joint("hand_fixed_r", "fixed", "forearm_r", "hand_r", (shoulder_span / 2, 0.0, shoulder_z - upper_arm_length - forearm_length), axis=None),
     ]
 
     tree = FeatureTree(
@@ -221,9 +246,10 @@ def quadruped_template(
     parts = []
     instances = []
     joints = []
+    body_z = height_mm * 0.8
 
     parts.append(_link("body"))
-    instances.append(Instance(id="body", part_id="body", name="body"))
+    instances.append(Instance(id="body", part_id="body", name="body", transform=_placement(0.0, 0.0, body_z)))
 
     for suffix, sx, sy in [
         ("fl", -hip_offset_x, hip_offset_y),
@@ -238,10 +264,10 @@ def quadruped_template(
         parts.extend([_link(hip_id), _link(thigh_id), _link(shin_id), _link(foot_id)])
         instances.extend(
             [
-                Instance(id=hip_id, part_id=hip_id, name=hip_id),
-                Instance(id=thigh_id, part_id=thigh_id, name=thigh_id),
-                Instance(id=shin_id, part_id=shin_id, name=shin_id),
-                Instance(id=foot_id, part_id=foot_id, name=foot_id),
+                Instance(id=hip_id, part_id=hip_id, name=hip_id, transform=_placement(sx, sy, body_z)),
+                Instance(id=thigh_id, part_id=thigh_id, name=thigh_id, transform=_placement(sx, sy, body_z - thigh_length / 2)),
+                Instance(id=shin_id, part_id=shin_id, name=shin_id, transform=_placement(sx, sy, body_z - thigh_length)),
+                Instance(id=foot_id, part_id=foot_id, name=foot_id, transform=_placement(sx, sy, body_z - thigh_length - shin_length)),
             ]
         )
         joints.extend(
@@ -298,7 +324,16 @@ def manipulator_on_base_template(
         _link("wrist"),
         _link("end_effector"),
     ]
-    instances = [Instance(id=p.id, part_id=p.id, name=p.id) for p in parts]
+    instances = [
+        Instance(id="mobile_base", part_id="mobile_base", name="mobile_base", transform=_placement(0.0, 0.0, base_size_mm / 2)),
+        Instance(id="shoulder_pan", part_id="shoulder_pan", name="shoulder_pan", transform=_placement(0.0, 0.0, base_size_mm)),
+        Instance(id="shoulder_lift", part_id="shoulder_lift", name="shoulder_lift", transform=_placement(0.0, 0.0, base_size_mm + 40.0)),
+        Instance(id="upper_arm", part_id="upper_arm", name="upper_arm", transform=_placement(0.0, 0.0, base_size_mm + 40.0 + link1 / 2)),
+        Instance(id="elbow", part_id="elbow", name="elbow", transform=_placement(0.0, 0.0, base_size_mm + 40.0 + link1)),
+        Instance(id="forearm", part_id="forearm", name="forearm", transform=_placement(0.0, 0.0, base_size_mm + 40.0 + link1 + link2 / 2)),
+        Instance(id="wrist", part_id="wrist", name="wrist", transform=_placement(0.0, 0.0, base_size_mm + 40.0 + link1 + link2)),
+        Instance(id="end_effector", part_id="end_effector", name="end_effector", transform=_placement(0.0, 0.0, base_size_mm + 40.0 + link1 + link2 + link3 + 40.0)),
+    ]
     joints = [
         _joint("base_fixed", "fixed", "world", "mobile_base", (0.0, 0.0, base_size_mm / 2), axis=None),
         _joint("shoulder_pan", "revolute", "mobile_base", "shoulder_pan", (0.0, 0.0, base_size_mm), axis=(0, 0, 1), limits=(-180, 180)),

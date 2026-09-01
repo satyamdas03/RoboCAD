@@ -636,8 +636,9 @@ def regenerate_from_feature_tree(
         raise HTTPException(status_code=500, detail=f"Failed to load feature tree: {exc}")
 
     for name, value in request.parameter_updates.items():
-        if not tree.update_parameter(name, value):
+        if name not in tree.parameter_dict():
             raise HTTPException(status_code=400, detail=f"Unknown parameter: {name}")
+        tree = tree.update_parameter(name, value)
 
     try:
         if tree.assemblies:
@@ -1978,11 +1979,8 @@ def create_robot_template(req: RobotTemplateRequest) -> dict[str, Any]:
 
     # Apply parameter overrides.
     for name, value in req.parameters.items():
-        try:
-            tree.update_parameter(name, value)
-        except Exception:
-            # Unknown or unparseable parameter; skip silently.
-            pass
+        if name in tree.parameter_dict():
+            tree = tree.update_parameter(name, value)
 
     design_id = uuid.uuid4().hex
     design_dir = DESIGNS_DIR / design_id

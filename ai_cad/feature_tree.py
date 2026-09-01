@@ -214,6 +214,7 @@ class Part(BaseModel):
     id: str
     domain: str = "mechanical"
     name: str | None = None
+    family: str | None = None
     color: str | None = None
     material: str | None = None
     sketches: list[Sketch] = Field(default_factory=list)

@@ -581,7 +581,6 @@ def reachable_workspace_check(
         suggestions.append("Verify the end-effector id exists in the assembly.")
 
     metrics = {
-        "end_effector_id": end_effector_id,
         "point_count": float(result.get("point_count", 0)),
         "envelope_x_mm": round(envelope[0], 4),
         "envelope_y_mm": round(envelope[1], 4),

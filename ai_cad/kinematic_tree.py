@@ -35,7 +35,7 @@ class LinkPose:
 
 def _rotation_matrix_to_euler(R: np.ndarray) -> tuple[float, float, float]:
     """Convert 3x3 rotation matrix to ZYX Euler angles in degrees."""
-    sy = -R[2, 0]
+    sy = max(-1.0, min(1.0, float(-R[2, 0])))
     if abs(sy) < 0.99999:
         rx = math.atan2(R[2, 1], R[2, 2])
         ry = math.asin(sy)
@@ -155,16 +155,26 @@ def forward_kinematics(
         parent_id = parent_map[link_id]
         joint = next(j for j in joints if j.child_link == link_id)
         parent_M = _pose_of(parent_id)
+
+        # The template stores joint origins as the absolute (zero-pose) position
+        # of the joint in the assembly frame. Compute the origin relative to the
+        # parent's nominal frame and the child offset from that origin so that
+        # at zero pose the child lands exactly on its nominal transform.
         origin = np.array(joint.origin, dtype=float)
-        T_origin = np.eye(4)
-        T_origin[:3, 3] = origin
-        T_origin_inv = np.linalg.inv(T_origin)
+        T_joint_origin = np.eye(4)
+        T_joint_origin[:3, 3] = origin
+
+        parent_nominal = nominal_transforms.get(parent_id, np.eye(4))
+        child_nominal = nominal_transforms.get(link_id, np.eye(4))
+
+        T_joint_origin_in_parent = np.linalg.inv(parent_nominal) @ T_joint_origin
+        T_child_offset = np.linalg.inv(T_joint_origin) @ child_nominal
+
         value = joint_states.get(joint.id, 0.0)
         delta = _joint_delta_matrix(joint, value)
-        # child world = parent @ origin @ delta @ origin^-1 @ child_nominal
-        child_nominal = nominal_transforms.get(link_id, np.eye(4))
+
         recursion_seen.discard(link_id)
-        return parent_M @ T_origin @ delta @ T_origin_inv @ child_nominal
+        return parent_M @ T_joint_origin_in_parent @ delta @ T_child_offset
 
     all_links = set(nominal_transforms.keys()) | {j.parent_link for j in joints} | {j.child_link for j in joints}
     for link_id in all_links:
@@ -210,15 +220,22 @@ def sample_reachable_workspace(
         joint_limits.append((j.id, values))
 
     points: list[tuple[float, float, float]] = []
-    # Cartesian product can be huge; cap at 4096 samples.
+    # Cartesian product can be huge (e.g. 3^14 ≈ 4.8M tuples). Cap at 4096
+    # samples without materializing the full product.
     import itertools
 
-    combinations = list(itertools.product(*[v for _, v in joint_limits]))
-    if len(combinations) > 4096:
-        # Randomly subsample.
-        rng = np.random.default_rng(0)
-        idx = rng.choice(len(combinations), size=4096, replace=False)
-        combinations = [combinations[i] for i in idx]
+    value_lists = [v for _, v in joint_limits]
+    counts = [len(v) for v in value_lists]
+    total = math.prod(counts) if counts else 0
+    rng = np.random.default_rng(0)
+
+    if total <= 4096:
+        combinations = list(itertools.product(*value_lists))
+    else:
+        combinations = []
+        for _ in range(4096):
+            combo = tuple(rng.choice(vals) for vals in value_lists)
+            combinations.append(combo)
 
     for combo in combinations:
         states = {jid: combo[i] for i, (jid, _) in enumerate(joint_limits)}

@@ -145,7 +145,7 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **20** | **Aerodynamics, thermal, and propulsion geometry** | ✅ **Complete — NACA 4-digit airfoils, straight wings, propeller blades, heat sinks, SU2/OpenFOAM CFD mesh stubs, `AeroPanel.jsx`, `ThermalPanel.jsx`, **276/276 tests passing** |
 | **21** | Electronics and mechatronics integration (form-factor co-design, not silicon layout) | ✅ **Complete — `PCBOutline` transpilation, electronics part families, stack decomposition + composer layout, electronics analysis, IDF/STEP export, `ElectronicsPanel.jsx`, **299/299 tests passing** |
 | **22** | Multi-physics verification engine (FEA / CFD / thermal / dynamics) | ✅ **Complete — `ai_cad/materials.py`, `ai_cad/verification*.py`, `ai_cad/mesh_quality.py`, closed load-case templates, mesh-quality gate, backend `/verify` endpoints, frontend `VerificationPanel`, **330/330 tests passing** |
-| **23** | Humanoid and full-robot system synthesis | ⏳ Planned |
+| **23** | Humanoid and full-robot system synthesis | ✅ **Complete — biped/quadruped/manipulator-on-base templates, actuator sizing, stability/workspace/gait checks, whole-system MJCF/URDF export, backend endpoints + frontend `HumanoidPanel`, 357/357 tests passing** |
 | **24** | World-model simulation builder | ⏳ Planned |
 | **25** | Robot brain training loop | ⏳ Planned |
 | **26** | HERMES cross-domain conversational supervisor | ⏳ Planned |

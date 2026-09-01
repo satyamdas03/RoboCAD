@@ -1628,6 +1628,7 @@ def instantiate_family(
         id=part_id,
         name=name_override or family.display_name,
         domain=family.domain,
+        family=name,
         sketches=family.sketches,
         features=family.features,
     )

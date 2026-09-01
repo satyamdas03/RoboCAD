@@ -162,14 +162,12 @@ export default function HumanoidPanel({ designId, onDesignCreated }) {
             </span>
           </div>
 
-          {report.stability?.warnings?.length > 0 && (
+          {(report.stability?.warning_count ?? 0) > 0 && (
             <div className="kp-flex-col kp-gap-1">
               <span className="kp-label">Warnings</span>
-              <ul className="kp-list">
-                {report.stability.warnings.map((w, i) => (
-                  <li key={i} className="kp-tag kp-badge-warning" style={{ width: 'fit-content' }}>{w}</li>
-                ))}
-              </ul>
+              <span className="kp-tag kp-badge-warning" style={{ width: 'fit-content' }}>
+                {report.stability.warning_count} warning(s)
+              </span>
             </div>
           )}
 

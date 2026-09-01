@@ -56,6 +56,12 @@ def material_density(material: str | None) -> float:
     return _MATERIAL_DENSITIES.get(key, _MATERIAL_DENSITIES["default"])
 
 
+def _fallback_cube_mesh(size_mm: float = 10.0) -> trimesh.Trimesh:
+    """Return a watertight axis-aligned cube centered at the origin."""
+    extents = (size_mm, size_mm, size_mm)
+    return trimesh.creation.box(extents=extents)
+
+
 def _sanitize_name(name: str) -> str:
     """Make a string safe for URDF/MJCF link and mesh names."""
     safe = re.sub(r"[^A-Za-z0-9_]", "_", name)
@@ -218,6 +224,11 @@ def _build_part_mesh(
     tolerance: float = 0.1,
 ) -> trimesh.Trimesh:
     """Generate and tessellate a single FeatureTree part."""
+    # Skeleton templates may contain placeholder links with no geometry. Emit a
+    # minimal cube so the bundle still has valid collision/visual meshes.
+    if not part.sketches and not part.features:
+        return _fallback_cube_mesh(10.0)
+
     code = _transpile_single_part_code(part, parameters)
     exec_result = execute_code(code, timeout=60, output_dir=output_dir)
     if not exec_result.get("success"):

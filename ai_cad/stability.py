@@ -79,20 +79,65 @@ def _polygon_margin(point: tuple[float, float], poly: list[tuple[float, float]])
     return min_dist if math.isfinite(min_dist) else 0.0
 
 
+def _convex_hull(points: list[tuple[float, float]]) -> list[tuple[float, float]]:
+    """Return the convex hull of a set of 2D points using Andrew's monotone chain."""
+    pts = sorted(set(points))
+    if len(pts) <= 1:
+        return pts
+
+    def cross(o, a, b):
+        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+    lower: list[tuple[float, float]] = []
+    for p in pts:
+        while len(lower) >= 2 and cross(lower[-2], lower[-1], p) <= 0:
+            lower.pop()
+        lower.append(p)
+
+    upper: list[tuple[float, float]] = []
+    for p in reversed(pts):
+        while len(upper) >= 2 and cross(upper[-2], upper[-1], p) <= 0:
+            upper.pop()
+        upper.append(p)
+
+    return lower[:-1] + upper[:-1]
+
+
 def _feet_polygon(tree: FeatureTree) -> list[tuple[float, float]]:
-    """Collect foot contact-center positions from the feature tree."""
-    feet: list[tuple[float, float]] = []
+    """Collect foot contact-corner positions and return their convex hull."""
     assembly = tree.assemblies[0] if tree.assemblies else None
     if assembly is None:
-        return feet
+        return []
 
+    params = tree.parameter_dict()
+    foot_length_mm = 100.0
+    foot_width_mm = 60.0
+    try:
+        foot_length_mm = float(params.get("foot_length", foot_length_mm))
+        foot_width_mm = float(params.get("foot_width", foot_width_mm))
+    except (TypeError, ValueError):
+        pass
+    half_l = foot_length_mm * 0.0005
+    half_w = foot_width_mm * 0.0005
+
+    corners: list[tuple[float, float]] = []
     for inst in assembly.instances:
-        family = inst.part_family or ""
+        part = tree.find_part(inst.part_id)
+        family = (part.family if part else "") or ""
         if "foot" in family.lower():
-            transform = inst.transform or np.eye(4)
-            feet.append((float(transform[0, 3]) * 0.001, float(transform[1, 3]) * 0.001))
+            tx = inst.transform or {}
+            translation = tx.get("translation") or (0.0, 0.0, 0.0)
+            cx, cy = float(translation[0]) * 0.001, float(translation[1]) * 0.001
+            corners.extend(
+                [
+                    (cx - half_l, cy - half_w),
+                    (cx - half_l, cy + half_w),
+                    (cx + half_l, cy - half_w),
+                    (cx + half_l, cy + half_w),
+                ]
+            )
 
-    return feet
+    return _convex_hull(corners)
 
 
 def check_stability(
@@ -193,5 +238,5 @@ def stability_summary(report: StabilityReport | None) -> dict[str, Any]:
         "dynamically_stable": report.dynamically_stable,
         "max_inclination_deg": report.max_inclination_deg,
         "gait_feasible": report.gait_feasible,
-        "warnings": report.warnings,
+        "warning_count": float(len(report.warnings or [])),
     }
