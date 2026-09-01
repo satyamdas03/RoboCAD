@@ -197,9 +197,10 @@ def _place_robot_arm(result: DecompositionResult) -> tuple[list[Instance], list[
       * forearm_link -> limb_segment family
       * gripper    -> end_effector family (count 2)
 
-    The layout aligns the limb_segment pin interfaces so the upper and forearm
-    form a real revolute chain, and the two end_effector jaws form a parallel-jaw
-    prismatic gripper that opens along the local Y axis.
+    The layout keeps every link in the global XY plane (z = base_thickness) and
+    aligns the limb_segment pin interfaces so the upper and forearm form a real
+    revolute chain.  The two end_effector jaws form a parallel-jaw prismatic
+    gripper that opens symmetrically along the global Y axis.
     """
     text = result.prompt.lower()
     if not any(w in text for w in {"robot arm", "manipulator", "robotic arm"}):
@@ -208,21 +209,23 @@ def _place_robot_arm(result: DecompositionResult) -> tuple[list[Instance], list[
     # Read geometry from the decomposed parts / family defaults.
     segment_length = _param_value(result.parts, "upper_link", "segment_length", 150.0)
     end_offset = _param_value(result.parts, "upper_link", "end_offset", 15.0)
-    base_thickness = _param_value(result.parts, "arm_base", "mount_thickness", 5.0)
+    base_thickness = _param_value(result.parts, "arm_base", "mount_thickness", 3.0)
 
     jaw_thickness = _param_value(result.parts, "gripper", "jaw_thickness", 8.0)
     jaw_travel = _param_value(result.parts, "gripper", "jaw_travel", 15.0)
 
-    joint_length = segment_length - 2.0 * end_offset
+    # Effective distance between the two pin centers on a limb segment.
+    body_length = segment_length - 2.0 * end_offset
     shoulder_z = base_thickness
 
     instances: list[Instance] = []
     mates: list[Mate] = []
 
-    # Base plate sits on the ground.
+    # Base plate sits on the ground; its top face is the shoulder plane.
     instances.append(Instance(id="i_arm_base", part_id="arm_base", name="Arm base"))
 
-    # Upper arm: pin_a sits at the shoulder joint on top of the base.
+    # Upper arm: place it so its pin_a coincides with the shoulder joint.
+    # limb_pin_a is at local (end_offset, 0, 0), so shift the part back by end_offset.
     upper_origin = (-end_offset, 0.0, shoulder_z)
     instances.append(
         Instance(
@@ -232,21 +235,23 @@ def _place_robot_arm(result: DecompositionResult) -> tuple[list[Instance], list[
             transform={"translation": upper_origin, "rotation": (0.0, 0.0, 0.0)},
         )
     )
-    # Shoulder is fixed to the base; motion comes from the inferred revolute
-    # limb_segment-limb_segment joint at the elbow.
+    # Shoulder fixed to base, aligned at the upper pin_a.
     mates.append(
         Mate(
             id="m_base_upper",
             type="fixed",
             entities=[
-                MateEntity(instance_id="i_arm_base"),
-                MateEntity(instance_id="i_upper_link"),
+                MateEntity(instance_id="i_arm_base", csys_id="origin"),
+                MateEntity(instance_id="i_upper_link", csys_id="limb_pin_a"),
             ],
         )
     )
 
-    # Forearm: pin_a sits at the elbow joint (upper pin_b).
-    elbow_x = joint_length
+    # Forearm: place it so its pin_a coincides with the upper pin_b (elbow).
+    # upper pin_b world x = upper_origin.x + (segment_length - end_offset)
+    #                     = -end_offset + segment_length - end_offset
+    #                     = segment_length - 2*end_offset = body_length.
+    elbow_x = body_length
     forearm_origin = (elbow_x - end_offset, 0.0, shoulder_z)
     instances.append(
         Instance(
@@ -256,20 +261,34 @@ def _place_robot_arm(result: DecompositionResult) -> tuple[list[Instance], list[
             transform={"translation": forearm_origin, "rotation": (0.0, 0.0, 0.0)},
         )
     )
+    # Elbow: explicit revolute mate between upper pin_b and forearm pin_a.
+    mates.append(
+        Mate(
+            id="m_elbow",
+            type="revolute",
+            entities=[
+                # Moving child first, as required by the motion-mate -> joint builder.
+                MateEntity(instance_id="i_forearm_link", csys_id="limb_pin_a"),
+                MateEntity(instance_id="i_upper_link", csys_id="limb_pin_b"),
+            ],
+        )
+    )
 
-    # Wrist is at the end of the forearm (forearm pin_b).
-    wrist_x = elbow_x + joint_length
-    wrist_origin = (wrist_x, 0.0, shoulder_z)
+    # Wrist is at forearm pin_b.
+    wrist_x = elbow_x + body_length
+    # Gripper mount plane is the same Z as the limb segments.
+    jaw_z = shoulder_z
 
     # Parallel-jaw gripper: two mirrored end_effector instances.
     if any(dp.id == "gripper" for dp in result.parts):
-        for side, sign in enumerate((-1.0, 1.0)):
+        for side in (0, 1):
             # The end_effector family draws the jaw body on the +Y side of its pivot.
-            # Mirror the second jaw 180° around the global X axis so the two jaws
-            # sit on opposite sides of the gripper center line.  Offset the shared
-            # pivot slightly in Z so the mirrored jaw occupies the same vertical range.
+            # Mirror the second jaw 180° around the global X axis (Y -> -Y, Z -> -Z).
+            # Because the jaw is a uniform extrusion, flipping Z just moves the body
+            # to the -Z side of the pivot; translating up by jaw_thickness puts both
+            # jaw bodies in the same Z range above the forearm.
             rotation = (0.0, 0.0, 0.0) if side == 0 else (180.0, 0.0, 0.0)
-            jaw_origin = (wrist_origin[0], wrist_origin[1], wrist_origin[2] + jaw_thickness)
+            jaw_origin = (wrist_x, 0.0, jaw_z + jaw_thickness)
             instances.append(
                 Instance(
                     id=f"i_gripper_{side}",
@@ -278,16 +297,19 @@ def _place_robot_arm(result: DecompositionResult) -> tuple[list[Instance], list[
                     transform={"translation": jaw_origin, "rotation": rotation},
                 )
             )
-            # Each jaw slides relative to the forearm along the local Y axis.
+            # Each jaw slides along Y to open/close.  Jaw 0 is on the +Y side and
+            # opens by moving +Y; jaw 1 is on the -Y side and opens by moving -Y.
+            axis = (0.0, 1.0, 0.0) if side == 0 else (0.0, -1.0, 0.0)
             mates.append(
                 Mate(
                     id=f"m_gripper_{side}_forearm",
                     type="prismatic",
                     entities=[
-                        MateEntity(instance_id=f"i_gripper_{side}"),
-                        MateEntity(instance_id="i_forearm_link"),
+                        # Moving child first.
+                        MateEntity(instance_id=f"i_gripper_{side}", csys_id="gripper_pivot_csys"),
+                        MateEntity(instance_id="i_forearm_link", csys_id="limb_pin_b"),
                     ],
-                    parameters={"distance": sign * jaw_travel, "axis": (0.0, 1.0, 0.0)},
+                    parameters={"distance": jaw_travel, "axis": axis},
                 )
             )
 
