@@ -95,8 +95,16 @@ def _guess_family(part_id: str) -> str | None:
     return None
 
 
-def _interfaces_for_part(part_id: str) -> list[Interface]:
-    family = _guess_family(part_id)
+def _family_for_instance(tree: FeatureTree, inst: Instance) -> str | None:
+    """Return the registered family for an instance, preferring the Part.family field."""
+    part = tree.find_part(inst.part_id)
+    if part and part.family:
+        return part.family
+    return _guess_family(inst.part_id)
+
+
+def _interfaces_for_instance(tree: FeatureTree, inst: Instance) -> list[Interface]:
+    family = _family_for_instance(tree, inst)
     if family is None:
         return []
     return get_family(family).interfaces
@@ -230,15 +238,15 @@ def infer_mates(
             continue
         seen_pairs.add(pair)
 
-        family_a = _guess_family(inst_a.part_id)
-        family_b = _guess_family(inst_b.part_id)
+        family_a = _family_for_instance(tree, inst_a)
+        family_b = _family_for_instance(tree, inst_b)
         # In hub/base layouts, suppress direct sibling-to-sibling mating so that
         # appendages attach only to the central parent (e.g. hub + 4 arms = 4 mates).
         if parent_exists and family_a is not None and family_a == family_b:
             continue
 
-        ifaces_a = _interfaces_for_part(inst_a.part_id)
-        ifaces_b = _interfaces_for_part(inst_b.part_id)
+        ifaces_a = _interfaces_for_instance(tree, inst_a)
+        ifaces_b = _interfaces_for_instance(tree, inst_b)
 
         candidates: list[tuple[Interface, Interface, str]] = []
         for iface_a in ifaces_a:

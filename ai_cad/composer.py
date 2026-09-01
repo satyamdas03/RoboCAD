@@ -189,104 +189,93 @@ def _place_quad_copter(result: DecompositionResult) -> tuple[list[Instance], lis
 
 
 def _place_robot_arm(result: DecompositionResult) -> tuple[list[Instance], list[Mate]] | None:
-    """If the result matches a robot arm layout, return instances + mates."""
+    """If the result matches a robot arm layout, build an articulated serial arm.
+
+    Parts are expected from the rule-based decomposition:
+      * arm_base   -> mount family
+      * upper_link -> limb_segment family
+      * forearm_link -> limb_segment family
+      * gripper    -> end_effector family (count 2)
+
+    The layout aligns the limb_segment pin interfaces so the upper and forearm
+    form a real revolute chain, and the two end_effector jaws form a parallel-jaw
+    prismatic gripper that opens along the local Y axis.
+    """
     text = result.prompt.lower()
     if not any(w in text for w in {"robot arm", "manipulator", "robotic arm"}):
         return None
 
+    # Read geometry from the decomposed parts / family defaults.
+    segment_length = _param_value(result.parts, "upper_link", "segment_length", 150.0)
+    end_offset = _param_value(result.parts, "upper_link", "end_offset", 15.0)
+    base_thickness = _param_value(result.parts, "arm_base", "mount_thickness", 5.0)
+
+    jaw_thickness = _param_value(result.parts, "gripper", "jaw_thickness", 8.0)
+    jaw_travel = _param_value(result.parts, "gripper", "jaw_travel", 15.0)
+
+    joint_length = segment_length - 2.0 * end_offset
+    shoulder_z = base_thickness
+
     instances: list[Instance] = []
     mates: list[Mate] = []
-    link_length = 120.0
-    for dp in result.parts:
-        if dp.id in {"upper_link", "forearm_link"} and dp.parameters:
-            for p in dp.parameters:
-                if p.name == "link_length":
-                    try:
-                        link_length = float(p.value)
-                    except (TypeError, ValueError):
-                        pass
 
-    # Base at origin.
+    # Base plate sits on the ground.
     instances.append(Instance(id="i_arm_base", part_id="arm_base", name="Arm base"))
 
-    # Upper link stands up from base.
+    # Upper arm: pin_a sits at the shoulder joint on top of the base.
+    upper_origin = (-end_offset, 0.0, shoulder_z)
     instances.append(
         Instance(
             id="i_upper_link",
             part_id="upper_link",
             name="Upper arm link",
-            transform={
-                "translation": (0.0, 0.0, 10.0),
-                "rotation": (0.0, 0.0, 0.0),
-            },
+            transform={"translation": upper_origin, "rotation": (0.0, 0.0, 0.0)},
         )
     )
+    # Shoulder is fixed to the base; motion comes from the inferred revolute
+    # limb_segment-limb_segment joint at the elbow.
     mates.append(
         Mate(
             id="m_base_upper",
             type="fixed",
             entities=[
-                MateEntity(instance_id="i_upper_link"),
                 MateEntity(instance_id="i_arm_base"),
+                MateEntity(instance_id="i_upper_link"),
             ],
         )
     )
 
-    # Forearm extends forward from upper link end.
+    # Forearm: pin_a sits at the elbow joint (upper pin_b).
+    elbow_x = joint_length
+    forearm_origin = (elbow_x - end_offset, 0.0, shoulder_z)
     instances.append(
         Instance(
             id="i_forearm_link",
             part_id="forearm_link",
             name="Forearm link",
-            transform={
-                "translation": (link_length / 2, 0.0, link_length / 2 + 10.0),
-                "rotation": (0.0, 90.0, 0.0),
-            },
-        )
-    )
-    mates.append(
-        Mate(
-            id="m_upper_forearm",
-            type="fixed",
-            entities=[
-                MateEntity(instance_id="i_forearm_link"),
-                MateEntity(instance_id="i_upper_link"),
-            ],
+            transform={"translation": forearm_origin, "rotation": (0.0, 0.0, 0.0)},
         )
     )
 
-    # Gripper jaws at forearm end — parallel-jaw prismatic mechanism.
+    # Wrist is at the end of the forearm (forearm pin_b).
+    wrist_x = elbow_x + joint_length
+    wrist_origin = (wrist_x, 0.0, shoulder_z)
+
+    # Parallel-jaw gripper: two mirrored end_effector instances.
     if any(dp.id == "gripper" for dp in result.parts):
-        jaw_spacing = 10.0
-        jaw_travel = 15.0
-        for dp in result.parts:
-            if dp.id == "gripper" and dp.parameters:
-                for p in dp.parameters:
-                    if p.name == "gripper_gap":
-                        try:
-                            jaw_spacing = float(p.value)
-                        except (TypeError, ValueError):
-                            pass
-                    elif p.name == "jaw_travel":
-                        try:
-                            jaw_travel = float(p.value)
-                        except (TypeError, ValueError):
-                            pass
-
         for side, sign in enumerate((-1.0, 1.0)):
-            # The end_effector family draws one jaw on the +Y side of the pivot.
-            # Mirror the second jaw 180° around its local X axis so the two jaws
-            # sit on opposite sides of the gripper center line with the requested gap.
-            rotation = (0.0, 90.0, 0.0) if side == 0 else (180.0, 90.0, 0.0)
+            # The end_effector family draws the jaw body on the +Y side of its pivot.
+            # Mirror the second jaw 180° around the global X axis so the two jaws
+            # sit on opposite sides of the gripper center line.  Offset the shared
+            # pivot slightly in Z so the mirrored jaw occupies the same vertical range.
+            rotation = (0.0, 0.0, 0.0) if side == 0 else (180.0, 0.0, 0.0)
+            jaw_origin = (wrist_origin[0], wrist_origin[1], wrist_origin[2] + jaw_thickness)
             instances.append(
                 Instance(
                     id=f"i_gripper_{side}",
                     part_id="gripper",
                     name=f"Gripper jaw {side + 1}",
-                    transform={
-                        "translation": (link_length + 20.0, 0.0, link_length / 2 + 10.0),
-                        "rotation": rotation,
-                    },
+                    transform={"translation": jaw_origin, "rotation": rotation},
                 )
             )
             # Each jaw slides relative to the forearm along the local Y axis.
@@ -298,7 +287,7 @@ def _place_robot_arm(result: DecompositionResult) -> tuple[list[Instance], list[
                         MateEntity(instance_id=f"i_gripper_{side}"),
                         MateEntity(instance_id="i_forearm_link"),
                     ],
-                    parameters={"distance": sign * jaw_travel},
+                    parameters={"distance": sign * jaw_travel, "axis": (0.0, 1.0, 0.0)},
                 )
             )
 
@@ -687,14 +676,25 @@ def compose_feature_tree(
             parent_t = instances_by_id[parent_id].transform or {}
             c_origin = child_t.get("translation") or (0.0, 0.0, 0.0)
             p_origin = parent_t.get("translation") or (0.0, 0.0, 0.0)
-            dx = c_origin[0] - p_origin[0]
-            dy = c_origin[1] - p_origin[1]
-            dz = c_origin[2] - p_origin[2]
-            length = math.sqrt(dx * dx + dy * dy + dz * dz)
-            if length > 1e-9:
-                axis = (dx / length, dy / length, dz / length)
+            # Use an explicit axis from the mate parameters when provided;
+            # otherwise derive the joint axis from the child-parent origin vector.
+            param_axis = (m.parameters or {}).get("axis")
+            if (
+                param_axis
+                and isinstance(param_axis, (list, tuple))
+                and len(param_axis) == 3
+            ):
+                ax, ay, az = (float(v) for v in param_axis)
+                axis = (ax, ay, az)
             else:
-                axis = (0.0, 0.0, 1.0)
+                dx = c_origin[0] - p_origin[0]
+                dy = c_origin[1] - p_origin[1]
+                dz = c_origin[2] - p_origin[2]
+                length = math.sqrt(dx * dx + dy * dy + dz * dz)
+                if length > 1e-9:
+                    axis = (dx / length, dy / length, dz / length)
+                else:
+                    axis = (0.0, 0.0, 1.0)
             if m.type == "revolute":
                 limits = (-180.0, 180.0)
             else:

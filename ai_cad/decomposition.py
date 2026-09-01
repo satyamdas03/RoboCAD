@@ -394,6 +394,12 @@ def _rule_decompose(prompt: str) -> DecompositionResult | None:
 
     # Robot arm / manipulator
     if any(w in text for w in {"robot arm", "manipulator", "robotic arm"}):
+        link_length = (
+            _find_number_near(text, "mm", "upper arm")
+            or _find_number_near(text, "mm", "forearm")
+            or _find_number_near(text, "mm", "arm")
+            or 150.0
+        )
         parts = []
         parts.append(
             DecomposedPart(
@@ -404,22 +410,26 @@ def _rule_decompose(prompt: str) -> DecompositionResult | None:
                 sub_prompt="Robot arm base mounting plate",
             )
         )
+        # Use humanoid limb_segment families so the composer can build a real
+        # articulated chain with joint bores and a parallel-jaw gripper.
         parts.append(
             DecomposedPart(
                 id="upper_link",
                 name="Upper arm link",
-                domain="mechanical",
-                family="link",
-                sub_prompt="Robot arm upper link",
+                domain="humanoid",
+                family="limb_segment",
+                sub_prompt="Robot arm upper limb segment",
+                parameters=[Parameter(name="segment_length", value=link_length, unit="mm")],
             )
         )
         parts.append(
             DecomposedPart(
                 id="forearm_link",
                 name="Forearm link",
-                domain="mechanical",
-                family="link",
-                sub_prompt="Robot arm forearm link",
+                domain="humanoid",
+                family="limb_segment",
+                sub_prompt="Robot arm forearm limb segment",
+                parameters=[Parameter(name="segment_length", value=link_length, unit="mm")],
             )
         )
         if any(w in text for w in {"gripper", "end effector", "hand"}):
@@ -438,7 +448,7 @@ def _rule_decompose(prompt: str) -> DecompositionResult | None:
             primary_domain="mechanical",
             multi_domain=True,
             parts=parts,
-            notes=["Rule-based robot arm decomposition."],
+            notes=["Rule-based robot arm decomposition using limb_segment / end_effector families."],
         )
 
     # Humanoid / biped / quadruped / manipulator-on-base
