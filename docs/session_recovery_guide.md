@@ -35,7 +35,9 @@ These files are in `C:\Users\point\.claude\projects\C--Users-point-projects-Robo
 15. `phase19-assembly-synthesis.md` — Mate inference, kinematic solver, collision checks, joint-aware MJCF/URDF export, browser replay; 251/251 tests passing (Phase 19 complete; Phases 20–22 now complete; Phase 23 next).
 16. `phase20-aero-thermal-propulsion.md` — NACA airfoils, wings, propeller blades, heat sinks, CFD mesh stubs, aero/thermal analysis endpoints and frontend panels; 276/276 tests passing (Phase 20 complete).
 17. `phase21-electronics-mechatronics.md` — PCB outlines, electronics part families, stack decomposition + composer layout, electronics analysis, IDF/STEP export, backend endpoints, domain-gated `ElectronicsPanel`; 299/299 tests passing (Phase 21 complete).
-18. `phase22-multi-physics-verification.md` — Closed load-case templates, solver abstraction, mesh-quality gate, material library, backend `/verify` endpoints, frontend `VerificationPanel`; 330/330 tests passing (Phase 22 complete; Phase 23 next).
+18. `phase22-multi-physics-verification.md` — Closed load-case templates, solver abstraction, mesh-quality gate, material library, backend `/verify` endpoints, frontend `VerificationPanel`; 330/330 tests passing (Phase 22 complete).
+19. `phase23-hotfix-memory-cpu-hardening.md` — Eliminated RAM/CPU hotspots before continuing humanoid/robot synthesis; 125 default + 212 heavy/slow tests passing; frontend build passes.
+20. `phase23-humanoid-robot-synthesis.md` — Biped/quadruped/manipulator-on-base templates, actuator sizing, stability/workspace/gait checks, whole-system MJCF/URDF export, backend endpoints + frontend `HumanoidPanel`; 357 tests passing (Phase 23 complete; Phase 24 next).
 
 ---
 
@@ -214,7 +216,8 @@ npm run build
 | 20 | Aerodynamics, thermal, and propulsion geometry | `ai_cad/aero.py`, `ai_cad/thermal.py`, `ai_cad/cfd.py` |
 | 21 | Electronics and mechatronics integration | `ai_cad/electronics.py`, `web/backend/main.py` |
 | 22 | Multi-physics verification engine | `ai_cad/materials.py`, `ai_cad/verification*.py`, `ai_cad/mesh_quality.py`, `web/frontend/src/components/VerificationPanel.jsx` |
-| 23–28 | End-to-end vision roadmap (Phase 23 humanoid/full-robot synthesis next) | `PLAN.md`, `.claude/memory/robocad-end-to-end-roadmap.md` |
+| 23 | Humanoid and full-robot system synthesis | `ai_cad/robot_templates.py`, `ai_cad/kinematic_tree.py`, `ai_cad/actuator_sizing.py`, `ai_cad/stability.py`, `ai_cad/verification_load_cases.py`, `web/backend/main.py`, `web/frontend/src/components/HumanoidPanel.jsx`, `tests/test_phase23_humanoid.py`, `tests/test_phase23_robot_api.py` |
+| 24–28 | End-to-end vision roadmap (Phase 24 world-model simulation builder next) | `PLAN.md`, `.claude/memory/robocad-end-to-end-roadmap.md` |
 
 ---
 
@@ -227,4 +230,4 @@ npm run build
 5. Run the pytest suite and the frontend build.
 6. Only then continue the current phase.
 
-**Current active phase:** Phase 22 complete (330/330 tests passing); Phase 23 — humanoid and full-robot system synthesis — is next.
+**Current active phase:** Phase 23 complete (357/357 tests passing); Phase 24 — world-model simulation builder — is next.
