@@ -533,7 +533,8 @@ The decision: **build PATH1 (Phases 14A–15B) first**, then use it as the techn
 * `ai_cad/decomposition.py` now maps the upper/forearm links to the `limb_segment` family and the gripper to `end_effector`.
 * `ai_cad/composer.py` lays out the arm by aligning `limb_segment` pin interfaces, producing a real articulated upper/forearm chain and a parallel-jaw prismatic gripper with an explicit Y-axis.
 * `ai_cad/mate_inference.py` now respects the `Part.family` field instead of guessing from the part id, so parts like `upper_link` use the correct family interfaces.
-* Commit `87c8f7b` pushed to `origin/master`; full non-benchmark suite remains green (332 default+heavy/slow passed, 25 mujoco/benchmark/network skipped; 357 total).
+* Commit `87c8f7b` pushed to `origin/master`; commit `980482b` corrected the elbow spacing and gripper jaw mirroring so the upper/forearm connect and the two jaws sit on opposite sides of the Y axis.
+* Full non-benchmark suite remains green (332 default+heavy/slow passed, 25 mujoco/benchmark/network skipped; 357 total).
 
 ### 2026-08-27 — Scope expanded to full multi-domain robotics platform
 
