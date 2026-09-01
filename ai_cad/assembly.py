@@ -19,6 +19,7 @@ from typing import Any
 import numpy as np
 
 from ai_cad.feature_tree import Assembly, CoordinateSystem, FeatureTree, Instance, Mate, MateEntity
+from ai_cad.part_families import get_family
 from ai_cad.transpiler import _transpile_part
 
 
@@ -54,13 +55,33 @@ def _default_part_csys(part_id: str) -> CoordinateSystem:
     )
 
 
-def _find_csys_for_entity(tree: FeatureTree, entity: MateEntity) -> CoordinateSystem:
-    """Locate the coordinate system referenced by a mate entity."""
+def _find_csys_for_entity(
+    tree: FeatureTree, assembly: Assembly, entity: MateEntity
+) -> CoordinateSystem:
+    """Locate the coordinate system referenced by a mate entity.
+
+    Tree-level coordinate systems are checked first, then the instance's
+    part-family interface definitions so mates referencing local connection
+    frames (e.g. ``limb_pin_a`` / ``limb_pin_b``) resolve correctly.
+    """
     if entity.csys_id:
-        try:
-            return _csys_by_id(tree, entity.csys_id)
-        except ValueError:
-            return _default_part_csys(entity.instance_id)
+        for csys in tree.coordinate_systems:
+            if csys.id == entity.csys_id:
+                return csys
+
+        for inst in assembly.instances:
+            if inst.id == entity.instance_id:
+                part = tree.find_part(inst.part_id)
+                if part and part.family:
+                    try:
+                        family = get_family(part.family)
+                        for interface in family.interfaces:
+                            if interface.csys.id == entity.csys_id:
+                                return interface.csys
+                    except KeyError:
+                        pass
+                break
+
     return _default_part_csys(entity.instance_id)
 
 
@@ -144,8 +165,8 @@ def compute_instance_transforms(
             e1, e2 = mate.entities[0], mate.entities[1]
             if e1.instance_id not in transforms or e2.instance_id not in transforms:
                 continue
-            c1 = _find_csys_for_entity(tree, e1)
-            c2 = _find_csys_for_entity(tree, e2)
+            c1 = _find_csys_for_entity(tree, assembly, e1)
+            c2 = _find_csys_for_entity(tree, assembly, e2)
             M1 = transforms[e1.instance_id] @ _csys_matrix(c1)
             M2 = transforms[e2.instance_id] @ _csys_matrix(c2)
             mt = mate.type
@@ -238,8 +259,8 @@ def solve_assembly(
             e1, e2 = mate.entities[0], mate.entities[1]
             if e1.instance_id not in transforms or e2.instance_id not in transforms:
                 continue
-            c1 = _find_csys_for_entity(tree, e1)
-            c2 = _find_csys_for_entity(tree, e2)
+            c1 = _find_csys_for_entity(tree, assembly, e1)
+            c2 = _find_csys_for_entity(tree, assembly, e2)
             M1 = transforms[e1.instance_id] @ _csys_matrix(c1)
             M2 = transforms[e2.instance_id] @ _csys_matrix(c2)
             mt = mate.type
