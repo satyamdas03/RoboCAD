@@ -7,8 +7,10 @@ and a URDF file. All output uses SI units (meters, kilograms).
 from __future__ import annotations
 
 import datetime as dt
+import json
 import math
 import re
+import uuid
 import warnings
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -83,12 +85,9 @@ def shape_to_trimesh(shape, tolerance: float = 0.1) -> trimesh.Trimesh:
     return trimesh.Trimesh(vertices=verts, faces=faces, process=True)
 
 
-def compute_inertial(mesh_mm: trimesh.Trimesh, material: str | None = None) -> InertialData:
-    """Compute mass properties of a millimeter-scale mesh and return SI values."""
+def _inertial_from_mesh_m(mesh_m: trimesh.Trimesh, material: str | None = None) -> InertialData:
+    """Compute SI inertial properties from a mesh already scaled to meters."""
     density = material_density(material)
-    # Scale mesh to meters and set density.
-    mesh_m = mesh_mm.copy()
-    mesh_m.vertices = mesh_m.vertices * MM_TO_M
     mesh_m.density = density
 
     # Suppress trimesh's divide-by-zero RuntimeWarning on degenerate / tiny meshes
@@ -125,6 +124,13 @@ def compute_inertial(mesh_mm: trimesh.Trimesh, material: str | None = None) -> I
         density_kg_m3=density,
         material=material or "default",
     )
+
+
+def compute_inertial(mesh_mm: trimesh.Trimesh, material: str | None = None) -> InertialData:
+    """Compute mass properties of a millimeter-scale mesh and return SI values."""
+    mesh_m = mesh_mm.copy()
+    mesh_m.vertices = mesh_m.vertices * MM_TO_M
+    return _inertial_from_mesh_m(mesh_m, material)
 
 
 def _matrix_to_pos_quat(M: np.ndarray) -> tuple[tuple[float, float, float], tuple[float, float, float, float]]:
@@ -235,10 +241,15 @@ def _build_bundle_part(
     output_dir: Path,
     parameters: dict[str, Any],
     tolerance: float = 0.1,
+    mesh_mm: trimesh.Trimesh | None = None,
 ) -> BundlePart:
-    """Build a BundlePart for one part instance."""
-    mesh_mm = _build_part_mesh(part, parameters, output_dir, tolerance)
-    inertial = compute_inertial(mesh_mm, part.material)
+    """Build a BundlePart for one part instance.
+
+    ``mesh_mm`` may be passed in to avoid rebuilding the same part mesh for
+    multiple assembly instances.
+    """
+    if mesh_mm is None:
+        mesh_mm = _build_part_mesh(part, parameters, output_dir, tolerance)
 
     safe_part = _sanitize_name(part.id)
     safe_instance = _sanitize_name(instance_id or part.id)
@@ -246,9 +257,11 @@ def _build_bundle_part(
     mesh_file = f"meshes/{mesh_name}.stl"
     mesh_path = output_dir / mesh_file
     mesh_path.parent.mkdir(parents=True, exist_ok=True)
-    # Store the mesh in meters (manifest declares length_unit="m").
+
+    # One copy: scale to meters, compute inertial, then export.
     mesh_m = mesh_mm.copy()
     mesh_m.vertices = mesh_m.vertices * MM_TO_M
+    inertial = _inertial_from_mesh_m(mesh_m, part.material)
     mesh_m.export(mesh_path)
 
     transform_m_list = None
@@ -653,6 +666,14 @@ def _write_pretty_xml(tree: ET.ElementTree, path: Path) -> None:
     tree.write(path, encoding="utf-8", xml_declaration=True)
 
 
+def _param_hash(parameters: dict[str, Any]) -> str:
+    """Stable hash for part-parameter deduplication."""
+    try:
+        return str(hash(json.dumps(parameters, sort_keys=True, default=str)))
+    except Exception:
+        return str(uuid.uuid4())
+
+
 def export_bundle_from_tree(
     tree: FeatureTree,
     output_dir: Path,
@@ -667,6 +688,9 @@ def export_bundle_from_tree(
     parts: list[BundlePart] = []
     joints: list[KinematicJoint] = []
 
+    # Cache per-unique-part meshes so multiple instances do not rebuild.
+    part_mesh_cache: dict[tuple[str, str, float], trimesh.Trimesh] = {}
+
     if tree.assemblies:
         from ai_cad.assembly import compute_instance_transforms
 
@@ -677,6 +701,12 @@ def export_bundle_from_tree(
             part = tree.find_part(inst.part_id)
             if part is None:
                 continue
+            cache_key = (part.id, _param_hash(parameters), tolerance)
+            if cache_key not in part_mesh_cache:
+                part_mesh_cache[cache_key] = _build_part_mesh(
+                    part, parameters, output_dir, tolerance
+                )
+            mesh_mm = part_mesh_cache[cache_key]
             M = transforms.get(inst.id, np.eye(4))
             parts.append(
                 _build_bundle_part(
@@ -686,6 +716,7 @@ def export_bundle_from_tree(
                     output_dir,
                     parameters,
                     tolerance,
+                    mesh_mm=mesh_mm,
                 )
             )
     else:
@@ -714,8 +745,6 @@ def export_bundle_from_tree(
 
     inertial_path = output_dir / "inertial.json"
     inertial_data = {p.name: p.inertial.model_dump() for p in parts}
-    import json
-
     inertial_path.write_text(json.dumps(inertial_data, indent=2), encoding="utf-8")
     _build_urdf(parts, urdf_path, name, joints=joints)
     _build_mjcf(parts, mjcf_path, name, joints=joints)
@@ -740,15 +769,14 @@ def export_bundle_from_mesh(
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    inertial = compute_inertial(mesh_mm, material)
-
     safe_name = _sanitize_name(name)
     mesh_file = f"meshes/{safe_name}.stl"
     mesh_path = output_dir / mesh_file
     mesh_path.parent.mkdir(parents=True, exist_ok=True)
-    # Store the mesh in meters (manifest declares length_unit="m").
+    # One copy: scale to meters, compute inertial, then export.
     mesh_m = mesh_mm.copy()
     mesh_m.vertices = mesh_m.vertices * MM_TO_M
+    inertial = _inertial_from_mesh_m(mesh_m, material)
     mesh_m.export(mesh_path)
 
     part = BundlePart(
@@ -777,8 +805,6 @@ def export_bundle_from_mesh(
     manifest_path.write_text(manifest.model_dump_json(indent=2), encoding="utf-8")
 
     inertial_path = output_dir / "inertial.json"
-    import json
-
     inertial_path.write_text(json.dumps({part.name: part.inertial.model_dump()}, indent=2), encoding="utf-8")
     _build_urdf([part], urdf_path, name)
     _build_mjcf([part], mjcf_path, name)

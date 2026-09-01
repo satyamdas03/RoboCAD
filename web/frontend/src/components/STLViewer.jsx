@@ -7,6 +7,8 @@ import { exportUrl } from '../api.js'
 
 function HighlightedFace({ geometry, faceIndex, color = '#00e5ff' }) {
   const meshRef = useRef()
+  const prevGeomRef = useRef(null)
+
   const highlightGeom = useMemo(() => {
     if (faceIndex == null || !geometry || !geometry.index) return null
     const triGeom = new THREE.BufferGeometry()
@@ -25,6 +27,19 @@ function HighlightedFace({ geometry, faceIndex, color = '#00e5ff' }) {
     triGeom.computeVertexNormals()
     return triGeom
   }, [geometry, faceIndex])
+
+  useEffect(() => {
+    if (prevGeomRef.current && prevGeomRef.current !== highlightGeom) {
+      prevGeomRef.current.dispose()
+    }
+    prevGeomRef.current = highlightGeom
+    return () => {
+      if (prevGeomRef.current) {
+        prevGeomRef.current.dispose()
+        prevGeomRef.current = null
+      }
+    }
+  }, [highlightGeom])
 
   if (!highlightGeom) return null
 
@@ -59,6 +74,19 @@ function Model({ url, onFaceClick, selectedFace }) {
   const meshRef = useRef()
   const geometry = useLoader(STLLoader, exportUrl(url))
   const { camera, raycaster, pointer } = useThree()
+  const materialRef = useRef(null)
+
+  useEffect(() => {
+    return () => {
+      // Dispose loaded geometry and material when the model unmounts or URL changes.
+      if (geometry && geometry.dispose) {
+        geometry.dispose()
+      }
+      if (materialRef.current) {
+        materialRef.current.dispose()
+      }
+    }
+  }, [geometry])
 
   const handlePointerDown = (event) => {
     event.stopPropagation()
@@ -106,7 +134,12 @@ function Model({ url, onFaceClick, selectedFace }) {
         receiveShadow
         onPointerDown={handlePointerDown}
       >
-        <meshStandardMaterial color="#d8dce5" roughness={0.55} metalness={0.15} />
+        <meshStandardMaterial
+          ref={materialRef}
+          color="#d8dce5"
+          roughness={0.55}
+          metalness={0.15}
+        />
       </mesh>
       <HighlightedFace geometry={geometry} faceIndex={selectedFace} />
     </group>
@@ -115,6 +148,7 @@ function Model({ url, onFaceClick, selectedFace }) {
 
 export default function STLViewer({ url, onFaceClick, selectedFace, guessResult, designId }) {
   const [hint, setHint] = useState(null)
+  const prevUrlRef = useRef(url)
 
   useEffect(() => {
     if (guessResult?.guessed_parameter) {
@@ -127,6 +161,19 @@ export default function STLViewer({ url, onFaceClick, selectedFace, guessResult,
       return () => clearTimeout(timer)
     }
   }, [guessResult])
+
+  // Invalidate the global THREE/useLoader cache for the previous design URL so
+  // switching designs repeatedly does not grow GPU/JS heap.
+  useEffect(() => {
+    const prevUrl = prevUrlRef.current
+    if (prevUrl && prevUrl !== url) {
+      const key = exportUrl(prevUrl)
+      if (THREE.Cache.get(key) !== undefined) {
+        THREE.Cache.remove(key)
+      }
+    }
+    prevUrlRef.current = url
+  }, [url])
 
   if (!url) {
     return (

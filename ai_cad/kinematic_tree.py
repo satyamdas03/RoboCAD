@@ -136,14 +136,22 @@ def forward_kinematics(
     children = _children_map(joints)
 
     base_transform = base_transform if base_transform is not None else np.eye(4)
+    recursion_seen: set[str] = set()
 
     def _pose_of(link_id: str) -> np.ndarray:
         if link_id in out:
             return out[link_id].transform
+        if link_id in recursion_seen:
+            # Cyclic joint graph detected; break recursion with identity to avoid
+            # an infinite loop / stack overflow.
+            return np.eye(4)
+        recursion_seen.add(link_id)
         # Root: use nominal transform composed with base.
         if link_id not in parent_map:
             M = nominal_transforms.get(link_id, np.eye(4))
-            return base_transform @ M
+            result = base_transform @ M
+            recursion_seen.discard(link_id)
+            return result
         parent_id = parent_map[link_id]
         joint = next(j for j in joints if j.child_link == link_id)
         parent_M = _pose_of(parent_id)
@@ -155,8 +163,8 @@ def forward_kinematics(
         delta = _joint_delta_matrix(joint, value)
         # child world = parent @ origin @ delta @ origin^-1 @ child_nominal
         child_nominal = nominal_transforms.get(link_id, np.eye(4))
-        world = parent_M @ T_origin @ delta @ T_origin_inv @ child_nominal
-        return world
+        recursion_seen.discard(link_id)
+        return parent_M @ T_origin @ delta @ T_origin_inv @ child_nominal
 
     all_links = set(nominal_transforms.keys()) | {j.parent_link for j in joints} | {j.child_link for j in joints}
     for link_id in all_links:

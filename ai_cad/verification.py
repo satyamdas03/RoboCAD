@@ -9,8 +9,11 @@ suggestions.
 from __future__ import annotations
 
 import json
+import threading
+import time
 import uuid
 from abc import ABC, abstractmethod
+from collections import OrderedDict
 from pathlib import Path
 from typing import Any
 
@@ -36,9 +39,52 @@ from ai_cad.verification_models import LoadCase, MeshQualityReport, Verification
 
 
 # ---------------------------------------------------------------------------
-# In-memory report cache (mirrors the design-store pattern in web/backend).
+# Bounded in-memory report cache with TTL and LRU eviction.
 # ---------------------------------------------------------------------------
-_REPORTS: dict[str, VerificationResult] = {}
+class _TimedLRUCache:
+    """Thread-safe LRU cache with a per-entry TTL in seconds."""
+
+    def __init__(self, maxsize: int = 128, ttl_seconds: float = 600.0):
+        self.maxsize = max(maxsize, 1)
+        self.ttl = ttl_seconds
+        self._lock = threading.RLock()
+        self._store: OrderedDict[str, tuple[float, VerificationResult]] = OrderedDict()
+
+    def _evict_expired(self) -> None:
+        now = time.monotonic()
+        expired = [key for key, (expires_at, _) in self._store.items() if now > expires_at]
+        for key in expired:
+            self._store.pop(key, None)
+
+    def get(self, key: str) -> VerificationResult | None:
+        with self._lock:
+            self._evict_expired()
+            entry = self._store.get(key)
+            if entry is None:
+                return None
+            expires_at, value = entry
+            if time.monotonic() > expires_at:
+                self._store.pop(key, None)
+                return None
+            # Move to end (most recently used).
+            self._store.move_to_end(key)
+            return value
+
+    def set(self, key: str, value: VerificationResult) -> None:
+        with self._lock:
+            self._evict_expired()
+            self._store[key] = (time.monotonic() + self.ttl, value)
+            self._store.move_to_end(key)
+            while len(self._store) > self.maxsize:
+                self._store.popitem(last=False)
+
+    def __len__(self) -> int:
+        with self._lock:
+            self._evict_expired()
+            return len(self._store)
+
+
+_REPORTS = _TimedLRUCache(maxsize=128, ttl_seconds=600.0)
 
 
 def get_report(report_id: str) -> VerificationResult | None:
@@ -171,10 +217,13 @@ class MeshQualityBackend(SolverBackend):
         design_dir: Path,
         mesh: trimesh.Trimesh | None,
     ) -> VerificationResult:
-        stl_path = _resolve_stl_path(request.design_id, design_dir)
-        if not stl_path or not stl_path.exists():
-            return _error(request, "No STL export found for mesh-quality check.")
-        report = check_mesh_quality(stl_path)
+        if mesh is None:
+            stl_path = _resolve_stl_path(request.design_id, design_dir)
+            if not stl_path or not stl_path.exists():
+                return _error(request, "No STL export found for mesh-quality check.")
+            report = check_mesh_quality(stl_path)
+        else:
+            report = check_mesh_quality(mesh)
         passed = report.is_suitable_for_solver
         return VerificationResult(
             design_id=request.design_id,
@@ -218,7 +267,7 @@ class AssemblyClearanceBackend(SolverBackend):
         if not tree.assemblies:
             return _error(request, "No assembly found for clearance check.")
         try:
-            reports = check_assembly_collision(tree, design_dir / "collision", samples=1000)
+            reports = check_assembly_collision(tree, design_dir / "collision", samples=500)
         except Exception as exc:
             return _error(request, f"Failed to run collision check: {exc}")
         pairs = [r.model_dump() for r in reports]
@@ -299,6 +348,35 @@ _register_backend(AssemblyClearanceBackend())
 # Public API
 # ---------------------------------------------------------------------------
 
+def _load_single_mesh(stl_path: Path) -> trimesh.Trimesh | None:
+    """Load an STL file and normalize a trimesh.Scene to a single Trimesh."""
+    try:
+        loaded = trimesh.load_mesh(stl_path)
+    except Exception:
+        return None
+    if isinstance(loaded, trimesh.Scene):
+        if len(loaded.geometry) == 1:
+            return next(iter(loaded.geometry.values()))
+        return None
+    return loaded
+
+
+class _MeshCache:
+    """Load an STL mesh once and share it across backends in one request."""
+
+    def __init__(self, stl_path: Path | None):
+        self.stl_path = stl_path
+        self._mesh: trimesh.Trimesh | None = None
+        self._loaded = False
+
+    @property
+    def mesh(self) -> trimesh.Trimesh | None:
+        if not self._loaded and self.stl_path and self.stl_path.exists():
+            self._mesh = _load_single_mesh(self.stl_path)
+            self._loaded = True
+        return self._mesh
+
+
 def _resolve_stl_path(design_id: str, design_dir: Path | None = None) -> Path | None:
     """Locate the default STL export for a design."""
     if design_dir is None:
@@ -354,21 +432,11 @@ def run_verification(
         return _error(request, f"No backend registered for load case: {request.load_case}")
 
     stl_path = _resolve_stl_path(request.design_id, design_dir)
-    mesh: trimesh.Trimesh | None = None
-    if stl_path and stl_path.exists():
-        try:
-            loaded = trimesh.load_mesh(stl_path)
-            if isinstance(loaded, trimesh.Scene):
-                if len(loaded.geometry) == 1:
-                    mesh = next(iter(loaded.geometry.values()))
-            else:
-                mesh = loaded
-        except Exception:
-            mesh = None
+    mesh_cache = _MeshCache(stl_path)
 
-    result = backend.solve(request, design_dir, mesh)
+    result = backend.solve(request, design_dir, mesh_cache.mesh)
     # Always attach a report id and cache it.
     report_id = uuid.uuid4().hex
     result.report_id = report_id
-    _REPORTS[report_id] = result
+    _REPORTS.set(report_id, result)
     return result

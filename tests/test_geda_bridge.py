@@ -108,6 +108,25 @@ def _make_gripper_jaw_part(part_id="gripper_jaw") -> Part:
     )
 
 
+def _make_assembly_tree_with_duplicate_part() -> FeatureTree:
+    part = _make_cube_part("shared_cube", size=10.0)
+    return FeatureTree(
+        design_id="dup_asm",
+        prompt="two cubes",
+        created_at="2026-08-29T00:00:00Z",
+        parts=[part],
+        assemblies=[
+            Assembly(
+                id="a1",
+                instances=[
+                    Instance(id="i1", part_id="shared_cube"),
+                    Instance(id="i2", part_id="shared_cube", transform={"translation": [20, 0, 0]}),
+                ],
+            )
+        ],
+    )
+
+
 def test_material_density_lookup():
     assert material_density("PLA") > 0
     assert material_density("aluminum") > material_density("PLA")
@@ -267,3 +286,25 @@ def test_exporter_urdf_has_inertial_and_visual(tmp_path: Path):
     assert "<inertia " in urdf_text
     assert "<visual>" in urdf_text
     assert "<collision>" in urdf_text
+
+
+def test_export_bundle_reuses_part_mesh_for_duplicate_instances(tmp_path: Path, monkeypatch):
+    tree = _make_assembly_tree_with_duplicate_part()
+    exporter = __import__("ai_cad.geda_bridge.exporter", fromlist=["_build_part_mesh"])
+
+    call_count = 0
+    original_build = exporter._build_part_mesh
+
+    def _counting_build(part, parameters, output_dir, tolerance=0.1):
+        nonlocal call_count
+        call_count += 1
+        return original_build(part, parameters, output_dir, tolerance)
+
+    monkeypatch.setattr(exporter, "_build_part_mesh", _counting_build)
+
+    paths = export_bundle_from_tree(tree, tmp_path / "bundle", name="dup")
+    paths = package_bundle_paths(paths)
+
+    manifest = BundleManifest(**json.loads(paths.manifest_json.read_text(encoding="utf-8")))
+    assert len(manifest.parts) == 2
+    assert call_count == 1, "Duplicate part instances should reuse a single built mesh"

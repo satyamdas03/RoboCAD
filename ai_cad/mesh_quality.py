@@ -36,7 +36,7 @@ def _bounding_box_m(mesh: trimesh.Trimesh) -> tuple[float, float, float]:
 
 
 def check_mesh_quality(
-    stl_path: Path | str,
+    stl_path: Path | str | trimesh.Trimesh | None,
     max_aspect_ratio: float = 30.0,
     min_bounding_box_m: float = 1e-6,
     max_bounding_box_m: float = 100.0,
@@ -44,7 +44,8 @@ def check_mesh_quality(
     """Run a mesh-quality pre-check.
 
     Args:
-        stl_path: path to the mesh file (STL supported).
+        stl_path: path to the mesh file (STL supported) or an already-loaded
+            trimesh.Trimesh object.
         max_aspect_ratio: threshold above which a triangle is flagged.
         min_bounding_box_m: parts smaller than this are suspicious.
         max_bounding_box_m: parts larger than this are suspicious.
@@ -52,7 +53,12 @@ def check_mesh_quality(
     Returns:
         MeshQualityReport with is_suitable_for_solver boolean and issue list.
     """
-    mesh = load_mesh(stl_path)
+    if isinstance(stl_path, trimesh.Trimesh):
+        mesh = stl_path
+    elif stl_path is None:
+        mesh = None
+    else:
+        mesh = load_mesh(stl_path)
     if mesh is None:
         return MeshQualityReport(
             is_suitable_for_solver=False,

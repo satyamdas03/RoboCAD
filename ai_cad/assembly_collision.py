@@ -97,6 +97,15 @@ def _boolean_intersection_volume(
     return None
 
 
+def _aabb_overlap(mesh_a: trimesh.Trimesh, mesh_b: trimesh.Trimesh) -> bool:
+    """Return True if the axis-aligned bounding boxes of two meshes overlap."""
+    a_min, a_max = mesh_a.bounds
+    b_min, b_max = mesh_b.bounds
+    return bool(
+        np.all(a_min <= b_max + 1e-9) and np.all(b_min <= a_max + 1e-9)
+    )
+
+
 def check_assembly_collision(
     tree: FeatureTree,
     output_dir: Path,
@@ -104,8 +113,9 @@ def check_assembly_collision(
     name: str = "assembly_collision",
     clearance_threshold_mm: float = 0.05,
     interference_threshold_mm: float = -0.05,
-    samples: int = 2000,
+    samples: int = 500,
     tolerance: float = 0.1,
+    max_instances: int = 50,
 ) -> list[CollisionReport]:
     """Check collision/clearance between every unique pair of assembly instances.
 
@@ -121,6 +131,8 @@ def check_assembly_collision(
         samples: number of surface points to sample per mesh for the proximity
             query.
         tolerance: tessellation tolerance passed to the mesh generator.
+        max_instances: guardrail to prevent accidental O(N²) blow-up on huge
+            assemblies.
 
     Returns:
         A CollisionReport for every unique instance pair in the first assembly.
@@ -136,6 +148,11 @@ def check_assembly_collision(
     assembly = tree.assemblies[0]
     if len(assembly.instances) < 2:
         return []
+    if len(assembly.instances) > max_instances:
+        raise ValueError(
+            f"Assembly has {len(assembly.instances)} instances; max_instances={max_instances}. "
+            "Increase max_instances explicitly if this is intentional."
+        )
 
     parameters = tree.parameter_dict()
     transforms = compute_instance_transforms(tree, assembly, parameters)
@@ -151,6 +168,7 @@ def check_assembly_collision(
             mesh_cache[part.id] = _build_part_mesh(
                 part, parameters, output_dir, tolerance=tolerance
             )
+        # Apply transform to a fresh copy so the cached mesh stays unscaled.
         mesh = mesh_cache[part.id].copy()
         M = transforms.get(inst.id, np.eye(4))
         mesh.apply_transform(M)
@@ -160,6 +178,38 @@ def check_assembly_collision(
     for a_id, b_id in combinations(instance_meshes.keys(), 2):
         mesh_a = instance_meshes[a_id]
         mesh_b = instance_meshes[b_id]
+
+        # Quick AABB cull: if bounding boxes do not overlap, the pair is clearance.
+        if not _aabb_overlap(mesh_a, mesh_b):
+            reports.append(
+                CollisionReport(
+                    name=name,
+                    instance_a=a_id,
+                    instance_b=b_id,
+                    min_clearance_mm=round(
+                        float(
+                            np.linalg.norm(
+                                np.maximum(mesh_a.bounds[0] - mesh_b.bounds[1], 0.0)
+                            )
+                            or np.linalg.norm(
+                                np.maximum(mesh_b.bounds[0] - mesh_a.bounds[1], 0.0)
+                            )
+                        ),
+                        4,
+                    ),
+                    max_clearance_mm=None,
+                    mean_clearance_mm=None,
+                    interference_volume_mm3=None,
+                    classification="clearance",
+                    details={
+                        "clearance_threshold_mm": clearance_threshold_mm,
+                        "interference_threshold_mm": interference_threshold_mm,
+                        "samples": 0,
+                        "aabb_culled": True,
+                    },
+                )
+            )
+            continue
 
         try:
             distances = _sample_signed_distances(mesh_a, mesh_b, samples)

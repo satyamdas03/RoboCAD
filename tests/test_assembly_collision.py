@@ -128,3 +128,43 @@ def test_no_assembly_returns_empty_list(tmp_path):
     )
     reports = check_assembly_collision(tree, tmp_path)
     assert reports == []
+
+
+def test_separated_cubes_are_aabb_culled(tmp_path):
+    tree = FeatureTree(
+        design_id="aabb_cull_asm",
+        prompt="two widely separated cubes",
+        created_at="2026-08-29T00:00:00Z",
+        parts=[_make_cube_part("cube", size=10.0)],
+        assemblies=[
+            Assembly(
+                id="a1",
+                instances=[
+                    Instance(id="i1", part_id="cube"),
+                    Instance(
+                        id="i2",
+                        part_id="cube",
+                        transform={"translation": [100, 0, 0]},
+                    ),
+                ],
+            )
+        ],
+    )
+    reports = check_assembly_collision(tree, tmp_path, samples=500)
+    assert len(reports) == 1
+    report = reports[0]
+    assert report.classification == "clearance"
+    assert report.details.get("aabb_culled") is True
+
+
+def test_max_instances_guard(tmp_path):
+    instances = [Instance(id=f"i{i}", part_id="cube") for i in range(60)]
+    tree = FeatureTree(
+        design_id="huge_asm",
+        prompt="many cubes",
+        created_at="2026-08-29T00:00:00Z",
+        parts=[_make_cube_part("cube", size=10.0)],
+        assemblies=[Assembly(id="a1", instances=instances)],
+    )
+    with pytest.raises(ValueError, match="max_instances"):
+        check_assembly_collision(tree, tmp_path)

@@ -160,3 +160,21 @@ def test_verify_joint_torque_check():
     report = response.json()["report"]
     assert report["load_case"] == "joint_torque_check"
     assert report["metrics"]["required_torque_nm"] > 0
+
+
+def test_verification_cache_is_bounded(bracket_design: str):
+    from ai_cad import verification as verification_module
+
+    initial_len = len(verification_module._REPORTS)
+    for i in range(verification_module._REPORTS.maxsize + 10):
+        response = client.post(
+            f"/designs/{bracket_design}/verify",
+            json={
+                "load_case": "static_stress",
+                "materials": {},
+                "parameters": {"material": "PLA", "load_magnitude_n": 50},
+            },
+        )
+        assert response.status_code == 200
+    assert len(verification_module._REPORTS) <= verification_module._REPORTS.maxsize
+    assert len(verification_module._REPORTS) > initial_len

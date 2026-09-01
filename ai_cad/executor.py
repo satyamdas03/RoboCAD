@@ -2,12 +2,27 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
+import time
 import uuid
 from pathlib import Path
 from typing import Any, Optional
+
+
+def _cleanup_stale_artifacts(output_dir: Path, max_age_seconds: float = 86400.0) -> None:
+    """Remove execution artifacts older than ``max_age_seconds`` to bound disk growth."""
+    if not output_dir.exists():
+        return
+    cutoff = time.time() - max_age_seconds
+    for path in output_dir.iterdir():
+        try:
+            if path.is_file() and path.stat().st_mtime < cutoff:
+                path.unlink()
+        except OSError:
+            pass
 
 
 def execute_code(
@@ -35,6 +50,9 @@ def execute_code(
     if output_dir is None:
         output_dir = Path("output") / "executions"
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Bound disk growth from long-running servers / repeated regenerations.
+    _cleanup_stale_artifacts(output_dir)
 
     run_id = uuid.uuid4().hex[:8]
     script_path = output_dir / f"generated_{run_id}.py"
@@ -110,7 +128,7 @@ except Exception as _exc:
 
     metadata = _load_metadata(metadata_path)
 
-    return {
+    result = {
         "success": metadata.get("success", False),
         "result_type": metadata.get("type"),
         "error": None,
@@ -121,6 +139,19 @@ except Exception as _exc:
         "bounds": _parse_bounds(metadata.get("bounds")),
         "volume": metadata.get("volume"),
     }
+
+    # Clean up the temporary generated script and empty error file on success.
+    # STL/STEP are retained briefly so callers can copy them; stale-artifact
+    # cleanup removes old files after the configured retention window.
+    if result["success"] and os.environ.get("ROBOCAD_KEEP_EXECUTION_ARTIFACTS") != "1":
+        for path in (script_path, error_path):
+            try:
+                if path.exists():
+                    path.unlink()
+            except OSError:
+                pass
+
+    return result
 
 
 def _failure(
