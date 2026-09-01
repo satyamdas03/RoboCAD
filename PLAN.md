@@ -801,12 +801,13 @@ PATH2 is the long-term North Star: a full-stack robotics design operating system
 
 **Shipped:** 2026-09-01. Full suite **357/357 passing**.
 
-**Post-ship hardening (2026-09-01, commits `87c8f7b` and `980482b`):**
+**Post-ship hardening (2026-09-01, commits `87c8f7b`, `980482b`, and `174df8c`):**
 - The rule-based `robot arm with gripper` prompt no longer produces overlapping raw `link`/`mount` boxes.
 - Decomposition now maps upper/forearm links to the `limb_segment` family and the gripper to `end_effector`.
 - Composer lays out instances by aligning limb pin interfaces and emits a parallel-jaw prismatic gripper with an explicit Y-axis.
 - Mate inference now honors `Part.family` instead of guessing from the part id.
 - Commit `980482b` corrected the elbow spacing and gripper jaw mirroring so the upper and forearm connect and the two jaws sit on opposite sides of the Y axis.
+- Commit `174df8c` fixed the assembly solver so it resolves mate coordinate systems through the instance → part → part-family interface chain (`limb_pin_a`, `limb_pin_b`, `gripper_pivot_csys`). Previously the solver only searched `tree.coordinate_systems`, fell back to default origins, and drifted the whole arm chain. The explicit composer transforms now survive solver relaxation unchanged.
 
 **Effort:** 4–6 months. **Risk:** humanoid design is a research area; start with templates and parameterized scaling, not open-ended morphology.
 

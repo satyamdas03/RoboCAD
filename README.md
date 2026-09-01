@@ -4,7 +4,7 @@
 >
 > **Core bet:** The AI writes **parametric CAD code** (build123d / FeatureScript), not throwaway meshes. The model you get is editable, versionable, and exportable for 3D printing, machining, or Onshape.
 >
-> **Latest milestone:** Phases 14A–15B, **16–21**, and **22 are complete**. RoboCAD now runs structural, thermal, CFD, and dynamic checks from a single multi-physics verification layer: a solver abstraction with closed load-case templates, mesh-quality pre-checker, extended material library, backend `/designs/{id}/verify` and `/designs/{id}/mesh-quality-check` endpoints, and a domain-agnostic `VerificationPanel`. The full pytest suite: **330 passed**. Phase 23 — humanoid and full-robot system synthesis — is next.
+> **Latest milestone:** Phases 14A–15B, **16–22**, and **23 are complete**. RoboCAD now synthesizes humanoid and full-robot systems from natural language: biped/quadruped/manipulator-on-base templates, actuator sizing, dynamic stability and reachable-workspace checks, and whole-system MJCF/URDF export. The full pytest suite: **357/357 passing**. Phase 24 — world-model simulation — is next.
 
 ---
 
