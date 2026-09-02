@@ -814,6 +814,12 @@ PATH2 is the long-term North Star: a full-stack robotics design operating system
 - Stress-test routing confirmed: full system prompts (robot arm, humanoid, quadruped, quadcopter, fixed-wing, electronics stack) use the rule-based decomposition path with no Anthropic API call; single-domain generic parts (wheel hub, worm gear housing, custom brackets, heat sinks, airfoils, arbitrary PCBs) fall back to the LLM path and require `ANTHROPIC_API_KEY`.
 - Commit `6a9faf4` fixed misleading validation reporting for rule-based assemblies. The merged STL preview of touching parts is not a single watertight manifold, so the frontend showed "Manifold: FAIL / Watertight: FAIL" even though each body was watertight. `_build_assembly_validation_report()` now splits the merged preview, validates each body, marks the design `valid=True`, and adds a warning explaining that the preview is an assembly. It also fixed the frontend assembly-collision API call to use POST.
 
+**Live-session verification (2026-09-02):**
+- User-generated `robot arm with gripper` confirmed structurally correct: connected elbow and two opposing prismatic jaws. Simple box appearance is intentional pending cosmetic refinement.
+- Prompt `robotic arm with five fingers` degraded to the standard 2-link arm because no hand/finger part family exists yet.
+- Backend restarted from Hermes venv due to missing `python-dotenv` in project `.venv`. Frontend Vite server on 5173 kept running.
+- Full pytest suite **357/357 passing**; frontend production build passes.
+
 **Effort:** 4–6 months. **Risk:** humanoid design is a research area; start with templates and parameterized scaling, not open-ended morphology.
 
 ### Phase 24 — World-model simulation

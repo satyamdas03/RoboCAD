@@ -539,6 +539,13 @@ The decision: **build PATH1 (Phases 14A–15B) first**, then use it as the techn
 * Stress-test routing confirmed: full system prompts (robot arm, humanoid, quadruped, quadcopter, fixed-wing, electronics stack) use the rule-based decomposition path with no Anthropic API call; single-domain generic parts (wheel hub, worm gear housing, custom brackets, heat sinks, airfoils) fall back to the LLM path and require `ANTHROPIC_API_KEY`.
 * Full pytest suite remains **357/357 passing**.
 
+### 2026-09-02 — Live session verification and backend restart
+
+* Verified the `robot arm with gripper` output is structurally correct after commit `6a9faf4`: connected upper/forearm and two opposing prismatic gripper jaws. The simple block-like appearance is because the current `limb_segment`/`end_effector` families are intentionally minimal; cosmetic/mechanical refinement is queued next.
+* Confirmed prompt `robotic arm with five fingers` degrades to the standard 2-link arm because the rule-based decomposer has no hand/finger part family yet.
+* Restarted the backend using the Hermes venv (`C:\Users\point\AppData\Local\hermes\hermes-agent\venv\Scripts\python`) because the project `.venv` was missing `python-dotenv`. Frontend Vite server on port 5173 remained running.
+* Full pytest suite **357/357 passing**; frontend production build passes.
+
 ### 2026-08-27 — Scope expanded to full multi-domain robotics platform
 
 * Expanded RoboCAD target scope from "AI-powered parametric CAD for robotics hardware" to "AI-powered generative engineering platform for the entire robotics world."
