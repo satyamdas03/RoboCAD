@@ -235,7 +235,7 @@ export async function synthesizeAssembly(id) {
 }
 
 export async function getAssemblyCollision(id) {
-  return apiFetch(`/designs/${id}/assembly-collision`)
+  return apiFetch(`/designs/${id}/assembly-collision`, { method: 'POST' })
 }
 
 export async function getAssemblyPoses(id, { samplesPerJoint = 8 } = {}) {

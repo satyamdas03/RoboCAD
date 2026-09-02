@@ -2129,6 +2129,59 @@ def _build_validation_report(stl_path: Optional[Path | str]) -> ValidationReport
     )
 
 
+def _build_assembly_validation_report(
+    stl_path: Path | str,
+    instance_count: int,
+) -> ValidationReport:
+    """Validate a merged-assembly STL preview.
+
+    A combined STL of touching parts is never a single watertight manifold, so we
+    split it into bodies and mark the design valid when every body is watertight
+    and has positive volume.  The manifold/watertight flags stay False for the
+    merged preview because that is the honest geometry fact.
+    """
+    import trimesh
+
+    stl_path = Path(stl_path) if not isinstance(stl_path, Path) else stl_path
+    try:
+        mesh = trimesh.load(stl_path)
+    except Exception as exc:
+        return ValidationReport(valid=False, errors=[f"Could not load merged assembly STL: {exc}"])
+
+    if mesh.is_empty:
+        return ValidationReport(valid=False, errors=["Merged assembly STL is empty."])
+
+    bodies = mesh.split()
+    bad_bodies = []
+    total_volume = 0.0
+    for i, body in enumerate(bodies):
+        if not body.is_watertight or body.volume <= 0:
+            bad_bodies.append(i)
+        total_volume += float(body.volume)
+
+    warnings = [
+        f"Merged assembly preview contains {len(bodies)} separate watertight bodies. "
+        "Use STEP export or the MJCF/URDF bundle for manufacturing/simulation."
+    ]
+    errors = []
+    if bad_bodies:
+        errors.append(
+            f"Bodies {bad_bodies} in the merged preview are not watertight or have zero volume."
+        )
+
+    bounds = tuple(float(v) for v in mesh.bounds[1] - mesh.bounds[0]) if mesh.bounds is not None else None
+    return ValidationReport(
+        valid=len(bad_bodies) == 0,
+        manifold=False,
+        watertight=False,
+        bounds_mm=bounds,
+        volume_mm3=total_volume if total_volume > 0 else None,
+        surface_area_mm2=None,
+        warnings=warnings,
+        errors=errors,
+    )
+
+
 def _run_decomposed_generation(
     design_id: str,
     prompt: str,
@@ -2159,7 +2212,11 @@ def _run_decomposed_generation(
 
     validation = None
     if final_stl:
-        validation = _build_validation_report(final_stl)
+        instance_count = sum(len(a.instances) for a in tree.assemblies) if tree.assemblies else 1
+        if instance_count > 1:
+            validation = _build_assembly_validation_report(final_stl, instance_count)
+        else:
+            validation = _build_validation_report(final_stl)
 
     parameters = [
         CADParameter(name=p.name, value=p.value, unit=p.unit, description=p.description)
