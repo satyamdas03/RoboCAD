@@ -15,6 +15,9 @@ from ai_cad.geda_bridge import (
     humanoid_stand_world_template,
     pick_place_world_template,
     push_world_template,
+    resolve_body_alias,
+    resolve_world_body_aliases,
+    validate_isaac_world_json,
     walker_world_template,
 )
 from ai_cad.geda_bridge.models import BundleManifest
@@ -150,6 +153,58 @@ def test_sensor_and_terrain_serialization(tmp_path: Path):
     assert camera["fov_deg"] == 75
 
 
+def test_isaac_json_schema_validation(tmp_path: Path):
+    paths, parts = _cube_asset(tmp_path)
+    world = pick_place_world_template(parts)
+    json_path = paths.directory / "world_pick_place.isaac.json"
+    export_world_to_isaac_json(world, json_path)
+
+    data = json.loads(json_path.read_text(encoding="utf-8"))
+    ok, errors = validate_isaac_world_json(data)
+    assert ok, errors
+    assert errors == []
+
+    # Schema rejects an invalid payload.
+    bad = {"name": "bad"}
+    ok, errors = validate_isaac_world_json(bad)
+    assert not ok
+    assert any("missing required key" in e for e in errors)
+
+
+def test_walker_stair_terrain(tmp_path: Path):
+    paths, parts = _cube_asset(tmp_path)
+    world = walker_world_template(parts, terrain_type="stairs")
+    assert any(t.name.startswith("stairs_") for t in world.terrain)
+    assert world.template == "walker"
+
+
+def test_walker_ramp_terrain(tmp_path: Path):
+    paths, parts = _cube_asset(tmp_path)
+    world = walker_world_template(parts, terrain_type="ramp")
+    assert any(t.name == "ramp" for t in world.terrain)
+
+
+def test_walker_uneven_terrain(tmp_path: Path):
+    paths, parts = _cube_asset(tmp_path)
+    world = walker_world_template(parts, terrain_type="uneven")
+    assert any(t.name.startswith("uneven_ground_") for t in world.terrain)
+
+
+def test_body_alias_resolution(tmp_path: Path):
+    paths, parts = _cube_asset(tmp_path)
+    world = humanoid_stand_world_template(parts)
+    assert resolve_body_alias("torso", {"torso_plate"}) == "torso_plate"
+    assert resolve_body_alias("base", {"mobile_base"}) == "mobile_base"
+    assert resolve_body_alias("torso", {"body"}) == "body"
+    assert resolve_body_alias("torso", {"no_match"}) is None
+
+    # Alias resolver updates world sensor / task references when names are known.
+    resolved = resolve_world_body_aliases(world, available_names={"torso_plate"})
+    imu = next(s for s in resolved.sensors if s.sensor_type == "imu")
+    assert imu.attach_body == "torso_plate"
+    assert resolved.task.success_criteria["body"] == "torso_plate"
+
+
 @pytest.mark.mujoco
 @pytest.mark.heavy
 def test_world_mjcf_loads_in_mujoco(tmp_path: Path):
@@ -185,3 +240,9 @@ def test_world_replay(tmp_path: Path):
     replay = run_world_replay(world_mjcf_path, duration_seconds=1.0, fps=10.0, body_names=["cube"])
     assert replay["success"]
     assert len(replay["times"]) > 0
+    # Rich replay carries positions, velocities, and orientations.
+    assert "cube" in replay["bodies"]
+    assert replay["bodies"]["cube"][0]["pos"]
+    assert replay["bodies"]["cube"][0]["quat"]
+    assert replay["bodies"]["cube"][0]["linvel"]
+    assert isinstance(replay["contacts"], list)

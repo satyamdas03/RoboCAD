@@ -830,15 +830,18 @@ PATH2 is the long-term North Star: a full-stack robotics design operating system
 - ✅ World builder API: `WorldDescription`, `WorldBuilder`, `WorldTerrain`, `WorldSensor`, `WorldTask`, `DomainRandomization` in `ai_cad/geda_bridge/world_builder.py`.
 - ✅ Domain-specific scene templates: `pick_place`, `push`, `walker`, `drone_hover`, `humanoid_stand`.
 - ✅ Domain randomization for mass, friction, actuator gains, sensor noise, wind/thermal loads.
-- ✅ Export to MuJoCo (`world_{template}.mjcf`) and Isaac Sim (`world_{template}.isaac.json`) from the same world description.
+- ✅ Export to MuJoCo (`world_{template}.mjcf`) and Isaac Sim (`world_{template}.isaac.json`) from the same world description; Isaac JSON validated against `ISAAC_WORLD_JSON_SCHEMA`.
+- ✅ Body-name alias resolver (`resolve_body_alias`, `resolve_world_body_aliases`) so locomotion/humanoid sensor and task body references map to real MJCF names.
+- ✅ Procedural terrain helpers: `plane_terrain`, `box_terrain`, `slope_terrain`, `stair_terrain`, `ramp_terrain`, `uneven_terrain` (walker template supports `stairs`, `ramp`, `uneven`).
+- ✅ Rich replay capture: positions, orientations, linear velocities, contact forces, actuator controls/forces, and sensor readings in `run_world_replay`.
 - ✅ Replay and inspection tools: `POST /designs/{id}/world/replay` + `WorldBuilderPanel` frontend.
 
-**Tests:** `tests/test_world_builder.py` — 14 tests; each template exports to both formats and the MJCF loads in MuJoCo without errors.
+**Tests:** `tests/test_world_builder.py` — 19 tests; each template exports to both formats, terrain variants work, body aliases resolve, Isaac JSON validates against schema, and the MJCF loads in MuJoCo without errors.
 
 **Results:**
-- Default pytest suite: **149 passed**, 222 deselected.
-- Heavy/slow/MuJoCo pytest suite: **222 passed**, 149 deselected.
-- **Total: 371/371 tests passing.**
+- Default pytest suite: **154 passed**, 222 deselected.
+- Heavy/slow/MuJoCo pytest suite: **222 passed**, 154 deselected.
+- **Total: 376/376 tests passing.**
 - Frontend production build passes.
 
 **Effort:** 3–4 months.
@@ -965,4 +968,4 @@ Full analysis is saved in `.claude/memory/robocad-path-analysis.md` and the end-
 
 ---
 
-*Last updated: 2026-09-01 (Phases 14A–15B, 16–24 complete; 371/371 tests passing; scope expanded to full multi-domain robotics: mechanical, aero/thermal, electronics, and humanoid/robot systems; Phase 24 world-model simulation builder shipped with MuJoCo + Isaac Sim export, domain randomization, and frontend replay panel; Phase 25 — robot brain training loop — is next)*
+*Last updated: 2026-09-01 (Phases 14A–15B, 16–24 complete; 376/376 tests passing; scope expanded to full multi-domain robotics: mechanical, aero/thermal, electronics, and humanoid/robot systems; Phase 24 world-model simulation builder shipped and hardened with body-name alias resolution, procedural terrain variants, Isaac JSON schema validation, and rich replay capture; Phase 25 — robot brain training loop — is next)*

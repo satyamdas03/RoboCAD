@@ -157,6 +157,83 @@ class WorldBuilder:
 
 
 # ---------------------------------------------------------------------------
+# Body-name aliases for locomotion / humanoid templates
+# ---------------------------------------------------------------------------
+
+# Map canonical role -> candidate body names we may encounter in a robot MJCF.
+# Order matters: the resolver tries aliases left-to-right.
+BODY_ALIAS_MAP: dict[str, list[str]] = {
+    "torso": ["torso", "torso_plate", "body", "trunk", "chest", "pelvis"],
+    "base": ["base", "mobile_base", "body", "chassis", "torso"],
+    "head": ["head", "camera_mount", "torso"],
+    "foot": ["foot", "foot_l", "foot_r", "foot_fl", "foot_fr", "foot_rl", "foot_rr"],
+}
+
+
+def resolve_body_alias(alias: str, available_names: set[str]) -> str | None:
+    """Resolve a canonical body alias against a set of actual MJCF body names."""
+    alias = alias.lower()
+    candidates = BODY_ALIAS_MAP.get(alias, [alias])
+    for name in candidates:
+        if name in available_names:
+            return name
+        safe = _sanitize_name(name)
+        if safe in available_names:
+            return safe
+    # Last-ditch fuzzy prefix match (e.g. "torso_plate_0").
+    for name in sorted(available_names):
+        lower = name.lower()
+        if any(c in lower for c in candidates):
+            return name
+    return None
+
+
+def resolve_world_body_aliases(
+    world: WorldDescription,
+    mjcf_path: Path | str | None = None,
+    available_names: set[str] | None = None,
+) -> WorldDescription:
+    """Return a copy of ``world`` whose sensor / task body references use real MJCF names.
+
+    If ``available_names`` is not supplied, the function reads body names from the
+    robot MJCF file referenced by ``world.robot_mjcf_file`` (relative to ``mjcf_path``
+    directory). If neither is available, the world is returned unchanged.
+    """
+    if available_names is None and mjcf_path is not None:
+        mjcf_path = Path(mjcf_path)
+        robot_file = world.robot_mjcf_file
+        if robot_file:
+            robot_path = mjcf_path.parent / robot_file
+            try:
+                available_names = {
+                    _sanitize_name(body.get("name", ""))
+                    for body in ET.parse(robot_path).getroot().iter("body")
+                    if body.get("name")
+                }
+            except Exception:
+                available_names = None
+
+    if not available_names:
+        return world
+
+    resolved = copy.deepcopy(world)
+    for sensor in resolved.sensors:
+        if sensor.attach_body:
+            real = resolve_body_alias(sensor.attach_body, available_names)
+            if real:
+                sensor.attach_body = real
+
+    if resolved.task and resolved.task.success_criteria:
+        body_key = resolved.task.success_criteria.get("body")
+        if isinstance(body_key, str):
+            real = resolve_body_alias(body_key, available_names)
+            if real:
+                resolved.task.success_criteria["body"] = real
+
+    return resolved
+
+
+# ---------------------------------------------------------------------------
 # Domain randomization
 # ---------------------------------------------------------------------------
 
@@ -222,6 +299,162 @@ def _perturb_tuple(
     # Additive perturbation within range.
     delta = tuple(float(rng.uniform(lo, hi)) for _ in base)
     return tuple(max(0.0, b + d) for b, d in zip(base, delta))
+
+
+# ---------------------------------------------------------------------------
+# Procedural terrain helpers
+# ---------------------------------------------------------------------------
+
+
+def plane_terrain(
+    name: str = "floor",
+    size: tuple[float, float, float] = (10.0, 10.0, 0.01),
+    pos: tuple[float, float, float] = (0.0, 0.0, 0.0),
+    friction: tuple[float, float, float] = (0.8, 0.1, 0.1),
+    rgba: tuple[float, float, float, float] = (0.5, 0.5, 0.55, 1.0),
+) -> WorldTerrain:
+    """Flat plane terrain."""
+    return WorldTerrain(name=name, type="plane", size=size, pos=pos, friction=friction, rgba=rgba)
+
+
+def box_terrain(
+    name: str = "platform",
+    size: tuple[float, float, float] = (1.0, 0.6, 0.05),
+    pos: tuple[float, float, float] = (0.0, 0.0, 0.0),
+    friction: tuple[float, float, float] = (0.8, 0.1, 0.1),
+    rgba: tuple[float, float, float, float] = (0.3, 0.3, 0.35, 1.0),
+) -> WorldTerrain:
+    """Simple box platform / table."""
+    return WorldTerrain(name=name, type="box", size=size, pos=pos, friction=friction, rgba=rgba)
+
+
+def slope_terrain(
+    name: str = "slope",
+    size: tuple[float, float, float] = (4.0, 1.0, 0.05),
+    pos: tuple[float, float, float] = (2.0, 0.0, -0.05),
+    pitch_rad: float = -0.1,
+    friction: tuple[float, float, float] = (0.9, 0.1, 0.1),
+    rgba: tuple[float, float, float, float] = (0.6, 0.55, 0.5, 1.0),
+) -> WorldTerrain:
+    """Angled slope as a thin rotated box."""
+    return WorldTerrain(
+        name=name,
+        type="slope",
+        size=size,
+        pos=pos,
+        quat=_euler_to_quaternion((pitch_rad, 0.0, 0.0)),
+        friction=friction,
+        rgba=rgba,
+    )
+
+
+def stair_terrain(
+    name: str = "stairs",
+    origin: tuple[float, float, float] = (0.0, 0.0, 0.0),
+    direction: tuple[float, float] = (1.0, 0.0),
+    n_steps: int = 5,
+    step_rise: float = 0.05,
+    step_run: float = 0.3,
+    step_width: float = 1.0,
+    friction: tuple[float, float, float] = (0.9, 0.1, 0.1),
+    rgba: tuple[float, float, float, float] = (0.55, 0.5, 0.45, 1.0),
+) -> list[WorldTerrain]:
+    """Staircase terrain made of box steps.
+
+    Returns a list of ``WorldTerrain`` boxes; add them all to the world.
+    """
+    dx, dy = direction
+    length = math.hypot(dx, dy)
+    if length == 0:
+        dx, dy = 1.0, 0.0
+    else:
+        dx, dy = dx / length, dy / length
+
+    steps: list[WorldTerrain] = []
+    for i in range(n_steps):
+        run_center = (i + 0.5) * step_run
+        cx = origin[0] + dx * run_center
+        cy = origin[1] + dy * run_center
+        cz = origin[2] + (i + 0.5) * step_rise
+        quat = _euler_to_quaternion((0.0, 0.0, math.atan2(dy, dx)))
+        steps.append(
+            WorldTerrain(
+                name=f"{name}_{i}",
+                type="box",
+                size=(step_run, step_width, step_rise),
+                pos=(cx, cy, cz),
+                quat=quat,
+                friction=friction,
+                rgba=rgba,
+            )
+        )
+    return steps
+
+
+def ramp_terrain(
+    name: str = "ramp",
+    origin: tuple[float, float, float] = (0.0, 0.0, 0.0),
+    direction: tuple[float, float] = (1.0, 0.0),
+    length: float = 2.0,
+    width: float = 1.0,
+    rise: float = 0.3,
+    friction: tuple[float, float, float] = (0.85, 0.1, 0.1),
+    rgba: tuple[float, float, float, float] = (0.6, 0.55, 0.5, 1.0),
+) -> WorldTerrain:
+    """Single smooth ramp as a rotated thin box."""
+    angle = math.atan2(rise, length)
+    dx, dy = direction
+    norm = math.hypot(dx, dy) or 1.0
+    dx, dy = dx / norm, dy / norm
+    # Center of ramp is halfway up the slope.
+    cx = origin[0] + dx * length / 2
+    cy = origin[1] + dy * length / 2
+    cz = origin[2] + rise / 2
+    ramp_thickness = 0.05
+    quat = _euler_to_quaternion((-angle, 0.0, math.atan2(dy, dx)))
+    return WorldTerrain(
+        name=name,
+        type="slope",
+        size=(length, width, ramp_thickness),
+        pos=(cx, cy, cz),
+        quat=quat,
+        friction=friction,
+        rgba=rgba,
+    )
+
+
+def uneven_terrain(
+    name: str = "uneven_ground",
+    origin: tuple[float, float, float] = (0.0, 0.0, 0.0),
+    size: tuple[float, float] = (4.0, 2.0),
+    grid: tuple[int, int] = (8, 4),
+    max_bump_m: float = 0.04,
+    seed: int = 0,
+    friction: tuple[float, float, float] = (0.9, 0.1, 0.1),
+    rgba: tuple[float, float, float, float] = (0.5, 0.52, 0.48, 1.0),
+) -> list[WorldTerrain]:
+    """Procedural bumpy ground made of small box tiles with randomized heights."""
+    rng = np.random.default_rng(seed)
+    nx, ny = grid
+    sx = size[0] / nx
+    sy = size[1] / ny
+    tiles: list[WorldTerrain] = []
+    for ix in range(nx):
+        for iy in range(ny):
+            cx = origin[0] - size[0] / 2 + (ix + 0.5) * sx
+            cy = origin[1] - size[1] / 2 + (iy + 0.5) * sy
+            h = float(rng.uniform(max_bump_m * 0.1, max_bump_m))
+            tiles.append(
+                WorldTerrain(
+                    name=f"{name}_{ix}_{iy}",
+                    type="box",
+                    size=(sx, sy, h),
+                    pos=(cx, cy, origin[2] + h / 2),
+                    friction=friction,
+                    rgba=rgba,
+                )
+            )
+    return tiles
 
 
 # ---------------------------------------------------------------------------
@@ -484,11 +717,60 @@ def _add_randomization_notes(mujoco: ET.Element, randomization: DomainRandomizat
 # ---------------------------------------------------------------------------
 
 
+ISAAC_WORLD_JSON_SCHEMA: dict[str, Any] = {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "RoboCAD Isaac Sim World Description",
+    "type": "object",
+    "required": ["schema_version", "name", "template", "created_at", "robot", "terrain", "objects", "sensors", "task"],
+    "properties": {
+        "schema_version": {"type": "string"},
+        "name": {"type": "string"},
+        "template": {"type": "string"},
+        "created_at": {"type": "string"},
+        "robot": {"type": "object"},
+        "terrain": {"type": "array"},
+        "objects": {"type": "array"},
+        "sensors": {"type": "array"},
+        "task": {"type": "object"},
+        "randomization": {"type": ["object", "null"]},
+    },
+}
+
+
+def validate_isaac_world_json(data: dict[str, Any]) -> tuple[bool, list[str]]:
+    """Validate an Isaac Sim world JSON against the RoboCAD schema.
+
+    Returns ``(ok, errors)``. This is a lightweight structural check that does
+    not require the Isaac Sim runtime.
+    """
+    errors: list[str] = []
+    required = ISAAC_WORLD_JSON_SCHEMA.get("required", [])
+    for key in required:
+        if key not in data:
+            errors.append(f"missing required key: {key}")
+
+    if "schema_version" in data and not isinstance(data["schema_version"], str):
+        errors.append("schema_version must be a string")
+
+    for list_key in ("terrain", "objects", "sensors"):
+        if list_key in data and not isinstance(data[list_key], list):
+            errors.append(f"{list_key} must be a list")
+
+    if "robot" in data and not isinstance(data["robot"], dict):
+        errors.append("robot must be an object")
+
+    if "task" in data and not isinstance(data["task"], dict):
+        errors.append("task must be an object")
+
+    return len(errors) == 0, errors
+
+
 def export_world_to_isaac_json(world: WorldDescription, output_path: Path) -> Path:
     """Write an Isaac Sim world description JSON from a WorldDescription.
 
     This file can be consumed by the conditional loader in
     ``ai_cad.geda_bridge.world_loaders`` or by any Isaac Sim Python script.
+    The output is validated against ``ISAAC_WORLD_JSON_SCHEMA`` before writing.
     """
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -576,6 +858,10 @@ def export_world_to_isaac_json(world: WorldDescription, output_path: Path) -> Pa
             else None
         ),
     }
+
+    ok, errors = validate_isaac_world_json(data)
+    if not ok:
+        raise ValueError(f"Isaac Sim world JSON validation failed: {errors}")
 
     output_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
     return output_path
@@ -738,28 +1024,25 @@ def walker_world_template(
     robot_height_m: float = 1.0,
     walk_direction: tuple[float, float, float] = (1.0, 0.0, 0.0),
 ) -> WorldDescription:
-    """Walker world: biped/quadruped on flat or sloped terrain with forward goal."""
+    """Walker world: biped/quadruped on flat, sloped, stair, ramp, or uneven terrain."""
     world = WorldBuilder("walker", template="walker")
     world.set_asset(asset_parts, pose=ScenePose(pos=(0.0, 0.0, robot_height_m * 0.5)))
 
     if terrain_type == "slope":
-        world.add_terrain(
-            WorldTerrain(
-                name="slope",
-                type="slope",
-                size=(4.0, 1.0, 0.05),
-                pos=(2.0, 0.0, -0.05),
-                quat=_euler_to_quaternion((-0.1, 0.0, 0.0)),
-                friction=(0.9, 0.1, 0.1),
-            )
-        )
+        world.add_terrain(slope_terrain())
+    elif terrain_type == "stairs":
+        for t in stair_terrain(origin=(0.0, 0.0, 0.0), direction=(1.0, 0.0), n_steps=5):
+            world.add_terrain(t)
+    elif terrain_type == "ramp":
+        world.add_terrain(ramp_terrain())
+    elif terrain_type == "uneven":
+        for t in uneven_terrain(size=(6.0, 2.0), grid=(12, 4), seed=42):
+            world.add_terrain(t)
     else:
         world.add_terrain(
-            WorldTerrain(
+            plane_terrain(
                 name="floor",
-                type="plane",
                 size=(10.0, 10.0, 0.01),
-                pos=(0.0, 0.0, 0.0),
                 friction=(0.9, 0.1, 0.1),
             )
         )
@@ -771,6 +1054,17 @@ def walker_world_template(
             sensor_type="imu",
             attach_body="torso",
             pos=(0.0, 0.0, 0.05),
+        )
+    )
+    world.add_sensor(
+        WorldSensor(
+            name="forward_camera",
+            sensor_type="camera",
+            attach_body="torso",
+            pos=(0.1, 0.0, 0.1),
+            quat=_euler_to_quaternion((0.0, 0.0, 0.0)),
+            fov_deg=80,
+            resolution=(320, 240),
         )
     )
     world.set_task(
@@ -806,18 +1100,15 @@ def drone_hover_world_template(
     world = WorldBuilder("drone_hover", template="drone_hover")
     world.set_asset(asset_parts, pose=ScenePose(pos=(0.0, 0.0, hover_height_m)))
     world.add_terrain(
-        WorldTerrain(
+        plane_terrain(
             name="floor",
-            type="plane",
             size=(10.0, 10.0, 0.01),
-            pos=(0.0, 0.0, 0.0),
             friction=(0.8, 0.1, 0.1),
         )
     )
     world.add_terrain(
-        WorldTerrain(
+        box_terrain(
             name="pad",
-            type="box",
             size=(pad_size_m, pad_size_m, 0.02),
             pos=(0.0, 0.0, 0.01),
             rgba=(0.9, 0.7, 0.2, 1.0),
@@ -870,11 +1161,9 @@ def humanoid_stand_world_template(
     world = WorldBuilder("humanoid_stand", template="humanoid_stand")
     world.set_asset(asset_parts, pose=ScenePose(pos=(0.0, 0.0, robot_height_m * 0.55)))
     world.add_terrain(
-        WorldTerrain(
+        plane_terrain(
             name="floor",
-            type="plane",
             size=(floor_size_m, floor_size_m, 0.01),
-            pos=(0.0, 0.0, 0.0),
             friction=(0.9, 0.1, 0.1),
         )
     )

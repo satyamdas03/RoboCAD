@@ -18,6 +18,7 @@ from ai_cad.geda_bridge.world_builder import (
     build_world,
     export_world_to_isaac_json,
     export_world_to_mjcf,
+    resolve_world_body_aliases,
 )
 
 try:
@@ -59,9 +60,12 @@ def load_world_into_mujoco(
     scene_path = output_dir / f"world_{world.template}.mjcf"
 
     try:
-        export_world_to_mjcf(world, scene_path)
+        # Resolve canonical body aliases (e.g. "torso" -> "torso_plate") using the
+        # included robot MJCF so that sensors and task criteria reference real bodies.
+        resolved = resolve_world_body_aliases(world, mjcf_path=scene_path)
+        export_world_to_mjcf(resolved, scene_path)
         result.scene_path = scene_path
-        result.scene_description = world.scene
+        result.scene_description = resolved.scene
     except Exception as exc:
         result.errors.append(f"Failed to export world MJCF: {exc}")
         return result
@@ -92,9 +96,12 @@ def load_world_into_isaac_sim(
     json_path = output_dir / f"world_{world.template}.isaac.json"
 
     try:
-        export_world_to_isaac_json(world, json_path)
+        # Resolve body aliases against the MuJoCo robot file (if available) so the
+        # Isaac JSON references real body names.
+        resolved = resolve_world_body_aliases(world, mjcf_path=json_path)
+        export_world_to_isaac_json(resolved, json_path)
         result.scene_path = json_path
-        result.scene_description = world.scene
+        result.scene_description = resolved.scene
     except Exception as exc:
         result.errors.append(f"Failed to export Isaac Sim JSON: {exc}")
         return result
@@ -136,15 +143,22 @@ def run_world_replay(
     duration_seconds: float = 5.0,
     fps: float = 20.0,
     body_names: list[str] | None = None,
+    capture_contacts: bool = True,
+    capture_sensors: bool = True,
+    capture_actuators: bool = True,
 ) -> dict[str, Any]:
-    """Run a short MuJoCo rollout and return a sparse trajectory.
+    """Run a short MuJoCo rollout and return a rich sparse trajectory.
 
     Returns a dict with:
       - success (bool)
       - duration_seconds (float)
       - fps (float)
       - times (list[float])
-      - bodies (dict[str, list[tuple[float, float, float]]]) — world positions
+      - bodies (dict[str, list[pos, vel, quat]]) — world positions, linear
+        velocities, and orientations per sampled frame
+      - contacts (list[dict]) — contact forces at sample frames (if enabled)
+      - sensors (dict[str, list[float | list[float]]]) — MuJoCo sensor data
+      - actuators (dict[str, list[float]]) — control inputs and actuator forces
       - errors (list[str])
     """
     result: dict[str, Any] = {
@@ -153,6 +167,9 @@ def run_world_replay(
         "fps": fps,
         "times": [],
         "bodies": {},
+        "contacts": [],
+        "sensors": {},
+        "actuators": {},
         "errors": [],
     }
 
@@ -187,8 +204,36 @@ def run_world_replay(
             except Exception:
                 pass
 
+    # Pre-resolve actuator and sensor ids if enabled.
+    actuator_ids: dict[str, int] = {}
+    if capture_actuators and model.nu > 0:
+        for i in range(model.nu):
+            try:
+                aname = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_ACTUATOR, i)
+                actuator_ids[aname] = i
+            except Exception:
+                pass
+
+    sensor_ids: dict[str, int] = {}
+    sensor_addr: dict[str, int] = {}
+    if capture_sensors and model.nsensordata > 0:
+        for i in range(model.nsensor):
+            try:
+                sname = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_SENSOR, i)
+                stype = model.sensor_type[i]
+                # Skip user sensors that have no address.
+                if stype == mujoco.mjtSensor.mjSENS_USER:
+                    continue
+                sensor_addr[sname] = int(model.sensor_adr[i])
+                sensor_ids[sname] = i
+            except Exception:
+                pass
+
     times: list[float] = []
-    positions: dict[str, list[tuple[float, float, float]]] = {name: [] for name in body_ids}
+    positions: dict[str, list[Any]] = {name: [] for name in body_ids}
+    contact_frames: list[dict[str, Any]] = []
+    sensor_frames: dict[str, list[Any]] = {name: [] for name in sensor_ids}
+    actuator_frames: dict[str, list[Any]] = {name: [] for name in actuator_ids}
 
     for step in range(total_steps):
         try:
@@ -202,9 +247,50 @@ def run_world_replay(
             times.append(t)
             for name, bid in body_ids.items():
                 pos = data.xpos[bid]
-                positions[name].append((float(pos[0]), float(pos[1]), float(pos[2])))
+                quat = data.xquat[bid]
+                linvel = data.cvel[bid, :3]
+                positions[name].append(
+                    {
+                        "pos": (float(pos[0]), float(pos[1]), float(pos[2])),
+                        "quat": (float(quat[0]), float(quat[1]), float(quat[2]), float(quat[3])),
+                        "linvel": (float(linvel[0]), float(linvel[1]), float(linvel[2])),
+                    }
+                )
+
+            if capture_contacts and data.ncon > 0:
+                frame_contacts: list[dict[str, Any]] = []
+                for con_id, con in enumerate(data.contact):
+                    force = np.zeros(6)
+                    mujoco.mj_contactForce(model, data, con_id, force)
+                    frame_contacts.append(
+                        {
+                            "geom1": model.geom(con.geom1).name,
+                            "geom2": model.geom(con.geom2).name,
+                            "pos": (float(con.pos[0]), float(con.pos[1]), float(con.pos[2])),
+                            "force": (float(force[0]), float(force[1]), float(force[2])),
+                        }
+                    )
+                contact_frames.append({"time": t, "contacts": frame_contacts})
+
+            if capture_actuators:
+                for name, aid in actuator_ids.items():
+                    actuator_frames[name].append(
+                        {
+                            "ctrl": float(data.ctrl[aid]),
+                            "force": float(data.qfrc_actuator[aid]) if aid < len(data.qfrc_actuator) else None,
+                        }
+                    )
+
+            if capture_sensors:
+                for name, addr in sensor_addr.items():
+                    dim = model.sensor_dim[sensor_ids[name]]
+                    values = data.sensordata[addr : addr + dim]
+                    sensor_frames[name].append([float(v) for v in values])
 
     result["success"] = len(result["errors"]) == 0 and bool(np.all(np.isfinite(data.qpos)))
     result["times"] = times
     result["bodies"] = positions
+    result["contacts"] = contact_frames
+    result["sensors"] = sensor_frames
+    result["actuators"] = actuator_frames
     return result

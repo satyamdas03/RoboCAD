@@ -51,7 +51,7 @@ The Google Stitch redesign was driven by `STITCH_BRIEF.md` and the generated `st
 ## Evidence on Hand
 
 - Working end-to-end web app with FastAPI backend and a Google Stitch *Kinetic Precision* dark workstation React frontend.
-- **371/371 pytest tests passing.**
+- **376/376 pytest tests passing.**
 - Frontend production build passes; live end-to-end generation verified for mechanical parts, robot-arm assemblies, NACA airfoil wings, aero/thermal/CFD reports, electronics-stack analysis/IDF export, and humanoid/quadruped/manipulator-on-base robot templates with simulation-ready MJCF/URDF bundles.
 - 12 standard robotics component templates in `ComponentLibrary`.
 - Feature-tree backend, sketch constraint solver, assembly system, DFM/tolerance/FEA verification, domain classification, automatic decomposition, mechanical assembly synthesis, aero/thermal/propulsion geometry, electronics/mechatronics co-design, multi-physics verification engine, and humanoid/full-robot system synthesis all implemented and tested.
@@ -60,7 +60,7 @@ The Google Stitch redesign was driven by `STITCH_BRIEF.md` and the generated `st
 - Generated Stitch reference files (`stitch_precision_engineering_interface/`) retained for provenance.
 - README-embedded end-to-end demo: `assets/robocad_kinetic_precision_demo.webm` + `assets/robocad_kinetic_precision_demo.gif` + `assets/robocad_kinetic_precision_demo_poster.jpg`, plus `scripts/record_demo.py` Playwright recorder for reproducible demos.
 - README, PLAN.md, PRODUCT.md, dossiers, and memory files document current phases, architecture, design context, and the PATH1/PATH2 strategic roadmap.
-- Phase 22 — multi-physics verification engine — is complete. Phase 23 — humanoid and full-robot system synthesis — is complete and shipped, including a post-ship hardening commit (`87c8f7b`) that fixes the rule-based `robot arm with gripper` layout to use real `limb_segment`/`end_effector` families and interface-aware placement. Phase 24 — world-model simulation builder — is complete and shipped with MuJoCo + Isaac Sim export, domain randomization, and a frontend replay panel. Phase 25 — robot brain training loop — is the next build target.
+- Phase 22 — multi-physics verification engine — is complete. Phase 23 — humanoid and full-robot system synthesis — is complete and shipped, including a post-ship hardening commit (`87c8f7b`) that fixes the rule-based `robot arm with gripper` layout to use real `limb_segment`/`end_effector` families and interface-aware placement. Phase 24 — world-model simulation builder — is complete and shipped with MuJoCo + Isaac Sim export, domain randomization, body-name alias resolution, procedural terrain variants (stairs/ramp/uneven), Isaac JSON schema validation, and a rich frontend replay panel. Phase 25 — robot brain training loop — is the next build target.
 
 ## Product Principles
 
