@@ -45,6 +45,7 @@ from ai_cad.geda_bridge.scene_templates import (
 )
 from ai_cad.geda_bridge.verifier import verify_bundle
 from ai_cad.geda_bridge.world_builder import (
+    ComputeBudget,
     DomainRandomization,
     WorldBuilder,
     WorldDescription,
@@ -74,6 +75,17 @@ from ai_cad.geda_bridge.world_loaders import (
     load_world_into_isaac_sim,
     load_world_into_mujoco,
     run_world_replay,
+)
+from ai_cad.geda_bridge.brain import (
+    AbstractAttentionEnv,
+    AttentionBudget,
+    AttentionMLPPolicy,
+    LinearWorldModel,
+    WorldReplayEnv,
+    compute_saliency,
+    evaluate_attention_policy,
+    train_attention_policy,
+    train_and_evaluate,
 )
 
 __all__ = [
@@ -119,6 +131,7 @@ __all__ = [
     "gripper_cube_grasp_template",
     "peg_insertion_template",
     "wedge_push_block_template",
+    "ComputeBudget",
     "DomainRandomization",
     "WorldBuilder",
     "WorldDescription",
@@ -146,4 +159,13 @@ __all__ = [
     "load_world_into_isaac_sim",
     "load_world_into_mujoco",
     "run_world_replay",
+    "AbstractAttentionEnv",
+    "AttentionBudget",
+    "AttentionMLPPolicy",
+    "LinearWorldModel",
+    "WorldReplayEnv",
+    "compute_saliency",
+    "evaluate_attention_policy",
+    "train_attention_policy",
+    "train_and_evaluate",
 ]

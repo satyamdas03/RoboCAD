@@ -28,6 +28,7 @@ import ThermalPanel from './components/ThermalPanel.jsx'
 import ElectronicsPanel from './components/ElectronicsPanel.jsx'
 import VerificationPanel from './components/VerificationPanel.jsx'
 import HumanoidPanel from './components/HumanoidPanel.jsx'
+import BrainTrainingPanel from './components/BrainTrainingPanel.jsx'
 import {
   checkHealth,
   generateDesign,
@@ -339,6 +340,7 @@ export default function App() {
               )}
               <VerificationPanel designId={selectedId} />
               <HumanoidPanel designId={selectedId} onDesignCreated={handleSelect} />
+              <BrainTrainingPanel designId={selectedId} />
               <OnshapeUpload designId={selectedId} prompt={result?.prompt} />
               <TagEditor tags={result?.tags || []} onUpdate={handleUpdateTags} />
               <RemixPanel designId={selectedId} onRemix={handleRemix} loading={loading} />

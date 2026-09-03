@@ -363,3 +363,24 @@ export async function runRobotAnalysis(id, { payloadKg = 5.0, safetyFactor = 2.0
     }),
   })
 }
+
+export async function trainBrain(id, { nIters = 15, popSize = 40, evalEpisodes = 10, successRateThreshold = 0.7, seed = 42 } = {}) {
+  return apiFetch(`/designs/${id}/train-brain`, {
+    method: 'POST',
+    body: JSON.stringify({
+      n_iters: nIters,
+      pop_size: popSize,
+      eval_episodes: evalEpisodes,
+      success_rate_threshold: successRateThreshold,
+      seed,
+    }),
+  })
+}
+
+export async function getBrainReport(id) {
+  return apiFetch(`/designs/${id}/brain`)
+}
+
+export async function replayBrainAttention(id) {
+  return apiFetch(`/designs/${id}/brain-replay-attention`, { method: 'POST' })
+}

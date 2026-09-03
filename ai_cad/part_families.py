@@ -67,6 +67,7 @@ class PartFamily:
         features: Default modeling operations or domain features.
         mates: Default mate relationships relative to other families.
         interfaces: Local connection frames with mate hints for assembly.
+        metadata: Arbitrary design metadata (e.g., compute/power budgets).
     """
 
     name: str
@@ -77,6 +78,7 @@ class PartFamily:
     features: list[Any] = field(default_factory=list)
     mates: list[Mate] = field(default_factory=list)
     interfaces: list[Interface] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
@@ -1057,6 +1059,112 @@ def _electronics_heat_spreader() -> PartFamily:
     )
 
 
+def _electronics_compute_module() -> PartFamily:
+    """Small onboard compute module (e.g. SBC, edge AI board) with mounting holes.
+
+    The family carries compute-budget metadata so a robot design can reason about
+    TOPS, power, latency, and memory during co-design.
+    """
+    params = [
+        Parameter(name="module_length", value=85.0, unit="mm"),
+        Parameter(name="module_width", value=56.0, unit="mm"),
+        Parameter(name="module_thickness", value=8.0, unit="mm"),
+        Parameter(name="mounting_hole_diameter", value=3.0, unit="mm"),
+        Parameter(name="hole_pitch_x", value=58.0, unit="mm"),
+        Parameter(name="hole_pitch_y", value=49.0, unit="mm"),
+    ]
+    base = _rect_sketch("module_base", "module_length", "module_width")
+    holes = _corner_hole_sketch(
+        "module_holes",
+        "mounting_hole_diameter",
+        "hole_pitch_x",
+        "hole_pitch_y",
+    )
+    body = _extrude_feature("module_body", "module_base", "module_thickness")
+    hole_cut = _extrude_feature("module_hole_cut", "module_holes", "module_thickness", mode="subtract")
+    top_face = CoordinateSystem(
+        id="module_top_face",
+        name="compute module top face",
+        origin=(0, 0, 8.0),
+        x_axis=(1, 0, 0),
+        y_axis=(0, 1, 0),
+        z_axis=(0, 0, 1),
+    )
+    interfaces = [
+        Interface(
+            id="mount_face",
+            csys=top_face,
+            type="mount",
+            mate_hint="fixed",
+            mate_with=["compute_module/mount_face", "enclosure/standoff", "pcb/top_face"],
+        )
+    ]
+    metadata = {
+        "compute_budget": {"tops": 2.0, "power_w": 8.0, "latency_ms": 25.0, "memory_mb": 512.0},
+        "power_budget_w": 8.0,
+    }
+    return PartFamily(
+        name="compute_module",
+        domain="electronics",
+        display_name="Onboard compute module",
+        default_parameters=params,
+        sketches=[base, holes],
+        features=[body, hole_cut],
+        interfaces=interfaces,
+        metadata=metadata,
+    )
+
+
+def _electronics_event_camera_mount() -> PartFamily:
+    """Small bracket for an event-driven (DVS) camera sensor."""
+    params = [
+        Parameter(name="mount_length", value=25.0, unit="mm"),
+        Parameter(name="mount_width", value=20.0, unit="mm"),
+        Parameter(name="mount_thickness", value=3.0, unit="mm"),
+        Parameter(name="lens_hole_diameter", value=8.0, unit="mm"),
+        Parameter(name="mounting_hole_diameter", value=2.5, unit="mm"),
+        Parameter(name="hole_pitch_x", value=18.0, unit="mm"),
+        Parameter(name="hole_pitch_y", value=13.0, unit="mm"),
+    ]
+    base = _rect_sketch("cam_base", "mount_length", "mount_width")
+    lens_hole = _circle_sketch("cam_lens", "lens_hole_diameter")
+    mount_holes = _corner_hole_sketch(
+        "cam_mount_holes",
+        "mounting_hole_diameter",
+        "hole_pitch_x",
+        "hole_pitch_y",
+    )
+    body = _extrude_feature("cam_body", "cam_base", "mount_thickness")
+    lens_cut = _extrude_feature("cam_lens_cut", "cam_lens", "mount_thickness", mode="subtract")
+    mount_cut = _extrude_feature("cam_mount_cut", "cam_mount_holes", "mount_thickness", mode="subtract")
+    optical_axis = CoordinateSystem(
+        id="optical_axis",
+        name="camera optical axis",
+        origin=(0, 0, 3.0),
+        x_axis=(1, 0, 0),
+        y_axis=(0, 1, 0),
+        z_axis=(0, 0, 1),
+    )
+    interfaces = [
+        Interface(
+            id="mount_face",
+            csys=optical_axis,
+            type="mount",
+            mate_hint="fixed",
+            mate_with=["event_camera_mount/mount_face", "bracket/mount_face", "limb_segment/face"],
+        )
+    ]
+    return PartFamily(
+        name="event_camera_mount",
+        domain="electronics",
+        display_name="Event camera (DVS) mount",
+        default_parameters=params,
+        sketches=[base, lens_hole, mount_holes],
+        features=[body, lens_cut, mount_cut],
+        interfaces=interfaces,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Humanoid / robot families
 # ---------------------------------------------------------------------------
@@ -1540,6 +1648,8 @@ _FAMILY_BUILDERS: dict[str, Any] = {
     "cable_channel": _electronics_cable_channel,
     "fan_mount": _electronics_fan_mount,
     "heat_spreader": _electronics_heat_spreader,
+    "compute_module": _electronics_compute_module,
+    "event_camera_mount": _electronics_event_camera_mount,
     "limb_segment": _humanoid_limb_segment,
     "end_effector": _humanoid_end_effector,
     "foot": _humanoid_foot,

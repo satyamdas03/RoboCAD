@@ -147,7 +147,7 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **22** | Multi-physics verification engine (FEA / CFD / thermal / dynamics) | ✅ **Complete — `ai_cad/materials.py`, `ai_cad/verification*.py`, `ai_cad/mesh_quality.py`, closed load-case templates, mesh-quality gate, backend `/verify` endpoints, frontend `VerificationPanel`, **330/330 tests passing** |
 | **23** | Humanoid and full-robot system synthesis | ✅ **Complete — biped/quadruped/manipulator-on-base templates, actuator sizing, stability/workspace/gait checks, whole-system MJCF/URDF export, backend endpoints + frontend `HumanoidPanel`, 357/357 tests passing** |
 | **24** | World-model simulation builder | ✅ **Complete — `ai_cad/geda_bridge/world_builder.py`, MuJoCo/Isaac Sim export, domain randomization, body-name alias resolver, procedural terrain variants (stairs/ramp/uneven), Isaac JSON schema validation, rich replay capture (contacts/actuators/sensors), `WorldBuilderPanel.jsx`; 376/376 tests passing** |
-| **25** | Robot brain training loop | ⏳ Planned |
+| **25** | Robot brain training loop | ✅ **Foundation complete — attention/compute-budget world-model extensions (`ComputeBudget`, `attention_regions`, `event_camera`, sensor dropout, actuator noise, saliency replay), `ai_cad/geda_bridge/brain/` NumPy-only CEM trainer, `BrainTrainingPanel.jsx`, `/train-brain` endpoints; 414/414 tests passing across default, heavy/slow, and mujoco tiers** |
 | **26** | HERMES cross-domain conversational supervisor | ⏳ Planned |
 | **27** | Sim-to-real feedback loop | ⏳ Planned |
 | **28** | Distribution + commercialization + advanced EDA/CFD co-design plugins | ⏳ Planned |
@@ -545,6 +545,16 @@ The decision: **build PATH1 (Phases 14A–15B) first**, then use it as the techn
 * Confirmed prompt `robotic arm with five fingers` degrades to the standard 2-link arm because the rule-based decomposer has no hand/finger part family yet.
 * Restarted the backend using the Hermes venv (`C:\Users\point\AppData\Local\hermes\hermes-agent\venv\Scripts\python`) because the project `.venv` was missing `python-dotenv`. Frontend Vite server on port 5173 remained running.
 * Full pytest suite **357/357 passing**; frontend production build passes.
+
+### 2026-09-01 — Phase 25 foundation complete: attention-based robot brain training layer
+
+* Applied AI chip co-design ideas (Cao et al. *Advanced Design for High-Performance and AI Chips*, Figure 5) to RoboCAD's world model and a new lightweight brain training package.
+* World-model extensions: `ComputeBudget`, `attention_regions`, `event_camera` sensor type, `actuator_noise_std` / `sensor_dropout_prob`, per-body `saliency` in replay, Isaac JSON schema coverage.
+* Added `compute_module` and `event_camera_mount` electronics part families with compute-budget metadata; electronics stack composer places them automatically.
+* New `ai_cad/geda_bridge/brain/` package: saliency scoring, `AttentionBudget`, `LinearWorldModel`, `AttentionMLPPolicy`, `AbstractAttentionEnv`, and CEM trainer — all NumPy-only.
+* Backend endpoints: `POST /designs/{id}/train-brain`, `GET /designs/{id}/brain`, `POST /designs/{id}/brain-replay-attention`.
+* Frontend: `BrainTrainingPanel.jsx` and extended `WorldBuilderPanel.jsx`.
+* Tests: 16 new brain tests; full suite **414/414 passing** (170 default + 222 heavy/slow + 22 mujoco).
 
 ### 2026-09-01 — Phase 24 complete: world-model simulation builder
 

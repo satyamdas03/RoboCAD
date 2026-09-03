@@ -38,6 +38,21 @@ MM_TO_M = 0.001
 
 
 @dataclass
+class ComputeBudget:
+    """Onboard compute budget for the robot/asset in the world.
+
+    These values are design constraints / metadata used by the robot-brain
+    training loop to choose policy architecture, sensor resolution, and
+    control frequency. They are not enforced by the physics simulator.
+    """
+
+    tops: float = 1.0  # tera-operations per second
+    power_w: float = 5.0  # watts
+    latency_ms: float = 20.0  # inference latency
+    memory_mb: float = 256.0  # onboard memory
+
+
+@dataclass
 class DomainRandomization:
     """Ranges for deterministic domain randomization.
 
@@ -48,9 +63,17 @@ class DomainRandomization:
     mass_scale_range: tuple[float, float] = (0.9, 1.1)
     friction_range: tuple[float, float, float] = (0.5, 1.2, 0.01)
     actuator_gain_range: tuple[float, float] = (0.9, 1.1)
+    actuator_noise_std: float = 0.01  # fractional action noise used during training
     sensor_noise_std: dict[str, float] = field(
-        default_factory=lambda: {"camera": 0.01, "imu": 0.02, "force": 1.0, "proximity": 0.005}
+        default_factory=lambda: {
+            "camera": 0.01,
+            "event_camera": 0.005,
+            "imu": 0.02,
+            "force": 1.0,
+            "proximity": 0.005,
+        }
     )
+    sensor_dropout_prob: float = 0.0  # observation-channel dropout for robust training
     wind_range_m_s: tuple[float, float, float] = (-1.0, 1.0, 0.0)
     thermal_load_range_w: tuple[float, float] = (0.0, 10.0)
     seed: int | None = None
@@ -71,10 +94,14 @@ class WorldTerrain:
 
 @dataclass
 class WorldSensor:
-    """A sensor attached to a body or the world frame."""
+    """A sensor attached to a body or the world frame.
+
+    Supported sensor_type values include ``camera``, ``event_camera`` (DVS-style
+    event-driven vision), ``imu``, ``force``, and ``proximity``.
+    """
 
     name: str
-    sensor_type: str  # camera, imu, force, proximity
+    sensor_type: str  # camera, event_camera, imu, force, proximity
     attach_body: str | None = None
     pos: tuple[float, float, float] = (0.0, 0.0, 0.0)
     quat: tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0)
@@ -86,10 +113,17 @@ class WorldSensor:
 
 @dataclass
 class WorldTask:
-    """Task definition for downstream policy / RL code."""
+    """Task definition for downstream policy / RL code.
+
+    ``attention_regions`` are top-down salient zones (e.g. the goal, the object
+    to manipulate, or an obstacle) that a robot brain should prioritize. They
+    are separate from ``goal_regions`` because a task may have multiple salient
+    cues but only one terminal goal.
+    """
 
     task_type: str  # pick_place, push, walker, drone_hover, humanoid_stand
     goal_regions: list[SceneGoalRegion] = field(default_factory=list)
+    attention_regions: list[SceneGoalRegion] = field(default_factory=list)
     success_criteria: dict[str, Any] = field(default_factory=dict)
     reward_hints: dict[str, Any] = field(default_factory=dict)
 
@@ -105,6 +139,7 @@ class WorldDescription:
     sensors: list[WorldSensor] = field(default_factory=list)
     task: WorldTask | None = None
     randomization: DomainRandomization | None = None
+    compute_budget: ComputeBudget = field(default_factory=ComputeBudget)
     robot_mjcf_file: str | None = "model.mjcf"
     created_at: str = field(default_factory=lambda: dt.datetime.now(dt.timezone.utc).isoformat())
 
@@ -143,6 +178,10 @@ class WorldBuilder:
 
     def set_task(self, task: WorldTask) -> "WorldBuilder":
         self.world.task = task
+        return self
+
+    def set_compute_budget(self, budget: ComputeBudget) -> "WorldBuilder":
+        self.world.compute_budget = budget
         return self
 
     def enable_randomization(self, randomization: DomainRandomization | None = None) -> "WorldBuilder":
@@ -671,9 +710,11 @@ def _add_sensors(mujoco: ET.Element, worldbody: ET.Element, sensors: list[WorldS
                 },
             )
 
-        if sensor.sensor_type == "camera":
+        if sensor.sensor_type in ("camera", "event_camera"):
             # MuJoCo camera sensors are just regular cameras in the model; add to
-            # worldbody with a site-like camera element.
+            # worldbody with a site-like camera element. An event_camera is stored
+            # as a camera plus a custom numeric flag so downstream brains can
+            # treat it as a DVS-style stream.
             ET.SubElement(
                 worldbody,
                 "camera",
@@ -684,6 +725,15 @@ def _add_sensors(mujoco: ET.Element, worldbody: ET.Element, sensors: list[WorldS
                     "fovy": str(sensor.fov_deg or 60),
                 },
             )
+            if sensor.sensor_type == "event_camera":
+                custom = mujoco.find("custom")
+                if custom is None:
+                    custom = ET.SubElement(mujoco, "custom")
+                ET.SubElement(
+                    custom,
+                    "numeric",
+                    {"name": f"{name}_event_camera", "data": "1"},
+                )
         elif sensor.sensor_type == "imu":
             ET.SubElement(sensor_elem, "accelerometer", {"name": name + "_acc", "site": site_name})
             ET.SubElement(sensor_elem, "gyro", {"name": name + "_gyro", "site": site_name})
@@ -733,6 +783,7 @@ ISAAC_WORLD_JSON_SCHEMA: dict[str, Any] = {
         "sensors": {"type": "array"},
         "task": {"type": "object"},
         "randomization": {"type": ["object", "null"]},
+        "compute_budget": {"type": ["object", "null"]},
     },
 }
 
@@ -841,6 +892,16 @@ def export_world_to_isaac_json(world: WorldDescription, output_path: Path) -> Pa
                 }
                 for g in (world.task.goal_regions if world.task else [])
             ],
+            "attention_regions": [
+                {
+                    "name": g.name,
+                    "goal_type": g.goal_type,
+                    "pos": g.pos,
+                    "size": g.size,
+                    "rgba": g.rgba,
+                }
+                for g in (world.task.attention_regions if world.task else [])
+            ],
             "success_criteria": world.task.success_criteria if world.task else {},
             "reward_hints": world.task.reward_hints if world.task else {},
         },
@@ -849,7 +910,9 @@ def export_world_to_isaac_json(world: WorldDescription, output_path: Path) -> Pa
                 "mass_scale_range": world.randomization.mass_scale_range,
                 "friction_range": world.randomization.friction_range,
                 "actuator_gain_range": world.randomization.actuator_gain_range,
+                "actuator_noise_std": world.randomization.actuator_noise_std,
                 "sensor_noise_std": world.randomization.sensor_noise_std,
+                "sensor_dropout_prob": world.randomization.sensor_dropout_prob,
                 "wind_range_m_s": world.randomization.wind_range_m_s,
                 "thermal_load_range_w": world.randomization.thermal_load_range_w,
                 "seed": world.randomization.seed,
@@ -857,6 +920,12 @@ def export_world_to_isaac_json(world: WorldDescription, output_path: Path) -> Pa
             if world.randomization
             else None
         ),
+        "compute_budget": {
+            "tops": world.compute_budget.tops,
+            "power_w": world.compute_budget.power_w,
+            "latency_ms": world.compute_budget.latency_ms,
+            "memory_mb": world.compute_budget.memory_mb,
+        },
     }
 
     ok, errors = validate_isaac_world_json(data)
@@ -933,6 +1002,7 @@ def pick_place_world_template(
             resolution=(640, 480),
         )
     )
+    world.set_compute_budget(ComputeBudget(tops=2.0, power_w=8.0, latency_ms=25.0, memory_mb=512.0))
     world.set_task(
         WorldTask(
             task_type="pick_place",
@@ -943,6 +1013,15 @@ def pick_place_world_template(
                     pos=goal_bin_pos,
                     size=(0.08, 0.08, 0.05),
                     rgba=(0.0, 1.0, 0.0, 0.3),
+                )
+            ],
+            attention_regions=[
+                SceneGoalRegion(
+                    name="target_cube_attention",
+                    goal_type="object",
+                    pos=cube_pos,
+                    size=(0.1, 0.1, 0.1),
+                    rgba=(1.0, 0.4, 0.2, 0.15),
                 )
             ],
             success_criteria={"object": "target_cube", "target": "place_goal", "tolerance_m": 0.05},
@@ -1000,6 +1079,7 @@ def push_world_template(
             resolution=(640, 480),
         )
     )
+    world.set_compute_budget(ComputeBudget(tops=1.0, power_w=4.0, latency_ms=15.0, memory_mb=256.0))
     world.set_task(
         WorldTask(
             task_type="push",
@@ -1010,6 +1090,15 @@ def push_world_template(
                     pos=target_pos,
                     size=(0.06, 0.06, 0.01),
                     rgba=(0.0, 1.0, 0.0, 0.3),
+                )
+            ],
+            attention_regions=[
+                SceneGoalRegion(
+                    name="block_attention",
+                    goal_type="object",
+                    pos=block_pos,
+                    size=(0.12, 0.12, 0.12),
+                    rgba=(0.2, 0.5, 0.9, 0.15),
                 )
             ],
             success_criteria={"object": "block", "target": "push_goal", "tolerance_m": 0.06},
@@ -1067,6 +1156,7 @@ def walker_world_template(
             resolution=(320, 240),
         )
     )
+    world.set_compute_budget(ComputeBudget(tops=4.0, power_w=12.0, latency_ms=10.0, memory_mb=1024.0))
     world.set_task(
         WorldTask(
             task_type="walker",
@@ -1077,6 +1167,15 @@ def walker_world_template(
                     pos=goal_pos,
                     size=(0.15, 0.15, 0.15),
                     rgba=(0.0, 1.0, 0.0, 0.3),
+                )
+            ],
+            attention_regions=[
+                SceneGoalRegion(
+                    name="walk_goal_attention",
+                    goal_type="goal",
+                    pos=goal_pos,
+                    size=(0.3, 0.3, 0.3),
+                    rgba=(0.0, 1.0, 0.0, 0.1),
                 )
             ],
             success_criteria={
@@ -1133,6 +1232,7 @@ def drone_hover_world_template(
             pos=(0.0, 0.0, 0.0),
         )
     )
+    world.set_compute_budget(ComputeBudget(tops=3.0, power_w=6.0, latency_ms=12.0, memory_mb=512.0))
     world.set_task(
         WorldTask(
             task_type="drone_hover",
@@ -1143,6 +1243,15 @@ def drone_hover_world_template(
                     pos=(0.0, 0.0, hover_height_m),
                     size=(0.1, 0.1, 0.1),
                     rgba=(0.0, 1.0, 0.0, 0.3),
+                )
+            ],
+            attention_regions=[
+                SceneGoalRegion(
+                    name="hover_goal_attention",
+                    goal_type="goal",
+                    pos=(0.0, 0.0, hover_height_m),
+                    size=(0.2, 0.2, 0.2),
+                    rgba=(0.0, 1.0, 0.0, 0.1),
                 )
             ],
             success_criteria={"body": "base", "target": "hover_goal", "tolerance_m": 0.15, "duration_s": 5.0},
@@ -1186,6 +1295,7 @@ def humanoid_stand_world_template(
             resolution=(640, 480),
         )
     )
+    world.set_compute_budget(ComputeBudget(tops=6.0, power_w=20.0, latency_ms=8.0, memory_mb=2048.0))
     world.set_task(
         WorldTask(
             task_type="humanoid_stand",
@@ -1196,6 +1306,15 @@ def humanoid_stand_world_template(
                     pos=(0.0, 0.0, robot_height_m),
                     size=(0.05, 0.05, 0.05),
                     rgba=(0.0, 1.0, 0.0, 0.3),
+                )
+            ],
+            attention_regions=[
+                SceneGoalRegion(
+                    name="upright_goal_attention",
+                    goal_type="goal",
+                    pos=(0.0, 0.0, robot_height_m),
+                    size=(0.1, 0.1, 0.2),
+                    rgba=(0.0, 1.0, 0.0, 0.1),
                 )
             ],
             success_criteria={"body": "torso", "upright": True, "max_tilt_deg": 15.0, "duration_s": 5.0},

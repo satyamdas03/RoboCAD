@@ -217,6 +217,30 @@ export default function WorldBuilderPanel({ designId }) {
             </div>
           )}
 
+          {(report?.compute_budget || report?.world?.compute_budget) && (
+            <div className="kp-flex-col kp-gap-1" style={{ padding: 'var(--kp-space-2)', background: 'var(--kp-surface-container)', borderRadius: 'var(--kp-radius-md)', border: '1px solid var(--kp-border)' }}>
+              <span className="kp-label">Compute budget</span>
+              <span className="kp-mono" style={{ fontSize: '0.9rem', color: 'var(--kp-on-surface)' }}>
+                {(report?.compute_budget ?? report?.world?.compute_budget)?.tops?.toFixed(1)} TOPS ·{' '}
+                {(report?.compute_budget ?? report?.world?.compute_budget)?.power_w?.toFixed(1)} W ·{' '}
+                {(report?.compute_budget ?? report?.world?.compute_budget)?.latency_ms?.toFixed(0)} ms
+              </span>
+            </div>
+          )}
+
+          {(report?.attention_regions || report?.world?.attention_regions)?.length > 0 && (
+            <div className="kp-flex-col kp-gap-1" style={{ padding: 'var(--kp-space-2)', background: 'var(--kp-surface-container)', borderRadius: 'var(--kp-radius-md)', border: '1px solid var(--kp-border)' }}>
+              <span className="kp-label">Attention regions</span>
+              <span className="kp-mono" style={{ fontSize: '0.9rem', color: 'var(--kp-on-surface)' }}>
+                {((report?.attention_regions || report?.world?.attention_regions)).map((r, i) => (
+                  <span key={i} className="kp-badge kp-badge-secondary kp-mr-1">
+                    {r.label || `R${i}`}: ({r.centre?.map((v) => Number(v).toFixed(1)).join(', ')})
+                  </span>
+                ))}
+              </span>
+            </div>
+          )}
+
           <div className="kp-flex kp-gap-2 kp-flex-wrap">
             {worldUrl && (
               <a href={worldUrl} download className="kp-button kp-button-secondary" style={{ width: 'fit-content' }}>

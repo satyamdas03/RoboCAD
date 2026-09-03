@@ -25,6 +25,8 @@ def test_registry_contains_all_phase18_families():
         "cable_channel",
         "fan_mount",
         "heat_spreader",
+        "compute_module",
+        "event_camera_mount",
         "limb_segment",
         "end_effector",
         "foot",

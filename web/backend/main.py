@@ -54,6 +54,8 @@ from ai_cad.intent_parser import parse_domain_intent
 from ai_cad.mate_inference import infer_mates
 from ai_cad.fea import run_static_analysis
 from ai_cad.geda_bridge import (
+    AbstractAttentionEnv,
+    AttentionBudget,
     apply_domain_randomization,
     build_scene,
     build_world,
@@ -72,6 +74,7 @@ from ai_cad.geda_bridge import (
     run_variant_sweep,
     run_world_replay,
     stability_check_bundle,
+    train_and_evaluate,
     train_push_skill,
     validate_bundle_with_mujoco,
     verify_bundle,
@@ -310,6 +313,16 @@ class TrainSkillRequest(BaseModel):
     n_iters: int = Field(default=20, ge=5, le=100, description="CEM training iterations.")
     pop_size: int = Field(default=50, ge=10, le=200, description="CEM population size.")
     eval_episodes: int = Field(default=10, ge=1, le=50, description="Evaluation episodes for success rate.")
+
+
+class TrainBrainRequest(BaseModel):
+    """Request to train the attention-based robot brain policy."""
+
+    n_iters: int = Field(default=15, ge=1, le=100, description="CEM training iterations.")
+    pop_size: int = Field(default=40, ge=4, le=200, description="CEM population size.")
+    eval_episodes: int = Field(default=10, ge=1, le=50, description="Evaluation episodes for success rate.")
+    success_rate_threshold: float = Field(default=0.7, ge=0.0, le=1.0, description="Threshold to mark training as successful.")
+    seed: int = Field(default=42, description="Random seed for reproducibility.")
 
 
 class VariantSweepRequest(BaseModel):
@@ -1490,6 +1503,22 @@ def build_world_endpoint(design_id: str, request: WorldBuilderRequest) -> dict[s
     # Persist world metadata.
     meta = json.loads(meta_path.read_text(encoding="utf-8"))
     meta.setdefault("worlds", {})
+    attention_regions: list[dict[str, Any]] = []
+    if world.task and hasattr(world.task, "attention_regions"):
+        attention_regions = [
+            {"centre": list(r.centre), "size": list(r.size), "label": r.label}
+            for r in world.task.attention_regions
+            if hasattr(r, "centre")
+        ]
+    compute_budget: dict[str, Any] | None = None
+    if world.compute_budget:
+        compute_budget = {
+            "tops": world.compute_budget.tops,
+            "power_w": world.compute_budget.power_w,
+            "latency_ms": world.compute_budget.latency_ms,
+            "memory_mb": world.compute_budget.memory_mb,
+        }
+
     meta["worlds"][request.template] = {
         "template": request.template,
         "randomized": request.randomize,
@@ -1503,6 +1532,8 @@ def build_world_endpoint(design_id: str, request: WorldBuilderRequest) -> dict[s
             "errors": load_result.errors,
             "warnings": load_result.warnings,
         },
+        "compute_budget": compute_budget,
+        "attention_regions": attention_regions,
         "created_at": dt.datetime.now(dt.timezone.utc).isoformat(),
     }
     _write_json(meta_path, meta)
@@ -1520,6 +1551,8 @@ def build_world_endpoint(design_id: str, request: WorldBuilderRequest) -> dict[s
             "errors": load_result.errors,
             "warnings": load_result.warnings,
         },
+        "compute_budget": compute_budget,
+        "attention_regions": attention_regions,
         "world_url": f"/exports/{design_id}/simulation/world_{request.template}.mjcf",
         "isaac_json_url": f"/exports/{design_id}/simulation/world_{request.template}.isaac.json",
     }
@@ -1542,10 +1575,13 @@ def get_world_report(design_id: str, template: str = Query(default="pick_place",
     if template not in worlds:
         raise HTTPException(status_code=404, detail=f"World template '{template}' not found. Run POST /designs/{id}/world first.")
 
+    world_meta = worlds[template]
     return {
         "design_id": design_id,
         "template": template,
-        "world": worlds[template],
+        "world": world_meta,
+        "compute_budget": world_meta.get("compute_budget"),
+        "attention_regions": world_meta.get("attention_regions"),
         "world_url": f"/exports/{design_id}/simulation/world_{template}.mjcf",
         "isaac_json_url": f"/exports/{design_id}/simulation/world_{template}.isaac.json",
     }
@@ -1880,6 +1916,91 @@ def list_skills_endpoint(design_id: str) -> dict[str, Any]:
         "design_id": design_id,
         "skills": meta.get("skills", {}),
         "recommended_skills": meta.get("recommended_skills", []),
+    }
+
+
+@app.post("/designs/{design_id}/train-brain")
+def train_brain_endpoint(design_id: str, request: TrainBrainRequest) -> dict[str, Any]:
+    """Train an attention-aware robot brain policy (Phase 25)."""
+    design_dir = DESIGNS_DIR / design_id
+    meta_path = design_dir / "metadata.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Design not found.")
+
+    try:
+        report = train_and_evaluate(
+            n_iters=request.n_iters,
+            pop_size=request.pop_size,
+            eval_episodes=request.eval_episodes,
+            success_rate_threshold=request.success_rate_threshold,
+            seed=request.seed,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Brain training failed: {exc}")
+
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    meta["brain"] = {
+        "success": report["success"],
+        "success_rate": report["success_rate"],
+        "mean_reward": report["mean_reward"],
+        "mean_final_distance": report["mean_final_distance"],
+        "best_training_reward": report["best_training_reward"],
+        "policy_architecture": report["policy_architecture"],
+        "created_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+    }
+    _write_json(meta_path, meta)
+
+    return {"design_id": design_id, **report}
+
+
+@app.get("/designs/{design_id}/brain")
+def get_brain_report_endpoint(design_id: str) -> dict[str, Any]:
+    """Return the persisted attention-brain training report."""
+    design_dir = DESIGNS_DIR / design_id
+    meta_path = design_dir / "metadata.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Design not found.")
+
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read metadata: {exc}")
+
+    return {
+        "design_id": design_id,
+        "brain": meta.get("brain"),
+        "available_actions": ["train-brain"],
+    }
+
+
+@app.post("/designs/{design_id}/brain-replay-attention")
+def brain_replay_attention_endpoint(design_id: str) -> dict[str, Any]:
+    """Run a quick abstract attention-environment rollout with a zero-weight policy.
+
+    Useful as a smoke test that the compute-budget/attention layer behaves
+    correctly for a given design's metadata.
+    """
+    design_dir = DESIGNS_DIR / design_id
+    meta_path = design_dir / "metadata.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Design not found.")
+
+    env = AbstractAttentionEnv(seed=0)
+    from ai_cad.geda_bridge.brain.policies import AttentionMLPPolicy
+
+    policy = AttentionMLPPolicy(np.zeros(AttentionMLPPolicy.n_params()))
+    result = env.rollout(policy, seed=0)
+    budget = env.budget
+    return {
+        "design_id": design_id,
+        "budget": {
+            "tops": budget.tops,
+            "power_w": budget.power_w,
+            "latency_ms": budget.latency_ms,
+            "memory_mb": budget.memory_mb,
+            "active_dimensions": budget.active_dimensions(env.OBS_DIM),
+        },
+        "zero_policy_rollout": result,
     }
 
 

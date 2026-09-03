@@ -846,20 +846,29 @@ PATH2 is the long-term North Star: a full-stack robotics design operating system
 
 **Effort:** 3–4 months.
 
-### Phase 25 — Robot brain training loop
+### Phase 25 — Robot brain training loop ✅ FOUNDATION COMPLETE
 
 **Goal:** Generate training data from the simulated world, train a policy, evaluate it in sim, and feed performance back into design.
 
 **Deliverables:**
-- Synthetic dataset generator: RGB, depth, segmentation, state, action.
-- RL / IL training harness (Isaac Lab / rl-zoo / custom) with standard algorithms.
-- Evaluation metrics: success rate, energy, cycle time, robustness.
-- Design feedback loop: if the policy fails due to geometry, flag the part for redesign.
-- First closed-loop demo: design → train → evaluate → redesign → retrain.
+- ✅ Deterministic NumPy-only attention-aware training layer in `ai_cad/geda_bridge/brain/`:
+  - `world_model.py` — per-body saliency from replay, `AttentionBudget` (TOPS/power/latency/memory → active-dimension limit), tiny ridge-regression world model.
+  - `policies.py` — `AttentionMLPPolicy` with hard input masking.
+  - `envs.py` — `AbstractAttentionEnv` built from `WorldDescription` attention regions + compute budget; `WorldReplayEnv` MuJoCo hook stub.
+  - `trainer.py` — CEM trainer + evaluation, `train_and_evaluate` high-level entry point.
+- ✅ World-builder support for attention/compute ideas:
+  - `ComputeBudget`, `attention_regions` in `WorldDescription`/`WorldTask`.
+  - `actuator_noise_std` / `sensor_dropout_prob` in `DomainRandomization`.
+  - `event_camera` sensor type and `event_camera_mount` + `compute_module` part families.
+  - Per-body `saliency` in `run_world_replay`.
+  - Isaac JSON schema and exporter coverage for all new fields.
+- ✅ Backend endpoints: `POST /designs/{id}/train-brain`, `GET /designs/{id}/brain`, `POST /designs/{id}/brain-replay-attention`; world builder persists and returns compute budget + attention regions.
+- ✅ Frontend: `BrainTrainingPanel.jsx` and extended `WorldBuilderPanel.jsx`.
+- 🔄 Remaining: synthetic dataset generator (RGB/depth/segmentation), real MuJoCo closed-loop policy rollout harness, design-feedback redesign loop, full cross-domain closed-loop demos.
 
-**Tests:** closed-loop demo passes on one simple task per domain class (push, hover, stand).
+**Tests:** `tests/test_geda_bridge_brain.py` (16 tests); full suite 414 tests passing (170 default + 222 heavy/slow + 22 mujoco).
 
-**Effort:** 4–6 months. **Risk:** RL training is its own discipline; start with imitation learning and simple tasks.
+**Effort:** 4–6 months total; foundation delivered in this batch. **Risk:** RL training is its own discipline; mitigated by starting with deterministic CEM on a toy attention environment.
 
 ### Phase 26 — HERMES cross-domain conversational supervisor
 
@@ -929,9 +938,9 @@ PATH2 is the long-term North Star: a full-stack robotics design operating system
 | 21 (electronics integration) | 17, 18 | 22 |
 | 22 (multi-physics verification) | 19, 20, 21 | ✅ Complete — 330/330 tests; 23, 24 |
 | 23 (humanoid / robot synthesis) | 19, 22 | 24, 25 |
-| 24 (world model) | 15A, 19, 23 | 25 |
-| 25 (brain training) | 24 | 27 |
-| 26 (HERMES) | 16, 19, 22, 24 | Full UX layer |
+| 24 (world model) | 15A, 19, 23 | ✅ Complete — 376/376 tests; 25 |
+| 25 (brain training) | 24 | ✅ Foundation complete — 414 tests; 26, 27 |
+| 26 (HERMES) | 16, 19, 22, 24, 25 | Full UX layer |
 | 27 (sim-to-real) | 25, hardware access | Commercial deployment |
 | 28 (commercialization + co-design) | PATH1 proven, 27 | SaaS + marketplace |
 
@@ -968,4 +977,4 @@ Full analysis is saved in `.claude/memory/robocad-path-analysis.md` and the end-
 
 ---
 
-*Last updated: 2026-09-01 (Phases 14A–15B, 16–24 complete; 376/376 tests passing; scope expanded to full multi-domain robotics: mechanical, aero/thermal, electronics, and humanoid/robot systems; Phase 24 world-model simulation builder shipped and hardened with body-name alias resolution, procedural terrain variants, Isaac JSON schema validation, and rich replay capture; Phase 25 — robot brain training loop — is next)*
+*Last updated: 2026-09-01 (Phases 14A–15B, 16–24 complete; Phase 25 foundation complete; 414/414 tests passing across default, heavy/slow, and mujoco tiers; scope expanded to full multi-domain robotics: mechanical, aero/thermal, electronics, and humanoid/robot systems; attention/compute-budget ideas from AI chip co-design integrated into the world builder and a NumPy-only brain training layer; Phase 26 HERMES conversational supervisor is next)*

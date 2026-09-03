@@ -170,6 +170,7 @@ def run_world_replay(
         "contacts": [],
         "sensors": {},
         "actuators": {},
+        "saliency": {},
         "errors": [],
     }
 
@@ -234,6 +235,10 @@ def run_world_replay(
     contact_frames: list[dict[str, Any]] = []
     sensor_frames: dict[str, list[Any]] = {name: [] for name in sensor_ids}
     actuator_frames: dict[str, list[Any]] = {name: [] for name in actuator_ids}
+    saliency_acc: dict[str, dict[str, Any]] = {
+        name: {"max_vel": 0.0, "max_acc": 0.0, "prev_linvel": None, "max_force": 0.0}
+        for name in body_ids
+    }
 
     for step in range(total_steps):
         try:
@@ -256,12 +261,32 @@ def run_world_replay(
                         "linvel": (float(linvel[0]), float(linvel[1]), float(linvel[2])),
                     }
                 )
+                vel_mag = float(np.linalg.norm(linvel))
+                saliency_acc[name]["max_vel"] = max(saliency_acc[name]["max_vel"], vel_mag)
+                prev = saliency_acc[name]["prev_linvel"]
+                if prev is not None:
+                    delta = linvel - prev
+                    acc_mag = float(np.linalg.norm(delta)) / max(dt * sample_interval, 1e-9)
+                    saliency_acc[name]["max_acc"] = max(saliency_acc[name]["max_acc"], acc_mag)
+                saliency_acc[name]["prev_linvel"] = np.asarray(linvel, dtype=float)
 
             if capture_contacts and data.ncon > 0:
                 frame_contacts: list[dict[str, Any]] = []
                 for con_id, con in enumerate(data.contact):
                     force = np.zeros(6)
                     mujoco.mj_contactForce(model, data, con_id, force)
+                    force_mag = float(np.linalg.norm(force[:3]))
+                    # Attribute contact force to the bodies owning the colliding geoms.
+                    for geom_id in (con.geom1, con.geom2):
+                        try:
+                            body_id = int(model.geom_bodyid[geom_id])
+                            body_name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, body_id)
+                            if body_name in saliency_acc:
+                                saliency_acc[body_name]["max_force"] = max(
+                                    saliency_acc[body_name]["max_force"], force_mag
+                                )
+                        except Exception:
+                            pass
                     frame_contacts.append(
                         {
                             "geom1": model.geom(con.geom1).name,
@@ -293,4 +318,8 @@ def run_world_replay(
     result["contacts"] = contact_frames
     result["sensors"] = sensor_frames
     result["actuators"] = actuator_frames
+    result["saliency"] = {
+        name: {"max_vel": acc["max_vel"], "max_acc": acc["max_acc"], "max_force": acc["max_force"]}
+        for name, acc in saliency_acc.items()
+    }
     return result

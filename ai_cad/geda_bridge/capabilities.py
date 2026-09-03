@@ -10,7 +10,7 @@ from ai_cad.geda_bridge.world_builder import WORLD_TEMPLATE_REGISTRY
 
 
 BUNDLE_SCHEMA_VERSION = "2.0.0"
-API_VERSION = "0.4.0"
+API_VERSION = "0.5.0"
 
 SUPPORTED_EXPORT_FORMATS = ["stl", "step", "urdf", "mjcf", "bundle.zip", "world.mjcf", "world.isaac.json"]
 SUPPORTED_SIMULATORS = ["mujoco", "isaac_sim"]
@@ -53,6 +53,9 @@ def get_capabilities() -> dict[str, object]:
             "world": "POST /designs/{id}/world",
             "world_randomize": "POST /designs/{id}/world/randomize",
             "world_replay": "POST /designs/{id}/world/replay",
+            "brain_train": "POST /designs/{id}/train-brain",
+            "brain_report": "GET /designs/{id}/brain",
+            "brain_replay_attention": "POST /designs/{id}/brain-replay-attention",
             "capabilities": "GET /capabilities",
             "handshake": "POST /designs/{id}/handshake",
         },

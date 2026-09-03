@@ -220,6 +220,7 @@ class Part(BaseModel):
     sketches: list[Sketch] = Field(default_factory=list)
     features: list[Annotated[Feature | SurfaceFeature | PCBOutline, Field()]] = Field(default_factory=list)
     default_csys_id: str = "origin"
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class MateEntity(BaseModel):

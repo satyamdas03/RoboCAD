@@ -374,9 +374,12 @@ def _place_electronics_stack(
     has_cable = any(dp.id == "cable_channel" for dp in result.parts)
     has_spreader = any(dp.id == "heat_spreader" for dp in result.parts)
     has_connector = any(dp.id == "connector" for dp in result.parts)
+    has_compute = any(dp.id == "compute_module" for dp in result.parts)
+    has_event_camera = any(dp.id == "event_camera_mount" for dp in result.parts)
 
     standoff_height = _param_value(result.parts, "enclosure", "standoff_height", 6.0)
     enc_height = _param_value(result.parts, "enclosure", "enc_height", 40.0)
+    pcb_thickness = _param_value(result.parts, "pcb", "pcb_thickness", 1.6)
 
     # Enclosure shell sits at the origin; its standoffs point upward.
     if has_enclosure:
@@ -507,6 +510,53 @@ def _place_electronics_stack(
                         ],
                     )
                 )
+
+    # Onboard compute module sits above the PCB, carrying compute budget metadata.
+    if has_compute:
+        compute_z = pcb_z + pcb_thickness if has_pcb else standoff_height
+        instances.append(
+            Instance(
+                id="i_compute_module",
+                part_id="compute_module",
+                name="Compute module",
+                transform={"translation": (0.0, 10.0, compute_z)},
+            )
+        )
+        target_id = "i_pcb" if has_pcb else "i_enclosure"
+        mates.append(
+            Mate(
+                id="m_compute_pcb",
+                type="fixed",
+                entities=[
+                    MateEntity(instance_id="i_compute_module"),
+                    MateEntity(instance_id=target_id),
+                ],
+            )
+        )
+
+    # Event camera mount attached to the front of the stack.
+    if has_event_camera:
+        cam_z = enc_height if has_enclosure else 10.0
+        instances.append(
+            Instance(
+                id="i_event_camera",
+                part_id="event_camera_mount",
+                name="Event camera mount",
+                transform={"translation": (0.0, 25.0, cam_z)},
+            )
+        )
+        target_id = "i_enclosure" if has_enclosure else "i_pcb" if has_pcb else None
+        if target_id:
+            mates.append(
+                Mate(
+                    id="m_event_camera_stack",
+                    type="fixed",
+                    entities=[
+                        MateEntity(instance_id="i_event_camera"),
+                        MateEntity(instance_id=target_id),
+                    ],
+                )
+            )
 
     return instances, mates
 
