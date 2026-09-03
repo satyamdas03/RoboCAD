@@ -1,7 +1,7 @@
 # RoboCAD Strategic Analysis: PATH1 vs PATH2
 
-**Date:** 2026-08-25 (updated 2026-08-29)  
-**Status:** Decision made; PATH1 (Phases 14A–15B), Batch A (Phases 16–18), Phase 19, Phase 20, Phase 21, and Phase 22 complete; Phase 23 — humanoid and full-robot system synthesis — is next  
+**Date:** 2026-08-25 (updated 2026-09-01)  
+**Status:** Decision made; PATH1 (Phases 14A–15B), Batch A (Phases 16–18), Phase 19, Phase 20, Phase 21, Phase 22, Phase 23, Phase 24, and Phase 25 complete; Phase 26 — HERMES cross-domain conversational supervisor — is next  
 **Related:** [`PLAN.md`](../PLAN.md) Sections 12–14, [`robocad-end-to-end-roadmap.md`](robocad-end-to-end-roadmap.md)
 
 ---
@@ -163,7 +163,14 @@ A full-stack, multi-domain robotics design operating system. It now spans **Phas
 4. **Phase D:** Cross-repo handshake with LearningRobotics (Phase 15A). ✅ Done — bundle contract, reference loaders, /capabilities, 10 s stability rollout, 170/170 tests passing. Three solvable caveats fixed during acceptance (Isaac Sim skeleton, nightly CI, real wedge test seed + exporter/loader bug fixes).
 5. **Phase E:** RoboCompiler asset pipeline (Phase 15B). ✅ Done — skill recommendation (`recommend-skill`), part variant sweep (`variant-sweep`), batch bundle export, and a NumPy-only CEM push-policy smoke test (`train-skill`) end-to-end on generated wedge meshes. 187/187 tests passing. Video-to-skill ingestion remains future work.
 6. ✅ Add cross-domain input (16), domain-aware representation (17), and decomposition + domain part families (18) — Batch A complete, **228/228 tests passing** after post-ship hardening.
-7. **Phase G:** Mechanical assembly synthesis (19), aero/thermal/propulsion geometry (20), electronics / mechatronics integration (21), multi-physics verification (22), humanoid / full-robot synthesis (23), world-model simulation (24), robot brain training (25), HERMES cross-domain supervisor (26), sim-to-real feedback (27), and distribution / ecosystem / advanced co-design (28) — in that order.
+7. ✅ Mechanical assembly synthesis (19) complete, **251/251 tests passing**.
+8. ✅ Aerodynamics, thermal, and propulsion geometry (20) complete, **276/276 tests passing**.
+9. ✅ Electronics / mechatronics integration (21) complete, **299/299 tests passing**.
+10. ✅ Multi-physics verification engine (22) complete, **330/330 tests passing**.
+11. ✅ Humanoid / full-robot synthesis (23) complete, **357/357 tests passing** after post-ship hardening.
+12. ✅ World-model simulation builder (24) complete, **376/376 tests passing**.
+13. ✅ Attention-based robot brain training foundation (25) complete, **414/414 tests passing**.
+14. **Next:** HERMES cross-domain supervisor (26), sim-to-real feedback (27), and distribution / ecosystem / advanced co-design (28) — in that order.
 
 ---
 

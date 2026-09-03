@@ -444,6 +444,7 @@ A part is a named sequence of features plus local sketches.
 | `name` | string | Display name. |
 | `color` | string | Optional display color (hex). |
 | `material` | string | Optional material hint for mass/FEA. |
+| `metadata` | object | Optional domain-specific annotations (e.g. compute budget, power budget, sensor type). Added in Phase 25. |
 | `sketches` | array | Sketches owned by this part. |
 | `features` | array | Ordered feature list. |
 | `default_csys_id` | string | Coordinate system the part is built in. |
@@ -720,6 +721,7 @@ A `transpiler.py` will walk the tree in dependency order and emit a single build
 6. **Phase 17:** schema bumped to **v2.0.0**; added `domain` tags, `SurfaceFeature`, `KinematicJoint`, `PCBOutline`, `SketchEntity.airfoil`.
 7. **Phase 20:** `SurfaceFeature` transpiler supports `airfoil`, `wing`, `propeller_blade`, `heat_sink`, `duct`.
 8. **Phase 21:** `PCBOutline` transpiler supports 3D board body, mounting holes, keepouts, connector cutouts.
+9. **Phase 25:** added optional `metadata` field to `Part` for compute-budget / sensor-type annotations; no schema version bump because the change is backward-compatible.
 
 ---
 

@@ -1,8 +1,8 @@
 # RoboCAD GEDA Bridge — Bundle Ingestion Contract
 
 **Version:** 2.0.0  
-**Date:** 2026-08-27  
-**Status:** Phase 15A reference contract  
+**Date:** 2026-09-01 (updated)  
+**Status:** Phase 15A reference contract, extended with Phase 24 world-model and Phase 25 brain-training metadata  
 **Audience:** `LearningRobotics`, external simulators, and any consumer of RoboCAD simulation bundles.
 
 ---
@@ -147,16 +147,23 @@ RoboCAD exposes its supported features via `GET /capabilities`. The response is 
 
 ```json
 {
-  "api_version": "0.3.0",
+  "api_version": "0.5.0",
   "bundle_schema_version": "2.0.0",
-  "supported_export_formats": ["stl", "step", "urdf", "mjcf", "bundle.zip"],
-  "supported_simulators": ["mujoco"],
+  "supported_export_formats": ["stl", "step", "urdf", "mjcf", "bundle.zip", "world.mjcf", "world.isaac.json"],
+  "supported_simulators": ["mujoco", "isaac_sim"],
   "supported_scene_templates": ["gripper_cube_grasp", "bracket_hook_hang", "wedge_push_block", "peg_insertion"],
-  "supported_part_families": ["cube", "cylinder", "wedge", "l_bracket", "gripper_jaw"],
+  "supported_world_templates": ["pick_place", "push", "walker", "drone_hover", "humanoid_stand"],
+  "supported_part_families": ["cube", "cylinder", "wedge", "l_bracket", "gripper_jaw", "bracket", "link", "hub", "mount", "airfoil", "wing", "propeller_blade", "duct", "heat_sink", "pcb", "pcb_bracket", "enclosure", "connector", "cable_channel", "fan_mount", "heat_spreader", "compute_module", "event_camera_mount", "limb_segment", "end_effector", "foot", "torso_plate", "hip_hub", "shoulder_hub"],
   "endpoints": {
     "generate": "POST /generate",
     "simulate": "POST /designs/{id}/simulate",
     "scene": "POST /designs/{id}/scene",
+    "world": "POST /designs/{id}/world",
+    "world_randomize": "POST /designs/{id}/world/randomize",
+    "world_replay": "POST /designs/{id}/world/replay",
+    "brain_train": "POST /designs/{id}/train-brain",
+    "brain_report": "GET /designs/{id}/brain",
+    "brain_replay_attention": "POST /designs/{id}/brain-replay-attention",
     "capabilities": "GET /capabilities"
   }
 }
@@ -181,3 +188,4 @@ If the test passes, the bundle → scene → simulator handoff is verified.
 ## 7. Changelog
 
 - **2.0.0** (2026-08-27): Phase 15A reference contract. Adds `design_id`, `instance_id`, and capability registry.
+- **2.0.0+Phase24+25** (2026-09-01): Extended capability registry to include world templates, Isaac Sim, compute-budget / attention-region metadata, and brain-training endpoints. Bundle schema unchanged; additions are backward-compatible.

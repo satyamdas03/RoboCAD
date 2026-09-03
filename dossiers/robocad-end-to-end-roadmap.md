@@ -4,8 +4,8 @@
 **Horizon:** ~5–7 years  
 **North Star:** voice/text/sketch → multi-domain parametric CAD → per-part multi-physics testing → assembly → world-model simulation → HERMES oversight → robot brain trained on synthetic data with retraining loops.  
 **First commercial milestone:** PATH1 / GEDA Bridge (Phases 14A–15B) — complete, 187/187 tests.  
-**Current milestone:** Multi-physics verification engine (Phase 22) — complete, 330/330 tests; material library, mesh-quality pre-checker, closed load-case templates, solver abstraction, backend `/verify` endpoints, and frontend `VerificationPanel` are live; Phase 23 — humanoid and full-robot system synthesis — is next.  
-**Domain tracks:** mechanical assemblies, aerodynamics / thermal / propulsion geometry, electronics / mechatronics form-factor co-design, humanoid / full-robot system synthesis.  
+**Current milestone:** Attention-based robot brain training layer (Phase 25 foundation) — complete, 414/414 tests across default, heavy/slow, and mujoco tiers; compute-budget / attention / event-driven world-model extensions and NumPy-only `ai_cad/geda_bridge/brain/` trainer are live; Phase 26 — HERMES cross-domain conversational supervisor — is next.  
+**Domain tracks:** mechanical assemblies, aerodynamics / thermal / propulsion geometry, electronics / mechatronics form-factor co-design, humanoid / full-robot system synthesis, world-model simulation, robot brain training.  
 **Related:** [`PLAN.md`](../PLAN.md) Sections 10–14, [`PATH1_PATH2_analysis.md`](PATH1_PATH2_analysis.md)
 
 ---
@@ -330,61 +330,77 @@ Maintained across the entire roadmap:
 
 ---
 
-## Phase 23 — Humanoid and full-robot system synthesis
+## Phase 23 — Humanoid and full-robot system synthesis ✅ COMPLETE
 
 **Goal:** Generate complete humanoid / robot kinematics, actuator layouts, and stability estimates from high-level descriptions.
 
-**Deliverables:**
-- Kinematic tree builder with revolute/prismatic/spherical joints.
-- Actuator sizing from payload, speed, and safety-factor requirements.
-- Humanoid / legged robot template library (biped, quadruped, manipulator-on-base).
-- Dynamic stability checks: support polygon, ZMP estimate, reachable workspace.
-- Whole-system MJCF / URDF export with sensors and actuators.
-- Basic gait / motion feasibility checks via simple dynamics templates.
+**Status:** ✅ Complete — 2026-09-01 (shipped before Phase 24).
 
-**Tests:** generate and load a biped or quadruped assembly in MuJoCo; verify static stability in a standing pose.
+**Deliverables:**
+- ✅ Kinematic tree builder with revolute/prismatic/spherical joints.
+- ✅ Actuator sizing from payload, speed, and safety-factor requirements.
+- ✅ Humanoid / legged robot template library (biped, quadruped, manipulator-on-base).
+- ✅ Dynamic stability checks: support polygon, ZMP estimate, reachable workspace.
+- ✅ Whole-system MJCF / URDF export with sensors and actuators.
+- ✅ Basic gait / motion feasibility checks via simple dynamics templates.
+- ✅ Backend endpoints + frontend `HumanoidPanel`.
+
+**Tests:** `tests/test_phase23_humanoid.py`, `tests/test_phase23_robot_api.py`; full pytest suite **357/357 passing**.
 
 **Timeline:** 4–6 months. **Risk:** humanoid design is a research area; start with templates and parameterized scaling, not open-ended morphology.
 
 ---
 
-## Phase 24 — World-model simulation
+## Phase 24 — World-model simulation ✅ COMPLETE
 
 **Goal:** Drop the assembled system into a parameterized scene with objects, sensors, and domain randomization, ready for policy training across manipulation, locomotion, aerial, and humanoid tasks.
 
-**Deliverables:**
-- World builder API: robot + objects + terrain + sensors + task.
-- Domain-specific scene templates (pick-place, push, walker, drone hover, humanoid stand).
-- Domain randomization for mass, friction, actuator gains, sensor noise, wind/thermal loads.
-- Export to MuJoCo and Isaac Sim from the same world description.
-- Replay and inspection tools in the frontend.
+**Status:** ✅ Complete — 2026-09-01.
 
-**Tests:** each scene template exports to both simulators and loads without errors.
+**Deliverables:**
+- ✅ World builder API: `WorldDescription`, `WorldBuilder`, `WorldTerrain`, `WorldSensor`, `WorldTask`, `DomainRandomization`.
+- ✅ Domain-specific templates: `pick_place`, `push`, `walker`, `drone_hover`, `humanoid_stand`.
+- ✅ Domain randomization for mass, friction, actuator gains, sensor noise, wind, thermal loads.
+- ✅ Export to MuJoCo MJCF and Isaac Sim JSON from the same world description.
+- ✅ Body-name alias resolver, procedural terrain variants (stairs/ramp/uneven), Isaac JSON schema validation.
+- ✅ Rich replay capture (contacts/actuators/sensors/orientations/linear velocities) in `world_loaders.py`.
+- ✅ Backend `/world` endpoints and frontend `WorldBuilderPanel`.
+
+**Tests:** `tests/test_world_builder.py`; full pytest suite **376/376 passing**.
 
 **Timeline:** 3–4 months.
 
 ---
 
-## Phase 25 — Robot brain training loop
+## Phase 25 — Robot brain training loop ✅ FOUNDATION COMPLETE
 
 **Goal:** Generate training data from the simulated world, train a policy, evaluate it in sim, and feed performance back into design.
 
+**Status:** ✅ Foundation complete — 2026-09-01.
+
 **Deliverables:**
-- Synthetic dataset generator: RGB, depth, segmentation, state, action.
-- RL / IL training harness (Isaac Lab / rl-zoo / custom) with standard algorithms.
-- Evaluation metrics: success rate, energy, cycle time, robustness.
-- Design feedback loop: if the policy fails due to geometry, flag the part for redesign.
-- First closed-loop demo: design → train → evaluate → redesign → retrain.
+- ✅ Deterministic NumPy-only attention-aware training layer in `ai_cad/geda_bridge/brain/`:
+  - `world_model.py` — per-body saliency from replay, `AttentionBudget`, tiny ridge-regression world model.
+  - `policies.py` — `AttentionMLPPolicy` with hard input masking.
+  - `envs.py` — `AbstractAttentionEnv` built from `WorldDescription`; `WorldReplayEnv` MuJoCo hook stub.
+  - `trainer.py` — CEM trainer + evaluation + `train_and_evaluate`.
+- ✅ World-builder attention/compute extensions: `ComputeBudget`, `attention_regions`, `event_camera` sensor, `actuator_noise_std` / `sensor_dropout_prob`, replay saliency, Isaac JSON coverage.
+- ✅ Compute/event-sensor part families: `compute_module`, `event_camera_mount`.
+- ✅ Backend endpoints: `/designs/{id}/train-brain`, `/designs/{id}/brain`, `/designs/{id}/brain-replay-attention`.
+- ✅ Frontend: `BrainTrainingPanel.jsx` + extended `WorldBuilderPanel.jsx`.
+- 🔄 Remaining: synthetic dataset generator (RGB/depth/segmentation), real MuJoCo closed-loop policy rollout harness, design-feedback redesign loop, full cross-domain closed-loop demos.
 
-**Tests:** closed-loop demo passes on one simple task per domain class (push, hover, stand).
+**Tests:** `tests/test_geda_bridge_brain.py` (16 tests); full suite **414/414 passing** (170 default + 222 heavy/slow + 22 mujoco).
 
-**Timeline:** 4–6 months. **Risk:** RL training is its own discipline; start with imitation learning and simple tasks.
+**Timeline:** 4–6 months total; foundation delivered. **Risk:** RL training is its own discipline; mitigated by starting with deterministic CEM on a toy attention environment.
 
 ---
 
 ## Phase 26 — HERMES cross-domain conversational supervisor
 
 **Goal:** A user can talk to RoboCAD like a colleague across all domains: ask status, request design changes, approve simulations, and get explanations — without becoming a black-box controller.
+
+**Status:** ⏳ Next.
 
 **Deliverables:**
 - HERMES agent with tool use across design, simulation, and training APIs.
@@ -453,10 +469,10 @@ Maintained across the entire roadmap:
 | 20 | 17, 18 | 22 |
 | 21 | 17, 18 | 22 ✅ Complete — 299/299 tests; electronics co-design |
 | 22 | 19, 20, 21 | 23, 24 ✅ Complete — 330/330 tests; multi-physics verification gate |
-| 23 | 19, 22 | 24, 25 |
-| 24 | 15A, 19, 23 | 25 |
-| 25 | 24 | 27 |
-| 26 | 16, 19, 22, 24 | Full UX layer |
+| 23 | 19, 22 | ✅ Complete — 357/357 tests; 24, 25 |
+| 24 | 15A, 19, 23 | ✅ Complete — 376/376 tests; 25 |
+| 25 | 24 | ✅ Foundation complete — 414 tests; 26, 27 |
+| 26 | 16, 19, 22, 24, 25 | Full UX layer (next) |
 | 27 | 25, hardware access | Commercial deployment |
 | 28 | PATH1 proven, 27 | SaaS + marketplace |
 
@@ -475,7 +491,7 @@ Maintained across the entire roadmap:
 
 ## Immediate next action
 
-Start **Phase 23 — Humanoid and full-robot system synthesis**: biped / quadruped / manipulator-on-base templates, kinematic tree builder with revolute/prismatic/spherical joints, actuator sizing from payload/speed/safety-factor requirements, dynamic stability checks (support polygon, ZMP estimate, reachable workspace), and whole-system MJCF/URDF export with sensors and actuators. Keep Phases 14A–22 under maintenance and the 330-test suite green as humanoid/robot templates land.
+Start **Phase 26 — HERMES cross-domain conversational supervisor**: an LLM-driven orchestrator with tool use across design, simulation, and training APIs; status dashboard; explanation engine; and hard approval gates for expensive operations. Keep Phases 14A–25 under maintenance and the 414-test suite green as HERMES lands. Remaining Phase 25 closed-loop work (real MuJoCo policy rollout, synthetic dataset generator, design-feedback loop) can continue in parallel under HERMES supervision.
 
 ---
 
