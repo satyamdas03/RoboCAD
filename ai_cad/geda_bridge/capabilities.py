@@ -6,13 +6,14 @@ that downstream consumers (e.g., `LearningRobotics`) can rely on.
 from __future__ import annotations
 
 from ai_cad.geda_bridge.scene_templates import TEMPLATE_REGISTRY
+from ai_cad.geda_bridge.world_builder import WORLD_TEMPLATE_REGISTRY
 
 
 BUNDLE_SCHEMA_VERSION = "2.0.0"
-API_VERSION = "0.3.0"
+API_VERSION = "0.4.0"
 
-SUPPORTED_EXPORT_FORMATS = ["stl", "step", "urdf", "mjcf", "bundle.zip"]
-SUPPORTED_SIMULATORS = ["mujoco"]
+SUPPORTED_EXPORT_FORMATS = ["stl", "step", "urdf", "mjcf", "bundle.zip", "world.mjcf", "world.isaac.json"]
+SUPPORTED_SIMULATORS = ["mujoco", "isaac_sim"]
 SUPPORTED_PART_FAMILIES = [
     "cube",
     "cylinder",
@@ -22,6 +23,14 @@ SUPPORTED_PART_FAMILIES = [
     "bracket",
     "peg",
     "plate",
+    "limb_segment",
+    "end_effector",
+    "mount",
+    "hub",
+    "torso_plate",
+    "hip_hub",
+    "shoulder_hub",
+    "foot",
 ]
 
 
@@ -33,6 +42,7 @@ def get_capabilities() -> dict[str, object]:
         "supported_export_formats": SUPPORTED_EXPORT_FORMATS,
         "supported_simulators": SUPPORTED_SIMULATORS,
         "supported_scene_templates": sorted(TEMPLATE_REGISTRY),
+        "supported_world_templates": sorted(WORLD_TEMPLATE_REGISTRY),
         "supported_part_families": SUPPORTED_PART_FAMILIES,
         "endpoints": {
             "health": "GET /health",
@@ -40,6 +50,9 @@ def get_capabilities() -> dict[str, object]:
             "simulate": "POST /designs/{id}/simulate",
             "bundle": "GET /designs/{id}/bundle",
             "scene": "POST /designs/{id}/scene",
+            "world": "POST /designs/{id}/world",
+            "world_randomize": "POST /designs/{id}/world/randomize",
+            "world_replay": "POST /designs/{id}/world/replay",
             "capabilities": "GET /capabilities",
             "handshake": "POST /designs/{id}/handshake",
         },

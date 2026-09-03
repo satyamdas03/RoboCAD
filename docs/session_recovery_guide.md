@@ -38,6 +38,7 @@ These files are in `C:\Users\point\.claude\projects\C--Users-point-projects-Robo
 18. `phase22-multi-physics-verification.md` — Closed load-case templates, solver abstraction, mesh-quality gate, material library, backend `/verify` endpoints, frontend `VerificationPanel`; 330/330 tests passing (Phase 22 complete).
 19. `phase23-hotfix-memory-cpu-hardening.md` — Eliminated RAM/CPU hotspots before continuing humanoid/robot synthesis; 125 default + 212 heavy/slow tests passing; frontend build passes.
 20. `phase23-humanoid-robot-synthesis.md` — Biped/quadruped/manipulator-on-base templates, actuator sizing, stability/workspace/gait checks, whole-system MJCF/URDF export, backend endpoints + frontend `HumanoidPanel`; 357/357 tests passing (Phase 23 complete; Phase 24 next). Post-ship hardening (commits `87c8f7b`, `980482b`, `174df8c`, `4de18d8`, `1b83561`, `69367a1`, `6a9faf4`) fixed the rule-based `robot arm with gripper` and `biped humanoid robot` layouts: mapped upper/forearm/gripper to `limb_segment`/`end_effector` families, aligned limb pin interfaces, corrected jaw mirroring, fixed assembly solver part-family csys lookup, corrected sketch entity placement in BuildSketch via `Locations`, added subtractive joint/pivot holes, fixed sketch-ID / parameter-name collisions in humanoid hip/shoulder hubs, and corrected misleading assembly validation reporting / frontend collision API method.
+21. `phase24-world-simulation.md` — World-model simulation builder: `WorldDescription`, `WorldBuilder`, domain templates (pick-place, push, walker, drone hover, humanoid stand), domain randomization, MuJoCo MJCF + Isaac Sim JSON export, backend `/world` endpoints, frontend `WorldBuilderPanel`, replay/trajectory capture; 371/371 tests passing (Phase 24 complete; Phase 25 next).
 
 ---
 
@@ -217,7 +218,8 @@ npm run build
 | 21 | Electronics and mechatronics integration | `ai_cad/electronics.py`, `web/backend/main.py` |
 | 22 | Multi-physics verification engine | `ai_cad/materials.py`, `ai_cad/verification*.py`, `ai_cad/mesh_quality.py`, `web/frontend/src/components/VerificationPanel.jsx` |
 | 23 | Humanoid and full-robot system synthesis | `ai_cad/robot_templates.py`, `ai_cad/kinematic_tree.py`, `ai_cad/actuator_sizing.py`, `ai_cad/stability.py`, `ai_cad/verification_load_cases.py`, `web/backend/main.py`, `web/frontend/src/components/HumanoidPanel.jsx`, `tests/test_phase23_humanoid.py`, `tests/test_phase23_robot_api.py` |
-| 24–28 | End-to-end vision roadmap (Phase 24 world-model simulation builder next) | `PLAN.md`, `.claude/memory/robocad-end-to-end-roadmap.md` |
+| 24 | World-model simulation builder | `ai_cad/geda_bridge/world_builder.py`, `ai_cad/geda_bridge/world_loaders.py`, `web/backend/main.py`, `web/frontend/src/components/WorldBuilderPanel.jsx`, `tests/test_world_builder.py` |
+| 25–28 | End-to-end vision roadmap (Phase 25 robot brain training loop next) | `PLAN.md`, `.claude/memory/robocad-end-to-end-roadmap.md` |
 
 ---
 
@@ -230,4 +232,4 @@ npm run build
 5. Run the pytest suite and the frontend build.
 6. Only then continue the current phase.
 
-**Current active phase:** Phase 23 complete (357/357 tests passing; post-ship hardening commits `87c8f7b`, `980482b`, `174df8c`, `4de18d8`, `1b83561`, `69367a1`, `6a9faf4` fix the rule-based `robot arm with gripper` and `biped humanoid robot` layouts and correct assembly validation reporting). Phase 24 — world-model simulation builder — is next. Robot arm cosmetic/mechanical refinement (fillets, chamfers, joint bosses, tapered links, shaped jaws) is also queued.
+**Current active phase:** Phase 24 complete (371/371 tests passing; world-model simulation builder shipped with MuJoCo + Isaac Sim export, domain randomization, and frontend replay panel). Phase 25 — robot brain training loop — is next. Robot arm cosmetic/mechanical refinement (fillets, chamfers, joint bosses, tapered links, shaped jaws) is also queued.

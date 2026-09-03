@@ -54,16 +54,23 @@ from ai_cad.intent_parser import parse_domain_intent
 from ai_cad.mate_inference import infer_mates
 from ai_cad.fea import run_static_analysis
 from ai_cad.geda_bridge import (
+    apply_domain_randomization,
     build_scene,
+    build_world,
     export_bundle_from_mesh,
     export_bundle_from_tree,
     export_scene_to_mjcf,
+    export_world_to_isaac_json,
+    export_world_to_mjcf,
     get_capabilities,
     list_skills,
     load_bundle_manifest,
+    load_world_into_isaac_sim,
+    load_world_into_mujoco,
     package_bundle_paths,
     recommend_skill,
     run_variant_sweep,
+    run_world_replay,
     stability_check_bundle,
     train_push_skill,
     validate_bundle_with_mujoco,
@@ -276,6 +283,26 @@ class SceneTemplateRequest(BaseModel):
     template: str = Field(default="gripper_cube_grasp", description="Scene template name.")
     material: str = Field(default="PLA", description="Material name for density lookup.")
     tolerance: float = Field(default=0.1, gt=0, le=1.0, description="Mesh tessellation tolerance in mm.")
+
+
+class WorldBuilderRequest(BaseModel):
+    template: str = Field(default="pick_place", description="World template name.")
+    material: str = Field(default="PLA", description="Material name for density lookup.")
+    tolerance: float = Field(default=0.1, gt=0, le=1.0, description="Mesh tessellation tolerance in mm.")
+    randomize: bool = Field(default=False, description="Apply domain randomization after building the world.")
+    seed: int | None = Field(default=None, description="Optional seed for reproducible randomization.")
+    parameters: dict[str, Any] = Field(default_factory=dict, description="Template-specific parameter overrides.")
+
+
+class WorldRandomizeRequest(BaseModel):
+    seed: int | None = Field(default=None, description="Optional seed for reproducible randomization.")
+    parameters: dict[str, Any] = Field(default_factory=dict, description="Template-specific parameter overrides.")
+
+
+class WorldReplayRequest(BaseModel):
+    duration_seconds: float = Field(default=5.0, gt=0, le=30.0, description="Replay duration in seconds.")
+    fps: float = Field(default=20.0, gt=0, le=60.0, description="Trajectory sampling rate.")
+    body_names: list[str] = Field(default_factory=list, description="Body names to track; empty tracks all named bodies.")
 
 
 class TrainSkillRequest(BaseModel):
@@ -1418,6 +1445,229 @@ def get_scene_report(design_id: str, template: str = Query(default="gripper_cube
         "template": template,
         "scene": scenes[template],
         "scene_url": f"/exports/{design_id}/simulation/scene_{template}.mjcf",
+    }
+
+
+@app.post("/designs/{design_id}/world")
+def build_world_endpoint(design_id: str, request: WorldBuilderRequest) -> dict[str, Any]:
+    """Build a simulation world around a design's bundle and export MJCF + Isaac JSON."""
+    design_dir = DESIGNS_DIR / design_id
+    meta_path = design_dir / "metadata.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Design not found.")
+
+    simulation_dir = design_dir / "simulation"
+    manifest_path = simulation_dir / "manifest.json"
+    if not manifest_path.exists():
+        simulate_design(design_id, SimulateRequest(material=request.material, tolerance=request.tolerance))
+
+    try:
+        manifest = load_bundle_manifest(simulation_dir)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read bundle manifest: {exc}")
+
+    try:
+        world = build_world(request.template, manifest.parts, **request.parameters)
+        world.robot_mjcf_file = manifest.mjcf_file or "model.mjcf"
+        if request.randomize:
+            world = apply_domain_randomization(world, seed=request.seed)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to build world: {exc}")
+
+    world_mjcf_path = simulation_dir / f"world_{request.template}.mjcf"
+    world_isaac_path = simulation_dir / f"world_{request.template}.isaac.json"
+    try:
+        export_world_to_mjcf(world, world_mjcf_path)
+        export_world_to_isaac_json(world, world_isaac_path)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to export world: {exc}")
+
+    # Validate MuJoCo load.
+    load_result = load_world_into_mujoco(world, simulation_dir)
+
+    # Persist world metadata.
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    meta.setdefault("worlds", {})
+    meta["worlds"][request.template] = {
+        "template": request.template,
+        "randomized": request.randomize,
+        "seed": request.seed,
+        "mjcf_file": f"simulation/world_{request.template}.mjcf",
+        "isaac_json_file": f"simulation/world_{request.template}.isaac.json",
+        "runtime_ok": load_result.success,
+        "runtime_info": {
+            "simulator": load_result.simulator,
+            "nbody": load_result.nbody,
+            "errors": load_result.errors,
+            "warnings": load_result.warnings,
+        },
+        "created_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+    }
+    _write_json(meta_path, meta)
+
+    return {
+        "design_id": design_id,
+        "template": request.template,
+        "randomized": request.randomize,
+        "seed": request.seed,
+        "runtime_ok": load_result.success,
+        "runtime_info": {
+            "success": load_result.success,
+            "simulator": load_result.simulator,
+            "nbody": load_result.nbody,
+            "errors": load_result.errors,
+            "warnings": load_result.warnings,
+        },
+        "world_url": f"/exports/{design_id}/simulation/world_{request.template}.mjcf",
+        "isaac_json_url": f"/exports/{design_id}/simulation/world_{request.template}.isaac.json",
+    }
+
+
+@app.get("/designs/{design_id}/world")
+def get_world_report(design_id: str, template: str = Query(default="pick_place", description="World template name.")) -> dict[str, Any]:
+    """Return the persisted world metadata for a design and template."""
+    design_dir = DESIGNS_DIR / design_id
+    meta_path = design_dir / "metadata.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Design not found.")
+
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read metadata: {exc}")
+
+    worlds = meta.get("worlds", {})
+    if template not in worlds:
+        raise HTTPException(status_code=404, detail=f"World template '{template}' not found. Run POST /designs/{id}/world first.")
+
+    return {
+        "design_id": design_id,
+        "template": template,
+        "world": worlds[template],
+        "world_url": f"/exports/{design_id}/simulation/world_{template}.mjcf",
+        "isaac_json_url": f"/exports/{design_id}/simulation/world_{template}.isaac.json",
+    }
+
+
+@app.post("/designs/{design_id}/world/randomize")
+def randomize_world_endpoint(design_id: str, request: WorldRandomizeRequest) -> dict[str, Any]:
+    """Re-build the most recently used world for a design with domain randomization."""
+    design_dir = DESIGNS_DIR / design_id
+    meta_path = design_dir / "metadata.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Design not found.")
+
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read metadata: {exc}")
+
+    worlds = meta.get("worlds", {})
+    if not worlds:
+        raise HTTPException(status_code=404, detail="No world has been built for this design yet.")
+
+    # Use the most recently created world.
+    latest_template = max(worlds, key=lambda k: worlds[k].get("created_at", ""))
+    latest = worlds[latest_template]
+
+    # Build a new randomized world.
+    simulation_dir = design_dir / "simulation"
+    try:
+        manifest = load_bundle_manifest(simulation_dir)
+        world = build_world(latest_template, manifest.parts, **request.parameters)
+        world.robot_mjcf_file = manifest.mjcf_file or "model.mjcf"
+        world = apply_domain_randomization(world, seed=request.seed)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to randomize world: {exc}")
+
+    world_mjcf_path = simulation_dir / f"world_{latest_template}.mjcf"
+    world_isaac_path = simulation_dir / f"world_{latest_template}.isaac.json"
+    try:
+        export_world_to_mjcf(world, world_mjcf_path)
+        export_world_to_isaac_json(world, world_isaac_path)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to export randomized world: {exc}")
+
+    load_result = load_world_into_mujoco(world, simulation_dir)
+
+    meta["worlds"][latest_template] = {
+        "template": latest_template,
+        "randomized": True,
+        "seed": request.seed,
+        "mjcf_file": f"simulation/world_{latest_template}.mjcf",
+        "isaac_json_file": f"simulation/world_{latest_template}.isaac.json",
+        "runtime_ok": load_result.success,
+        "runtime_info": {
+            "simulator": load_result.simulator,
+            "nbody": load_result.nbody,
+            "errors": load_result.errors,
+            "warnings": load_result.warnings,
+        },
+        "created_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+    }
+    _write_json(meta_path, meta)
+
+    return {
+        "design_id": design_id,
+        "template": latest_template,
+        "randomized": True,
+        "seed": request.seed,
+        "runtime_ok": load_result.success,
+        "runtime_info": load_result.__dict__,
+        "world_url": f"/exports/{design_id}/simulation/world_{latest_template}.mjcf",
+        "isaac_json_url": f"/exports/{design_id}/simulation/world_{latest_template}.isaac.json",
+    }
+
+
+@app.post("/designs/{design_id}/world/replay")
+def replay_world_endpoint(design_id: str, request: WorldReplayRequest) -> dict[str, Any]:
+    """Run a short MuJoCo replay of the design's most recent world and return a trajectory."""
+    design_dir = DESIGNS_DIR / design_id
+    meta_path = design_dir / "metadata.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Design not found.")
+
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read metadata: {exc}")
+
+    worlds = meta.get("worlds", {})
+    if not worlds:
+        raise HTTPException(status_code=404, detail="No world has been built for this design yet.")
+
+    latest_template = max(worlds, key=lambda k: worlds[k].get("created_at", ""))
+    world_mjcf_path = design_dir / "simulation" / f"world_{latest_template}.mjcf"
+    if not world_mjcf_path.exists():
+        raise HTTPException(status_code=404, detail=f"World MJCF not found for template '{latest_template}'.")
+
+    try:
+        replay = run_world_replay(
+            world_mjcf_path,
+            duration_seconds=request.duration_seconds,
+            fps=request.fps,
+            body_names=request.body_names or None,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Replay failed: {exc}")
+
+    # Persist replay summary.
+    meta.setdefault("world_replays", {})
+    meta["world_replays"][latest_template] = {
+        "template": latest_template,
+        "duration_seconds": request.duration_seconds,
+        "fps": request.fps,
+        "success": replay["success"],
+        "created_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+    }
+    _write_json(meta_path, meta)
+
+    return {
+        "design_id": design_id,
+        "template": latest_template,
+        "replay": replay,
     }
 
 

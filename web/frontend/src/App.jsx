@@ -19,6 +19,7 @@ import AssemblyReplayPanel from './components/AssemblyReplayPanel.jsx'
 import AssemblyCollisionPanel from './components/AssemblyCollisionPanel.jsx'
 import SimulatePanel from './components/SimulatePanel.jsx'
 import SceneTemplatePanel from './components/SceneTemplatePanel.jsx'
+import WorldBuilderPanel from './components/WorldBuilderPanel.jsx'
 import CapabilitiesPanel from './components/CapabilitiesPanel.jsx'
 import DomainBadge from './components/DomainBadge.jsx'
 import DecomposePanel from './components/DecomposePanel.jsx'
@@ -315,6 +316,7 @@ export default function App() {
               <AssemblyCollisionPanel designId={selectedId} />
               <SimulatePanel designId={selectedId} />
               <SceneTemplatePanel designId={selectedId} />
+              <WorldBuilderPanel designId={selectedId} />
               <CapabilitiesPanel designId={selectedId} />
               <FeatureTreePanel
                 designId={selectedId}

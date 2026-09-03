@@ -44,6 +44,28 @@ from ai_cad.geda_bridge.scene_templates import (
     wedge_push_block_template,
 )
 from ai_cad.geda_bridge.verifier import verify_bundle
+from ai_cad.geda_bridge.world_builder import (
+    DomainRandomization,
+    WorldBuilder,
+    WorldDescription,
+    WorldSensor,
+    WorldTask,
+    WorldTerrain,
+    apply_domain_randomization,
+    build_world,
+    drone_hover_world_template,
+    export_world_to_isaac_json,
+    export_world_to_mjcf,
+    humanoid_stand_world_template,
+    pick_place_world_template,
+    push_world_template,
+    walker_world_template,
+)
+from ai_cad.geda_bridge.world_loaders import (
+    load_world_into_isaac_sim,
+    load_world_into_mujoco,
+    run_world_replay,
+)
 
 __all__ = [
     "compute_inertial",
@@ -88,4 +110,22 @@ __all__ = [
     "gripper_cube_grasp_template",
     "peg_insertion_template",
     "wedge_push_block_template",
+    "DomainRandomization",
+    "WorldBuilder",
+    "WorldDescription",
+    "WorldSensor",
+    "WorldTask",
+    "WorldTerrain",
+    "apply_domain_randomization",
+    "build_world",
+    "drone_hover_world_template",
+    "export_world_to_isaac_json",
+    "export_world_to_mjcf",
+    "humanoid_stand_world_template",
+    "pick_place_world_template",
+    "push_world_template",
+    "walker_world_template",
+    "load_world_into_isaac_sim",
+    "load_world_into_mujoco",
+    "run_world_replay",
 ]

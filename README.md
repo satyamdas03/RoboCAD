@@ -4,7 +4,7 @@
 >
 > **Core bet:** The AI writes **parametric CAD code** (build123d / FeatureScript), not throwaway meshes. The model you get is editable, versionable, and exportable for 3D printing, machining, or Onshape.
 >
-> **Latest milestone:** Phases 14A–15B, **16–22**, and **23 are complete**. RoboCAD now synthesizes humanoid and full-robot systems from natural language: biped/quadruped/manipulator-on-base templates, actuator sizing, dynamic stability and reachable-workspace checks, and whole-system MJCF/URDF export. The full pytest suite: **357/357 passing**. Phase 24 — world-model simulation — is next.
+> **Latest milestone:** Phases 14A–15B, **16–23**, and **24 are complete**. RoboCAD now builds multi-domain simulation worlds from the same parametric robot/asset: pick-place, push, walker, drone hover, and humanoid-stand templates with terrain, sensors, task goals, and domain randomization, exported to both MuJoCo (MJCF) and Isaac Sim (JSON). The full pytest suite: **371/371 passing**; frontend production build passes.
 
 ---
 
@@ -146,7 +146,7 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **21** | Electronics and mechatronics integration (form-factor co-design, not silicon layout) | ✅ **Complete — `PCBOutline` transpilation, electronics part families, stack decomposition + composer layout, electronics analysis, IDF/STEP export, `ElectronicsPanel.jsx`, **299/299 tests passing** |
 | **22** | Multi-physics verification engine (FEA / CFD / thermal / dynamics) | ✅ **Complete — `ai_cad/materials.py`, `ai_cad/verification*.py`, `ai_cad/mesh_quality.py`, closed load-case templates, mesh-quality gate, backend `/verify` endpoints, frontend `VerificationPanel`, **330/330 tests passing** |
 | **23** | Humanoid and full-robot system synthesis | ✅ **Complete — biped/quadruped/manipulator-on-base templates, actuator sizing, stability/workspace/gait checks, whole-system MJCF/URDF export, backend endpoints + frontend `HumanoidPanel`, 357/357 tests passing** |
-| **24** | World-model simulation builder | ⏳ Planned |
+| **24** | World-model simulation builder | ✅ **Complete — `ai_cad/geda_bridge/world_builder.py`, MuJoCo/Isaac Sim export, domain randomization, replay capture, `WorldBuilderPanel.jsx`; 371/371 tests passing** |
 | **25** | Robot brain training loop | ⏳ Planned |
 | **26** | HERMES cross-domain conversational supervisor | ⏳ Planned |
 | **27** | Sim-to-real feedback loop | ⏳ Planned |
@@ -545,6 +545,18 @@ The decision: **build PATH1 (Phases 14A–15B) first**, then use it as the techn
 * Confirmed prompt `robotic arm with five fingers` degrades to the standard 2-link arm because the rule-based decomposer has no hand/finger part family yet.
 * Restarted the backend using the Hermes venv (`C:\Users\point\AppData\Local\hermes\hermes-agent\venv\Scripts\python`) because the project `.venv` was missing `python-dotenv`. Frontend Vite server on port 5173 remained running.
 * Full pytest suite **357/357 passing**; frontend production build passes.
+
+### 2026-09-01 — Phase 24 complete: world-model simulation builder
+
+* Added `ai_cad/geda_bridge/world_builder.py` with `WorldDescription`, `WorldBuilder`, `WorldTerrain`, `WorldSensor`, `WorldTask`, and `DomainRandomization`.
+* Implemented five domain-specific world templates: `pick_place`, `push`, `walker`, `drone_hover`, `humanoid_stand`.
+* Implemented deterministic domain randomization (`apply_domain_randomization`) for mass, friction, actuator gains, sensor noise, wind, and thermal loads.
+* Added `export_world_to_mjcf` and `export_world_to_isaac_json` so the same world description feeds both simulators.
+* Added `ai_cad/geda_bridge/world_loaders.py` with `load_world_into_mujoco`, `load_world_into_isaac_sim`, and `run_world_replay` for sparse trajectory capture.
+* Added backend endpoints: `POST /designs/{id}/world`, `GET /designs/{id}/world`, `POST /designs/{id}/world/randomize`, `POST /designs/{id}/world/replay`.
+* Added frontend `WorldBuilderPanel.jsx`, `api.js` helpers, and wired the panel into `App.jsx`.
+* Added `tests/test_world_builder.py` (14 tests) covering all templates, MJCF load, Isaac JSON export, randomization determinism, sensor/terrain serialization, and replay.
+* Full pytest suite: **371/371 passing** (149 default + 222 heavy/slow/MuJoCo); frontend production build passes.
 
 ### 2026-08-27 — Scope expanded to full multi-domain robotics platform
 

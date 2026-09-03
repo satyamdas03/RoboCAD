@@ -151,6 +151,33 @@ export async function getSceneReport(id, template = 'gripper_cube_grasp') {
   return apiFetch(`/designs/${id}/scene?${params.toString()}`)
 }
 
+export async function buildWorld(id, { template = 'pick_place', material = 'PLA', tolerance = 0.1, randomize = false, seed = null, parameters = {} } = {}) {
+  return apiFetch(`/designs/${id}/world`, {
+    method: 'POST',
+    body: JSON.stringify({ template, material, tolerance, randomize, seed, parameters }),
+  })
+}
+
+export async function getWorldReport(id, template = 'pick_place') {
+  const params = new URLSearchParams()
+  params.set('template', template)
+  return apiFetch(`/designs/${id}/world?${params.toString()}`)
+}
+
+export async function randomizeWorld(id, { seed = null, parameters = {} } = {}) {
+  return apiFetch(`/designs/${id}/world/randomize`, {
+    method: 'POST',
+    body: JSON.stringify({ seed, parameters }),
+  })
+}
+
+export async function replayWorld(id, { durationSeconds = 5.0, fps = 20.0, bodyNames = [] } = {}) {
+  return apiFetch(`/designs/${id}/world/replay`, {
+    method: 'POST',
+    body: JSON.stringify({ duration_seconds: durationSeconds, fps, body_names: bodyNames }),
+  })
+}
+
 export async function getCapabilities() {
   return apiFetch('/capabilities')
 }
