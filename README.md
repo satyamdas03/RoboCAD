@@ -4,7 +4,7 @@
 >
 > **Core bet:** The AI writes **parametric CAD code** (build123d / FeatureScript), not throwaway meshes. The model you get is editable, versionable, and exportable for 3D printing, machining, or Onshape.
 >
-> **Latest milestone:** Phases 14A–15B, **16–23**, and **24 are complete**. RoboCAD now builds multi-domain simulation worlds from the same parametric robot/asset: pick-place, push, walker, drone hover, and humanoid-stand templates with terrain, sensors, task goals, and domain randomization, exported to both MuJoCo (MJCF) and Isaac Sim (JSON). Phase 24 was hardened with body-name alias resolution, procedural terrain variants (stairs, ramp, uneven), Isaac Sim JSON schema validation, and rich replay capture (contacts, actuators, sensors). The full pytest suite: **376/376 passing**; frontend production build passes.
+> **Latest milestone:** Phases 14A–15B, **16–25**, and **26 foundation** are complete. RoboCAD now has a conversational cross-domain supervisor (HERMES) with tool registry, approval gates, plan execution, explain engine, JSON-persisted sessions, FastAPI endpoints, and a frontend `HermesPanel`. The full pytest suite: **454/454 passing** (210 default + 222 heavy/slow + 22 mujoco); frontend production build passes. Phase 26 is foundation-complete but not end-to-end live: tool executors are schema stubs, the agent uses JSON-in-text with a deterministic fallback, and real LLM tool-use integration remains.
 
 ---
 
@@ -148,7 +148,7 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **23** | Humanoid and full-robot system synthesis | ✅ **Complete — biped/quadruped/manipulator-on-base templates, actuator sizing, stability/workspace/gait checks, whole-system MJCF/URDF export, backend endpoints + frontend `HumanoidPanel`, 357/357 tests passing** |
 | **24** | World-model simulation builder | ✅ **Complete — `ai_cad/geda_bridge/world_builder.py`, MuJoCo/Isaac Sim export, domain randomization, body-name alias resolver, procedural terrain variants (stairs/ramp/uneven), Isaac JSON schema validation, rich replay capture (contacts/actuators/sensors), `WorldBuilderPanel.jsx`; 376/376 tests passing** |
 | **25** | Robot brain training loop | ✅ **Foundation complete — attention/compute-budget world-model extensions (`ComputeBudget`, `attention_regions`, `event_camera`, sensor dropout, actuator noise, saliency replay), `ai_cad/geda_bridge/brain/` NumPy-only CEM trainer, `BrainTrainingPanel.jsx`, `/train-brain` endpoints; 414/414 tests passing across default, heavy/slow, and mujoco tiers** |
-| **26** | HERMES cross-domain conversational supervisor | ⏳ Planned |
+| **26** | HERMES cross-domain conversational supervisor | ✅ **Foundation complete — `ai_cad/hermes/` package (models, tool registry, approval gate, planner, session persistence, agent, explain engine), FastAPI `/hermes/session*` endpoints, frontend `HermesPanel.jsx`; 454/454 tests passing across default, heavy/slow, and mujoco tiers. Caveats: tools are schema-only stubs until wired to real backend functions; agent uses JSON-in-text with a deterministic fallback instead of native LLM tool use.** |
 | **27** | Sim-to-real feedback loop | ⏳ Planned |
 | **28** | Distribution + commercialization + advanced EDA/CFD co-design plugins | ⏳ Planned |
 
@@ -184,7 +184,7 @@ This roadmap is the canonical plan of record for RoboCAD. **Do not reorder phase
 | **23** | Humanoid and full-robot system synthesis | 4–6 mo | Biped / quadruped / manipulator system export |
 | **24** | World-model simulation builder | 3–4 mo | Cross-domain training scenes |
 | **25** | Synthetic data + policy training loop | 4–6 mo | Design → trainable brain |
-| **26** | HERMES cross-domain conversational supervisor | 3–4 mo | Conversational design agent |
+| **26** | HERMES cross-domain conversational supervisor | 3–4 mo | ✅ Foundation complete — tool registry, approval gates, plan execution, explain engine, chat/plan UI; 454 tests. Remaining: real LLM tool use, parameter validation, wire tools to live backends |
 | **27** | Sim-to-real feedback loop | 6–12 mo | Real robot deployment |
 | **28** | Distribution + commercialization + advanced co-design plugins | Ongoing | SaaS + marketplace |
 
@@ -555,6 +555,15 @@ The decision: **build PATH1 (Phases 14A–15B) first**, then use it as the techn
 * Backend endpoints: `POST /designs/{id}/train-brain`, `GET /designs/{id}/brain`, `POST /designs/{id}/brain-replay-attention`.
 * Frontend: `BrainTrainingPanel.jsx` and extended `WorldBuilderPanel.jsx`.
 * Tests: 16 new brain tests; full suite **414/414 passing** (170 default + 222 heavy/slow + 22 mujoco).
+
+### 2026-09-01 — Phase 26 foundation complete: HERMES cross-domain conversational supervisor
+
+* Added `ai_cad/hermes/` package with Pydantic models (`Session`, `Plan`, `PlanStep`, `Message`, `ToolCall`, `ToolResult`), `HermesToolRegistry` (~14 tools), `ApprovalGate` (read-only vs. expensive/modifying), dependency-aware `planner.py`, JSON-persisted `session.py`, deterministic JSON-in-text `agent.py`, and `explain.py` for DFM/verification/brain/world-replay reports.
+* Added FastAPI endpoints: `POST /hermes/session`, `GET /hermes/session/{id}`, `POST /hermes/session/{id}/message`, `POST /hermes/session/{id}/approve`, `POST /hermes/session/{id}/explain`, `GET /hermes/session/{id}/status`.
+* Added frontend `HermesPanel.jsx` (chat thread, plan viewer, approval cards, quick-explain buttons, live status badge), API helpers in `api.js`, and integrated the panel into `App.jsx`.
+* Added HERMES capability entries to `ai_cad/geda_bridge/capabilities.py`.
+* Tests: `tests/test_hermes.py` (30 unit tests) + `tests/test_hermes_backend.py` (10 endpoint tests); full suite **454/454 passing** (210 default + 222 heavy/slow + 22 mujoco); frontend production build passes.
+* Caveats: tool executors are schema stubs until wired to real backend functions; agent currently uses JSON-in-text with a deterministic fallback rather than native LLM tool use; parameter validation and design-feedback loop remain future work.
 
 ### 2026-09-01 — Phase 24 complete: world-model simulation builder
 

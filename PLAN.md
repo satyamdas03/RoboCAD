@@ -885,7 +885,7 @@ PATH2 is the long-term North Star: a full-stack robotics design operating system
   - `explain.py` — plain-language summaries of DFM/verification/brain/world-replay reports.
 - ✅ FastAPI endpoints: `POST /hermes/session`, `GET /hermes/session/{id}`, `POST /hermes/session/{id}/message`, `POST /hermes/session/{id}/approve`, `POST /hermes/session/{id}/explain`, `GET /hermes/session/{id}/status`.
 - ✅ Frontend: `HermesPanel.jsx` with chat thread, plan viewer, approval cards, quick-explain buttons, live status badge.
-- ⏳ Remaining: native Anthropic tool-use integration, real LLM end-to-end tests, parameter validation hooks, deeper integration with `/generate`, `/train-brain`, `/world`.
+- ⏳ Remaining: wire tool executors to real backend functions (`generate_design`, `regenerate_parameters`, `synthesize_assembly`, `build_world`, `train_brain`, etc.); migrate from JSON-in-text to native Anthropic tool use; real LLM end-to-end tests with a mocked generator; strict parameter validation hooks; design-feedback loop that turns training/report results into redesign proposals.
 
 **Tests:**
 - `tests/test_hermes.py` — 30 unit tests covering gate, registry, planner, session, agent, explanation engine.

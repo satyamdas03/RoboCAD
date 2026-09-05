@@ -414,7 +414,7 @@ Maintained across the entire roadmap:
 - ✅ Backend endpoints: `/hermes/session`, `/hermes/session/{id}`, `/hermes/session/{id}/message`, `/hermes/session/{id}/approve`, `/hermes/session/{id}/explain`, `/hermes/session/{id}/status`.
 - ✅ Frontend: `HermesPanel.jsx` (chat thread, plan viewer, approval cards, quick explain, status badge), API helpers in `api.js`, integrated in `App.jsx`.
 - ✅ `geda_bridge/capabilities.py` exposes the new HERMES endpoints.
-- 🔄 Remaining: native Anthropic tool-use integration, real LLM end-to-end tests, strict parameter validation hooks, deeper `/generate`/`/train-brain`/`/world` integration, design-feedback loop.
+- 🔄 Remaining: wire tool executors to real backend functions (`generate_design`, `regenerate_parameters`, `synthesize_assembly`, `build_world`, `train_brain`, etc.); native Anthropic tool-use integration; real LLM end-to-end tests with a mocked generator; strict parameter validation hooks; deeper `/generate`/`/train-brain`/`/world` integration; design-feedback loop.
 
 **Tests:** `tests/test_hermes.py` (30 unit tests), `tests/test_hermes_backend.py` (10 FastAPI endpoint tests); full suite **454/454 passing**.
 
