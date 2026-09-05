@@ -870,20 +870,30 @@ PATH2 is the long-term North Star: a full-stack robotics design operating system
 
 **Effort:** 4–6 months total; foundation delivered in this batch. **Risk:** RL training is its own discipline; mitigated by starting with deterministic CEM on a toy attention environment.
 
-### Phase 26 — HERMES cross-domain conversational supervisor
+### Phase 26 — HERMES cross-domain conversational supervisor ✅ FOUNDATION COMPLETE
 
 **Goal:** A user can talk to RoboCAD like a colleague across all domains: ask status, request design changes, approve simulations, and get explanations — without becoming a black-box controller.
 
 **Deliverables:**
-- HERMES agent with tool use across design, simulation, and training APIs.
-- Status dashboard: current phase, failures, suggested next actions.
-- Approval gates: HERMES proposes, human confirms for expensive operations (training, large redesigns).
-- Explanation engine: why a part failed a test, why a policy succeeded/failed, why an airfoil/heat sink was shaped a certain way.
-- Memory of project context across sessions.
+- ✅ `ai_cad/hermes/` package:
+  - `models.py` — `Session`, `Plan`, `PlanStep`, `Message`, `ToolCall`, `ToolResult` Pydantic models.
+  - `tools.py` — `HermesToolRegistry` with read-only and design-modifying tools.
+  - `gate.py` — `ApprovalGate` requiring human confirmation for expensive/modifying operations.
+  - `planner.py` — dependency-aware plan execution, approval workflow, rejection cascading.
+  - `session.py` — JSON-persisted `HermesSession` under `designs/{id}/hermes_session.json`.
+  - `agent.py` — deterministic JSON-in-text parser + stub LLM fallback for tests.
+  - `explain.py` — plain-language summaries of DFM/verification/brain/world-replay reports.
+- ✅ FastAPI endpoints: `POST /hermes/session`, `GET /hermes/session/{id}`, `POST /hermes/session/{id}/message`, `POST /hermes/session/{id}/approve`, `POST /hermes/session/{id}/explain`, `GET /hermes/session/{id}/status`.
+- ✅ Frontend: `HermesPanel.jsx` with chat thread, plan viewer, approval cards, quick-explain buttons, live status badge.
+- ⏳ Remaining: native Anthropic tool-use integration, real LLM end-to-end tests, parameter validation hooks, deeper integration with `/generate`, `/train-brain`, `/world`.
 
-**Tests:** HERMES correctly explains a DFM failure and proposes a redesign; explains a CFD/thermal result in plain language.
+**Tests:**
+- `tests/test_hermes.py` — 30 unit tests covering gate, registry, planner, session, agent, explanation engine.
+- `tests/test_hermes_backend.py` — 10 FastAPI endpoint tests covering session CRUD, messaging, approval/rejection, explain, status.
+- Full pytest suite: **454/454 passing** (210 default + 222 heavy/slow + 22 mujoco).
+- Frontend `npm run build` passes.
 
-**Effort:** 3–4 months. **Risk:** agent hallucinations in safety-critical commands; mitigate with hard approval gates.
+**Effort:** 3–4 months total; foundation delivered in this batch. **Risk:** agent hallucinations in safety-critical commands; mitigate with hard approval gates.
 
 ### Phase 27 — Real-world feedback loop and sim-to-real
 
@@ -940,7 +950,7 @@ PATH2 is the long-term North Star: a full-stack robotics design operating system
 | 23 (humanoid / robot synthesis) | 19, 22 | 24, 25 |
 | 24 (world model) | 15A, 19, 23 | ✅ Complete — 376/376 tests; 25 |
 | 25 (brain training) | 24 | ✅ Foundation complete — 414 tests; 26, 27 |
-| 26 (HERMES) | 16, 19, 22, 24, 25 | Full UX layer |
+| 26 (HERMES) | 16, 19, 22, 24, 25 | ✅ Foundation complete — 454 tests; full UX layer |
 | 27 (sim-to-real) | 25, hardware access | Commercial deployment |
 | 28 (commercialization + co-design) | PATH1 proven, 27 | SaaS + marketplace |
 
@@ -977,4 +987,4 @@ Full analysis is saved in `.claude/memory/robocad-path-analysis.md` and the end-
 
 ---
 
-*Last updated: 2026-09-01 (Phases 14A–15B, 16–24 complete; Phase 25 foundation complete; 414/414 tests passing across default, heavy/slow, and mujoco tiers; scope expanded to full multi-domain robotics: mechanical, aero/thermal, electronics, and humanoid/robot systems; attention/compute-budget ideas from AI chip co-design integrated into the world builder and a NumPy-only brain training layer; Phase 26 HERMES conversational supervisor is next)*
+*Last updated: 2026-09-01 (Phases 14A–15B, 16–25 complete; Phase 26 HERMES conversational supervisor foundation complete; 454/454 tests passing across default, heavy/slow, and mujoco tiers; scope expanded to full multi-domain robotics: mechanical, aero/thermal, electronics, and humanoid/robot systems; attention/compute-budget ideas from AI chip co-design integrated into the world builder and a NumPy-only brain training layer; queued next: robot arm cosmetic refinement, real MuJoCo closed-loop rollout, synthetic dataset generator, HERMES LLM tool-use hardening)*

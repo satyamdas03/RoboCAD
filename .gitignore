@@ -18,6 +18,7 @@ backups/
 *.3mf
 *.png
 *.jpg
+*.pdf
 !assets/robocad_kinetic_precision_demo_poster.jpg
 
 # Local environment / secrets

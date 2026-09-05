@@ -4,7 +4,7 @@
 **Horizon:** ~5–7 years  
 **North Star:** voice/text/sketch → multi-domain parametric CAD → per-part multi-physics testing → assembly → world-model simulation → HERMES oversight → robot brain trained on synthetic data with retraining loops.  
 **First commercial milestone:** PATH1 / GEDA Bridge (Phases 14A–15B) — complete, 187/187 tests.  
-**Current milestone:** Attention-based robot brain training layer (Phase 25 foundation) — complete, 414/414 tests across default, heavy/slow, and mujoco tiers; compute-budget / attention / event-driven world-model extensions and NumPy-only `ai_cad/geda_bridge/brain/` trainer are live; Phase 26 — HERMES cross-domain conversational supervisor — is next.  
+**Current milestone:** HERMES cross-domain conversational supervisor (Phase 26 foundation) — complete, 454/454 tests across default, heavy/slow, and mujoco tiers; tool registry, approval gates, plan execution, explanation engine, JSON-persisted sessions, backend endpoints, and frontend `HermesPanel` are live; Phase 27 — real-world feedback loop / sim-to-real — is next.  
 **Domain tracks:** mechanical assemblies, aerodynamics / thermal / propulsion geometry, electronics / mechatronics form-factor co-design, humanoid / full-robot system synthesis, world-model simulation, robot brain training.  
 **Related:** [`PLAN.md`](../PLAN.md) Sections 10–14, [`PATH1_PATH2_analysis.md`](PATH1_PATH2_analysis.md)
 
@@ -396,22 +396,29 @@ Maintained across the entire roadmap:
 
 ---
 
-## Phase 26 — HERMES cross-domain conversational supervisor
+## Phase 26 — HERMES cross-domain conversational supervisor ✅ FOUNDATION COMPLETE
 
 **Goal:** A user can talk to RoboCAD like a colleague across all domains: ask status, request design changes, approve simulations, and get explanations — without becoming a black-box controller.
 
-**Status:** ⏳ Next.
+**Status:** ✅ Foundation complete — 2026-09-01.
 
 **Deliverables:**
-- HERMES agent with tool use across design, simulation, and training APIs.
-- Status dashboard: current phase, failures, suggested next actions.
-- Approval gates: HERMES proposes, human confirms for expensive operations (training, large redesigns).
-- Explanation engine: why a part failed a test, why a policy succeeded/failed, why an airfoil/heat sink was shaped a certain way.
-- Memory of project context across sessions.
+- ✅ `ai_cad/hermes/` package:
+  - `models.py` — `Session`, `Plan`, `PlanStep`, `Message`, `ToolCall`, `ToolResult`.
+  - `tools.py` — `HermesToolRegistry` with ~14 tools wrapping existing backend APIs.
+  - `gate.py` — `ApprovalGate` classifying read-only vs. expensive operations.
+  - `planner.py` — dependency-aware plan execution with approval, rejection, and cascading skip.
+  - `session.py` — JSON-persisted `HermesSession` under `designs/{id}/hermes_session.json`.
+  - `agent.py` — deterministic JSON-in-text parser + stub LLM fallback for tests.
+  - `explain.py` — plain-language summaries of DFM, verification, brain, and world-replay reports.
+- ✅ Backend endpoints: `/hermes/session`, `/hermes/session/{id}`, `/hermes/session/{id}/message`, `/hermes/session/{id}/approve`, `/hermes/session/{id}/explain`, `/hermes/session/{id}/status`.
+- ✅ Frontend: `HermesPanel.jsx` (chat thread, plan viewer, approval cards, quick explain, status badge), API helpers in `api.js`, integrated in `App.jsx`.
+- ✅ `geda_bridge/capabilities.py` exposes the new HERMES endpoints.
+- 🔄 Remaining: native Anthropic tool-use integration, real LLM end-to-end tests, strict parameter validation hooks, deeper `/generate`/`/train-brain`/`/world` integration, design-feedback loop.
 
-**Tests:** HERMES correctly explains a DFM failure and proposes a redesign; explains a CFD/thermal result in plain language.
+**Tests:** `tests/test_hermes.py` (30 unit tests), `tests/test_hermes_backend.py` (10 FastAPI endpoint tests); full suite **454/454 passing**.
 
-**Timeline:** 3–4 months. **Risk:** agent hallucinations in safety-critical commands; mitigate with hard approval gates.
+**Timeline:** 3–4 months total; foundation delivered. **Risk:** agent hallucinations in safety-critical commands; mitigated by hard approval gates and deterministic tool registry.
 
 ---
 
@@ -472,8 +479,8 @@ Maintained across the entire roadmap:
 | 23 | 19, 22 | ✅ Complete — 357/357 tests; 24, 25 |
 | 24 | 15A, 19, 23 | ✅ Complete — 376/376 tests; 25 |
 | 25 | 24 | ✅ Foundation complete — 414 tests; 26, 27 |
-| 26 | 16, 19, 22, 24, 25 | Full UX layer (next) |
-| 27 | 25, hardware access | Commercial deployment |
+| 26 | 16, 19, 22, 24, 25 | ✅ Foundation complete — 454 tests; full UX layer; 27 |
+| 27 | 25, hardware access | Commercial deployment (next) |
 | 28 | PATH1 proven, 27 | SaaS + marketplace |
 
 ---

@@ -384,3 +384,58 @@ export async function getBrainReport(id) {
 export async function replayBrainAttention(id) {
   return apiFetch(`/designs/${id}/brain-replay-attention`, { method: 'POST' })
 }
+
+export async function createHermesSession(designId = null) {
+  return apiFetch('/hermes/session', {
+    method: 'POST',
+    body: JSON.stringify({ design_id: designId }),
+  })
+}
+
+export async function getHermesSession(sessionId, designId = null) {
+  const params = new URLSearchParams()
+  if (designId) params.set('design_id', designId)
+  return apiFetch(`/hermes/session/${sessionId}?${params.toString()}`)
+}
+
+export async function sendHermesMessage(sessionId, message) {
+  return apiFetch(`/hermes/session/${sessionId}/message`, {
+    method: 'POST',
+    body: JSON.stringify({ session_id: sessionId, message }),
+  })
+}
+
+export async function approveHermesStep(sessionId, stepId, parameterOverrides = {}) {
+  return apiFetch(`/hermes/session/${sessionId}/approve`, {
+    method: 'POST',
+    body: JSON.stringify({
+      session_id: sessionId,
+      step_id: stepId,
+      approved: true,
+      parameter_overrides: parameterOverrides,
+    }),
+  })
+}
+
+export async function rejectHermesStep(sessionId, stepId, reason = '') {
+  return apiFetch(`/hermes/session/${sessionId}/approve`, {
+    method: 'POST',
+    body: JSON.stringify({
+      session_id: sessionId,
+      step_id: stepId,
+      approved: false,
+      reason,
+    }),
+  })
+}
+
+export async function explainWithHermes(sessionId, target) {
+  return apiFetch(`/hermes/session/${sessionId}/explain`, {
+    method: 'POST',
+    body: JSON.stringify({ session_id: sessionId, target }),
+  })
+}
+
+export async function getHermesStatus(sessionId) {
+  return apiFetch(`/hermes/session/${sessionId}/status`)
+}

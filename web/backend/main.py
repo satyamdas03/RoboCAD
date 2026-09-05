@@ -81,6 +81,8 @@ from ai_cad.geda_bridge import (
 )
 from ai_cad.geda_bridge.models import BundleManifest, BundleVerification
 from ai_cad.guess_parameter import guess_parameter as _guess_parameter
+from ai_cad.hermes import ApprovalGate, HermesAgent, HermesSession, HermesToolRegistry, explain_report
+from ai_cad.hermes.planner import build_plan
 from ai_cad.manufacturing import analyze_model as _analyze_manufacturing
 from ai_cad.models import CADParameter, ExportPaths, GenerationResult, ManufacturingReport, ValidationReport
 from ai_cad.onshape import OnshapeClient
@@ -323,6 +325,28 @@ class TrainBrainRequest(BaseModel):
     eval_episodes: int = Field(default=10, ge=1, le=50, description="Evaluation episodes for success rate.")
     success_rate_threshold: float = Field(default=0.7, ge=0.0, le=1.0, description="Threshold to mark training as successful.")
     seed: int = Field(default=42, description="Random seed for reproducibility.")
+
+
+class HermesCreateSessionRequest(BaseModel):
+    design_id: str | None = Field(default=None, description="Optional design id to bind the session to.")
+
+
+class HermesMessageRequest(BaseModel):
+    session_id: str = Field(..., description="HERMES session id.")
+    message: str = Field(..., min_length=1, description="User message.")
+
+
+class HermesApprovalRequest(BaseModel):
+    session_id: str = Field(..., description="HERMES session id.")
+    step_id: str = Field(..., description="Plan step id to approve or reject.")
+    approved: bool = Field(..., description="True to approve, False to reject.")
+    parameter_overrides: dict[str, Any] = Field(default_factory=dict, description="Optional parameter changes before execution.")
+    reason: str = Field(default="", description="Reason for rejection if approved=False.")
+
+
+class HermesExplainRequest(BaseModel):
+    session_id: str = Field(..., description="HERMES session id.")
+    target: str = Field(..., description="Report type to explain: dfm, verification, brain, world_replay, generic.")
 
 
 class VariantSweepRequest(BaseModel):
@@ -2002,6 +2026,200 @@ def brain_replay_attention_endpoint(design_id: str) -> dict[str, Any]:
         },
         "zero_policy_rollout": result,
     }
+
+
+@app.post("/hermes/session")
+def create_hermes_session(request: HermesCreateSessionRequest) -> dict[str, Any]:
+    """Create a new HERMES session bound to an optional design."""
+    try:
+        session = HermesSession.create(
+            design_id=request.design_id,
+            base_dir=DESIGNS_DIR,
+            registry=HermesToolRegistry(),
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to create HERMES session: {exc}")
+    return {
+        "session_id": session.session.id,
+        "design_id": session.session.design_id,
+        "status": session.session.status,
+        "created_at": session.session.created_at,
+    }
+
+
+@app.get("/hermes/session/{session_id}")
+def get_hermes_session(session_id: str, design_id: str | None = None) -> dict[str, Any]:
+    """Load a HERMES session and its active plan."""
+    try:
+        session = HermesSession.load(session_id, design_id=design_id, base_dir=DESIGNS_DIR)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="HERMES session not found.")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to load HERMES session: {exc}")
+    plan = session.session.active_plan()
+    return {
+        "session_id": session.session.id,
+        "design_id": session.session.design_id,
+        "status": session.session.status,
+        "messages": [m.model_dump() for m in session.session.messages],
+        "active_plan": plan.model_dump() if plan else None,
+        "context": session.session.context,
+        "updated_at": session.session.updated_at,
+    }
+
+
+@app.post("/hermes/session/{session_id}/message")
+def hermes_message(session_id: str, request: HermesMessageRequest) -> dict[str, Any]:
+    """Send a message to HERMES and return parsed tool calls / plan / status."""
+    if request.session_id != session_id:
+        raise HTTPException(status_code=400, detail="Session id mismatch.")
+    try:
+        session = HermesSession.load(session_id, base_dir=DESIGNS_DIR)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="HERMES session not found.")
+
+    session.add_message("user", request.message)
+    agent = HermesAgent(registry=HermesToolRegistry())
+    response = agent.run(
+        request.message,
+        history=session.session.messages,
+        context=session.session.context,
+    )
+
+    # Convert assistant tool calls into a plan if no explicit plan was given.
+    if response.plan is None and response.tool_calls:
+        steps = [tool_call_to_pydantic_step(call) for call in response.tool_calls]
+        response.plan = build_plan(goal=f"Respond to: {request.message[:60]}", steps_data=[step.model_dump() for step in steps])
+
+    if response.plan:
+        session.session.plans.append(response.plan)
+        session.advance(context=session.session.context)
+
+    assistant_content = response.content
+    if not assistant_content and response.tool_calls:
+        names = ", ".join(c.tool for c in response.tool_calls)
+        assistant_content = f"I'll use these tools: {names}. Please review any pending approvals."
+    if not assistant_content and response.plan:
+        assistant_content = f"I created a plan: {response.plan.goal}"
+
+    session.add_message("assistant", assistant_content, tool_calls=[c.model_dump() for c in response.tool_calls])
+    plan = session.session.active_plan()
+    pending: list[dict[str, Any]] = []
+    if plan:
+        for step in plan.steps:
+            if step.status.value == "awaiting_approval":
+                pending.append({
+                    "step_id": step.id,
+                    "description": step.description,
+                    "tool": step.tool,
+                    "parameters": step.parameters,
+                })
+
+    return {
+        "session_id": session_id,
+        "reply": assistant_content,
+        "status": session.session.status,
+        "active_plan": plan.model_dump() if plan else None,
+        "pending_approvals": pending,
+        "tool_calls": [c.model_dump() for c in response.tool_calls],
+    }
+
+
+@app.post("/hermes/session/{session_id}/approve")
+def hermes_approve(session_id: str, request: HermesApprovalRequest) -> dict[str, Any]:
+    """Approve or reject a pending HERMES plan step and continue execution."""
+    if request.session_id != session_id:
+        raise HTTPException(status_code=400, detail="Session id mismatch.")
+    try:
+        session = HermesSession.load(session_id, base_dir=DESIGNS_DIR)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="HERMES session not found.")
+
+    if request.approved:
+        step = session.approve(request.step_id, request.parameter_overrides)
+        results = session.advance(context=session.session.context)
+    else:
+        step = session.reject(request.step_id, request.reason)
+        results = []
+
+    plan = session.session.active_plan()
+    return {
+        "session_id": session_id,
+        "step": step,
+        "status": session.session.status,
+        "results": results,
+        "active_plan": plan.model_dump() if plan else None,
+    }
+
+
+@app.post("/hermes/session/{session_id}/explain")
+def hermes_explain(session_id: str, request: HermesExplainRequest) -> dict[str, Any]:
+    """Ask HERMES to explain a persisted report."""
+    if request.session_id != session_id:
+        raise HTTPException(status_code=400, detail="Session id mismatch.")
+    try:
+        session = HermesSession.load(session_id, base_dir=DESIGNS_DIR)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="HERMES session not found.")
+
+    report: dict[str, Any] | None = None
+    if session.session.design_id:
+        meta_path = DESIGNS_DIR / session.session.design_id / "metadata.json"
+        if meta_path.exists():
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            if request.target == "dfm":
+                report = meta.get("dfm_report")
+            elif request.target == "verification":
+                report = meta.get("verification_report")
+            elif request.target == "brain":
+                report = meta.get("brain")
+            elif request.target == "world_replay":
+                world_replays = meta.get("world_replays", {})
+                if world_replays:
+                    report = next(iter(world_replays.values()))
+
+    explanation = explain_report(request.target, report)
+    session.add_message("assistant", explanation, target=request.target, report=report)
+    return {
+        "session_id": session_id,
+        "target": request.target,
+        "explanation": explanation,
+        "report": report,
+        "status": session.session.status,
+    }
+
+
+@app.get("/hermes/session/{session_id}/status")
+def hermes_status(session_id: str) -> dict[str, Any]:
+    """Return the current HERMES session status and any pending approvals."""
+    try:
+        session = HermesSession.load(session_id, base_dir=DESIGNS_DIR)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="HERMES session not found.")
+    plan = session.session.active_plan()
+    pending: list[dict[str, Any]] = []
+    if plan:
+        for step in plan.steps:
+            if step.status.value == "awaiting_approval":
+                pending.append({
+                    "step_id": step.id,
+                    "description": step.description,
+                    "tool": step.tool,
+                    "parameters": step.parameters,
+                })
+    return {
+        "session_id": session_id,
+        "status": session.session.status,
+        "active_plan_id": plan.id if plan else None,
+        "pending_approvals": pending,
+        "updated_at": session.session.updated_at,
+    }
+
+
+def tool_call_to_pydantic_step(call):
+    """Convert an agent ToolCall to a planner PlanStep (import helper)."""
+    from ai_cad.hermes.models import PlanStep
+    return PlanStep(description=f"Execute {call.tool}", tool=call.tool, parameters=call.parameters)
 
 
 @app.post("/designs/{design_id}/variant-sweep")

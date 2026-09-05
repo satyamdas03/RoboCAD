@@ -1,7 +1,7 @@
 # RoboCAD Strategic Analysis: PATH1 vs PATH2
 
 **Date:** 2026-08-25 (updated 2026-09-01)  
-**Status:** Decision made; PATH1 (Phases 14A–15B), Batch A (Phases 16–18), Phase 19, Phase 20, Phase 21, Phase 22, Phase 23, Phase 24, and Phase 25 complete; Phase 26 — HERMES cross-domain conversational supervisor — is next  
+**Status:** Decision made; PATH1 (Phases 14A–15B), Batch A (Phases 16–18), Phase 19, Phase 20, Phase 21, Phase 22, Phase 23, Phase 24, Phase 25, and Phase 26 complete; Phase 27 — real-world feedback loop / sim-to-real — is next  
 **Related:** [`PLAN.md`](../PLAN.md) Sections 12–14, [`robocad-end-to-end-roadmap.md`](robocad-end-to-end-roadmap.md)
 
 ---
@@ -170,7 +170,8 @@ A full-stack, multi-domain robotics design operating system. It now spans **Phas
 11. ✅ Humanoid / full-robot synthesis (23) complete, **357/357 tests passing** after post-ship hardening.
 12. ✅ World-model simulation builder (24) complete, **376/376 tests passing**.
 13. ✅ Attention-based robot brain training foundation (25) complete, **414/414 tests passing**.
-14. **Next:** HERMES cross-domain supervisor (26), sim-to-real feedback (27), and distribution / ecosystem / advanced co-design (28) — in that order.
+14. ✅ HERMES cross-domain conversational supervisor foundation (26) complete, **454/454 tests passing**.
+15. **Next:** Real-world feedback loop / sim-to-real (27), and distribution / ecosystem / advanced co-design (28) — in that order.
 
 ---
 
