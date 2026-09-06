@@ -1,10 +1,10 @@
 # 🤖 RoboCAD — AI-Powered Parametric CAD for Robotics
 
-> **Mission:** Let robotics builders design real, editable, manufacturable hardware parts by describing them in plain language — no months of sketch-extrude-mate training required.
+> **Mission:** Let robotics builders design real, editable, manufacturable hardware parts and systems by describing them in plain language — no months of sketch-extrude-mate training required.
 >
-> **Core bet:** The AI writes **parametric CAD code** (build123d / FeatureScript), not throwaway meshes. The model you get is editable, versionable, and exportable for 3D printing, machining, or Onshape.
+> **Core bet:** The AI writes **parametric CAD code** (build123d / FeatureScript), not throwaway meshes. The model you get is editable, versionable, and exportable for 3D printing, machining, Onshape, or physics simulation.
 >
-> **Latest milestone:** Phases 14A–15B, **16–25**, and **26** are complete end-to-end. RoboCAD now has a conversational cross-domain supervisor (HERMES) with real tool executors, parameter validation, a design-context builder, Anthropic/Ollama LLM caller, approval gates, plan execution, explain engine, JSON-persisted sessions, FastAPI endpoints, and a frontend `HermesPanel`. The full pytest suite: **450 passed, 1 expected failure, 5 benchmark/network tests deselected**; frontend production build passes. Phase 27 — sim-to-real feedback loop — is next.
+> **Latest milestone:** Phases 0–**27A/B/C** are complete or in-progress. RoboCAD now has a **real-time voice interface for HERMES** (LiveKit + NVIDIA NIM STT/TTS), an **AI render-critique layer** powered by NVIDIA vision-language models, a **NVIDIA NIM intelligence client** for chat/vision/Cosmos scenario generation, and a **professional Three.js renderer** with auto-fit camera, studio lighting, and screenshot capture. The full pytest suite: **263 default + 222 heavy/slow tests passing** (1 expected failure, 5 benchmark/network tests deselected); frontend production build passes. Phase 27D (hardware-in-the-loop sim-to-real) remains future work blocked on hardware access.
 
 ---
 
@@ -27,76 +27,83 @@
 RoboCAD closes that gap. It lets me (and anyone else) operate at the level of intent, not clicks. Designs produced here can be:
 
 1. Printed or machined directly (STL / STEP / 3MF export).
-2. Synced to Onshape later for professional assemblies and mates (Phase 5).
-3. Reused as parts in `LearningRobotics` simulations and hardware builds.
+2. Synced to Onshape for professional assemblies and mates (Phase 5).
+3. Loaded into MuJoCo / Isaac Sim for physics and skill training (Phases 14A–24).
+4. Inspected, critiqued, and driven by a conversational supervisor (HERMES, Phases 26–27A).
 
-In short: **LearningRobotics teaches the robot. RoboCAD designs the parts.**
+In short: **LearningRobotics teaches the robot. RoboCAD designs the parts and systems.**
 
 ---
 
 ## ✨ What makes this different
 
-| Tool category | Examples | Output | Editable? | Manufacturable? |
-|---|---|---|---|---|
-| Text-to-mesh | Meshy, Shap-E | mesh (STL-like) | ❌ no | ⚠️ limited |
-| Text-to-SDF/voxel | research demos | implicit field | ❌ no | ❌ no |
-| Parametric template filling | Onshape configs | existing parametric model | ✅ yes | ✅ yes |
-| **RoboCAD (this repo)** | **LLM → build123d code → feature tree** | **parametric CAD script** | **✅ yes** | **✅ yes** |
+| Tool category | Examples | Output | Editable? | Manufacturable? | Sim-ready? |
+|---|---|---|---|---|---|
+| Text-to-mesh | Meshy, Shap-E | mesh (STL-like) | ❌ no | ⚠️ limited | ❌ no |
+| Text-to-SDF/voxel | research demos | implicit field | ❌ no | ❌ no | ❌ no |
+| Parametric template filling | Onshape configs | existing parametric model | ✅ yes | ✅ yes | ⚠️ limited |
+| **RoboCAD (this repo)** | **LLM → build123d code → feature tree → multi-physics → assembly → world model** | **parametric CAD script + verified bundle** | **✅ yes** | **✅ yes** | **✅ yes** |
 
-The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via build123d/CADQuery, Onshape's FeatureScript) are programming environments. LLMs are already excellent at code generation. RoboCAD turns hardware design into a code-generation + execution problem, which is exactly the right shape for an AI researcher.
+The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via build123d/CADQuery, Onshape's FeatureScript) are programming environments. LLMs are already excellent at code generation. RoboCAD turns hardware design into a code-generation + execution + verification problem, which is exactly the right shape for an AI researcher.
 
 ---
 
 ## 🏗️ Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  User layer                                                 │
-│  • natural-language prompt                                  │
-│  • parameter sliders / stylus reference points              │
-│  • design history + remix                                   │
-└───────────────────────┬─────────────────────────────────────┘
-                        │
-                        ▼
-┌─────────────────────────────────────────────────────────────┐
-│  AI orchestrator (Claude / GPT-4 + structured output)       │
-│  • intent parsing (chassis, bracket, gripper, pulley...)    │
-│  • emits parametric build123d / FeatureScript code          │
-│  • self-corrects on execution / validation failures         │
-│  • explains what it built and why                           │
-└───────────────────────┬─────────────────────────────────────┘
-                        │
-                        ▼
-┌─────────────────────────────────────────────────────────────┐
-│  CAD execution engine                                       │
-│  • build123d / CADQuery (local, Phase 0–4)                │
-│  • optional Onshape REST API + FeatureScript (Phase 5)    │
-└───────────────────────┬─────────────────────────────────────┘
-                        │
-                        ▼
-┌─────────────────────────────────────────────────────────────┐
-│  Geometry validation layer                                  │
-│  • build success / traceback capture                        │
-│  • watertight / manifold check (manifold3d / trimesh)       │
-│  • bounding-box, mass, CoM sanity                            │
-│  • manufacturability hints (overhangs, fastener clearances) │
-└───────────────────────┬─────────────────────────────────────┘
-                        │
-                        ▼
-┌─────────────────────────────────────────────────────────────┐
-│  Viewer + edit layer                                        │
-│  • web-based 3D viewer (three.js / react-three-fiber)       │
-│  • expose named parameters from generated code              │
-│  • point-and-type dimension editing (v1)                    │
-└───────────────────────┬─────────────────────────────────────┘
-                        │
-                        ▼
-┌─────────────────────────────────────────────────────────────┐
-│  Persistence + reuse                                          │
-│  • design = {prompt, code, parameters, exports, versions}   │
-│  • searchable library                                         │
-│  • remix: old design becomes seed for new prompt              │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│  User layer                                                             │
+│  • natural-language / voice / sketch prompt                             │
+│  • parameter sliders / stylus reference points                        │
+│  • design history + remix + HERMES conversational supervisor          │
+└───────────────────────────┬─────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│  AI orchestrator (Claude / GPT-4 / NVIDIA Nemotron + structured output)  │
+│  • domain classification (mechanical / aero / thermal / electronics /   │
+│    humanoid / multi)                                                   │
+│  • intent parsing + system decomposition                                │
+│  • emits parametric build123d code + feature tree                     │
+│  • self-corrects on execution / validation failures                     │
+│  • explains what it built and why                                     │
+└───────────────────────────┬─────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│  CAD execution + domain geometry engine                                 │
+│  • build123d solids, sketches, constraints, assemblies                │
+│  • surface geometry for airfoils / wings / heat sinks / propellers     │
+│  • PCB outlines, enclosures, connectors for electronics co-design       │
+│  • humanoid / quadruped / manipulator robot templates                  │
+└───────────────────────────┬─────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│  Multi-physics verification layer                                       │
+│  • material library, mesh-quality gate                                  │
+│  • closed load-case templates: static stress, drop test, thermal, CFD, │
+│    fatigue, fastener pull-out, joint torque                              │
+│  • redesign suggestions when a check fails                              │
+└───────────────────────────┬─────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│  Assembly + world-model bridge                                        │
+│  • mate inference, kinematic solver, collision / clearance checks        │
+│  • MJCF / URDF export with joints, actuators, sensors                   │
+│  • MuJoCo + Isaac Sim world templates, domain randomization, terrain    │
+│  • attention-based robot brain training (CEM + NumPy)                 │
+└───────────────────────────┬─────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│  Collaboration + deployment                                             │
+│  • Onshape REST sync, manufacturability reports                         │
+│  • verified bundle export for LearningRobotics                          │
+│  • real-time voice agent via LiveKit + NVIDIA NIM                       │
+│  • AI render critique + physics-aware scenario generation               │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -107,16 +114,17 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 |---|---|---|
 | CAD kernel | **build123d** | Clean Python API on OpenCASCADE; LLMs write it well; open-source |
 | Mesh validation | `trimesh`, `manifold3d` | Watertight checks, mass properties |
-| AI model | Claude / GPT-4 via API | Best-in-class code generation and self-correction |
-| Backend (Phase 2+) | FastAPI | Python-native, easy to invoke build123d |
-| Frontend (Phase 2+) | React + three.js / react-three-fiber | Standard web 3D viewer |
-| Storage | SQLite + JSON files + Git | Simple, versioned, portable |
-| Export formats | STL, STEP, 3MF | 3D printing + machining + Onshape |
-| Onshape sync (Phase 5) | Onshape REST API + FeatureScript | Professional assemblies and mates |
+| AI models | Claude 5 / GPT-4 / NVIDIA Nemotron / Ollama | Best-in-class code generation + local fallback |
+| Backend | FastAPI | Python-native, easy to invoke build123d |
+| Frontend | React + three.js / react-three-fiber | Standard web 3D viewer with professional rendering |
+| Speech | LiveKit + NVIDIA NIM ASR/TTS | Real-time WebRTC voice with cloud STT/TTS |
+| Simulation | MuJoCo + Isaac Sim JSON | Physics-ready bundles and world models |
+| Storage | JSON files + Git | Simple, versioned, portable |
+| Export formats | STL, STEP, 3MF, MJCF, URDF, IDF | 3D printing / machining / Onshape / simulation / EDA |
 
 ---
 
-## 🚀 Current phase
+## 🚀 Phase-by-phase progress
 
 | Phase | Goal | Status |
 |---|---|---|
@@ -125,70 +133,55 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **2** | Minimal web app (prompt + viewer + export) | ✅ **Complete — FastAPI + React + three.js viewer + persistence** |
 | **3** | Parameter / stylus editing layer | ✅ **Complete — editable parameter panel + face-click parameter guessing + versioned regeneration** |
 | **4** | Design library + remix | ✅ **Complete — component catalog, search/filter, tags, remix with parent linking** |
-| **5** | Onshape export / sync + manufacturing reports | ✅ **Complete — HMAC-signed Onshape API client, STEP upload, manufacturability report (volume, overhangs, hole diameter, print-time heuristic)** |
-| **6** | Robotics-aware component templates | ✅ **Complete — 12 standard robotics parts in `ComponentLibrary`, seeded prompts, tags, remix** |
-| **7** | Google Stitch Kinetic Precision UI redesign | ✅ **Complete — dark scientific engineering workstation, `kp-*` token system, fixed header/sidebar/viewer/inspector layout, all components restyled, frontend builds cleanly, 56/57 tests passing, live end-to-end verified** |
-| **8** | **Complexity benchmark + feature-tree spec** | ✅ **Complete — 30-prompt baseline: 26/30 (86.7%); feature-tree schema v1.0.0; new tests pass** |
-| **9** | **Feature-tree backend** | ✅ **Complete — structured feature tree transpiles to build123d; `GET /designs/{id}/feature-tree` + `POST /designs/{id}/regenerate-from-feature-tree`; frontend Feature Tree panel; 97/97 tests pass** |
-| **10** | **Sketch + 2D constraint solver** | ✅ **Complete — internal 2D solver for distance/horizontal/vertical/coincident/concentric/equal/fix constraints; `ai_cad/sketch_solver.py` + `tests/test_sketch_solver.py`; 105/105 tests pass** |
-| **11** | **Assembly system** | ✅ **Complete — multi-part instances + LCS mates, `ai_cad/assembly.py`, assembly STEP export, `GET /designs/{id}/assembly`, `AssemblyPanel.jsx`, `tests/test_assembly.py`; 112/112 tests pass** |
-| **12** | **Verification + physics layer** | ✅ **Complete — DFM rule engine (`ai_cad/dfm.py`), tolerance/fit checks (`ai_cad/tolerances.py`), cantilever-beam FEA (`ai_cad/fea.py`), backend endpoints for all three, frontend `DFMReport.jsx` / `ToleranceReport.jsx` / `FEAPanel.jsx`; 125/125 tests pass** |
-| **13** | **Model specialization / fine-tuning + Claude 5 integration** | ✅ **Complete — dataset builder, Ollama Modelfile specialization, QLoRA skeleton, A/B evaluator, Anthropic SDK Claude 5 fixes; 134/134 tests pass; Claude Sonnet 5 T1–T4 87.5% (21/24), overall 21/30 (70.0%)** |
-| **14A** | **GEDA Bridge: MuJoCo / URDF exporter + verified asset bundles** | ✅ **Complete — `ai_cad/geda_bridge/`, `POST /designs/{id}/simulate`, `SimulatePanel.jsx`, 152/152 tests passing, MuJoCo runtime validation** |
-| **14B** | **Standard manipulation scene templates** | ✅ **Complete — `ai_cad/geda_bridge/scene_templates.py`, 4 templates, composition API, `POST /designs/{id}/scene`, `SceneTemplatePanel.jsx`, 160/160 tests passing, MuJoCo scene-load validation** |
-| **15A** | **LearningRobotics handshake** | ✅ **Complete — `ai_cad/geda_bridge/loader.py`, bundle contract (`docs/BUNDLE_CONTRACT.md`), reference MuJoCo/Isaac Sim loaders, `GET /capabilities`, `POST /designs/{id}/handshake`, `CapabilitiesPanel.jsx`, 10 s wedge stability end-to-end test, 170/170 tests passing** |
-| **15B** | **RoboCompiler asset pipeline** | ✅ **Complete — `ai_cad/geda_bridge/skill_recommend.py`, `skill_smoke.py`, `variant_sweep.py`, `POST /designs/{id}/recommend-skill`, `POST /designs/{id}/train-skill`, `GET /designs/{id}/skills`, `POST /designs/{id}/variant-sweep`, trainable push-policy smoke test, 187/187 tests passing** |
-| **16** | **Cross-domain input (voice/text/sketch + domain detection)** | ✅ **Complete — `ai_cad/domain.py` keyword + embedding classifier, `ai_cad/intent_parser.py` per-domain `DomainIntent`, `POST /classify-domain`, `GET /designs/{id}/domain-intent`, `DomainBadge` in history + inspector, 201/201 tests passing** |
-| **17** | **Domain-aware parametric representation (solids, surfaces, kinematics, PCB form factors)** | ✅ **Complete — feature-tree schema v2.0.0 with domain tags, `SurfaceFeature`, `KinematicJoint`, `PCBOutline`, NACA 4-digit airfoil sketch entity, `ai_cad/sketch_solver.py` airfoil point generation, 201/201 tests passing** |
-| **18** | **Automatic decomposition + domain part families** | ✅ **Complete — `ai_cad/part_families.py`, `ai_cad/decomposition.py`, `ai_cad/composer.py`, rule-based system decomposer, 12 cross-domain part families, `POST /decompose`, `/generate?decompose`, `DecomposePanel.jsx` + auto-decompose checkbox, **228/228 tests passing** |
-| **19** | **Mechanical assembly synthesis + verification** | ✅ **Complete — mate inference from part-family `Interface`s, kinematic solver for revolute/prismatic joints, assembly collision/clearance checks, joint-aware MJCF/URDF export, browser range-of-motion replay; default "robot arm with gripper" synthesizes a true parallel-jaw prismatic gripper; **251/251 tests passing** |
-| **20** | **Aerodynamics, thermal, and propulsion geometry** | ✅ **Complete — NACA 4-digit airfoils, straight wings, propeller blades, heat sinks, SU2/OpenFOAM CFD mesh stubs, `AeroPanel.jsx`, `ThermalPanel.jsx`, **276/276 tests passing** |
-| **21** | Electronics and mechatronics integration (form-factor co-design, not silicon layout) | ✅ **Complete — `PCBOutline` transpilation, electronics part families, stack decomposition + composer layout, electronics analysis, IDF/STEP export, `ElectronicsPanel.jsx`, **299/299 tests passing** |
-| **22** | Multi-physics verification engine (FEA / CFD / thermal / dynamics) | ✅ **Complete — `ai_cad/materials.py`, `ai_cad/verification*.py`, `ai_cad/mesh_quality.py`, closed load-case templates, mesh-quality gate, backend `/verify` endpoints, frontend `VerificationPanel`, **330/330 tests passing** |
-| **23** | Humanoid and full-robot system synthesis | ✅ **Complete — biped/quadruped/manipulator-on-base templates, actuator sizing, stability/workspace/gait checks, whole-system MJCF/URDF export, backend endpoints + frontend `HumanoidPanel`, 357/357 tests passing** |
-| **24** | World-model simulation builder | ✅ **Complete — `ai_cad/geda_bridge/world_builder.py`, MuJoCo/Isaac Sim export, domain randomization, body-name alias resolver, procedural terrain variants (stairs/ramp/uneven), Isaac JSON schema validation, rich replay capture (contacts/actuators/sensors), `WorldBuilderPanel.jsx`; 376/376 tests passing** |
-| **25** | Robot brain training loop | ✅ **Foundation complete — attention/compute-budget world-model extensions (`ComputeBudget`, `attention_regions`, `event_camera`, sensor dropout, actuator noise, saliency replay), `ai_cad/geda_bridge/brain/` NumPy-only CEM trainer, `BrainTrainingPanel.jsx`, `/train-brain` endpoints; 414/414 tests passing across default, heavy/slow, and mujoco tiers** |
-| **26** | HERMES cross-domain conversational supervisor | ✅ **Complete end-to-end — real tool executors wired to backend callables (`generate_design`, `regenerate_parameters`, `synthesize_assembly`, `run_dfm_report`, `run_verification`, `build_world`, `replay_world`, `train_brain`), Pydantic parameter validation, design-context builder, LLM caller (Anthropic/Ollama), design-feedback loop (`propose_redesign` → `regenerate_parameters`), session pruning, `HermesPanel.jsx` tool-result/redesign cards; **450/451 tests passing** across default, heavy/slow, and mujoco tiers (1 expected failure, 5 benchmark/network tests deselected); frontend build passes.** |
-| **27** | Sim-to-real feedback loop | ⏳ Planned |
-| **28** | Distribution + commercialization + advanced EDA/CFD co-design plugins | ⏳ Planned |
+| **5** | Onshape export / sync + manufacturing reports | ✅ **Complete — HMAC-signed Onshape API client, STEP upload, manufacturability report** |
+| **6** | Robotics-aware component templates | ✅ **Complete — 12 standard robotics parts in `ComponentLibrary`** |
+| **7** | Google Stitch Kinetic Precision UI redesign | ✅ **Complete — dark scientific workstation, `kp-*` token system, frontend build passes** |
+| **8** | Complexity benchmark + feature-tree spec | ✅ **Complete — 30-prompt baseline: 26/30 (86.7%); feature-tree schema v1.0.0** |
+| **9** | Feature-tree backend | ✅ **Complete — structured feature tree transpiles to build123d; 97/97 tests pass** |
+| **10** | Sketch + 2D constraint solver | ✅ **Complete — internal 2D solver for distance/horizontal/vertical/coincident/concentric/equal/fix constraints; 105/105 tests pass** |
+| **11** | Assembly system | ✅ **Complete — multi-part instances + LCS mates; 112/112 tests pass** |
+| **12** | Verification + physics layer | ✅ **Complete — DFM rule engine, tolerance/fit checks, cantilever-beam FEA; 125/125 tests pass** |
+| **13** | Model specialization / fine-tuning + Claude 5 integration | ✅ **Complete — 134/134 tests pass; Claude Sonnet 5 T1–T4 87.5%** |
+| **14A** | GEDA Bridge: MuJoCo / URDF exporter + verified asset bundles | ✅ **Complete — 152/152 tests passing** |
+| **14B** | Standard manipulation scene templates | ✅ **Complete — 160/160 tests passing** |
+| **15A** | LearningRobotics handshake | ✅ **Complete — 170/170 tests passing** |
+| **15B** | RoboCompiler asset pipeline | ✅ **Complete — 187/187 tests passing** |
+| **16** | Cross-domain input (voice/text/sketch + domain detection) | ✅ **Complete — 201/201 tests passing** |
+| **17** | Domain-aware parametric representation | ✅ **Complete — feature-tree schema v2.0.0; 201/201 tests passing** |
+| **18** | Automatic decomposition + domain part families | ✅ **Complete — 228/228 tests passing** |
+| **19** | Mechanical assembly synthesis + verification | ✅ **Complete — 251/251 tests passing** |
+| **20** | Aerodynamics, thermal, and propulsion geometry | ✅ **Complete — 276/276 tests passing** |
+| **21** | Electronics and mechatronics integration | ✅ **Complete — 299/299 tests passing** |
+| **22** | Multi-physics verification engine | ✅ **Complete — 330/330 tests passing** |
+| **23** | Humanoid and full-robot system synthesis | ✅ **Complete — 357/357 tests passing** |
+| **24** | World-model simulation builder | ✅ **Complete — 376/376 tests passing** |
+| **25** | Robot brain training loop | ✅ **Foundation complete — 414/414 tests passing across default, heavy/slow, and mujoco tiers** |
+| **26** | HERMES cross-domain conversational supervisor | ✅ **Complete end-to-end — real tool executors, parameter validation, design context, LLM caller (Anthropic/Ollama), design-feedback loop, `HermesPanel`; 450/451 tests passing** |
+| **27A** | Voice interface for HERMES (LiveKit + NVIDIA NIM) | ✅ **Landed — LiveKit token endpoint, NVIDIA STT/TTS adapters, room-based voice agent, `VoiceControls.jsx`; 15 tests** |
+| **27B** | Professional rendering hardening | ✅ **Landed — auto-fit camera, studio lighting, contact shadows, reset/grid/wireframe toolbar, screenshot capture** |
+| **27C** | NVIDIA model intelligence | ✅ **Landed — generic NIM client, AI render critique, HERMES NVIDIA routing, `/world/scenario`, `/nvidia/models`; 15 tests** |
+| **27D** | Hardware-in-the-loop sim-to-real | ⏳ **Future — blocked on hardware access** |
+| **28** | Distribution + commercialization + advanced co-design plugins | ⏳ **Planned** |
 
-Phases 0–7 proved the **AI → parametric-code loop** for single-part robotics hardware. Phases 8–13 turned that loop into an **engineer-grade CAD system** with feature trees, constraints, assemblies, verification, and model specialization. Phases 14A–15B shipped the **GEDA Bridge** so LearningRobotics can consume verified simulation-ready assets. Phases 16–28 expand RoboCAD into a **multi-domain generative engineering platform** for the entire robotics world: mechanical assemblies, aerodynamic/thermal surfaces, electronics form-factor co-design, and full humanoid/robot systems.
+Phases 0–7 proved the **AI → parametric-code loop** for single-part robotics hardware. Phases 8–13 turned that loop into an **engineer-grade CAD system** with feature trees, constraints, assemblies, verification, and model specialization. Phases 14A–15B shipped the **GEDA Bridge** so LearningRobotics can consume verified simulation-ready assets. Phases 16–27C expand RoboCAD into a **multi-domain generative engineering platform** with a real-time voice supervisor, NVIDIA-powered intelligence, and professional rendering.
 
-### 🎯 Why we are following this exact sequence
+---
 
-This roadmap is the canonical plan of record for RoboCAD. **Do not reorder phases or skip ahead without explicit user approval.** Every phase is a load-bearing step:
+## 🎯 Why we follow this sequence
 
-- **Phase 13** is the quality gate. We do not build the bridge until the generator is reliably producing correct feature trees.
-- **Phases 14A–15B** (PATH1) are the first commercial milestone. They prove that AI-generated CAD can be consumed by real physics simulators and create the exact bundle format that the later vision layers need.
+This roadmap is the canonical plan of record for RoboCAD. **Do not reorder phases or skip ahead without explicit user approval.** Every phase is load-bearing:
+
+- **Phase 13** is the quality gate. We do not build the bridge until the generator reliably produces correct feature trees.
+- **Phases 14A–15B** (PATH1) are the first commercial milestone. They prove that AI-generated CAD can be consumed by real physics simulators and create the exact bundle format that later vision layers need.
 - **Phases 16–17** add cross-domain input and a domain-aware parametric core. Without these, aero/thermal/electronics/humanoid features have no shared data model.
-- **Phases 18–23** add domain-specific tracks (mechanical assembly, aero/thermal geometry, electronics integration, multi-physics verification, humanoid/robot synthesis). These are intentionally parallelizable once the core representation is in place.
-- **Phases 24–27** close the world-model → brain-training → sim-to-real loop.
+- **Phases 18–23** add domain-specific tracks (mechanical assembly, aero/thermal geometry, electronics integration, multi-physics verification, humanoid/robot synthesis).
+- **Phases 24–27C** close the world-model → brain-training → HERMES voice/intelligence loop without requiring hardware.
+- **Phase 27D** is the hardware-in-the-loop sim-to-real step, intentionally separated so the software stack can mature first.
 - **Phase 28** turns the stack into an installable product, marketplace, and optional advanced co-design plugins.
 
-### 📋 Roadmap at a glance
+---
 
-| Phase | What it does | ~Time | Proof point |
-|---|---|---|---|
-| **13** | Benchmark to ≥80% on T1–T4, close extractor edge cases | 1–2 mo | Quality gate passed — T1–T4 87.5% with Claude Sonnet 5 |
-| **14A** | MuJoCo/URDF exporter + verified asset bundles | 2–3 mo | Simulation-ready CAD |
-| **14B** | Standard manipulation scene templates | 1 mo | Drop-in task templates |
-| **15A** | LearningRobotics bundle handshake | 1–2 mo | Cross-repo verified handoff |
-| **15B** | RoboCompiler asset pipeline | 2–3 mo | ✅ Video → custom part → trained skill smoke test; variant sweep + skill recommendation live |
-| **16** | Cross-domain input (voice/text/sketch + domain detection) | 2–3 mo | Mechanical, aero, electronics, humanoid intents routed correctly |
-| **17** | Domain-aware parametric representation | 3–4 mo | Feature tree supports solids, surfaces, kinematics, PCB form factors |
-| **18** | Automatic decomposition + domain part families | 3–4 mo | ✅ System intents split into domain-specific parts; 12 reusable part families; **228/228 tests** |
-| **19** | Mechanical assembly synthesis + verification | 3–4 mo | ✅ Mate inference + kinematic solver + collision checks + joint-aware export; **251/251 tests** |
-| **20** | Aerodynamics, thermal, and propulsion geometry | 3–4 mo | Airfoil / wing / heat sink / propeller + CFD mesh export |
-| **21** | Electronics and mechatronics integration | 2–3 mo | PCB form-factor / enclosure / connector co-design |
-| **22** | Multi-physics verification engine | 4–6 mo | ✅ Structural / thermal / CFD / dynamic checks; **330/330 tests** |
-| **23** | Humanoid and full-robot system synthesis | 4–6 mo | Biped / quadruped / manipulator system export |
-| **24** | World-model simulation builder | 3–4 mo | Cross-domain training scenes |
-| **25** | Synthetic data + policy training loop | 4–6 mo | Design → trainable brain |
-| **26** | HERMES cross-domain conversational supervisor | 3–4 mo | ✅ Complete end-to-end — real tool executors, parameter validation, design context, LLM caller, redesign loop; 450/451 tests. Frontend build passes. |
-| **27** | Sim-to-real feedback loop | 6–12 mo | Real robot deployment |
-| **28** | Distribution + commercialization + advanced co-design plugins | Ongoing | SaaS + marketplace |
-
-### 🧭 Decision record: PATH1 before PATH2
+## 🧭 Decision record: PATH1 before PATH2
 
 We explicitly decided to ship **PATH1 (GEDA Bridge, Phases 14A–15B) first**, then expand into the full **voice/world-model-to-robot platform (Phases 16–28)**. The reasoning is:
 
@@ -199,629 +192,145 @@ We explicitly decided to ship **PATH1 (GEDA Bridge, Phases 14A–15B) first**, t
 
 See [`PLAN.md`](PLAN.md) Section 14 for the full PATH1 vs PATH2 analysis, and [`dossiers/PATH1_PATH2_analysis.md`](dossiers/PATH1_PATH2_analysis.md) for the detailed market/technical write-up.
 
-### ✅ How to stay on track
+---
 
-- Before starting any phase, confirm the previous phase's **acceptance criteria** are met and the test suite is green.
-- Keep the **30-prompt complexity benchmark** green after every model or prompt change.
-- Every phase ends with a commit, a pushed README/PLAN update, and (where possible) a recorded demo.
-- Do not chase side quests labeled as later phases unless the current phase is fully accepted.
-- When in doubt, the default action is: **finish the current phase, then move to the next one in the table above.**
+## 🎙️ Phase 27A — Voice interface for HERMES
 
-See [`PLAN.md`](PLAN.md) for the complete end-to-end build plan, acceptance criteria, and dependency table.
+RoboCAD now supports real-time voice conversations with HERMES:
 
-## 🎨 UI redesign
+- **LiveKit** room-based agent: the frontend joins a `hermes-{session_id}` room, publishes microphone audio, and receives agent replies.
+- **NVIDIA NIM STT** (`nemotron-asr-streaming`) transcribes user speech.
+- **HERMES backend** handles the intent and returns a text response.
+- **NVIDIA NIM TTS** (`chatterbox-multilingual-tts`) speaks the reply back to the user.
+- Text transcripts from both sides are mirrored into the `HermesPanel` chat history via LiveKit data channels.
+- Backend endpoint: `POST /hermes/session/{id}/livekit-token`.
 
-The web interface is now a **Google Stitch *Kinetic Precision*** dark scientific engineering workstation. The design moves away from the earlier *Precision Lab Instrument* light theme into a near-black control-room aesthetic: obsidian panels, surgical cyan accent (#00e5ff), tactical amber for warnings (#feb300), `Inter` for UI chrome, and `JetBrains Mono` for all engineering readouts and parameter values. The layout is a fixed-pane workstation: instrument header, left sidebar with component library and history, large central 3D viewport, right inspector panel for metadata/validation/selected-face/quick export, and a bottom grid of manufacturing, Onshape, tags, and remix panels.
-
-The redesign was guided by `STITCH_BRIEF.md` and the generated `stitch_precision_engineering_interface/` reference files, then implemented by hand inside the existing React component tree so that every `api.js` export, backend endpoint, STLViewer face-click raycaster, component prop contract, and `standard_components.json` schema remained intact.
-
-Key files:
-- `STITCH_BRIEF.md` — original design brief fed to Google Stitch.
-- `stitch_precision_engineering_interface/` — generated reference mockups and `DESIGN.md` kept for provenance.
-- `PRODUCT.md` — durable product context and current brand direction.
-- `web/frontend/src/styles/index.css` — `kp-*` token system for the Kinetic Precision palette.
-- `web/frontend/src/App.jsx` and all components — rebuilt in the workstation layout.
-- `web/frontend/index.html` — `Inter` + `JetBrains Mono` font loading and direction contract.
+Files: `ai_cad/hermes/livekit_token.py`, `ai_cad/hermes/nvidia_voice.py`, `ai_cad/hermes/voice_plugins.py`, `ai_cad/hermes/voice_agent.py`, `web/frontend/src/components/VoiceControls.jsx`.
 
 ---
 
-## 🎬 UI demo — Base plate design, parameter edit, and manufacturing report
+## 🖼️ Phase 27B/C — Rendering hardening + NVIDIA intelligence
 
-The video/GIF below shows a complete end-to-end session in the new *Kinetic Precision* UI, recorded with Playwright against the running local backend and frontend.
+The 3D viewer and simulation pipeline are now backed by NVIDIA NIM models:
 
-![RoboCAD Kinetic Precision UI demo — base plate generation, face-click parameter guessing, thickness edit, and manufacturing report](assets/robocad_kinetic_precision_demo.gif)
-
-*Click the GIF to open the full-quality WebM version, or download it directly: [`assets/robocad_kinetic_precision_demo.webm`](assets/robocad_kinetic_precision_demo.webm)*
-
-### What the demo shows
-
-**0:00 — Launch and component library**
-The app opens at `http://127.0.0.1:5173`. The instrument header shows the RoboCAD mark, a search shortcut, and a glowing cyan “Backend online” indicator confirming the FastAPI service on port 8000 is reachable. The left sidebar displays the component library. The demo expands the **Structural** category and selects the **Base Plate** template, which seeds the prompt composer with a full parametric base-plate description.
-
-**0:02 — Prompt composer and generation**
-The seeded prompt appears in the central “Specimen prompt” panel. The retries slider is set to `2` and the model override is left empty so the backend uses the default model configured in `.env` (`qwen3-coder:latest` in this run). Clicking **Generate** sends a `POST /generate` request. The status panel enters the running state with a cyan glow indicator and explains that RoboCAD is generating build123d code, executing it, and validating the geometry.
-
-**0:16 — 3D viewer and face-click parameter guessing**
-The generated STL appears in the central dark viewport. A grid floor helps read scale and orientation. The demo clicks a face on the model; the raycaster captures the face index, world-space normal, and centroid and sends them to `POST /designs/{id}/guess-parameter`. The backend returns the guessed parameter (`thickness`), a suggested value, the dominant axis, and a confidence score. The face is highlighted with a cyan outline and fill, and the matching parameter row in the right inspector and parameter panel is selected automatically.
-
-**0:19 — Parameter editing and regeneration**
-The view scrolls to the **Parameters** panel. The selected `thickness` row is highlighted with a cyan left border. The demo edits the value from `5` to `6 mm` and clicks **Regenerate from parameters**, which calls `POST /designs/{id}/regenerate` with `{parameter_updates: {thickness: 6}}`. The backend rewrites the generated Python code, re-executes it, and serves a new STL. The viewer refreshes to show the thicker plate while preserving all other dimensions.
-
-**0:28 — Manufacturing report**
-Finally, the view scrolls to the **Manufacturing Report** panel. It reads the manufacturability analysis from `GET /designs/{id}/manufacturing-report`, showing bounding box, volume, surface area, estimated print time, overhang ratio bar, minimum hole diameter, and a warning about the smallest detected feature size. The report is rendered as metric cards and a progress bar, keeping the high-density workstation style consistent.
-
-### How it works under the hood
-
-1. **Component library seed** — `ComponentLibrary.jsx` loads `standard_components.json`, renders accordion categories, and calls `onPrompt(item.prompt)` in `App.jsx`, which populates the `seedPrompt` state. `PromptInput.jsx` copies that seed into its local textarea.
-2. **Generate** — `PromptInput.jsx` calls `generateDesign({prompt, max_retries, model})` from `api.js`, which posts to `POST /generate`. `App.jsx` stores the returned `GenerationResult`, sets `selectedId`, and refreshes the history list.
-3. **3D viewer** — `STLViewer.jsx` receives `result.export_urls.stl` and renders it with `@react-three/fiber` + `@react-three/drei` `Center` and `Grid`. On pointer down it raycasts against the mesh, computes the face normal and centroid, and calls `onFaceClick` in `App.jsx`.
-4. **Face-click guess** — `App.jsx` calls `guessParameter(id, {faceNormal, faceCentroid})` (`api.js` → `POST /designs/{id}/guess-parameter`). The response sets `selectedParameter`, which `ParameterList.jsx` uses to scroll to, focus, and highlight the matching row.
-5. **Parameter regeneration** — `ParameterList.jsx` tracks local edits, computes a diff against original values, and calls `onRegenerate(updates)` in `App.jsx`, which calls `regenerateDesign` (`api.js` → `POST /designs/{id}/regenerate`). The backend rewrites the code with new values and returns a fresh `GenerationResult`.
-6. **Manufacturing report** — `ManufacturingReport.jsx` fetches `GET /designs/{id}/manufacturing-report` and renders the metrics as dense readout cards.
-
-All of this runs in the browser against the local FastAPI backend; no data leaves the machine except the optional Onshape upload when the user chooses to push a STEP file.
+- **Professional rendering** in `STLViewer.jsx`: auto-fit camera via `@react-three/drei/Bounds`, hemisphere + directional lighting, `ContactShadows`, reset/grid/wireframe controls, and `preserveDrawingBuffer` for screenshots.
+- **AI render critique**: click **AI Critique** to capture the canvas, send it to a NVIDIA vision-language model, and get a structured score, issue list, and suggestions (clipping, orientation, lighting, proportions).
+- **NVIDIA NIM client** (`ai_cad/nvidia_client.py`) provides chat, vision, and Cosmos physics-aware scenario generation.
+- **HERMES can use NVIDIA models**: set `ROBOCAD_MODEL` to a NVIDIA model ID (e.g., `nvidia/nemotron-3.5-lightning-30b-a3b`) and HERMES routes through the NIM client.
+- **Scenario generation endpoint** `POST /world/scenario` uses Cosmos to generate physics-aware scenario descriptions from text or image prompts.
+- **Model catalog endpoint** `GET /nvidia/models` lists the NIM IDs RoboCAD knows how to use.
 
 ---
 
-## 🧠 Phase 13 — Model specialization
-
-RoboCAD is moving from generic local-coder prompts to a model trained on the exact Feature-Tree JSON schema. The pipeline is:
-
-1. **Build a dataset** from the Phase 8 complexity ladder:
-   ```bash
-   python scripts/build_training_dataset.py --output training --test-split 0.2
-   ```
-2. **Create a few-shot Ollama model** (`robocad-ft`):
-   ```bash
-   python scripts/build_ollama_modelfile.py
-   ollama create robocad-ft -f models/robocad-ft/Modelfile
-   ```
-3. **Evaluate** against the base model on held-out prompts:
-   ```bash
-   python scripts/evaluate_finetuned.py --specialized-model robocad-ft:latest
-   ```
-4. **True QLoRA fine-tuning** (when time/hardware allow):
-   ```bash
-   python scripts/finetune_model.py --dataset training/feature_tree_train.jsonl --method unsloth
-   ```
-
-Target: push the Phase 8 complexity benchmark from 26/30 (86.7%) to 29/30 or better.
-
----
-
-## 🎯 Engineer-grade roadmap
-
-RoboCAD's first seven phases proved that an LLM can write executable **build123d** code from a plain-language prompt and that the resulting part can be edited, regenerated, validated, exported, and pushed to Onshape. The parts that work well today are single-body, prismatic robotics hardware: base plates, brackets, pulleys, hubs, mounts, and simple enclosures.
-
-To make RoboCAD usable by **real mechanical engineers** for complex, high-precision, multi-part designs, the next leap is not a bigger prompt or a better model. It is a change in the underlying representation:
-
-> **From:** `prompt → one Python script → one STL`  
-> **To:** `prompt → structured feature tree + 2D constraints + assembly mates → verified CAD → manufacturing/FEA report`
-
-This mirrors where the CAD industry itself is heading. PTC's August 2026 [Onshape FeatureScript MCP Server](https://www.ptc.com/en/news/2026/onshape-launches-featurescript-mcp-server) and recent research such as [CADFS](https://arxiv.org/html/2605.01925) both treat executable parametric feature histories — not static meshes — as the correct target for AI-generated CAD. RoboCAD already generates parametric code; the roadmap below adds the symbolic CAD infrastructure around that code.
-
-### Why this is the right next step
-
-| Limit of Phases 0–7 | What Phases 8–14 add |
-|---|---|
-| One monolithic `code.py` per design | A versioned **feature tree** where each extrude, cut, fillet, and pattern is a separate node |
-| Dimensions are raw coordinates the LLM guessed | **2D sketch constraints** (distance, concentric, parallel, tangent) solved by a constraint engine |
-| Only single parts | **Assemblies** with local-coordinate-system mates and multi-body STEP export |
-| Validation = manifold/watertight only | **DFM rules**, optional **FEA** stress/deflection, and **tolerance/fit** checks |
-| Generic model prompt engineering | **Fine-tuned local model** specialized for RoboCAD feature trees |
-
-### Phases 8–14 at a glance
-
-| Phase | Goal | Why it matters |
-|---|---|---|
-| **8 — Complexity benchmark + feature-tree spec** | Measure exactly where the current pipeline breaks; define the JSON schema for features, sketches, constraints, and assemblies | Without a baseline, every later phase is guesswork. |
-| **9 — Feature-tree backend** | Store designs as structured feature trees and transpile them to build123d | Enables rollback, partial regeneration, and a human-readable design history. |
-| **10 — Sketch + 2D constraint solver** | Add constrained 2D sketches as a first-class feature type | Real precision lives in sketches; constraints keep holes centered and aligned when dimensions change. |
-| **11 — Assembly system** | Multi-part designs with LCS-based mates and exploded views | Robotics is assemblies of motors, bearings, brackets, and wheels — not isolated parts. |
-| **12 — Verification + physics layer** | DFM rule engine, optional FEA, and tolerance/fit checks | Gives engineers confidence that the part can be made and will survive loads. |
-| **13 — Model specialization / fine-tuning** | Fine-tune a local model on successful RoboCAD feature trees | Higher success rate on complex parts without relying solely on prompt engineering. |
-| **14 — Distribution + packaging** | One-command launcher or desktop installer | Real users cannot be expected to set up Python/Node manually. |
-
-The recommended first step is **Phase 8**: run a complexity benchmark against the current local model, publish the baseline, and then use that data to guide Phase 9 and beyond. See [`PLAN.md`](PLAN.md) for the detailed phase definitions, acceptance criteria, and risks.
-
----
-
-## 🧪 Phase 0 quickstart
+## 🛠️ Getting started
 
 ```bash
-cd RoboCAD
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-export ANTHROPIC_API_KEY=...  # Windows: $env:ANTHROPIC_API_KEY=...
-python validate.py
+# 1. Clone
+$ git clone https://github.com/satyamdas03/RoboCAD.git
+$ cd RoboCAD
+
+# 2. Install Python dependencies
+$ pip install -r requirements.txt
+
+# 3. Add API keys to a .env file at the repo root
+#    ANTHROPIC_API_KEY=...
+#    NVIDIA_API_KEY=...          # optional, for voice + vision + scenarios
+#    LIVEKIT_URL=...             # optional, for voice
+#    LIVEKIT_API_KEY=...
+#    LIVEKIT_API_SECRET=...
+
+# 4. Run backend
+$ python -m web.backend.main
+
+# 5. Run frontend (in another shell)
+$ cd web/frontend
+$ npm install
+$ npm run build
+$ npm run dev
 ```
 
-`validate.py` runs a small benchmark of prompts through the AI → build123d → STL pipeline and reports which ones succeed. It is the riskiest-assumption test for the whole project.
+Run tests:
+
+```bash
+# Default (fast) suite
+$ python -m pytest
+
+# Heavy / slow / mujoco tiers
+$ python -m pytest -m "heavy or slow"
+$ python -m pytest -m mujoco
+```
 
 ---
 
-## 🧪 Phase 1 quickstart — structured backend + 20-prompt benchmark
-
-```bash
-cd RoboCAD
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-export ANTHROPIC_API_KEY=...  # Windows: $env:ANTHROPIC_API_KEY=...
-export ROBOCAD_MODEL=qwen3-coder:latest  # optional; defaults to Claude
-
-# Run the pytest suite
-python -m pytest tests -q
-
-# Run the 20-prompt Phase 1 benchmark
-python benchmarks/evaluate.py
-```
-
-## 🌐 Phase 2 quickstart — web app
-
-```bash
-cd RoboCAD
-
-# 1. Configure environment
-# Copy .env.example to .env and fill in your API keys. .env is gitignored.
-copy .env.example .env
-# Then edit .env with your ANTHROPIC_API_KEY and ONSHAPE_ACCESS_KEY / ONSHAPE_SECRET_KEY.
-
-# 2. Start the FastAPI backend
-.venv\Scripts\Activate.ps1  # or: source .venv/bin/activate
-python -m uvicorn web.backend.main:app --reload --port 8000
-
-# 2. In a second terminal, start the React frontend
-cd web/frontend
-npm install
-npm run dev
-
-# 3. Open http://localhost:5173
-```
-
-The web app lets you type a prompt, click **Generate**, and view the resulting STL in a `react-three-fiber` viewer. Every successful (and failed) generation is persisted under `designs/{uuid}/` with `prompt.txt`, `code.py`, `parameters.json`, `metadata.json`, and `exports/`.
-
-`ai_cad.api.generate()` returns a structured `GenerationResult` with:
-- `code` — the generated build123d script,
-- `parameters` — editable named numeric parameters extracted from the code,
-- `exports` — paths to STEP + STL files,
-- `validation` — watertight/manifold/bounds report,
-- `attempts_used` — how many LLM calls were needed.
-
----
-
-## 🧱 Repository layout
+## 📁 Repository layout
 
 ```
 RoboCAD/
-├── README.md                 # This file — project overview + changelog
-├── PLAN.md                   # Detailed build plan
-├── requirements.txt          # Python dependencies
-├── .gitignore
-├── ai_cad/                   # Core AI-CAD package
-│   ├── __init__.py           # Public exports
-│   ├── prompts/
-│   │   ├── system_prompt.txt # LLM system prompt
-│   │   └── examples.json     # Few-shot build123d examples
-│   ├── models.py             # Pydantic response models
-│   ├── api.py                # Unified RoboCADBackend.generate()
-│   ├── generator.py          # prompt → code
-│   ├── executor.py           # run build123d safely
-│   ├── validator.py          # geometry sanity checks
-│   ├── exporter.py           # STL / STEP / 3MF export
-│   ├── parameters.py         # AST-based parameter extraction
-│   └── guess_parameter.py    # face-normal -> parameter heuristic
-├── benchmarks/               # Phase 1 curated prompt set + runner
-│   ├── prompts.json          # 20 robotics prompts
-│   └── evaluate.py           # python benchmarks/evaluate.py
-├── web/                      # Phase 2 FastAPI + React app
-│   ├── backend/
-│   │   ├── main.py           # FastAPI endpoints
-│   │   └── __init__.py
-│   └── frontend/             # Vite + React + react-three-fiber
-│       ├── src/
-│       │   ├── App.jsx
-│       │   ├── api.js
-│       │   └── components/
-│       ├── index.html
-│       ├── package.json
-│       └── vite.config.js
-├── components/               # (Phase 6) robotics part library
-├── designs/                  # persisted generated designs (created at runtime)
-└── tests/                    # pytest suite
+├── ai_cad/                  # Core AI + CAD engine
+│   ├── hermes/              # HERMES conversational supervisor (Phase 26–27A)
+│   ├── geda_bridge/         # Simulation bundle + world model (Phases 14A–25)
+│   ├── nvidia_client.py     # NVIDIA NIM client (Phase 27C)
+│   ├── render_critique.py   # AI render critique (Phase 27C)
+│   ├── assembly.py          # Assembly + mate system (Phases 11, 19)
+│   ├── decomposition.py     # System decomposer (Phase 18)
+│   ├── part_families.py     # Domain part-family registry (Phase 18)
+│   ├── feature_tree.py      # Parametric feature-tree schema (Phases 9, 17)
+│   ├── sketch_solver.py     # 2D constraint + airfoil solver (Phases 10, 17)
+│   ├── verification*.py     # Multi-physics verification (Phase 22)
+│   └── materials.py         # Shared material library (Phase 22)
+├── web/
+│   ├── backend/main.py      # FastAPI backend
+│   └── frontend/src/        # React + three.js app
+├── tests/                   # Pytest suite
+├── docs/                    # Contracts, schemas, session recovery
+├── dossiers/                # Public strategic write-ups
+├── PLAN.md                  # Full roadmap and trade-offs
+└── README.md                # This file
 ```
 
 ---
 
-## 🧠 Design principles
+## 📋 Roadmap at a glance
 
-1. **Parametric code is the source of truth.** The prompt and generated script are saved; the mesh is a derived artifact.
-2. **Fail visibly and correct.** Every generated script is executed; tracebacks are fed back to the LLM for self-repair.
-3. **No mesh dead-ends.** Always produce an editable model, even if simple.
-4. **Start local, integrate later.** Prove the loop with build123d before wrestling with Onshape API limits.
-5. **Document every push.** The README is a living project log; each commit syncs the current phase and decisions.
-
----
-
-## 🗺️ Roadmap to "extraordinary"
-
-The long-term vision is not a chatbot that draws shapes. It is a **robotics design companion** that understands:
-
-- Standard robot components (NEMA-17/23, bearings, belts, pulleys, fasteners).
-- Kinematic constraints (motor shaft spacing, pulley ratios, link lengths).
-- Manufacturability (print orientation, tolerance, material).
-- Assembly intent (mates, constraints, BOM).
-- Aerodynamic and thermal surfaces (airfoils, wings, ducts, heat sinks, propellers).
-- Electronics form-factor co-design (PCB outlines, enclosures, connectors, cable routing).
-- Multi-physics simulation: structural FEA, thermal, CFD, and multibody dynamics.
-- Humanoid and full-robot system synthesis (kinematic trees, actuator sizing, stability).
-- Physics and control: load cases, actuation, sensors, sim-to-real transfer.
-
-A user should eventually be able to say:
-
-> *"Design a 450 mm quadcopter frame with aerodynamic body shell, battery/PCB tray, and heat-sink base plate; then design a 2-DOF manipulator arm for it. Simulate picking up a 100 g cube and train the controller."*
-
-and receive a folder of editable multi-domain parts ready for printing, verified MuJoCo/URDF bundles, CFD/thermal/FEA model exports, a parameterized training scene, and a trained policy — with a conversational supervisor (HERMES) explaining each step and asking for approval before expensive operations.
-
-### Strategic sequencing
-
-We analyzed two paths (see `PLAN.md` Section 12):
-
-- **PATH1 — GEDA Bridge:** export RoboCAD parts to MuJoCo/URDF with verified inertial properties and bundle them for `LearningRobotics`. Ship this first.
-- **PATH2 — Voice/world-model-to-robot:** voice/text/sketch → multi-domain parametric CAD → physical testing → assembly → world-model simulation → HERMES oversight → robot brain training. This is the North Star, but it depends on PATH1 being real.
-
-The decision: **build PATH1 (Phases 14A–15B) first**, then use it as the technical and commercial foundation for the expanded PATH2 (Phases 16–28).
+| Phase | What it does | ~Time | Proof point |
+|---|---|---|---|
+| **13** | Benchmark to ≥80% on T1–T4, close extractor edge cases | 1–2 mo | Quality gate passed — T1–T4 87.5% with Claude Sonnet 5 |
+| **14A** | MuJoCo/URDF exporter + verified asset bundles | 2–3 mo | Simulation-ready CAD |
+| **14B** | Standard manipulation scene templates | 1 mo | Drop-in task templates |
+| **15A** | LearningRobotics bundle handshake | 1–2 mo | Cross-repo verified handoff |
+| **15B** | RoboCompiler asset pipeline | 2–3 mo | Video → custom part → trained skill smoke test; variant sweep + skill recommendation live |
+| **16** | Cross-domain input (voice/text/sketch + domain detection) | 2–3 mo | Mechanical, aero, electronics, humanoid intents routed correctly |
+| **17** | Domain-aware parametric representation | 3–4 mo | Feature tree supports solids, surfaces, kinematics, PCB form factors |
+| **18** | Automatic decomposition + domain part families | 3–4 mo | System intents split into domain-specific parts; 12 reusable part families; 228/228 tests |
+| **19** | Mechanical assembly synthesis + verification | 3–4 mo | Mate inference + kinematic solver + collision checks + joint-aware export; 251/251 tests |
+| **20** | Aerodynamics, thermal, and propulsion geometry | 3–4 mo | Airfoil / wing / heat sink / propeller + CFD mesh export |
+| **21** | Electronics and mechatronics integration | 2–3 mo | PCB form-factor / enclosure / connector co-design |
+| **22** | Multi-physics verification engine | 4–6 mo | Structural / thermal / CFD / dynamic checks; 330/330 tests |
+| **23** | Humanoid and full-robot system synthesis | 4–6 mo | Biped / quadruped / manipulator system export |
+| **24** | World-model simulation builder | 3–4 mo | Cross-domain training scenes |
+| **25** | Synthetic data + policy training loop | 4–6 mo | Design → trainable brain |
+| **26** | HERMES cross-domain conversational supervisor | 3–4 mo | Complete end-to-end — real tool executors, parameter validation, design context, LLM caller, redesign loop; 450/451 tests |
+| **27A–C** | Voice + NVIDIA intelligence + professional rendering | 2–3 mo | LiveKit voice for HERMES, NVIDIA NIM chat/vision/Cosmos, AI render critique, professional 3D viewer |
+| **27D** | Hardware-in-the-loop sim-to-real | 6–12 mo | Real robot deployment (requires hardware access) |
+| **28** | Distribution + commercialization + advanced co-design plugins | Ongoing | SaaS + marketplace |
 
 ---
 
-## 🤝 Relationship to other work
+## ⚠️ Security / secrets
 
-* **LearningRobotics** ([repo](https://github.com/satyamdas03/LearningRobotics)) — theory, kinematics, dynamics, and the PIBench physical-intuition benchmark. RoboCAD designs parts that can be loaded there via the GEDA Bridge.
-* **GEDA Bridge** — the RoboCAD → MuJoCo/URDF exporter + verified asset bundle that lets `LearningRobotics` consume parametric parts directly. This is the immediate cross-repo priority (Phases 14A–15B).
-* **PIBench** — physical common-sense benchmark. RoboCAD could generate the 3D assets for new PIBench scenes from prompts.
-* **Hardware BOM** from LearningRobotics — will be imported as the component library so RoboCAD designs are cost-aware.
-* **HERMES** — future cross-domain conversational supervisor layer that orchestrates design, simulation, and training (Phase 26).
+All API keys live in the repo-root `.env` file, which is gitignored. Never commit keys. The voice and NVIDIA integration requires:
 
----
-
-## 📝 Changelog
-
-### 2026-08-29 — Batch A complete: Phases 16–17 multi-domain foundation
-
-* **Phase 16 — Cross-domain input layer** shipped:
-  * `ai_cad/domain.py` domain classifier with keyword + optional `sentence-transformers` embedding fallback for six domains: mechanical, aero, thermal, electronics, humanoid, multi.
-  * `ai_cad/intent_parser.py` per-domain LLM intent parser returning `DomainIntent` (parameters, constraints, features, domain).
-  * Backend endpoints: `POST /classify-domain`, `GET /designs/{id}/domain-intent`, and `detect_domain` flag on `POST /generate`.
-  * Frontend `DomainBadge` component, domain badges in history sidebar, and domain-intent inspector card in the right panel.
-  * New tests: `tests/test_domain_classifier.py`, `tests/test_intent_parser.py`.
-* **Phase 17 — Domain-aware parametric representation** shipped:
-  * Feature-tree schema bumped to v2.0.0 with `domain` tags on `Feature`, `Part`, `Assembly`, and `FeatureTree`.
-  * New schema entities: `SurfaceFeature`, `KinematicJoint` (revolute/prismatic/spherical/fixed), `PCBOutline`, and NACA 4-digit `airfoil` sketch entity.
-  * `ai_cad/sketch_solver.py` computes airfoil point sets via `_naca_4digit_points()`.
-  * New tests: `tests/test_feature_tree_v2.py`, `tests/test_sketch_airfoil.py`.
-* Full pytest suite: **201/201 passing**. Voice/STT integration remains future work (Phase 18+).
-
-### 2026-08-29 — Phase 18: automatic decomposition + domain part families shipped
-
-* **Phase 18 — Automatic decomposition and domain part families** shipped:
-  * `ai_cad/part_families.py` registry with 12 reusable families across mechanical, aero/thermal, electronics, and humanoid/robot domains.
-  * `ai_cad/decomposition.py` rule-based system decomposer for quadcopter, robot arm, humanoid, and fixed-wing prompts, with a single-part fallback.
-  * `ai_cad/composer.py` builds a complete `FeatureTree` with parts, assembly, instances, and mates from a decomposition plan.
-  * Backend `POST /decompose` endpoint and `decompose` flag on `POST /generate`; system prompts route through the new `_run_decomposed_generation()` path.
-  * Frontend `DecomposePanel.jsx` shows the generated parts list; `PromptInput.jsx` adds an “Auto-decompose systems” checkbox (default checked).
-  * New tests: `tests/test_part_families.py`, `tests/test_decomposition.py`, `tests/test_composer.py`, plus `/decompose` and `/generate?decompose` coverage in `tests/test_web_backend.py`.
-* Full pytest suite: **225/225 passing**.
-
-### 2026-08-29 — Phase 19: mechanical assembly synthesis shipped
-
-* **Phase 19 — Mechanical assembly synthesis** shipped:
-  * `ai_cad/part_families.py` extended with an `Interface` library and `mate_hint` metadata for every family.
-  * `ai_cad/mate_inference.py` rule-first engine emits `Mate` and `KinematicJoint` objects from part interfaces.
-  * `ai_cad/assembly.py` solver handles revolute/prismatic mates, reports overconstrained assemblies, and samples range-of-motion poses.
-  * `ai_cad/assembly_collision.py` performs pairwise trimesh clearance/interference checks between placed instances.
-  * `ai_cad/geda_bridge/exporter.py` exports MJCF/URDF with real joints, actuators, and sensors.
-  * Backend endpoints: `POST /designs/{id}/synthesize-assembly`, `POST /designs/{id}/assembly-collision`, `GET /designs/{id}/assembly-poses`.
-  * Frontend `AssemblyReplayPanel.jsx` and `AssemblyCollisionPanel.jsx` for browser preview.
-  * New tests: `tests/test_mate_inference.py`, `tests/test_kinematic_solver.py`, `tests/test_assembly_collision.py`, `tests/test_geda_bridge_mechanism.py`, plus endpoint coverage in `tests/test_web_backend.py`.
-  * Tightened the default robot arm layout: `robot arm with gripper` now synthesizes a **parallel-jaw prismatic gripper** attached to the forearm, verified by `tests/test_composer.py::test_compose_robot_arm_has_prismatic_gripper`.
-* Full pytest suite: **251/251 passing**.
-
-### 2026-09-01 — Post-ship hardening: rule-based robot arm and biped humanoid layouts
-
-* Fixed the default `robot arm with gripper` path so it no longer produces overlapping raw boxes.
-* `ai_cad/decomposition.py` now maps the upper/forearm links to the `limb_segment` family and the gripper to `end_effector`.
-* `ai_cad/composer.py` lays out the arm by aligning `limb_segment` pin interfaces, producing a real articulated upper/forearm chain and a parallel-jaw prismatic gripper with an explicit Y-axis.
-* `ai_cad/mate_inference.py` now respects the `Part.family` field instead of guessing from the part id, so parts like `upper_link` use the correct family interfaces.
-* Commit `87c8f7b` mapped the arm to `limb_segment`/`end_effector` families; commit `980482b` corrected the elbow spacing and gripper jaw mirroring so the upper/forearm connect and the two jaws sit on opposite sides of the Y axis; commit `174df8c` fixed assembly solver part-family coordinate-system lookup; commit `4de18d8` fixed sketch entity placement in `BuildSketch` via `Locations`; commit `1b83561` added subtractive joint/pivot holes.
-* Commit `69367a1` fixed sketch-ID / parameter-name collisions in `_humanoid_hip_hub()` and `_humanoid_shoulder_hub()` (subtractive sketches named `hip_bore`/`shoulder_bore` shadowed global parameters), so the rule-based `biped humanoid robot` prompt now succeeds end-to-end with a 382 KB STL and 3840 vertices.
-* Commit `6a9faf4` fixed misleading validation reporting for rule-based assemblies: the merged STL preview of touching parts is not a single watertight manifold, so the frontend was showing "Manifold: FAIL / Watertight: FAIL" even though each body was valid. A new `_build_assembly_validation_report()` splits the merged STL, checks each body, and marks the design `valid=True` while honestly keeping `manifold=False/watertight=False` and adding an explanatory warning. It also fixed the frontend `Assembly collision` button which called the endpoint with GET instead of POST.
-* Stress-test routing confirmed: full system prompts (robot arm, humanoid, quadruped, quadcopter, fixed-wing, electronics stack) use the rule-based decomposition path with no Anthropic API call; single-domain generic parts (wheel hub, worm gear housing, custom brackets, heat sinks, airfoils) fall back to the LLM path and require `ANTHROPIC_API_KEY`.
-* Full pytest suite remains **357/357 passing**.
-
-### 2026-09-02 — Live session verification and backend restart
-
-* Verified the `robot arm with gripper` output is structurally correct after commit `6a9faf4`: connected upper/forearm and two opposing prismatic gripper jaws. The simple block-like appearance is because the current `limb_segment`/`end_effector` families are intentionally minimal; cosmetic/mechanical refinement is queued next.
-* Confirmed prompt `robotic arm with five fingers` degrades to the standard 2-link arm because the rule-based decomposer has no hand/finger part family yet.
-* Restarted the backend using the Hermes venv (`C:\Users\point\AppData\Local\hermes\hermes-agent\venv\Scripts\python`) because the project `.venv` was missing `python-dotenv`. Frontend Vite server on port 5173 remained running.
-* Full pytest suite **357/357 passing**; frontend production build passes.
-
-### 2026-09-01 — Phase 25 foundation complete: attention-based robot brain training layer
-
-* Applied AI chip co-design ideas (Cao et al. *Advanced Design for High-Performance and AI Chips*, Figure 5) to RoboCAD's world model and a new lightweight brain training package.
-* World-model extensions: `ComputeBudget`, `attention_regions`, `event_camera` sensor type, `actuator_noise_std` / `sensor_dropout_prob`, per-body `saliency` in replay, Isaac JSON schema coverage.
-* Added `compute_module` and `event_camera_mount` electronics part families with compute-budget metadata; electronics stack composer places them automatically.
-* New `ai_cad/geda_bridge/brain/` package: saliency scoring, `AttentionBudget`, `LinearWorldModel`, `AttentionMLPPolicy`, `AbstractAttentionEnv`, and CEM trainer — all NumPy-only.
-* Backend endpoints: `POST /designs/{id}/train-brain`, `GET /designs/{id}/brain`, `POST /designs/{id}/brain-replay-attention`.
-* Frontend: `BrainTrainingPanel.jsx` and extended `WorldBuilderPanel.jsx`.
-* Tests: 16 new brain tests; full suite **414/414 passing** (170 default + 222 heavy/slow + 22 mujoco).
-
-### 2026-09-01 — Phase 26 foundation complete: HERMES cross-domain conversational supervisor
-
-* Added `ai_cad/hermes/` package with Pydantic models (`Session`, `Plan`, `PlanStep`, `Message`, `ToolCall`, `ToolResult`), `HermesToolRegistry` (~14 tools), `ApprovalGate` (read-only vs. expensive/modifying), dependency-aware `planner.py`, JSON-persisted `session.py`, deterministic JSON-in-text `agent.py`, and `explain.py` for DFM/verification/brain/world-replay reports.
-* Added FastAPI endpoints: `POST /hermes/session`, `GET /hermes/session/{id}`, `POST /hermes/session/{id}/message`, `POST /hermes/session/{id}/approve`, `POST /hermes/session/{id}/explain`, `GET /hermes/session/{id}/status`.
-* Added frontend `HermesPanel.jsx` (chat thread, plan viewer, approval cards, quick-explain buttons, live status badge), API helpers in `api.js`, and integrated the panel into `App.jsx`.
-* Added HERMES capability entries to `ai_cad/geda_bridge/capabilities.py`.
-* Tests: `tests/test_hermes.py` (30 unit tests) + `tests/test_hermes_backend.py` (10 endpoint tests); full suite **450/451 passing** (1 expected failure, 5 benchmark/network deselected); frontend production build passes.
-* Caveats: tool executors were schema stubs until the 2026-09-06 hardening pass; see below.
-
-### 2026-09-06 — Phase 26 hardened end-to-end: real HERMES tool execution + design-feedback loop
-
-* Added real HERMES tool executors in `ai_cad/hermes/executor.py` and Pydantic parameter validation in `ai_cad/hermes/validation.py`.
-* Added design-context builder `ai_cad/hermes/context.py` that reads `metadata.json`, `feature_tree.json`, `parameters.json`, and latest reports.
-* Added pluggable LLM caller `ai_cad/hermes/llm.py` (Anthropic + Ollama) and tightened agent system prompt.
-* Wired all backend callables into HERMES runtime context in `web/backend/main.py` without circular imports.
-* Implemented design-feedback loop: `propose_redesign` analyzes reports and auto-queues `regenerate_parameters` for approval.
-* Added session pruning and robust corrupted-session handling in `ai_cad/hermes/session.py`.
-* Enhanced `HermesPanel.jsx` with design-context summary, tool-result cards, redesign-proposal cards, and quick actions.
-* Tests: `tests/test_hermes_executor.py`, `tests/test_hermes_validation.py`, `tests/test_hermes_context.py`, `tests/test_hermes_integration.py`; full suite **450/451 passing** (1 expected failure, 5 benchmark/network deselected); frontend production build passes.
-* Remaining optional: native Anthropic tool-use API, voice/sketch input, multi-design sessions, audit log.
-
-### 2026-09-01 — Phase 24 complete: world-model simulation builder
-
-* Added `ai_cad/geda_bridge/world_builder.py` with `WorldDescription`, `WorldBuilder`, `WorldTerrain`, `WorldSensor`, `WorldTask`, and `DomainRandomization`.
-* Implemented five domain-specific world templates: `pick_place`, `push`, `walker`, `drone_hover`, `humanoid_stand`.
-* Implemented deterministic domain randomization (`apply_domain_randomization`) for mass, friction, actuator gains, sensor noise, wind, and thermal loads.
-* Added `export_world_to_mjcf` and `export_world_to_isaac_json` so the same world description feeds both simulators.
-* Added `ai_cad/geda_bridge/world_loaders.py` with `load_world_into_mujoco`, `load_world_into_isaac_sim`, and `run_world_replay` for sparse trajectory capture.
-* Added backend endpoints: `POST /designs/{id}/world`, `GET /designs/{id}/world`, `POST /designs/{id}/world/randomize`, `POST /designs/{id}/world/replay`.
-* Added frontend `WorldBuilderPanel.jsx`, `api.js` helpers, and wired the panel into `App.jsx`.
-* Added `tests/test_world_builder.py` (19 tests) covering all templates, terrain variants (stairs/ramp/uneven), MJCF load, Isaac JSON export + schema validation, body alias resolution, randomization determinism, sensor/terrain serialization, and rich replay.
-* Full pytest suite: **376/376 passing** (154 default + 222 heavy/slow/MuJoCo); frontend production build passes.
-
-### 2026-08-27 — Scope expanded to full multi-domain robotics platform
-
-* Expanded RoboCAD target scope from "AI-powered parametric CAD for robotics hardware" to "AI-powered generative engineering platform for the entire robotics world."
-* New domains added to the roadmap: aerodynamics / thermal surfaces, electronics form-factor co-design (PCB/enclosure/connector), and humanoid / full-robot system synthesis.
-* Honest boundary: true silicon EDA (transistor layout, SPICE, lithography) is explicitly out of scope; RoboCAD handles packages, boards, mounts, and thermal hardware.
-* Re-structured future phases into domain tracks:
-  * Phase 16 — cross-domain input
-  * Phase 17 — domain-aware parametric representation
-  * Phase 18 — decomposition + domain part families
-  * Phase 19 — mechanical assembly synthesis
-  * Phase 20 — aero/thermal/propulsion geometry
-  * Phase 21 — electronics/mechatronics integration
-  * Phase 22 — multi-physics verification engine
-  * Phase 23 — humanoid/full-robot synthesis
-  * Phases 24–28 — world model, brain training, HERMES, sim-to-real, commercialization
-* Updated `PLAN.md`, `README.md`, and dossiers to reflect the new phase map and dependencies.
-
-### 2026-08-25 — Strategic roadmap updated: PATH1 (GEDA Bridge) before PATH2 (voice-to-world-model)
-
-* Conducted market and technical analysis comparing two strategic directions:
-  * **PATH1 (GEDA Bridge):** RoboCAD → MuJoCo/URDF/inertial bundle for `LearningRobotics` — a delivery-infrastructure play in a $4–5 B robot skill-learning market.
-  * **PATH2 (full vision):** voice/text → parametric CAD → physical testing → assembly → world-model simulation → HERMES oversight → robot brain trained on synthetic data.
-* Conclusion: PATH1 is technically reachable in 4–6 weeks, creates the exact asset format PATH2 needs, and should be shipped first. PATH2 remains the 5–7 year North Star and is now mapped into Phases 14A–28.
-* Updated `PLAN.md` with the full end-to-end roadmap, dependency table, and critical path.
-* Updated `memory.md` and `.claude` memory files with the new analysis and roadmap.
-
-### 2026-08-25 — Claude 5 integration and Phase 8 benchmark run
-
-* Integrated the Claude 5 family (Fable 5 / Sonnet 5 / Opus 5) into `ai_cad/generator.py`:
-  * `ai_cad/__init__.py` now shims Anthropic SDK's vendored `httpx2`/`httpcore2` forks to standard `httpx`/`httpcore` to avoid a Python 3.14 recursion bug.
-  * `_anthropic_base_url()` in `ai_cad/generator.py` forces `https://api.anthropic.com` when stale env vars point at local Ollama.
-  * `_first_text_block()` skips Claude 5 `ThinkingBlock` and returns the first real `TextBlock`.
-  * Added retry loop for Claude 5 responses that contain only an empty thinking block.
-  * Default `max_tokens` raised to 4096 in `ai_cad/generator.py` and `ai_cad/api.py` to accommodate long feature-tree / assembly outputs.
-  * `_anthropic_create()` drops the deprecated `temperature` parameter for `claude-*-5*` models.
-  * `_extract_code_block()` now strips nested markdown fences from self-correction responses.
-* First Claude Sonnet 5 run on the Phase 8 complexity benchmark: **21/30 (70.0%)** after fixes.
-* Full pytest suite remains **134/134 passing**.
-* Anthropic credit balance was depleted mid-benchmark and then topped up by the user.
-
-### 2026-08-25 — Phase 12 complete: verification + physics layer
-
-* Added `ai_cad/dfm.py` Design-for-Manufacturing rule engine:
-  * Estimates minimum wall thickness, minimum hole diameter, overhang ratio, and tiny bounding-box dimensions.
-  * Flags thin walls (<0.8 mm default), small holes (<2 mm default), excessive overhang, and sub-millimeter extents.
-  * Returns a structured `DFMReport` with per-rule severity, metrics, and pass/fail lists.
-* Added `ai_cad/tolerances.py` geometric fit/clearance checker:
-  * Samples surface points on one mesh and computes signed distances to another mesh using `trimesh` + `rtree`.
-  * Classifies fit as `clearance`, `transition`, or `interference`.
-  * Reports min/max/mean clearance and interference volume when meshes overlap.
-* Added `ai_cad/fea.py` optional static-analysis wrapper:
-  * Simple cantilever-beam approximation from fixed face, load magnitude, and material properties.
-  * Built-in material presets for PLA, PETG, ABS, aluminum, and steel.
-  * Returns max stress, max displacement, and safety factor.
-* Added backend endpoints in `web/backend/main.py`:
-  * `GET /designs/{id}/dfm-report` — run DFM on the design's STL.
-  * `POST /designs/{id}/fit-check` — compare the design's STL against another persisted design's STL.
-  * `POST /designs/{id}/fea-report` — run simple static analysis on the design's STL.
-* Added React components in `web/frontend/src/components/`:
-  * `DFMReport.jsx` — live DFM pass/fail card with wall/hole/overhang metrics and rule list.
-  * `ToleranceReport.jsx` — select another design from history and run a fit check.
-  * `FEAPanel.jsx` — choose fixed face, material, and load, then run stress/displacement analysis.
-* Wired new panels into `App.jsx` and added API helpers to `web/frontend/src/api.js`.
-* Added `rtree>=1.2.0` to `requirements.txt` because `trimesh` proximity queries require it.
-* Added `tests/test_dfm.py`, `tests/test_tolerances.py`, `tests/test_fea.py`, plus backend endpoint coverage in `tests/test_web_backend.py`.
-* Full pytest suite now **125 passing tests**.
-
-### 2026-08-23 — Google Stitch Kinetic Precision UI redesign integrated
-
-* Integrated the Google Stitch dark scientific-workstation design into the live React frontend.
-* Replaced the `rc-*` *Precision Lab Instrument* token system with the new `kp-*` *Kinetic Precision* design system in `web/frontend/src/styles/index.css`:
-  * Near-black ground (#121315), obsidian panels (#1b1c1e / #1f2022), surgical cyan accent (#00e5ff), tactical amber (#feb300).
-  * `Inter` for UI, `JetBrains Mono` for data/parameters/console.
-  * Inset fields, machined 4px corners, LED glow indicators, micro-textured ghost buttons.
-* Rebuilt `App.jsx` into a fixed-pane workstation: instrument header, left sidebar (component library + history), central 3D viewport, right inspector panel, and bottom grid of manufacturing / Onshape / tags / remix panels.
-* Restyled every component while preserving props and behavior: `PromptInput`, `StatusPanel`, `STLViewer`, `ParameterList`, `DownloadLinks`, `HistorySidebar`, `ComponentLibrary`, `ManufacturingReport`, `OnshapeUpload`, `TagEditor`, `RemixPanel`.
-* Enhanced `STLViewer` with `@react-three/drei` `Grid` floor, cyan face-selection outline + fill, and viewport toolbar placeholders.
-* Updated `index.html` direction contract and Google Fonts to `Inter` + `JetBrains Mono`.
-* Preserved all integration contracts: `api.js` exports, backend endpoints, face-click raycaster logic, component props, and `standard_components.json`.
-* Added generated Stitch reference files (`stitch_precision_engineering_interface/`) to the repo for provenance.
-* Validation: `npm run build` passes; `pytest` reports 56/57 passing tests (same known `test_generate_missing_api_key` env interaction); live end-to-end tests succeeded for a base plate and a NEMA-17 mount.
-* Commit `cbf8ca4` pushed to `origin/master`.
-
-### 2026-08-22 — Google Stitch UI redesign brief prepared
-
-* Created `STITCH_BRIEF.md` — a complete design brief for Google Stitch to generate a dark, scientific, precision-engineering workstation UI.
-* Brief covers application description, user persona/daily workflow, exact color/type tokens, layout grid, component specs, data models, API contracts, motion design, responsive behavior, accessibility, anti-patterns, and developer integration notes.
-* Explicitly locks preservation of `api.js` exports, backend endpoints, STLViewer face-click parameter guessing, React component props, and `standard_components.json` schema.
-* Updated `PRODUCT.md`, `README.md`, `PLAN.md`, and memory files to record the new design direction and next steps.
-* `STITCH_BRIEF.md` committed and pushed to `origin/master`.
-
-### 2026-08-22 — Phase 5 complete: Onshape export/sync + manufacturing reports
-
-* Added `ai_cad/onshape.py` Onshape REST API client with HMAC-SHA256 API-key authentication, exact signing matching the official Python client:
-  * `list_documents`, `create_document`, `upload_step`, and `upload_step_to_new_document`.
-  * Free Onshape accounts require public documents; `create_document` sets `isPublic: True` and reports the 409 limitation clearly.
-* Added `ai_cad/manufacturing.py` manufacturability analyzer:
-  * Bounding box, volume, surface area, estimated FDM print time heuristic.
-  * Overhang detection with build-plate filtering.
-  * Hole-diameter estimation via horizontal cross-sections (area-equivalent circle).
-* Extended Pydantic models in `ai_cad/models.py` with `ManufacturingReport` and `GenerationResult.manufacturing`.
-* Added backend endpoints:
-  * `GET /onshape/documents` — list/search accessible Onshape documents.
-  * `POST /designs/{id}/onshape` — upload a design's STEP to new or existing Onshape document.
-  * `GET /designs/{id}/manufacturing-report` — return the manufacturability report.
-* Added React components:
-  * `ManufacturingReport.jsx` — live report panel with warnings.
-  * `OnshapeUpload.jsx` — upload STEP to a new public document or pick an existing one.
-* Extended `web/frontend/vite.config.js` with `/onshape` proxy.
-* Added `tests/test_onshape.py` (mocked auth + upload tests) and `tests/test_manufacturing.py` (cube, overhang, hole detection tests).
-* Full pytest suite now **57 passing tests**.
-
-### 2026-08-22 — Phase 6 complete: robotics-aware component templates
-
-* Added `web/frontend/src/components/standard_components.json` with 12 curated robotics parts across Structural, Motion, Electronics, and Robotics categories.
-* Added `ComponentLibrary.jsx` — collapsible catalog that loads seed prompts into the generator.
-* Added `TagEditor.jsx` for comma-separated tag editing and `RemixPanel.jsx` for child-design generation.
-* Backend already supports `PUT /designs/{id}` tags/prompt updates, `POST /designs/{id}/remix`, and `GET /designs?search=...&tag=...`.
-* Verified Phase 6 library/remix/tag flows with existing `tests/test_design_library.py` and `tests/test_code_ops.py`.
-
-### 2026-08-22 — Phase 3 stylus complete: face-click parameter guessing in the STL viewer
-
-* Added `ai_cad/guess_parameter.py` heuristic that maps a clicked face's dominant-axis normal and object bounding box to the most likely editable parameter.
-* Added `POST /designs/{id}/guess-parameter` endpoint; falls back to measuring the STL via `trimesh` if validation bounds are missing.
-* Updated `STLViewer.jsx`:
-  * Raycasts on pointer down to capture `faceIndex`, world-space face normal, and triangle centroid.
-  * Overlays a translucent highlight mesh on the selected triangle.
-  * Shows a transient hint banner naming the guessed parameter.
-* Updated `ParameterList.jsx` to scroll to, focus, and highlight the parameter row selected from a face click.
-* Wired face selection through `App.jsx` so clicking a face auto-selects the matching parameter input.
-* Added `tests/test_guess_parameter.py` with 7 axis-mapping tests.
-* Full pytest suite now **47 passing tests**.
-* Verified end-to-end with Playwright: clicking a face in the viewer focuses the `thickness` parameter and highlights its row.
-
-### 2026-08-22 — Phase 3 + Phase 4 complete: editable parameters, design library, remix, and tags
-
-* Added safe code-level parameter rewriting in `ai_cad/code_ops.py`:
-  * `update_parameter` and `update_parameters` preserve comments and only edit module-level numeric assignments.
-* Added `POST /designs/{id}/regenerate` endpoint:
-  * Rewrites generated code with new parameter values, re-executes it, and persists the result under `designs/{id}/versions/{version_id}/`.
-  * Updates parent metadata so the latest version is reflected in history and downloads.
-* Added `PUT /designs/{id}` endpoint for updating tags and prompt text.
-* Added `GET /designs?search=...&tag=...` for free-text and tag filtering.
-* Added `POST /designs/{parent_id}/remix` endpoint:
-  * Enriches the prompt with the original design prompt, generates a child design, and links it via `parent_id`.
-* Extended design metadata schema with `parent_id` and `tags`.
-* Added React components in `web/frontend/src/components/`:
-  * `ParameterList` — editable number inputs per parameter with **Regenerate from parameters** button.
-  * `TagEditor` — comma-separated tag editing.
-  * `RemixPanel` — prompt input for generating a child based on the selected design.
-  * `ComponentLibrary` — collapsible catalog seeded from `standard_components.json` with 12 standard robotics parts.
-* Updated `HistorySidebar` with search box, tag filter dropdown, tag chips, and remix-of indicator.
-* Added `tests/test_code_ops.py` (7 tests) and `tests/test_design_library.py` (6 tests).
-* Total test suite: **40 passing tests**.
-
-### 2026-08-22 — Phase 2 complete: minimal web app (FastAPI + React + three.js viewer) + live Ollama support
-
-* Added local model support in `ai_cad/generator.py`:
-  * Detects Ollama-style model names (e.g. `qwen3-coder:latest`, `mistral:latest`).
-  * Routes those models to an OpenAI-compatible local endpoint (`http://localhost:11434/v1` by default, override with `OLLAMA_BASE_URL`).
-  * Anthropic path remains for `claude-*` / `gpt-*` models; supports `ANTHROPIC_BASE_URL` override.
-* Added FastAPI backend in `web/backend/main.py`:
-  * `POST /generate` — prompt → `RoboCADBackend.generate()` → persisted design.
-  * `GET /designs` — list generation history.
-  * `GET /designs/{id}` — load a persisted design with code + parameters.
-  * `GET /exports/{id}/{filename}` — serve STL / STEP / Python script files.
-  * CORS enabled for the Vite dev server.
-* Added React frontend in `web/frontend/` using Vite + `react-three-fiber` + `@react-three/drei`:
-  * Prompt input with retry/model controls and suggestion chips.
-  * Status panel showing success/failure, attempts, latency, validation summary.
-  * `STLViewer` rendering generated STL with orbit controls.
-  * `ParameterList` (read-only preview for Phase 3 editing).
-  * Download links for STL, STEP, and generated Python code.
-  * History sidebar to reload past designs.
-* Added design persistence under `designs/{uuid}/`:
-  * `prompt.txt`, `code.py`, `parameters.json`, `metadata.json`, `exports/model.stl`, `exports/model.step`.
-* Added `tests/test_web_backend.py` covering `/health`, `/generate`, `/designs`, and `/exports`.
-* Total test suite: **26 passing tests**.
-* Verified live end-to-end run 2026-08-22 with `qwen3-coder:latest` via Ollama:
-  * Prompt: *"A 120 mm × 80 mm × 3 mm base plate with four M3 mounting holes on a 100 mm × 60 mm grid."*
-  * Result: success, manifold, watertight, 6 parameters extracted, STL served through `/exports/{id}/model.stl`.
-
-### 2026-08-22 — Phase 1 complete: robust backend + 20-prompt benchmark (19/20 = 95%)
-
-* Added structured response models in `ai_cad/models.py` (`GenerationResult`, `CADParameter`, `ValidationReport`, `ExportPaths`).
-* Added AST-based parameter extraction in `ai_cad/parameters.py` so generated dimensions can be edited later.
-* Added unified `ai_cad/api.py` with `RoboCADBackend.generate()` and `generate()` convenience function.
-  * Orchestrates `generate_model → execute_code → validate_model → extract_parameters`.
-  * Self-corrects on both execution/runtime failures and geometry validation failures, up to `max_retries`.
-* Hardened `ai_cad/executor.py` to write metadata as JSON (no stdout parsing), include `script_path` in results, and improve error capture.
-* Added `benchmarks/prompts.json` with 20 curated robotics prompts and `benchmarks/evaluate.py` runner.
-* Phase 1 benchmark result: **19/20 prompts passed (95.0%)** within two retries.
-  * 7/8 easy, 9/9 medium, 3/3 hard.
-  * Known failure: `pendulum_bob` (sphere with a blind threaded-insert hole) remains non-watertight after two self-correction retries.
-* Added pytest tests: `test_executor.py`, `test_validator.py`, `test_parameters.py`, `test_api.py`.
-* Total test suite: **18 passing tests**.
-
-### 2026-08-22 — Phase 0 validation complete (8/8 pass)
-
-* Ran `validate.py` against 8 robotics-flavored prompts; **100% produced valid STL/STEP** on first attempt.
-* Fixed runtime issues discovered during validation:
-  * `ai_cad/generator.py` — added Anthropic Python SDK ≥1.0 compatibility (`temperature` via `extra_body`) and `ROBOCAD_MODEL` env override.
-  * `ai_cad/executor.py` — fixed f-string escaping for volume metadata in generated scripts.
-  * `validate.py` — fixed error-message extraction when validation returns empty warnings.
-* Rewrote `ai_cad/prompts/system_prompt.txt` and `ai_cad/prompts/examples.json` with working build123d patterns:
-  * Pattern A: `Locations`/`GridLocations`/`PolarLocations` + `Cylinder(..., mode=Mode.SUBTRACT)` inside one `BuildPart`.
-  * Pattern B: `BuildSketch(face)` + `Circle` + `extrude(amount=-depth, mode=Mode.SUBTRACT)` for side-face holes.
-  * Pattern C: explicit solid subtraction (`part.part = part.part - bore`) for central bores.
-  * Pattern D: raised bosses/mounts to avoid coplanar non-manifold geometry.
-* Phase 0 success criteria exceeded: target was ≥90% after self-correction; achieved 100% on first attempt.
-
-### 2026-08-21 — Repo created, Phase 0 scaffold
-
-* Created `satyamdas03/RoboCAD` repository.
-* Wrote `README.md` and `PLAN.md` capturing the full project context, architecture, and connection to `LearningRobotics`.
-* Scaffolded the `ai_cad/` package:
-  * `generator.py` — prompt → LLM → build123d code extraction.
-  * `executor.py` — safe subprocess execution of generated code.
-  * `validator.py` — manifold / bounding-box sanity checks.
-  * `exporter.py` — STL / STEP export.
-  * `prompts/system_prompt.txt` and `prompts/examples.json` — few-shot examples.
-* Added `validate.py` for the first riskiest-assumption test.
-* Committed and pushed to GitHub.
+- `ANTHROPIC_API_KEY` (for generation and HERMES)
+- `NVIDIA_API_KEY` (for STT/TTS, chat, vision, Cosmos)
+- `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` (for voice rooms)
+- Optional `ONSHAPE_ACCESS_KEY` / `ONSHAPE_SECRET_KEY` (for Onshape sync)
 
 ---
 
-## 📬 Contact & follow along
+## 📜 License
 
-* GitHub: [@satyamdas03](https://github.com/satyamdas03)
-* Project updates will be pushed to this repo as phases are completed.
+MIT — see [`LICENSE`](LICENSE) if present, otherwise treat as open-source core with a future paid cloud tier.
 
 ---
 
-**License:** MIT — use it, fork it, improve it.
-
-> *"The goal is not to replace CAD experts. The goal is to let people who understand systems and robotics express hardware ideas without fighting a sketcher."*
+*Built with care by Satyam Das and Claude Code. Test counts verified 2026-09-01.*
