@@ -1,4 +1,4 @@
-import { Suspense, useMemo, useRef, useState, useEffect } from 'react'
+import { Suspense, useMemo, useRef, useState, useEffect, useCallback } from 'react'
 import { Canvas, useThree, useLoader } from '@react-three/fiber'
 import {
   Bounds,
@@ -9,7 +9,7 @@ import {
 } from '@react-three/drei'
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader'
 import * as THREE from 'three'
-import { exportUrl } from '../api.js'
+import { exportUrl, critiqueRender } from '../api.js'
 
 function HighlightedFace({ geometry, faceIndex, color = '#00e5ff' }) {
   const meshRef = useRef()
@@ -82,6 +82,15 @@ function CameraReset({ nonce }) {
   useEffect(() => {
     bounds.refresh().clip().fit()
   }, [nonce, bounds])
+  return null
+}
+
+function CaptureBridge({ onGlReady }) {
+  const gl = useThree((state) => state.gl)
+  useEffect(() => {
+    onGlReady(gl)
+    return () => {}
+  }, [gl, onGlReady])
   return null
 }
 
@@ -174,7 +183,15 @@ export default function STLViewer({ url, onFaceClick, selectedFace, guessResult,
   const [showGrid, setShowGrid] = useState(true)
   const [wireframe, setWireframe] = useState(false)
   const [resetNonce, setResetNonce] = useState(0)
+  const [critique, setCritique] = useState(null)
+  const [critiqueLoading, setCritiqueLoading] = useState(false)
+  const [critiqueError, setCritiqueError] = useState(null)
+  const glRef = useRef(null)
   const prevUrlRef = useRef(url)
+
+  const handleGlReady = useCallback((gl) => {
+    glRef.current = gl
+  }, [])
 
   useEffect(() => {
     if (guessResult?.guessed_parameter) {
@@ -201,6 +218,22 @@ export default function STLViewer({ url, onFaceClick, selectedFace, guessResult,
     prevUrlRef.current = url
   }, [url])
 
+  async function runCritique() {
+    if (!designId || !glRef.current?.domElement) return
+    setCritiqueLoading(true)
+    setCritiqueError(null)
+    try {
+      const dataUrl = glRef.current.domElement.toDataURL('image/png')
+      const blob = await (await fetch(dataUrl)).blob()
+      const result = await critiqueRender(designId, blob)
+      setCritique(result.critique)
+    } catch (err) {
+      setCritiqueError(err.message || 'Render critique failed')
+    } finally {
+      setCritiqueLoading(false)
+    }
+  }
+
   if (!url) {
     return (
       <section className="kp-viewer" aria-label="3D model viewer">
@@ -224,7 +257,7 @@ export default function STLViewer({ url, onFaceClick, selectedFace, guessResult,
         <span className="kp-mono kp-text-subtle" style={{ fontSize: '0.75rem' }}>
           {designId ? `Design #${designId.slice(0, 8)}` : 'Generated model'}
         </span>
-        <div className="kp-flex kp-gap-2">
+        <div className="kp-flex kp-gap-2 kp-flex-wrap">
           <button
             type="button"
             className="kp-button kp-button-small kp-button-ghost"
@@ -249,12 +282,61 @@ export default function STLViewer({ url, onFaceClick, selectedFace, guessResult,
           >
             Wire
           </button>
+          <button
+            type="button"
+            className="kp-button kp-button-small kp-button-primary"
+            title="Run NVIDIA AI render critique"
+            onClick={runCritique}
+            disabled={critiqueLoading || !designId}
+          >
+            {critiqueLoading ? '…' : 'AI Critique'}
+          </button>
         </div>
       </div>
 
       {hint && <div className="kp-viewer-hint">{hint}</div>}
+      {critiqueError && <div className="kp-viewer-hint kp-error">{critiqueError}</div>}
+      {critique && (
+        <div className="kp-viewer-hint" style={{ maxWidth: '24rem' }}>
+          <div className="kp-flex kp-gap-2 kp-align-center" style={{ marginBottom: '0.25rem' }}>
+            <span className={`kp-badge ${critique.score >= 80 ? 'kp-badge-success' : critique.score >= 50 ? 'kp-badge-warning' : 'kp-badge-error'}`}>
+              Score: {critique.score ?? '—'}
+            </span>
+            {!critique.safe_to_show_user && (
+              <span className="kp-badge kp-badge-error">Not safe to show</span>
+            )}
+          </div>
+          {critique.issues?.length > 0 && (
+            <ul className="kp-small" style={{ margin: '0.25rem 0', paddingLeft: '1rem' }}>
+              {critique.issues.map((issue, idx) => (
+                <li key={idx}>
+                  <strong>{issue.severity}</strong> ({issue.category}): {issue.message}
+                </li>
+              ))}
+            </ul>
+          )}
+          {critique.suggestions?.length > 0 && (
+            <div className="kp-small kp-text-subtle">
+              Suggestions: {critique.suggestions.join(' · ')}
+            </div>
+          )}
+          <button
+            type="button"
+            className="kp-button kp-button-sm kp-button-ghost"
+            style={{ marginTop: '0.25rem' }}
+            onClick={() => setCritique(null)}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
       <div className="kp-viewer-caption">Click a face to guess its parameter · drag to rotate · scroll to zoom</div>
-      <Canvas shadows camera={{ position: [100, 100, 100], fov: 50 }} style={{ background: 'var(--kp-background)' }}>
+      <Canvas
+        shadows
+        gl={{ preserveDrawingBuffer: true }}
+        camera={{ position: [100, 100, 100], fov: 50 }}
+        style={{ background: 'var(--kp-background)' }}
+      >
         <hemisphereLight intensity={0.6} groundColor="#1a202c" color="#e8eef2" />
         <directionalLight position={[80, 120, 60]} intensity={1.4} castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-0.0001} />
         <directionalLight position={[-60, -40, -40]} intensity={0.35} />
@@ -268,6 +350,7 @@ export default function STLViewer({ url, onFaceClick, selectedFace, guessResult,
               wireframe={wireframe}
             />
             <CameraReset nonce={resetNonce} />
+            <CaptureBridge onGlReady={handleGlReady} />
           </Bounds>
         </Suspense>
         <ContactShadows

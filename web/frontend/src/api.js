@@ -448,3 +448,33 @@ export async function getHermesLiveKitToken(sessionId, identity = null) {
     body: JSON.stringify(body),
   })
 }
+
+export async function critiqueRender(designId, imageBlob, prompt = null) {
+  const formData = new FormData()
+  formData.append('file', imageBlob, 'render.png')
+  const url = new URL(`${API_BASE}/designs/${designId}/render-critique`, window.location.origin)
+  if (prompt) url.searchParams.set('prompt', prompt)
+  const response = await fetch(url.pathname + url.search, {
+    method: 'POST',
+    body: formData,
+  })
+  if (!response.ok) {
+    const text = await response.text()
+    throw new Error(text || `HTTP ${response.status}`)
+  }
+  return response.json()
+}
+
+export async function listNvidiaModels() {
+  return apiFetch('/nvidia/models')
+}
+
+export async function generateScenario(prompt, imageB64 = null, model = null) {
+  const body = { prompt }
+  if (imageB64) body.image_b64 = imageB64
+  if (model) body.model = model
+  return apiFetch('/world/scenario', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
