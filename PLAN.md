@@ -906,6 +906,47 @@ PATH2 is the long-term North Star: a full-stack robotics design operating system
 
 ### Phase 27 — Real-world feedback loop and sim-to-real
 
+Phase 27 is split into an interface/intelligence batch (27A–C) that does not require hardware, followed by the hardware-in-the-loop batch (27D).
+
+#### Phase 27A — Voice interface for HERMES ✅ LANDED
+
+**Goal:** Let users talk to HERMES in real time while HERMES replies with both text and voice.
+
+**Deliverables:**
+- LiveKit room + token endpoint for the React frontend and the HERMES worker.
+- NVIDIA NIM STT/TTS REST adapters plus LiveKit `STT`/`TTS` plugin wrappers.
+- Room-based HERMES voice agent: VAD, speech-to-text, HTTP call to the existing HERMES backend, text-to-speech reply, data-channel transcript mirror.
+- `VoiceControls.jsx` integrated into `HermesPanel.jsx`.
+- Tests: `tests/test_hermes_voice.py` (15 tests).
+
+**Status:** committed; default suite 248 passing at 27A.
+
+#### Phase 27B — Professional rendering hardening ✅ LANDED
+
+**Goal:** Make complex generated designs display correctly, consistently, and professionally in the browser.
+
+**Deliverables:**
+- `STLViewer.jsx` rebuilt with `Bounds` auto-fit camera, hemisphere + directional lighting, contact shadows, reset/grid/wireframe toolbar.
+- Canvas configured with `preserveDrawingBuffer` so screenshots can be captured for AI critique.
+
+**Status:** committed; frontend build passes.
+
+#### Phase 27C — NVIDIA model intelligence ✅ LANDED (skeleton)
+
+**Goal:** Use NVIDIA NIM models from https://build.nvidia.com/models to critique renders, power HERMES reasoning, and generate physics-aware simulation scenarios.
+
+**Deliverables:**
+- `ai_cad/nvidia_client.py` — generic chat/vision/Cosmos NIM client.
+- `ai_cad/render_critique.py` — VLM-based render critique returning score/issues/suggestions.
+- HERMES LLM caller can route to NVIDIA Nemotron/Meta models.
+- Backend endpoints: `POST /designs/{id}/render-critique`, `POST /world/scenario`, `GET /nvidia/models`.
+- Frontend AI Critique button wired in `STLViewer.jsx`; `api.js` helpers added.
+- Tests: `tests/test_nvidia_client.py` (15 tests).
+
+**Status:** committed; default suite 263 passing at 27A+B+C.
+
+#### Phase 27D — Hardware-in-the-loop sim-to-real (future)
+
 **Goal:** Deploy trained policies and hardware designs on real robots, collect failure data, and close the loop back into simulation and design.
 
 **Deliverables:**
@@ -917,7 +958,7 @@ PATH2 is the long-term North Star: a full-stack robotics design operating system
 
 **Tests:** one real robot skill works after sim-to-real iteration.
 
-**Effort:** 6–12 months.
+**Effort:** 6–12 months (requires hardware access).
 
 ### Phase 28 — Distribution, ecosystem, and advanced co-design
 
@@ -960,8 +1001,8 @@ PATH2 is the long-term North Star: a full-stack robotics design operating system
 | 24 (world model) | 15A, 19, 23 | ✅ Complete — 376/376 tests; 25 |
 | 25 (brain training) | 24 | ✅ Foundation complete — 414 tests; 26, 27 |
 | 26 (HERMES) | 16, 19, 22, 24, 25 | ✅ Complete end-to-end — 450/451 tests; real tool execution + redesign loop; Phase 27 next |
-| 27 (sim-to-real) | 25, hardware access | Commercial deployment |
-| 28 (commercialization + co-design) | PATH1 proven, 27 | SaaS + marketplace |
+| 27 (voice + NVIDIA + rendering) | 26 | 🚧 In progress — 27A/B/C landed, 263 default tests passing; 27D sim-to-real blocked on hardware access |
+| 28 (commercialization + co-design) | PATH1 proven, 27D | SaaS + marketplace |
 
 ---
 

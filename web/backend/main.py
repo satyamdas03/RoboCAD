@@ -12,6 +12,7 @@ Endpoints:
 """
 from __future__ import annotations
 
+import base64
 import datetime as dt
 import json
 import os
@@ -34,7 +35,7 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
@@ -92,6 +93,8 @@ from ai_cad.hermes import (
 )
 from ai_cad.hermes.livekit_token import create_token
 from ai_cad.hermes.planner import build_plan
+from ai_cad.nvidia_client import NvidiaClient
+from ai_cad.render_critique import critique_render
 from ai_cad.manufacturing import analyze_model as _analyze_manufacturing
 from ai_cad.models import CADParameter, ExportPaths, GenerationResult, ManufacturingReport, ValidationReport
 from ai_cad.onshape import OnshapeClient
@@ -361,6 +364,12 @@ class HermesExplainRequest(BaseModel):
 class HermesVoiceTokenRequest(BaseModel):
     session_id: str = Field(..., description="HERMES session id.")
     identity: str | None = Field(default=None, description="Optional participant identity.")
+
+
+class CosmosScenarioRequest(BaseModel):
+    prompt: str = Field(..., min_length=1, description="Natural-language scenario prompt for Cosmos.")
+    model: str | None = Field(default=None, description="Optional Cosmos model override.")
+    image_b64: str | None = Field(default=None, description="Optional base64 image prompt.")
 
 
 class VariantSweepRequest(BaseModel):
@@ -2663,6 +2672,91 @@ def mesh_quality_check(design_id: str, request: MeshQualityRequest) -> dict[str,
         design_id,
         VerifyRequest(load_case=LoadCase.MESH_QUALITY.value),
     )
+
+
+@app.post("/designs/{design_id}/render-critique")
+def render_critique_endpoint(
+    design_id: str,
+    file: UploadFile = File(..., description="PNG/JPEG screenshot of the rendered model."),
+    prompt: str | None = Query(default=None, description="Optional override prompt for the vision model."),
+) -> dict[str, Any]:
+    """Run a NVIDIA vision-language model on a render screenshot and return a structured critique."""
+    design_dir = DESIGNS_DIR / design_id
+    if not (design_dir / "metadata.json").exists():
+        raise HTTPException(status_code=404, detail="Design not found.")
+
+    try:
+        image_bytes = file.file.read()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Failed to read image: {exc}") from exc
+    finally:
+        file.file.close()
+
+    try:
+        critique = critique_render(image_bytes, prompt=prompt)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Render critique failed: {exc}") from exc
+
+    return {"design_id": design_id, "critique": critique}
+
+
+@app.post("/world/scenario")
+def cosmos_scenario(request: CosmosScenarioRequest) -> dict[str, Any]:
+    """Generate a physics-aware scenario description/asset using a NVIDIA Cosmos model."""
+    client = NvidiaClient()
+    if not client.available():
+        return {
+            "scenario": {
+                "description": request.prompt,
+                "video_url": None,
+                "note": "NVIDIA_API_KEY is not configured; returning prompt as description.",
+            }
+        }
+
+    image_bytes: bytes | None = None
+    if request.image_b64:
+        try:
+            image_bytes = base64.b64decode(request.image_b64)
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid base64 image: {exc}") from exc
+
+    try:
+        scenario = client.generate_scenario(
+            request.prompt,
+            image_bytes=image_bytes,
+            model=request.model or "nvidia/cosmos3-nano",
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Scenario generation failed: {exc}") from exc
+
+    return {"scenario": scenario}
+
+
+@app.get("/nvidia/models")
+def list_nvidia_models() -> dict[str, Any]:
+    """Return the NVIDIA NIM model IDs RoboCAD knows how to use."""
+    from ai_cad import nvidia_client as catalog
+    return {
+        "base_url": catalog.DEFAULT_BASE_URL,
+        "models": {
+            "chat": [
+                catalog.CHAT_MODEL_NEMOTRON_LIGHTNING,
+                catalog.CHAT_MODEL_NEMOTRON_SUPER,
+                catalog.CHAT_MODEL_NEMOTRON_ULTRA,
+            ],
+            "vision": [
+                catalog.CHAT_MODEL_LLAMA_3_2_11B_VISION,
+                catalog.CHAT_MODEL_LLAMA_3_2_90B_VISION,
+                catalog.CHAT_MODEL_MUSE_GLIMMER,
+            ],
+            "physics_scenario": [
+                catalog.COSMOS_NANO,
+                catalog.COSMOS_NANO_REASONER,
+            ],
+            "stt": catalog.STT_DEFAULT,
+            "tts": catalog.TTS_DEFAULT,
+        },
+    }
 
 
 @app.get("/robot-templates")
