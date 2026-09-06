@@ -931,7 +931,7 @@ Phase 27 is split into an interface/intelligence batch (27A–C) that does not r
 
 **Status:** committed; frontend build passes.
 
-#### Phase 27C — NVIDIA model intelligence ✅ LANDED (skeleton)
+#### Phase 27C — NVIDIA model intelligence ✅ COMPLETE
 
 **Goal:** Use NVIDIA NIM models from https://build.nvidia.com/models to critique renders, power HERMES reasoning, and generate physics-aware simulation scenarios.
 
@@ -943,7 +943,7 @@ Phase 27 is split into an interface/intelligence batch (27A–C) that does not r
 - Frontend AI Critique button wired in `STLViewer.jsx`; `api.js` helpers added.
 - Tests: `tests/test_nvidia_client.py` (15 tests).
 
-**Status:** committed; default suite 263 passing at 27A+B+C.
+**Status:** ✅ Complete end-to-end; default suite 263 + heavy/slow 222 tests passing; frontend build passes.
 
 #### Phase 27D — Hardware-in-the-loop sim-to-real (future)
 
@@ -1001,7 +1001,7 @@ Phase 27 is split into an interface/intelligence batch (27A–C) that does not r
 | 24 (world model) | 15A, 19, 23 | ✅ Complete — 376/376 tests; 25 |
 | 25 (brain training) | 24 | ✅ Foundation complete — 414 tests; 26, 27 |
 | 26 (HERMES) | 16, 19, 22, 24, 25 | ✅ Complete end-to-end — 450/451 tests; real tool execution + redesign loop; Phase 27 next |
-| 27 (voice + NVIDIA + rendering) | 26 | 🚧 In progress — 27A/B/C landed, 263 default tests passing; 27D sim-to-real blocked on hardware access |
+| 27 (voice + NVIDIA + rendering) | 26 | ✅ 27A/B/C complete — real-time LiveKit voice for HERMES, NVIDIA NIM chat/vision/Cosmos, AI render critique, professional Three.js viewer; 263 default + 222 heavy/slow tests passing; 27D sim-to-real blocked on hardware access |
 | 28 (commercialization + co-design) | PATH1 proven, 27D | SaaS + marketplace |
 
 ---
@@ -1037,4 +1037,4 @@ Full analysis is saved in `.claude/memory/robocad-path-analysis.md` and the end-
 
 ---
 
-*Last updated: 2026-09-06 (Phases 14A–15B, 16–25 complete; Phase 26 HERMES conversational supervisor complete end-to-end; 450/451 tests passing across default, heavy/slow, and mujoco tiers with 1 expected failure and 5 benchmark/network tests deselected; scope expanded to full multi-domain robotics: mechanical, aero/thermal, electronics, and humanoid/robot systems; attention/compute-budget ideas from AI chip co-design integrated into the world builder and a NumPy-only brain training layer; queued next: Phase 27 sim-to-real feedback loop, robot arm cosmetic refinement)*
+*Last updated: 2026-09-01 (Phases 14A–15B, 16–25 complete; Phase 26 HERMES conversational supervisor complete end-to-end; Phase 27A/B/C voice/NVIDIA/rendering complete end-to-end; 263 default + 222 heavy/slow tests passing with 1 expected failure; scope expanded to full multi-domain robotics: mechanical, aero/thermal, electronics, and humanoid/robot systems; queued next: Phase 27D hardware-in-the-loop sim-to-real once hardware is available, robot arm cosmetic refinement)*

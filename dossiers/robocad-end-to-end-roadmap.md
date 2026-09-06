@@ -1,11 +1,11 @@
 # RoboCAD End-to-End Vision Roadmap
 
-**Date:** 2026-09-06  
+**Date:** 2026-09-01  
 **Horizon:** ~5–7 years  
 **North Star:** voice/text/sketch → multi-domain parametric CAD → per-part multi-physics testing → assembly → world-model simulation → HERMES oversight → robot brain trained on synthetic data with retraining loops.  
 **First commercial milestone:** PATH1 / GEDA Bridge (Phases 14A–15B) — complete, 187/187 tests.  
-**Current milestone:** HERMES cross-domain conversational supervisor (Phase 26) — **complete end-to-end**, 450/451 tests; real tool executors wired to all backend callables, parameter validation, design-context builder, Anthropic/Ollama LLM caller, design-feedback loop, session pruning, and enhanced `HermesPanel`; Phase 27 — real-world feedback loop / sim-to-real — is next.  
-**Domain tracks:** mechanical assemblies, aerodynamics / thermal / propulsion geometry, electronics / mechatronics form-factor co-design, humanoid / full-robot system synthesis, world-model simulation, robot brain training.  
+**Current milestone:** HERMES voice + NVIDIA intelligence + professional rendering (Phase 27A/B/C) — **complete end-to-end**, default 263 + heavy/slow 222 tests passing; real-time LiveKit voice for HERMES with NVIDIA NIM STT/TTS, AI render critique and scenario generation via NVIDIA NIM vision/Cosmos, and a professional Three.js renderer with auto-fit, studio lighting, and screenshot capture. Phase 27D (hardware-in-the-loop sim-to-real) remains future work.  
+**Domain tracks:** mechanical assemblies, aerodynamics / thermal / propulsion geometry, electronics / mechatronics form-factor co-design, humanoid / full-robot system synthesis, world-model simulation, robot brain training, HERMES voice/intelligence.  
 **Related:** [`PLAN.md`](../PLAN.md) Sections 10–14, [`PATH1_PATH2_analysis.md`](PATH1_PATH2_analysis.md)
 
 ---
@@ -422,9 +422,58 @@ Maintained across the entire roadmap:
 
 ---
 
-## Phase 27 — Real-world feedback loop and sim-to-real
+## Phase 27A — HERMES voice interface ✅ COMPLETE
+
+**Goal:** Let users converse with HERMES in real time using voice or text, and receive both text and voice replies.
+
+**Status:** ✅ Complete — 2026-09-01.
+
+**Deliverables:**
+- ✅ LiveKit Cloud WebRTC rooms: frontend joins `hermes-{session_id}`, publishes microphone audio, receives agent audio.
+- ✅ `ai_cad/hermes/livekit_token.py` — token generation for user and agent participants.
+- ✅ `ai_cad/hermes/nvidia_voice.py` — `NvidiaSTT` and `NvidiaTTS` clients for NVIDIA NIM ASR/TTS.
+- ✅ `ai_cad/hermes/voice_plugins.py` — LiveKit plugin adapters for the NVIDIA STT/TTS clients.
+- ✅ `ai_cad/hermes/voice_agent.py` — `HermesVoiceRoomAgent` that buffers speech with VAD, transcribes, calls HERMES backend via HTTP, synthesizes replies, and mirrors transcripts via data channel.
+- ✅ Backend endpoint: `POST /hermes/session/{session_id}/livekit-token`.
+- ✅ Frontend: `VoiceControls.jsx` plus integration in `HermesPanel.jsx`.
+- ✅ Tests: `tests/test_hermes_voice.py` (15 tests) covering token generation, backend endpoint, NVIDIA STT/TTS, and plugin construction.
+
+## Phase 27B — Professional rendering hardening ✅ COMPLETE
+
+**Goal:** Render complex parametric designs correctly, consistently, and professionally.
+
+**Status:** ✅ Complete — 2026-09-01.
+
+**Deliverables:**
+- ✅ Rebuilt `STLViewer.jsx` with `@react-three/drei/Bounds` for auto-fit camera.
+- ✅ Studio lighting: hemisphere + multiple directional lights.
+- ✅ `ContactShadows`, ground grid, and wireframe toggle.
+- ✅ Reset camera / grid / wireframe toolbar.
+- ✅ `preserveDrawingBuffer: true` and a `CaptureBridge` component for canvas screenshot capture.
+- ✅ AI Critique button wired to backend render-critique endpoint.
+
+## Phase 27C — NVIDIA model intelligence ✅ COMPLETE
+
+**Goal:** Use NVIDIA NIM models for render critique, conversational reasoning, and physics-aware scenario generation.
+
+**Status:** ✅ Complete — 2026-09-01.
+
+**Deliverables:**
+- ✅ `ai_cad/nvidia_client.py` — generic NVIDIA NIM client supporting chat, vision, and Cosmos scenario generation.
+- ✅ `ai_cad/render_critique.py` — `critique_render(image_bytes)` returns score, issues, suggestions, and safe-to-show text.
+- ✅ HERMES LLM routing in `ai_cad/hermes/llm.py` so HERMES can use NVIDIA chat models.
+- ✅ Backend endpoints:
+  - `POST /designs/{design_id}/render-critique`
+  - `POST /world/scenario`
+  - `GET /nvidia/models`
+- ✅ Frontend API helpers and `HermesPanel` NVIDIA model support.
+- ✅ Tests: `tests/test_nvidia_client.py` (15 tests) covering client, HERMES caller, render critique, and backend endpoints.
+
+## Phase 27D — Real-world feedback loop and sim-to-real
 
 **Goal:** Deploy trained policies and hardware designs on real robots, collect failure data, and close the loop back into simulation and design.
+
+**Status:** ⏳ Future — blocked on hardware access.
 
 **Deliverables:**
 - Real robot deployment harness (ROS 2 / micro-ROS / hardware bridge).
@@ -480,8 +529,11 @@ Maintained across the entire roadmap:
 | 24 | 15A, 19, 23 | ✅ Complete — 376/376 tests; 25 |
 | 25 | 24 | ✅ Foundation complete — 414 tests; 26, 27 |
 | 26 | 16, 19, 22, 24, 25 | ✅ Complete end-to-end — 450/451 tests; full UX layer; real tool execution + redesign loop; 27 |
-| 27 | 25, hardware access | Commercial deployment (next) |
-| 28 | PATH1 proven, 27 | SaaS + marketplace |
+| 27A | 26, LiveKit/NVIDIA keys | ✅ Complete end-to-end — real-time voice for HERMES |
+| 27B | 2, 14A, 26 | ✅ Complete — professional Three.js renderer with AI critique |
+| 27C | 27B, NVIDIA key | ✅ Complete — NVIDIA NIM chat/vision/Cosmos integration |
+| 27D | 25, hardware access | ⏳ Future — sim-to-real deployment |
+| 28 | PATH1 proven, 27D | SaaS + marketplace |
 
 ---
 
@@ -498,7 +550,7 @@ Maintained across the entire roadmap:
 
 ## Immediate next action
 
-Start **Phase 26 — HERMES cross-domain conversational supervisor**: an LLM-driven orchestrator with tool use across design, simulation, and training APIs; status dashboard; explanation engine; and hard approval gates for expensive operations. Keep Phases 14A–25 under maintenance and the 414-test suite green as HERMES lands. Remaining Phase 25 closed-loop work (real MuJoCo policy rollout, synthetic dataset generator, design-feedback loop) can continue in parallel under HERMES supervision.
+Keep Phases 0–27C under maintenance and the full pytest suite green. Begin **Phase 27D — hardware-in-the-loop sim-to-real** once real robot hardware and a safe test environment are available. Until then, continue hardening the voice agent latency and NVIDIA model error handling, expand the render-critique prompt library, and document the bundle marketplace path for Phase 28.
 
 ---
 

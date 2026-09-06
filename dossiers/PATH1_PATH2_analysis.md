@@ -1,7 +1,7 @@
 # RoboCAD Strategic Analysis: PATH1 vs PATH2
 
 **Date:** 2026-08-25 (updated 2026-09-01)  
-**Status:** Decision made; PATH1 (Phases 14A–15B), Batch A (Phases 16–18), Phase 19, Phase 20, Phase 21, Phase 22, Phase 23, Phase 24, Phase 25, and Phase 26 complete; Phase 27 — real-world feedback loop / sim-to-real — is next  
+**Status:** Decision made; PATH1 (Phases 14A–15B), Batch A (Phases 16–18), Phase 19, Phase 20, Phase 21, Phase 22, Phase 23, Phase 24, Phase 25, Phase 26, and Phase 27A/B/C complete; Phase 27D — hardware-in-the-loop sim-to-real — is next once hardware is available  
 **Related:** [`PLAN.md`](../PLAN.md) Sections 12–14, [`robocad-end-to-end-roadmap.md`](robocad-end-to-end-roadmap.md)
 
 ---
@@ -171,7 +171,10 @@ A full-stack, multi-domain robotics design operating system. It now spans **Phas
 12. ✅ World-model simulation builder (24) complete, **376/376 tests passing**.
 13. ✅ Attention-based robot brain training foundation (25) complete, **414/414 tests passing**.
 14. ✅ HERMES cross-domain conversational supervisor (26) complete end-to-end, **450/451 tests passing** (1 expected failure, 5 benchmark/network tests deselected).
-15. **Next:** Real-world feedback loop / sim-to-real (27), and distribution / ecosystem / advanced co-design (28) — in that order.
+15. ✅ Phase 27A — HERMES real-time voice interface (LiveKit + NVIDIA NIM) complete with token endpoint, STT/TTS plugins, room agent, and `VoiceControls.jsx`.
+16. ✅ Phase 27B — professional rendering hardening complete (auto-fit camera, studio lighting, contact shadows, screenshot capture, AI critique).
+17. ✅ Phase 27C — NVIDIA model intelligence integration complete (NIM client, render critique, HERMES NVIDIA routing, scenario generation, model catalog).
+18. **Next:** Phase 27D — hardware-in-the-loop sim-to-real — once real robot hardware is available, then distribution / ecosystem / advanced co-design (28).
 
 ---
 
