@@ -439,3 +439,12 @@ export async function explainWithHermes(sessionId, target) {
 export async function getHermesStatus(sessionId) {
   return apiFetch(`/hermes/session/${sessionId}/status`)
 }
+
+export async function getHermesLiveKitToken(sessionId, identity = null) {
+  const body = { session_id: sessionId }
+  if (identity) body.identity = identity
+  return apiFetch(`/hermes/session/${sessionId}/livekit-token`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
