@@ -9,6 +9,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+from ai_cad.hermes.executor import execute_tool
+
 
 @dataclass
 class HermesTool:
@@ -49,11 +51,7 @@ class HermesToolRegistry:
         return [tool.to_function_definition() for tool in self._tools.values()]
 
     def execute(self, name: str, parameters: dict[str, Any], context: dict[str, Any] | None = None) -> Any:
-        tool = self.get(name)
-        if tool.executor is None:
-            return {"status": "stub", "message": f"Tool {name!r} has no executor"}
-        ctx = context or {}
-        return tool.executor(**parameters, _context=ctx)
+        return execute_tool(name, parameters, context=context)
 
     def _register_defaults(self) -> None:
         # Read-only / planning tools

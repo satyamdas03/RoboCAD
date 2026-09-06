@@ -55,6 +55,20 @@ export default function HermesPanel({ designId }) {
           setMessages(full.messages || [])
           setActivePlan(full.active_plan)
           setStatus(full.status || 'idle')
+          if (full.context?.design_summary) {
+            const summary = full.context.design_summary
+            const ctxText = [
+              summary.prompt,
+              summary.domain,
+              summary.success ? 'success' : 'failed',
+              `${(summary.parameters || []).length} editable params`,
+            ].filter(Boolean).join(' · ')
+            setMessages((prev) => {
+              const existing = prev.find((m) => m.role === 'context_summary')
+              if (existing) return prev
+              return [{ role: 'context_summary', content: ctxText }, ...prev]
+            })
+          }
         }
       } catch (err) {
         if (!cancelled) setError(err.message)
@@ -172,6 +186,8 @@ export default function HermesPanel({ designId }) {
 
   if (!designId) return null
 
+  const contextSummary = messages.find((m) => m.role === 'context_summary')?.content
+
   return (
     <section className="kp-panel" aria-labelledby="hermes-heading">
       <div className="kp-panel-header">
@@ -198,6 +214,20 @@ export default function HermesPanel({ designId }) {
             Expensive actions require your approval.
           </p>
 
+          {contextSummary && (
+            <div
+              className="kp-small"
+              style={{
+                padding: '0.5rem',
+                border: '1px solid var(--kp-outline-variant)',
+                borderRadius: '4px',
+                background: 'var(--kp-surface-container-lowest)',
+              }}
+            >
+              <strong>Design context:</strong> {contextSummary}
+            </div>
+          )}
+
           <div className="kp-flex kp-gap-2 kp-flex-wrap">
             <button
               type="button"
@@ -223,6 +253,14 @@ export default function HermesPanel({ designId }) {
             >
               Explain replay
             </button>
+            <button
+              type="button"
+              className="kp-button kp-button-sm kp-button-primary"
+              onClick={() => setInput('Propose a redesign from the latest report')}
+              disabled={loading}
+            >
+              Propose redesign
+            </button>
           </div>
 
           <div
@@ -247,25 +285,65 @@ export default function HermesPanel({ designId }) {
                   alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start',
                 }}
               >
-                <div
-                  className="kp-small"
-                  style={{
-                    padding: '0.35rem 0.6rem',
-                    borderRadius: '4px',
-                    maxWidth: '90%',
-                    background:
-                      msg.role === 'user'
-                        ? 'var(--kp-primary-container)'
-                        : 'var(--kp-surface-container)',
-                    color:
-                      msg.role === 'user'
-                        ? 'var(--kp-on-primary-container)'
-                        : 'var(--kp-on-surface)',
-                    whiteSpace: 'pre-wrap',
-                  }}
-                >
-                  {msg.content}
-                </div>
+                {msg.role === 'context_summary' ? (
+                  <div
+                    className="kp-small"
+                    style={{
+                      padding: '0.35rem 0.6rem',
+                      borderRadius: '4px',
+                      maxWidth: '90%',
+                      background: 'var(--kp-surface-container)',
+                      color: 'var(--kp-on-surface-variant)',
+                      fontStyle: 'italic',
+                    }}
+                  >
+                    {msg.content}
+                  </div>
+                ) : (
+                  <div
+                    className="kp-small"
+                    style={{
+                      padding: '0.35rem 0.6rem',
+                      borderRadius: '4px',
+                      maxWidth: '90%',
+                      background:
+                        msg.role === 'user'
+                          ? 'var(--kp-primary-container)'
+                          : 'var(--kp-surface-container)',
+                      color:
+                        msg.role === 'user'
+                          ? 'var(--kp-on-primary-container)'
+                          : 'var(--kp-on-surface)',
+                      whiteSpace: 'pre-wrap',
+                    }}
+                  >
+                    {msg.content}
+                  </div>
+                )}
+                {msg.tool_results?.length > 0 && (
+                  <div className="kp-flex-col kp-gap-1" style={{ maxWidth: '90%' }}>
+                    {msg.tool_results.map((tr, tidx) => (
+                      <div
+                        key={tidx}
+                        className="kp-small"
+                        style={{
+                          padding: '0.35rem 0.5rem',
+                          borderRadius: '4px',
+                          background:
+                            tr.status === 'success'
+                              ? 'var(--kp-success-container)'
+                              : tr.status === 'error'
+                              ? 'var(--kp-error-container)'
+                              : 'var(--kp-surface-container-high)',
+                          color: 'var(--kp-on-surface)',
+                        }}
+                      >
+                        <strong>{tr.tool}</strong>: {tr.status}
+                        {tr.message && <span> — {tr.message}</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
             <div ref={messagesEndRef} />
@@ -333,23 +411,45 @@ export default function HermesPanel({ designId }) {
                 {activePlan.steps.map((step) => (
                   <div
                     key={step.id}
-                    className="kp-flex kp-gap-2 kp-align-center kp-small"
+                    className="kp-flex-col kp-gap-1 kp-small"
                     style={{ paddingLeft: '0.5rem' }}
                   >
-                    <span
-                      className={`kp-badge ${
-                        step.status === 'completed'
-                          ? 'kp-badge-success'
-                          : step.status === 'awaiting_approval'
-                          ? 'kp-badge-error'
-                          : step.status === 'failed' || step.status === 'rejected'
-                          ? 'kp-badge-error'
-                          : 'kp-badge-secondary'
-                      }`}
-                    >
-                      {step.status}
-                    </span>
-                    <span className="kp-text-subtle">{step.description}</span>
+                    <div className="kp-flex kp-gap-2 kp-align-center">
+                      <span
+                        className={`kp-badge ${
+                          step.status === 'completed'
+                            ? 'kp-badge-success'
+                            : step.status === 'awaiting_approval'
+                            ? 'kp-badge-error'
+                            : step.status === 'failed' || step.status === 'rejected'
+                            ? 'kp-badge-error'
+                            : 'kp-badge-secondary'
+                        }`}
+                      >
+                        {step.status}
+                      </span>
+                      <span className="kp-text-subtle">{step.description}</span>
+                    </div>
+                    {step.status === 'failed' && step.error && (
+                      <div className="kp-error kp-small">{step.error}</div>
+                    )}
+                    {step.tool === 'propose_redesign' && step.result?.parameter_updates && (
+                      <div
+                        className="kp-flex-col kp-gap-1"
+                        style={{
+                          padding: '0.5rem',
+                          border: '1px solid var(--kp-outline-variant)',
+                          borderRadius: '4px',
+                          background: 'var(--kp-surface-container-lowest)',
+                        }}
+                      >
+                        <div className="kp-small"><strong>Redesign proposal</strong>: {step.result.rationale}</div>
+                        <pre className="kp-mono kp-small">{JSON.stringify(step.result.parameter_updates, null, 2)}</pre>
+                        {step.result.confidence && (
+                          <span className="kp-small kp-text-subtle">Confidence: {step.result.confidence}</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

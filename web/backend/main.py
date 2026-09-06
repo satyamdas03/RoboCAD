@@ -81,7 +81,15 @@ from ai_cad.geda_bridge import (
 )
 from ai_cad.geda_bridge.models import BundleManifest, BundleVerification
 from ai_cad.guess_parameter import guess_parameter as _guess_parameter
-from ai_cad.hermes import ApprovalGate, HermesAgent, HermesSession, HermesToolRegistry, explain_report
+from ai_cad.hermes import (
+    ApprovalGate,
+    HermesAgent,
+    HermesSession,
+    HermesToolRegistry,
+    build_design_context,
+    build_llm_caller,
+    explain_report,
+)
 from ai_cad.hermes.planner import build_plan
 from ai_cad.manufacturing import analyze_model as _analyze_manufacturing
 from ai_cad.models import CADParameter, ExportPaths, GenerationResult, ManufacturingReport, ValidationReport
@@ -2028,6 +2036,96 @@ def brain_replay_attention_endpoint(design_id: str) -> dict[str, Any]:
     }
 
 
+def _maybe_convert_propose_redesign_to_regenerate(session: HermesSession) -> None:
+    """If a propose_redesign step produced parameter_updates, queue regeneration.
+
+    This implements the design-feedback loop: an LLM-driven redesign proposal is
+    automatically turned into a pending `regenerate_parameters` plan step that
+    requires user approval before it modifies the design.
+    """
+    plan = session.session.active_plan()
+    if plan is None:
+        return
+    for step in plan.steps:
+        if step.tool != "propose_redesign" or step.status.value != "completed":
+            continue
+        result = step.result or {}
+        if not isinstance(result, dict):
+            continue
+        updates = result.get("parameter_updates") or {}
+        if not updates:
+            continue
+        # Only queue once per propose_redesign step.
+        if step.metadata.get("converted_to_regenerate"):
+            continue
+        step.metadata["converted_to_regenerate"] = True
+        from ai_cad.hermes.models import PlanStep
+
+        new_step = PlanStep(
+            description=f"Apply redesign: {result.get('goal', 'parameter update')}",
+            tool="regenerate_parameters",
+            parameters={"parameter_updates": updates},
+            depends_on=[step.id],
+        )
+        plan.steps.append(new_step)
+    session.save()
+
+
+def _build_hermes_context(design_id: str | None) -> dict[str, Any]:
+    """Build a HERMES context dict bound to backend callables for a design."""
+    ctx: dict[str, Any] = {
+        "design_id": design_id,
+        "get_capabilities": get_capabilities,
+        "classify_domain": _classify_domain_safe,
+        "decompose_prompt": lambda prompt: decompose(prompt, use_llm=False),
+        "generate_fn": build_llm_caller(),
+    }
+
+    if design_id:
+        ctx["design_summary"] = build_design_context(design_id, DESIGNS_DIR)
+        ctx["get_design_summary"] = lambda: build_design_context(design_id, DESIGNS_DIR)
+        ctx["run_dfm_report"] = lambda: dfm_report(design_id)
+        ctx["run_verification"] = lambda **kw: verify_design(design_id, VerifyRequest(**kw))
+        ctx["build_world"] = lambda **kw: build_world_endpoint(design_id, WorldBuilderRequest(**kw))
+        ctx["replay_world"] = lambda **kw: replay_world_endpoint(design_id, WorldReplayRequest(**kw))
+        ctx["train_brain"] = lambda **kw: train_brain_endpoint(design_id, TrainBrainRequest(**kw))
+        ctx["train_skill"] = lambda **kw: train_push_skill(**kw)
+        ctx["synthesize_assembly"] = lambda: synthesize_assembly(design_id)
+        ctx["regenerate_parameters"] = lambda **kw: regenerate(design_id, RegenerateRequest(**kw))
+        ctx["explain_report"] = lambda target, report=None: (
+            report
+            if report is not None
+            else ctx.get("design_summary", {}).get("latest_reports", {}).get(target)
+        )
+        ctx["propose_redesign"] = lambda goal, failure_report=None, target="generic": _propose_redesign_for_design(
+            design_id, goal, failure_report, target
+        )
+
+    return ctx
+
+
+def _propose_redesign_for_design(
+    design_id: str,
+    goal: str,
+    failure_report: dict[str, Any] | None = None,
+    target: str = "generic",
+) -> dict[str, Any]:
+    """Propose a redesign for the current design using the latest report if needed."""
+    report = failure_report
+    if report is None:
+        summary = build_design_context(design_id, DESIGNS_DIR)
+        latest = summary.get("latest_reports") or {}
+        report = latest.get(target, latest.get("generic", {}))
+    from ai_cad.hermes.explain import propose_redesign
+
+    return propose_redesign(
+        goal=goal,
+        report=report,
+        target=target,
+        generate_fn=build_llm_caller(),
+    )
+
+
 @app.post("/hermes/session")
 def create_hermes_session(request: HermesCreateSessionRequest) -> dict[str, Any]:
     """Create a new HERMES session bound to an optional design."""
@@ -2037,6 +2135,11 @@ def create_hermes_session(request: HermesCreateSessionRequest) -> dict[str, Any]
             base_dir=DESIGNS_DIR,
             registry=HermesToolRegistry(),
         )
+        if request.design_id:
+            summary = build_design_context(request.design_id, DESIGNS_DIR)
+            session.session.context["design_id"] = request.design_id
+            session.session.context["design_summary"] = summary
+            session.save()
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to create HERMES session: {exc}")
     return {
@@ -2063,6 +2166,7 @@ def get_hermes_session(session_id: str, design_id: str | None = None) -> dict[st
         "status": session.session.status,
         "messages": [m.model_dump() for m in session.session.messages],
         "active_plan": plan.model_dump() if plan else None,
+        "plans": [p.model_dump() for p in session.session.plans],
         "context": session.session.context,
         "updated_at": session.session.updated_at,
     }
@@ -2079,11 +2183,16 @@ def hermes_message(session_id: str, request: HermesMessageRequest) -> dict[str, 
         raise HTTPException(status_code=404, detail="HERMES session not found.")
 
     session.add_message("user", request.message)
+    context = _build_hermes_context(session.session.design_id)
+    # Persist only the serializable design summary in the session sidecar.
+    session.session.context["design_id"] = context["design_id"]
+    session.session.context["design_summary"] = context.get("design_summary")
     agent = HermesAgent(registry=HermesToolRegistry())
     response = agent.run(
         request.message,
         history=session.session.messages,
-        context=session.session.context,
+        context=context,
+        generate_fn=context.get("generate_fn"),
     )
 
     # Convert assistant tool calls into a plan if no explicit plan was given.
@@ -2093,7 +2202,8 @@ def hermes_message(session_id: str, request: HermesMessageRequest) -> dict[str, 
 
     if response.plan:
         session.session.plans.append(response.plan)
-        session.advance(context=session.session.context)
+        session.advance(context=context)
+        _maybe_convert_propose_redesign_to_regenerate(session)
 
     assistant_content = response.content
     if not assistant_content and response.tool_calls:
@@ -2135,9 +2245,12 @@ def hermes_approve(session_id: str, request: HermesApprovalRequest) -> dict[str,
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="HERMES session not found.")
 
+    context = _build_hermes_context(session.session.design_id)
+    session.session.context["design_id"] = context["design_id"]
+    session.session.context["design_summary"] = context.get("design_summary")
     if request.approved:
         step = session.approve(request.step_id, request.parameter_overrides)
-        results = session.advance(context=session.session.context)
+        results = session.advance(context=context)
     else:
         step = session.reject(request.step_id, request.reason)
         results = []

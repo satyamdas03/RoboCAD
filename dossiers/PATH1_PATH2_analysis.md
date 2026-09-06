@@ -170,7 +170,7 @@ A full-stack, multi-domain robotics design operating system. It now spans **Phas
 11. ✅ Humanoid / full-robot synthesis (23) complete, **357/357 tests passing** after post-ship hardening.
 12. ✅ World-model simulation builder (24) complete, **376/376 tests passing**.
 13. ✅ Attention-based robot brain training foundation (25) complete, **414/414 tests passing**.
-14. ✅ HERMES cross-domain conversational supervisor foundation (26) complete, **454/454 tests passing**.
+14. ✅ HERMES cross-domain conversational supervisor (26) complete end-to-end, **450/451 tests passing** (1 expected failure, 5 benchmark/network tests deselected).
 15. **Next:** Real-world feedback loop / sim-to-real (27), and distribution / ecosystem / advanced co-design (28) — in that order.
 
 ---

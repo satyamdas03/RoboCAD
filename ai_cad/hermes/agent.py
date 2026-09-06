@@ -19,10 +19,16 @@ SYSTEM_PROMPT = """You are HERMES, the conversational supervisor for RoboCAD, an
 
 Your job is to help the user across design, simulation, and training. You can propose actions and explain results, but you do NOT execute expensive or design-modifying actions without the user's explicit approval.
 
-Available tools:
+Available tools (some require user approval before execution):
 {tool_descriptions}
 
-When you want to call a tool, respond with a JSON block inside triple backticks:
+Rules:
+1. Read-only tools (get_design_summary, explain_last_failure, get_capabilities, classify_domain, decompose_prompt, propose_redesign) can be called directly.
+2. Expensive/modifying tools (generate_design, regenerate_parameters, synthesize_assembly, run_verification, build_world, replay_world, train_brain, train_skill) require approval. If you want to use one, put it in a `plan` or `tool_calls` block and HERMES will ask the user.
+3. When explaining failures, cite specific numbers from the report in the context.
+4. Keep responses concise and engineering-focused.
+
+When you want to call a tool, respond ONLY with a JSON block inside triple backticks:
 
 ```json
 {{"tool_calls": [{{"tool": "tool_name", "parameters": {{...}}}}]}}
@@ -39,7 +45,7 @@ If you want to propose a multi-step plan, use:
 }}}}
 ```
 
-Keep explanations concise and engineering-focused. Cite report values when explaining failures.
+If the user asks a question, you may respond in plain text before or after the JSON block.
 """
 
 
@@ -53,8 +59,15 @@ class HermesAgent:
         defs = self.registry.definitions()
         lines = []
         for d in defs:
-            params = json.dumps(d.get("parameters", {}))
-            lines.append(f"- {d['name']}: {d['description']} params={params}")
+            params = d.get("parameters", {})
+            required = params.get("required", [])
+            props = params.get("properties", {})
+            prop_lines = []
+            for name, spec in props.items():
+                req = "required" if name in required else "optional"
+                prop_lines.append(f"      {name} ({req}): {spec.get('description', spec.get('type', 'any'))}")
+            lines.append(f"- {d['name']}: {d['description']}")
+            lines.extend(prop_lines)
         return SYSTEM_PROMPT.format(tool_descriptions="\n".join(lines))
 
     def prepare_messages(
@@ -67,7 +80,8 @@ class HermesAgent:
             {"role": "system", "content": self.build_system_prompt()},
         ]
         if context:
-            messages.append({"role": "system", "content": f"Current context: {json.dumps(context)}"})
+            serializable = _json_safe_context(context)
+            messages.append({"role": "system", "content": f"Current context: {json.dumps(serializable)}"})
         for msg in history or []:
             messages.append({"role": msg.role.value, "content": msg.content})
         messages.append({"role": "user", "content": user_message})
@@ -83,31 +97,33 @@ class HermesAgent:
             parsed = self._safe_json(block)
             if parsed is None:
                 continue
-            if "tool_calls" in parsed:
+            if "tool_calls" in parsed and isinstance(parsed["tool_calls"], list):
                 for call_data in parsed["tool_calls"]:
-                    response.tool_calls.append(
-                        ToolCall(
-                            tool=call_data.get("tool", ""),
-                            parameters=call_data.get("parameters", {}),
-                            call_id=call_data.get("call_id", ""),
+                    if isinstance(call_data, dict):
+                        response.tool_calls.append(
+                            ToolCall(
+                                tool=call_data.get("tool", ""),
+                                parameters=call_data.get("parameters", {}),
+                                call_id=call_data.get("call_id", ""),
+                            )
                         )
-                    )
-            if "plan" in parsed:
+            if parsed.get("plan"):
                 response.plan = self._parse_plan(parsed["plan"])
 
         # Fallback: look for a bare JSON object if no fences.
         if not response.tool_calls and not response.plan:
             parsed = self._safe_json(text)
             if parsed and isinstance(parsed, dict):
-                if "tool_calls" in parsed:
+                if "tool_calls" in parsed and isinstance(parsed["tool_calls"], list):
                     for call_data in parsed["tool_calls"]:
-                        response.tool_calls.append(
-                            ToolCall(
-                                tool=call_data.get("tool", ""),
-                                parameters=call_data.get("parameters", {}),
+                        if isinstance(call_data, dict):
+                            response.tool_calls.append(
+                                ToolCall(
+                                    tool=call_data.get("tool", ""),
+                                    parameters=call_data.get("parameters", {}),
+                                )
                             )
-                        )
-                if "plan" in parsed:
+                if parsed.get("plan"):
                     response.plan = self._parse_plan(parsed["plan"])
 
         return response
@@ -118,17 +134,22 @@ class HermesAgent:
         except Exception:
             return None
 
-    def _parse_plan(self, data: dict[str, Any]) -> Plan:
+    def _parse_plan(self, data: dict[str, Any] | None) -> Plan | None:
+        if not isinstance(data, dict):
+            return None
         steps: list[dict[str, Any]] = []
-        for step in data.get("steps", []):
-            steps.append(
-                {
-                    "description": step.get("description", ""),
-                    "tool": step.get("tool"),
-                    "parameters": step.get("parameters", {}),
-                    "depends_on": step.get("depends_on", []),
-                }
-            )
+        for step in data.get("steps", []) or []:
+            if isinstance(step, dict):
+                steps.append(
+                    {
+                        "description": step.get("description", ""),
+                        "tool": step.get("tool"),
+                        "parameters": step.get("parameters", {}),
+                        "depends_on": step.get("depends_on", []),
+                    }
+                )
+        if not steps:
+            return None
         return build_plan(goal=data.get("goal", ""), steps_data=steps)
 
     def run(
@@ -181,3 +202,29 @@ class HermesAgent:
         return AgentResponse(
             content="I'm HERMES. Tell me what you'd like to do: design, simulate, train, or explain a report.",
         )
+
+
+def _json_safe_context(context: dict[str, Any]) -> dict[str, Any]:
+    """Return a JSON-serializable copy of the context for LLM prompts.
+
+    Backend callables are replaced with placeholder strings so the context dict
+    can be serialized without leaking function objects into prompts.
+    """
+    safe: dict[str, Any] = {}
+    for key, value in context.items():
+        if callable(value):
+            safe[key] = f"<callable:{key}>"
+        elif isinstance(value, dict):
+            safe[key] = _json_safe_context(value)
+        elif isinstance(value, list):
+            safe[key] = [
+                _json_safe_context(v) if isinstance(v, dict) else ("<callable>" if callable(v) else v)
+                for v in value
+            ]
+        else:
+            try:
+                json.dumps(value)
+                safe[key] = value
+            except TypeError:
+                safe[key] = str(value)
+    return safe

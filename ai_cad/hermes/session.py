@@ -17,6 +17,19 @@ from ai_cad.hermes.planner import (
 from ai_cad.hermes.tools import HermesToolRegistry
 
 
+MAX_MESSAGES = 50
+MAX_PLANS = 10
+
+
+def _prune_session(session: Session) -> None:
+    """Keep session sidecar bounded so it does not grow unbounded."""
+    if len(session.messages) > MAX_MESSAGES:
+        session.messages = session.messages[-MAX_MESSAGES:]
+    if len(session.plans) > MAX_PLANS:
+        # Keep the most recent active/completed plans; archive oldest by trimming.
+        session.plans = session.plans[-MAX_PLANS:]
+
+
 class HermesSessionStore:
     """JSON sidecar store for HERMES sessions under designs/{id}/hermes_session.json."""
 
@@ -24,15 +37,16 @@ class HermesSessionStore:
         self.base_dir = base_dir
 
     def path_for(self, session_id: str, design_id: str | None = None) -> Path:
-        if design_id:
-            return self.base_dir / design_id / "hermes_session.json"
-        # Fallback: global sessions stored in a dedicated directory.
+        # Always store HERMES sessions in a global namespace so endpoints that only
+        # know the session id can load them without also knowing the design id.
+        # The design_id is persisted inside the session model.
         global_dir = self.base_dir / "_hermes"
         global_dir.mkdir(parents=True, exist_ok=True)
         return global_dir / f"{session_id}.json"
 
     def save(self, session: Session) -> Path:
         session.updated_at = datetime.now(timezone.utc).isoformat()
+        _prune_session(session)
         path = self.path_for(session.id, session.design_id)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(session.model_dump_json(indent=2), encoding="utf-8")
@@ -45,8 +59,8 @@ class HermesSessionStore:
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
             return Session(**data)
-        except Exception:
-            return None
+        except Exception as exc:
+            raise ValueError(f"Failed to load HERMES session from {path}: {exc}") from exc
 
     def delete(self, session_id: str, design_id: str | None = None) -> None:
         path = self.path_for(session_id, design_id)

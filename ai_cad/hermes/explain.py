@@ -1,7 +1,8 @@
 """Explanation engine — convert RoboCAD reports into plain language."""
 from __future__ import annotations
 
-from typing import Any
+import json
+from typing import Any, Callable
 
 
 REPORT_TYPES = ("dfm", "verification", "brain", "world_replay", "generic")
@@ -91,3 +92,72 @@ def _explain_world_replay(report: dict[str, Any]) -> str:
 def _explain_generic(report: dict[str, Any]) -> str:
     summary = report.get("summary", report.get("message", report.get("detail", str(report)[:200])))
     return f"Report summary: {summary}"
+
+
+def propose_redesign(
+    goal: str,
+    report: dict[str, Any] | None = None,
+    target: str = "generic",
+    context: dict[str, Any] | None = None,
+    generate_fn: Callable[[list[dict[str, str]]], str] | None = None,
+) -> dict[str, Any]:
+    """Analyze a failure report and propose concrete parameter changes.
+
+    If `generate_fn` is provided, an LLM is asked to produce a structured
+    redesign proposal. Otherwise the local heuristic is used.
+    """
+    report = report or {}
+
+    if generate_fn is not None:
+        system = (
+            "You are an engineering redesign assistant. Given a failure report and a goal, "
+            "propose concrete editable parameter changes as JSON. Only return a JSON object "
+            "with keys: goal, parameter_updates (map of name to number), rationale, confidence "
+            "(low/medium/high). Do not include markdown fences."
+        )
+        prompt = (
+            f"Goal: {goal}\n"
+            f"Report type: {target}\n"
+            f"Report: {json.dumps(report, default=str)[:1500]}\n\n"
+            "Propose redesign parameters."
+        )
+        try:
+            raw = generate_fn([{"role": "system", "content": system}, {"role": "user", "content": prompt}])
+            # Try to parse a JSON object from the response.
+            text = raw.strip()
+            if text.startswith("```"):
+                text = text.split("\n", 1)[1].rsplit("\n```", 1)[0].strip()
+            proposal = json.loads(text)
+            proposal.setdefault("status", "success")
+            return proposal
+        except Exception as exc:
+            # Fall back to heuristic on LLM failure.
+            pass
+
+    return {
+        "status": "success",
+        "goal": goal,
+        "rationale": explain_report(target, report) if report else "No report available; propose small, safe parameter changes.",
+        "parameter_updates": _heuristic_redesign(report),
+        "confidence": "low" if not report else "medium",
+    }
+
+
+def _heuristic_redesign(report: dict[str, Any]) -> dict[str, float | int]:
+    """Extract simple numeric parameter suggestions from a failure report."""
+    params: dict[str, float | int] = {}
+    issues = report.get("issues") or report.get("violations") or []
+    for issue in issues:
+        if not isinstance(issue, dict):
+            continue
+        msg = str(issue.get("message", "")).lower()
+        if "thin" in msg or "thickness" in msg:
+            params.setdefault("thickness", 2.0)
+        if "heavy" in msg or "mass" in msg:
+            params.setdefault("wall_thickness", 1.5)
+            params.setdefault("density_scale", 0.9)
+        if "hole" in msg or "overhang" in msg:
+            params.setdefault("hole_diameter", 4.0)
+        if "clearance" in msg:
+            params.setdefault("clearance", 0.2)
+    return params

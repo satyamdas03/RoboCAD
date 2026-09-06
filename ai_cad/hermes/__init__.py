@@ -11,20 +11,29 @@ Public API:
 from __future__ import annotations
 
 from ai_cad.hermes.agent import HermesAgent
+from ai_cad.hermes.context import build_design_context
+from ai_cad.hermes.executor import execute_tool
 from ai_cad.hermes.explain import explain_report
 from ai_cad.hermes.gate import ApprovalGate
+from ai_cad.hermes.llm import build_llm_caller
 from ai_cad.hermes.models import Plan as HermesPlan, PlanStep as HermesPlanStep
 from ai_cad.hermes.planner import execute_plan_step
 from ai_cad.hermes.session import HermesSession
 from ai_cad.hermes.tools import HermesToolRegistry
+from ai_cad.hermes.validation import ValidationErrorMessage, validate_tool_parameters
 
 __all__ = [
     "HermesAgent",
     "ApprovalGate",
+    "build_design_context",
+    "build_llm_caller",
     "explain_report",
     "execute_plan_step",
+    "execute_tool",
     "HermesPlan",
     "HermesPlanStep",
     "HermesSession",
     "HermesToolRegistry",
+    "validate_tool_parameters",
+    "ValidationErrorMessage",
 ]

@@ -70,66 +70,112 @@ def test_get_hermes_session_not_found():
 def test_hermes_message_explain():
     created = client.post("/hermes/session", json={}).json()
     session_id = created["session_id"]
-    response = client.post(f"/hermes/session/{session_id}/message", json={
-        "session_id": session_id,
-        "message": "explain the last failure",
-    })
-    assert response.status_code == 200
-    data = response.json()
-    assert data["reply"]
-    assert data["status"] == "done"
+
+    # Mock LLM asks HERMES to explain.
+    from ai_cad.hermes.llm import deterministic_mock_caller
+    original_caller = main_module.build_llm_caller
+    mock = json.dumps({"tool_calls": [{"tool": "explain_last_failure", "parameters": {"target": "generic"}}]})
+    main_module.build_llm_caller = lambda model=None, api_key=None: deterministic_mock_caller(mock)
+    try:
+        response = client.post(f"/hermes/session/{session_id}/message", json={
+            "session_id": session_id,
+            "message": "explain the last failure",
+        })
+        assert response.status_code == 200
+        data = response.json()
+        assert data["reply"]
+        assert data["status"] == "done"
+    finally:
+        main_module.build_llm_caller = original_caller
 
 
 def test_hermes_message_train_requires_approval():
     created = client.post("/hermes/session", json={}).json()
     session_id = created["session_id"]
-    response = client.post(f"/hermes/session/{session_id}/message", json={
-        "session_id": session_id,
-        "message": "train a brain",
-    })
-    assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "awaiting_approval"
-    assert len(data["pending_approvals"]) == 1
-    assert data["pending_approvals"][0]["tool"] == "train_brain"
+
+    # Mock LLM asks HERMES to train.
+    from ai_cad.hermes.llm import deterministic_mock_caller
+    original_caller = main_module.build_llm_caller
+    mock = json.dumps({"tool_calls": [{"tool": "train_brain", "parameters": {}}]})
+    main_module.build_llm_caller = lambda model=None, api_key=None: deterministic_mock_caller(mock)
+    try:
+        response = client.post(f"/hermes/session/{session_id}/message", json={
+            "session_id": session_id,
+            "message": "train a brain",
+        })
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "awaiting_approval"
+        assert len(data["pending_approvals"]) == 1
+        assert data["pending_approvals"][0]["tool"] == "train_brain"
+    finally:
+        main_module.build_llm_caller = original_caller
 
 
 def test_hermes_approve_and_continue():
-    created = client.post("/hermes/session", json={}).json()
+    design_id = "dtrain"
+    design_dir = main_module.DESIGNS_DIR / design_id
+    design_dir.mkdir()
+    (design_dir / "metadata.json").write_text(json.dumps({"id": design_id, "prompt": "test"}), encoding="utf-8")
+
+    created = client.post("/hermes/session", json={"design_id": design_id}).json()
     session_id = created["session_id"]
-    client.post(f"/hermes/session/{session_id}/message", json={
-        "session_id": session_id,
-        "message": "train a brain",
-    })
-    step = client.get(f"/hermes/session/{session_id}/status").json()["pending_approvals"][0]
-    response = client.post(f"/hermes/session/{session_id}/approve", json={
-        "session_id": session_id,
-        "step_id": step["step_id"],
-        "approved": True,
-    })
-    assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "done"
-    assert len(data["results"]) >= 1
+
+    from ai_cad.hermes.llm import deterministic_mock_caller
+    original_caller = main_module.build_llm_caller
+    mock = json.dumps({"tool_calls": [{"tool": "train_brain", "parameters": {}}]})
+    main_module.build_llm_caller = lambda model=None, api_key=None: deterministic_mock_caller(mock)
+    try:
+        client.post(f"/hermes/session/{session_id}/message", json={
+            "session_id": session_id,
+            "message": "train a brain",
+        })
+        step = client.get(f"/hermes/session/{session_id}/status").json()["pending_approvals"][0]
+
+        # Patch the expensive train-brain backend so the approval can execute safely.
+        original_train = main_module.train_brain_endpoint
+        main_module.train_brain_endpoint = lambda did, request: {"success": True, "mock": True}
+        try:
+            response = client.post(f"/hermes/session/{session_id}/approve", json={
+                "session_id": session_id,
+                "step_id": step["step_id"],
+                "approved": True,
+            })
+            assert response.status_code == 200
+            data = response.json()
+            assert data["status"] == "done"
+            assert len(data["results"]) >= 1
+        finally:
+            main_module.train_brain_endpoint = original_train
+    finally:
+        main_module.build_llm_caller = original_caller
 
 
 def test_hermes_reject_step():
     created = client.post("/hermes/session", json={}).json()
     session_id = created["session_id"]
-    client.post(f"/hermes/session/{session_id}/message", json={
-        "session_id": session_id,
-        "message": "train a brain",
-    })
-    step = client.get(f"/hermes/session/{session_id}/status").json()["pending_approvals"][0]
-    response = client.post(f"/hermes/session/{session_id}/approve", json={
-        "session_id": session_id,
-        "step_id": step["step_id"],
-        "approved": False,
-        "reason": "too expensive",
-    })
-    assert response.status_code == 200
-    data = response.json()
-    assert data["step"]["status"] == "rejected"
+
+    from ai_cad.hermes.llm import deterministic_mock_caller
+    original_caller = main_module.build_llm_caller
+    mock = json.dumps({"tool_calls": [{"tool": "train_brain", "parameters": {}}]})
+    main_module.build_llm_caller = lambda model=None, api_key=None: deterministic_mock_caller(mock)
+    try:
+        client.post(f"/hermes/session/{session_id}/message", json={
+            "session_id": session_id,
+            "message": "train a brain",
+        })
+        step = client.get(f"/hermes/session/{session_id}/status").json()["pending_approvals"][0]
+        response = client.post(f"/hermes/session/{session_id}/approve", json={
+            "session_id": session_id,
+            "step_id": step["step_id"],
+            "approved": False,
+            "reason": "too expensive",
+        })
+        assert response.status_code == 200
+        data = response.json()
+        assert data["step"]["status"] == "rejected"
+    finally:
+        main_module.build_llm_caller = original_caller
 
 
 # -----------------------------------------------------------------------------

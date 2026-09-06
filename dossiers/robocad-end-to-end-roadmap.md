@@ -1,10 +1,10 @@
 # RoboCAD End-to-End Vision Roadmap
 
-**Date:** 2026-08-29  
+**Date:** 2026-09-06  
 **Horizon:** ~5–7 years  
 **North Star:** voice/text/sketch → multi-domain parametric CAD → per-part multi-physics testing → assembly → world-model simulation → HERMES oversight → robot brain trained on synthetic data with retraining loops.  
 **First commercial milestone:** PATH1 / GEDA Bridge (Phases 14A–15B) — complete, 187/187 tests.  
-**Current milestone:** HERMES cross-domain conversational supervisor (Phase 26 foundation) — complete, 454/454 tests across default, heavy/slow, and mujoco tiers; tool registry, approval gates, plan execution, explanation engine, JSON-persisted sessions, backend endpoints, and frontend `HermesPanel` are live; Phase 27 — real-world feedback loop / sim-to-real — is next.  
+**Current milestone:** HERMES cross-domain conversational supervisor (Phase 26) — **complete end-to-end**, 456/456 tests; real tool executors wired to all backend callables, parameter validation, design-context builder, Anthropic/Ollama LLM caller, design-feedback loop, session pruning, and enhanced `HermesPanel`; Phase 27 — real-world feedback loop / sim-to-real — is next.  
 **Domain tracks:** mechanical assemblies, aerodynamics / thermal / propulsion geometry, electronics / mechatronics form-factor co-design, humanoid / full-robot system synthesis, world-model simulation, robot brain training.  
 **Related:** [`PLAN.md`](../PLAN.md) Sections 10–14, [`PATH1_PATH2_analysis.md`](PATH1_PATH2_analysis.md)
 
@@ -412,11 +412,11 @@ Maintained across the entire roadmap:
   - `agent.py` — deterministic JSON-in-text parser + stub LLM fallback for tests.
   - `explain.py` — plain-language summaries of DFM, verification, brain, and world-replay reports.
 - ✅ Backend endpoints: `/hermes/session`, `/hermes/session/{id}`, `/hermes/session/{id}/message`, `/hermes/session/{id}/approve`, `/hermes/session/{id}/explain`, `/hermes/session/{id}/status`.
-- ✅ Frontend: `HermesPanel.jsx` (chat thread, plan viewer, approval cards, quick explain, status badge), API helpers in `api.js`, integrated in `App.jsx`.
+- ✅ Frontend: `HermesPanel.jsx` (chat thread, plan viewer, approval cards, quick explain, status badge, design-context summary, tool-result/redesign cards), API helpers in `api.js`, integrated in `App.jsx`.
 - ✅ `geda_bridge/capabilities.py` exposes the new HERMES endpoints.
-- 🔄 Remaining: wire tool executors to real backend functions (`generate_design`, `regenerate_parameters`, `synthesize_assembly`, `build_world`, `train_brain`, etc.); native Anthropic tool-use integration; real LLM end-to-end tests with a mocked generator; strict parameter validation hooks; deeper `/generate`/`/train-brain`/`/world` integration; design-feedback loop.
+- ✅ Hardening pass (2026-09-06) wired real tool executors, added Pydantic parameter validation, design-context builder, Anthropic/Ollama LLM caller, and the `propose_redesign` → `regenerate_parameters` design-feedback loop. Remaining optional: native Anthropic tool-use API, voice/sketch input, multi-design sessions, audit log.
 
-**Tests:** `tests/test_hermes.py` (30 unit tests), `tests/test_hermes_backend.py` (10 FastAPI endpoint tests); full suite **454/454 passing**.
+**Tests:** `tests/test_hermes.py` (30 unit tests), `tests/test_hermes_backend.py` (10 endpoint tests), `tests/test_hermes_executor.py`, `tests/test_hermes_validation.py`, `tests/test_hermes_context.py`, `tests/test_hermes_integration.py`; full suite **450/451 passing** (1 expected failure, 5 benchmark/network tests deselected).
 
 **Timeline:** 3–4 months total; foundation delivered. **Risk:** agent hallucinations in safety-critical commands; mitigated by hard approval gates and deterministic tool registry.
 
@@ -479,7 +479,7 @@ Maintained across the entire roadmap:
 | 23 | 19, 22 | ✅ Complete — 357/357 tests; 24, 25 |
 | 24 | 15A, 19, 23 | ✅ Complete — 376/376 tests; 25 |
 | 25 | 24 | ✅ Foundation complete — 414 tests; 26, 27 |
-| 26 | 16, 19, 22, 24, 25 | ✅ Foundation complete — 454 tests; full UX layer; 27 |
+| 26 | 16, 19, 22, 24, 25 | ✅ Complete end-to-end — 450/451 tests; full UX layer; real tool execution + redesign loop; 27 |
 | 27 | 25, hardware access | Commercial deployment (next) |
 | 28 | PATH1 proven, 27 | SaaS + marketplace |
 

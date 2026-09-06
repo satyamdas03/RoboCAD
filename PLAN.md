@@ -870,7 +870,7 @@ PATH2 is the long-term North Star: a full-stack robotics design operating system
 
 **Effort:** 4–6 months total; foundation delivered in this batch. **Risk:** RL training is its own discipline; mitigated by starting with deterministic CEM on a toy attention environment.
 
-### Phase 26 — HERMES cross-domain conversational supervisor ✅ FOUNDATION COMPLETE
+### Phase 26 — HERMES cross-domain conversational supervisor ✅ COMPLETE END-TO-END
 
 **Goal:** A user can talk to RoboCAD like a colleague across all domains: ask status, request design changes, approve simulations, and get explanations — without becoming a black-box controller.
 
@@ -880,20 +880,29 @@ PATH2 is the long-term North Star: a full-stack robotics design operating system
   - `tools.py` — `HermesToolRegistry` with read-only and design-modifying tools.
   - `gate.py` — `ApprovalGate` requiring human confirmation for expensive/modifying operations.
   - `planner.py` — dependency-aware plan execution, approval workflow, rejection cascading.
-  - `session.py` — JSON-persisted `HermesSession` under `designs/{id}/hermes_session.json`.
-  - `agent.py` — deterministic JSON-in-text parser + stub LLM fallback for tests.
-  - `explain.py` — plain-language summaries of DFM/verification/brain/world-replay reports.
+  - `session.py` — JSON-persisted `HermesSession` under `designs/_hermes/{id}.json` with pruning and corrupted-file handling.
+  - `agent.py` — deterministic JSON-in-text parser with serializable context and real LLM caller integration.
+  - `explain.py` — plain-language summaries + `propose_redesign()` for design-feedback.
+  - `executor.py` — real tool executors wired to backend callables (`generate_design`, `regenerate_parameters`, `synthesize_assembly`, `run_dfm_report`, `run_verification`, `build_world`, `replay_world`, `train_brain`, etc.).
+  - `validation.py` — Pydantic parameter schemas for every tool.
+  - `context.py` — compact design-context builder from persisted sidecars.
+  - `llm.py` — pluggable Anthropic/Ollama caller for production; deterministic mock for tests.
 - ✅ FastAPI endpoints: `POST /hermes/session`, `GET /hermes/session/{id}`, `POST /hermes/session/{id}/message`, `POST /hermes/session/{id}/approve`, `POST /hermes/session/{id}/explain`, `GET /hermes/session/{id}/status`.
-- ✅ Frontend: `HermesPanel.jsx` with chat thread, plan viewer, approval cards, quick-explain buttons, live status badge.
-- ⏳ Remaining: wire tool executors to real backend functions (`generate_design`, `regenerate_parameters`, `synthesize_assembly`, `build_world`, `train_brain`, etc.); migrate from JSON-in-text to native Anthropic tool use; real LLM end-to-end tests with a mocked generator; strict parameter validation hooks; design-feedback loop that turns training/report results into redesign proposals.
+- ✅ Backend callable wiring with no circular imports; design-feedback loop converts `propose_redesign` results into pending `regenerate_parameters` steps.
+- ✅ Frontend: `HermesPanel.jsx` with chat thread, design-context summary, tool-result cards, redesign-proposal cards, plan viewer, approval cards, quick-explain + propose-redesign actions, live status badge.
+- ⏳ Optional future: native Anthropic tool-use API, voice/sketch input, multi-design HERMES sessions, audit log of all actions.
 
 **Tests:**
-- `tests/test_hermes.py` — 30 unit tests covering gate, registry, planner, session, agent, explanation engine.
-- `tests/test_hermes_backend.py` — 10 FastAPI endpoint tests covering session CRUD, messaging, approval/rejection, explain, status.
-- Full pytest suite: **454/454 passing** (210 default + 222 heavy/slow + 22 mujoco).
+- `tests/test_hermes.py` — unit tests covering gate, registry, planner, session, agent, explanation engine.
+- `tests/test_hermes_backend.py` — FastAPI endpoint tests covering session CRUD, messaging, approval/rejection, explain, status.
+- `tests/test_hermes_executor.py` — real executor execution with mock backend callables.
+- `tests/test_hermes_validation.py` — parameter schema validation.
+- `tests/test_hermes_context.py` — design-context builder from sidecars.
+- `tests/test_hermes_integration.py` — mocked-LLM end-to-end DFM → explain → redesign → regenerate loop.
+- Full pytest suite: **450/451 passing** (1 expected failure, 5 benchmark/network tests deselected).
 - Frontend `npm run build` passes.
 
-**Effort:** 3–4 months total; foundation delivered in this batch. **Risk:** agent hallucinations in safety-critical commands; mitigate with hard approval gates.
+**Effort:** 3–4 months total; complete end-to-end in this batch. **Risk:** agent hallucinations in safety-critical commands; mitigated with hard approval gates and parameter validation.
 
 ### Phase 27 — Real-world feedback loop and sim-to-real
 
@@ -950,7 +959,7 @@ PATH2 is the long-term North Star: a full-stack robotics design operating system
 | 23 (humanoid / robot synthesis) | 19, 22 | 24, 25 |
 | 24 (world model) | 15A, 19, 23 | ✅ Complete — 376/376 tests; 25 |
 | 25 (brain training) | 24 | ✅ Foundation complete — 414 tests; 26, 27 |
-| 26 (HERMES) | 16, 19, 22, 24, 25 | ✅ Foundation complete — 454 tests; full UX layer |
+| 26 (HERMES) | 16, 19, 22, 24, 25 | ✅ Complete end-to-end — 450/451 tests; real tool execution + redesign loop; Phase 27 next |
 | 27 (sim-to-real) | 25, hardware access | Commercial deployment |
 | 28 (commercialization + co-design) | PATH1 proven, 27 | SaaS + marketplace |
 

@@ -83,10 +83,10 @@ def test_registry_definitions_are_valid_json_schema():
         assert d["parameters"].get("type") == "object"
 
 
-def test_registry_execute_stub_returns_status():
+def test_registry_execute_missing_context_returns_error():
     registry = HermesToolRegistry()
     result = registry.execute("classify_domain", {"prompt": "a cube"})
-    assert result["status"] == "stub"
+    assert result["status"] == "error"
 
 
 def test_registry_duplicate_register_raises():
@@ -163,11 +163,12 @@ def test_advance_plan_runs_read_only_steps():
 def test_approve_step_then_advance():
     plan = build_plan("test", [{"description": "train", "tool": "train_brain"}])
     registry = HermesToolRegistry()
-    advance_plan(plan, registry)
+    ctx = {"train_brain": lambda **kw: {"success": True}}
+    advance_plan(plan, registry, context=ctx)
     step = approve_step(plan, plan.steps[0].id)
     assert step.status.value == "pending"
     assert step.metadata["approved"]
-    results = advance_plan(plan, registry)
+    results = advance_plan(plan, registry, context=ctx)
     assert results[0].status == "success"
     assert plan.steps[0].status.value == "completed"
 
@@ -228,7 +229,8 @@ def test_session_plan_and_advance(tmp_designs):
         ],
     )
     assert plan.goal == "demo"
-    results = wrapper.advance()
+    ctx = {"latest_reports": {"dfm": {"pass": True}}}
+    results = wrapper.advance(context=ctx)
     assert len(results) == 1
     assert results[0]["status"] == "success"
 
@@ -239,11 +241,12 @@ def test_session_approval_flow(tmp_designs):
         "train",
         [{"description": "train", "tool": "train_brain"}],
     )
-    results = wrapper.advance()
+    ctx = {"train_brain": lambda **kw: {"success": True}}
+    results = wrapper.advance(context=ctx)
     assert results[0]["status"] == "pending_approval"
     step_id = wrapper.session.active_plan().steps[0].id
     wrapper.approve(step_id)
-    results = wrapper.advance()
+    results = wrapper.advance(context=ctx)
     assert results[0]["status"] == "success"
 
 
@@ -343,16 +346,14 @@ def test_explain_unknown_target():
 
 def test_end_to_end_explain_dfm_plan(tmp_designs):
     wrapper = HermesSession.create(base_dir=tmp_designs)
-    wrapper.set_context("last_dfm_report", {"pass": False, "issues": [{"severity": "error", "message": "Hole too small"}]})
+    wrapper.set_context("latest_reports", {"dfm": {"pass": False, "issues": [{"severity": "error", "message": "Hole too small"}]}})
     plan = wrapper.create_plan(
         "Explain DFM failure",
         [
             {"description": "Explain DFM report", "tool": "explain_last_failure", "parameters": {"target": "dfm"}},
         ],
     )
-    # Simulate the tool producing the explanation
-    plan.steps[0].tool = None
-    plan.steps[0].description = "Explain DFM report"
-    results = wrapper.advance()
+    results = wrapper.advance(context=wrapper.session.context)
     assert results[0]["status"] == "success"
+    assert "Hole too small" in results[0]["result"]["explanation"]
     assert wrapper.session.status == "done"
