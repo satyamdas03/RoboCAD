@@ -13,6 +13,7 @@ import anthropic
 import httpx
 
 from ai_cad.generator import DEFAULT_MODEL, OLLAMA_BASE_URL, OLLAMA_TIMEOUT
+from ai_cad.nvidia_client import build_nvidia_caller
 
 
 HermesCaller = Callable[[list[dict[str, str]]], str]
@@ -111,6 +112,15 @@ def _call_ollama(messages: list[dict[str, str]], model: str, base_url: str) -> s
         return '{"tool_calls": [], "plan": null, "error": "' + str(exc).replace('"', "'") + '"}'
 
 
+def _looks_like_nvidia_model(model: str) -> bool:
+    return (
+        model.startswith("nvidia/")
+        or model.startswith("meta/")
+        or model.startswith("chatterbox")
+        or model in {"nemotron-lightning", "nemotron-super", "nemotron-ultra"}
+    )
+
+
 def build_llm_caller(
     model: str | None = None,
     api_key: str | None = None,
@@ -122,6 +132,8 @@ def build_llm_caller(
     or an explicit OLLAMA endpoint, the caller falls back to an Ollama path.
     """
     model = model or os.environ.get("ROBOCAD_MODEL", DEFAULT_MODEL)
+    if _looks_like_nvidia_model(model):
+        return build_nvidia_caller(model=model, api_key=api_key)
     if _looks_like_local_model(model):
         base_url = os.environ.get("OLLAMA_BASE_URL", OLLAMA_BASE_URL)
         return lambda messages: _call_ollama(messages, model, base_url)
