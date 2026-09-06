@@ -1,6 +1,12 @@
 import { Suspense, useMemo, useRef, useState, useEffect } from 'react'
 import { Canvas, useThree, useLoader } from '@react-three/fiber'
-import { OrbitControls, Center, Grid } from '@react-three/drei'
+import {
+  Bounds,
+  ContactShadows,
+  Grid,
+  OrbitControls,
+  useBounds,
+} from '@react-three/drei'
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader'
 import * as THREE from 'three'
 import { exportUrl } from '../api.js'
@@ -53,7 +59,8 @@ function HighlightedFace({ geometry, faceIndex, color = '#00e5ff' }) {
   )
 }
 
-function SceneGrid() {
+function SceneGrid({ visible }) {
+  if (!visible) return null
   return (
     <Grid
       position={[0, -0.01, 0]}
@@ -70,15 +77,26 @@ function SceneGrid() {
   )
 }
 
-function Model({ url, onFaceClick, selectedFace }) {
+function CameraReset({ nonce }) {
+  const bounds = useBounds()
+  useEffect(() => {
+    bounds.refresh().clip().fit()
+  }, [nonce, bounds])
+  return null
+}
+
+function Model({ url, onFaceClick, selectedFace, showGrid, wireframe }) {
   const meshRef = useRef()
   const geometry = useLoader(STLLoader, exportUrl(url))
   const { camera, raycaster, pointer } = useThree()
   const materialRef = useRef(null)
+  const bounds = useBounds()
 
   useEffect(() => {
+    if (geometry && geometry.boundingBox) {
+      bounds.refresh().clip().fit()
+    }
     return () => {
-      // Dispose loaded geometry and material when the model unmounts or URL changes.
       if (geometry && geometry.dispose) {
         geometry.dispose()
       }
@@ -86,7 +104,7 @@ function Model({ url, onFaceClick, selectedFace }) {
         materialRef.current.dispose()
       }
     }
-  }, [geometry])
+  }, [geometry, bounds])
 
   const handlePointerDown = (event) => {
     event.stopPropagation()
@@ -126,7 +144,7 @@ function Model({ url, onFaceClick, selectedFace }) {
 
   return (
     <group>
-      <SceneGrid />
+      <SceneGrid visible={showGrid} />
       <mesh
         ref={meshRef}
         geometry={geometry}
@@ -137,10 +155,15 @@ function Model({ url, onFaceClick, selectedFace }) {
         <meshStandardMaterial
           ref={materialRef}
           color="#d8dce5"
-          roughness={0.55}
-          metalness={0.15}
+          roughness={0.45}
+          metalness={0.25}
         />
       </mesh>
+      {wireframe && (
+        <mesh geometry={geometry}>
+          <meshBasicMaterial color="#1a202c" wireframe transparent opacity={0.25} />
+        </mesh>
+      )}
       <HighlightedFace geometry={geometry} faceIndex={selectedFace} />
     </group>
   )
@@ -148,6 +171,9 @@ function Model({ url, onFaceClick, selectedFace }) {
 
 export default function STLViewer({ url, onFaceClick, selectedFace, guessResult, designId }) {
   const [hint, setHint] = useState(null)
+  const [showGrid, setShowGrid] = useState(true)
+  const [wireframe, setWireframe] = useState(false)
+  const [resetNonce, setResetNonce] = useState(0)
   const prevUrlRef = useRef(url)
 
   useEffect(() => {
@@ -199,11 +225,29 @@ export default function STLViewer({ url, onFaceClick, selectedFace, guessResult,
           {designId ? `Design #${designId.slice(0, 8)}` : 'Generated model'}
         </span>
         <div className="kp-flex kp-gap-2">
-          <button type="button" className="kp-button kp-button-small kp-button-ghost" title="Reset view">
+          <button
+            type="button"
+            className="kp-button kp-button-small kp-button-ghost"
+            title="Reset camera to fit model"
+            onClick={() => setResetNonce((n) => n + 1)}
+          >
             Reset
           </button>
-          <button type="button" className="kp-button kp-button-small kp-button-ghost" title="Toggle grid">
+          <button
+            type="button"
+            className={`kp-button kp-button-small ${showGrid ? 'kp-button-ghost' : 'kp-button-secondary'}`}
+            title="Toggle ground grid"
+            onClick={() => setShowGrid((v) => !v)}
+          >
             Grid
+          </button>
+          <button
+            type="button"
+            className={`kp-button kp-button-small ${wireframe ? 'kp-button-secondary' : 'kp-button-ghost'}`}
+            title="Toggle wireframe overlay"
+            onClick={() => setWireframe((v) => !v)}
+          >
+            Wire
           </button>
         </div>
       </div>
@@ -211,14 +255,30 @@ export default function STLViewer({ url, onFaceClick, selectedFace, guessResult,
       {hint && <div className="kp-viewer-hint">{hint}</div>}
       <div className="kp-viewer-caption">Click a face to guess its parameter · drag to rotate · scroll to zoom</div>
       <Canvas shadows camera={{ position: [100, 100, 100], fov: 50 }} style={{ background: 'var(--kp-background)' }}>
-        <ambientLight intensity={0.55} />
-        <directionalLight position={[50, 100, 50]} intensity={1.1} castShadow />
-        <directionalLight position={[-50, -50, -30]} intensity={0.35} />
+        <hemisphereLight intensity={0.6} groundColor="#1a202c" color="#e8eef2" />
+        <directionalLight position={[80, 120, 60]} intensity={1.4} castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-0.0001} />
+        <directionalLight position={[-60, -40, -40]} intensity={0.35} />
         <Suspense fallback={null}>
-          <Center>
-            <Model url={url} onFaceClick={onFaceClick} selectedFace={selectedFace} />
-          </Center>
+          <Bounds fit clip observe margin={1.2} maxDuration={0.4}>
+            <Model
+              url={url}
+              onFaceClick={onFaceClick}
+              selectedFace={selectedFace}
+              showGrid={showGrid}
+              wireframe={wireframe}
+            />
+            <CameraReset nonce={resetNonce} />
+          </Bounds>
         </Suspense>
+        <ContactShadows
+          key={url}
+          position={[0, -0.01, 0]}
+          opacity={0.35}
+          scale={200}
+          blur={2}
+          far={250}
+          frames={1}
+        />
         <OrbitControls makeDefault />
       </Canvas>
     </section>
