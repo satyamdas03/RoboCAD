@@ -90,6 +90,7 @@ from ai_cad.hermes import (
     build_llm_caller,
     explain_report,
 )
+from ai_cad.hermes.livekit_token import create_token
 from ai_cad.hermes.planner import build_plan
 from ai_cad.manufacturing import analyze_model as _analyze_manufacturing
 from ai_cad.models import CADParameter, ExportPaths, GenerationResult, ManufacturingReport, ValidationReport
@@ -355,6 +356,11 @@ class HermesApprovalRequest(BaseModel):
 class HermesExplainRequest(BaseModel):
     session_id: str = Field(..., description="HERMES session id.")
     target: str = Field(..., description="Report type to explain: dfm, verification, brain, world_replay, generic.")
+
+
+class HermesVoiceTokenRequest(BaseModel):
+    session_id: str = Field(..., description="HERMES session id.")
+    identity: str | None = Field(default=None, description="Optional participant identity.")
 
 
 class VariantSweepRequest(BaseModel):
@@ -2300,6 +2306,26 @@ def hermes_explain(session_id: str, request: HermesExplainRequest) -> dict[str, 
         "report": report,
         "status": session.session.status,
     }
+
+
+@app.post("/hermes/session/{session_id}/livekit-token")
+def hermes_livekit_token(session_id: str, request: HermesVoiceTokenRequest) -> dict[str, Any]:
+    """Generate a LiveKit token so the frontend can join the HERMES voice room."""
+    if request.session_id != session_id:
+        raise HTTPException(status_code=400, detail="Session id mismatch.")
+    try:
+        HermesSession.load(session_id, base_dir=DESIGNS_DIR)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="HERMES session not found.")
+
+    try:
+        token_info = create_token(session_id, identity=request.identity)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to create LiveKit token: {exc}")
+
+    return {"session_id": session_id, **token_info}
 
 
 @app.get("/hermes/session/{session_id}/status")

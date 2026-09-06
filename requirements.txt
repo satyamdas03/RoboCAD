@@ -31,6 +31,10 @@ uvicorn>=0.29.0
 python-multipart>=0.0.9
 python-dotenv>=1.0.0
 
+# Phase 27 — LiveKit voice agent + NVIDIA NIM integration
+livekit-agents>=0.12.0
+livekit-api>=0.8.0
+
 # Optional: Phase 13 model specialization (uncomment as needed)
 # unsloth>=2025.0.0
 # trl>=0.15.0

@@ -8,6 +8,7 @@ import {
   rejectHermesStep,
   sendHermesMessage,
 } from '../api.js'
+import VoiceControls from './VoiceControls.jsx'
 
 const STATUS_COLORS = {
   idle: 'kp-badge-secondary',
@@ -35,6 +36,7 @@ export default function HermesPanel({ designId }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [expanded, setExpanded] = useState(true)
+  const [voiceStatus, setVoiceStatus] = useState('disconnected')
   const messagesEndRef = useRef(null)
 
   // Create or load a session for this design.
@@ -182,6 +184,17 @@ export default function HermesPanel({ designId }) {
     } finally {
       setLoading(false)
     }
+  }
+
+  function handleVoiceTranscript(role, text) {
+    setMessages((prev) => [
+      ...prev,
+      { role, content: text, source: 'voice' },
+    ])
+  }
+
+  function handleVoiceStatus(newStatus) {
+    setVoiceStatus(newStatus)
   }
 
   if (!designId) return null
@@ -457,6 +470,18 @@ export default function HermesPanel({ designId }) {
           )}
 
           {error && <div className="kp-error">{error}</div>}
+
+          <div className="kp-flex kp-gap-2 kp-align-center kp-flex-wrap">
+            <VoiceControls
+              sessionId={sessionId}
+              onTranscript={handleVoiceTranscript}
+              onStatus={handleVoiceStatus}
+              onError={(msg) => setError(msg)}
+            />
+            {voiceStatus && voiceStatus !== 'disconnected' && (
+              <span className="kp-small kp-text-subtle">Voice: {voiceStatus}</span>
+            )}
+          </div>
 
           <div className="kp-flex kp-gap-2 kp-align-center">
             <input
