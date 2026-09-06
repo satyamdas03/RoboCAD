@@ -4,7 +4,7 @@
 **Horizon:** ~5–7 years  
 **North Star:** voice/text/sketch → multi-domain parametric CAD → per-part multi-physics testing → assembly → world-model simulation → HERMES oversight → robot brain trained on synthetic data with retraining loops.  
 **First commercial milestone:** PATH1 / GEDA Bridge (Phases 14A–15B) — complete, 187/187 tests.  
-**Current milestone:** HERMES cross-domain conversational supervisor (Phase 26) — **complete end-to-end**, 456/456 tests; real tool executors wired to all backend callables, parameter validation, design-context builder, Anthropic/Ollama LLM caller, design-feedback loop, session pruning, and enhanced `HermesPanel`; Phase 27 — real-world feedback loop / sim-to-real — is next.  
+**Current milestone:** HERMES cross-domain conversational supervisor (Phase 26) — **complete end-to-end**, 450/451 tests; real tool executors wired to all backend callables, parameter validation, design-context builder, Anthropic/Ollama LLM caller, design-feedback loop, session pruning, and enhanced `HermesPanel`; Phase 27 — real-world feedback loop / sim-to-real — is next.  
 **Domain tracks:** mechanical assemblies, aerodynamics / thermal / propulsion geometry, electronics / mechatronics form-factor co-design, humanoid / full-robot system synthesis, world-model simulation, robot brain training.  
 **Related:** [`PLAN.md`](../PLAN.md) Sections 10–14, [`PATH1_PATH2_analysis.md`](PATH1_PATH2_analysis.md)
 
