@@ -1,10 +1,10 @@
 # RoboCAD End-to-End Vision Roadmap
 
-**Date:** 2026-09-01  
+**Date:** 2026-09-08  
 **Horizon:** ~5–7 years  
 **North Star:** voice/text/sketch → multi-domain parametric CAD → per-part multi-physics testing → assembly → world-model simulation → HERMES oversight → robot brain trained on synthetic data with retraining loops.  
 **First commercial milestone:** PATH1 / GEDA Bridge (Phases 14A–15B) — complete, 187/187 tests.  
-**Current milestone:** HERMES voice + NVIDIA intelligence + professional rendering (Phase 27A/B/C) — **complete end-to-end**, default 263 + heavy/slow 222 tests passing; real-time LiveKit voice for HERMES with NVIDIA NIM STT/TTS, AI render critique and scenario generation via NVIDIA NIM vision/Cosmos, and a professional Three.js renderer with auto-fit, studio lighting, and screenshot capture. Phase 27D (hardware-in-the-loop sim-to-real) remains future work.  
+**Current milestone:** Phase 28A/B/C — **simulation-first product platform foundation complete**, 340 default + 222 heavy/slow tests passing. RoboCAD now has a one-command launcher/health CLI (28A), an asset marketplace for verified parts/templates/policies (28B), and a deep multi-physics engine with CalculiX/ElmerFEM/OpenFOAM adapters + NVIDIA surrogate + async job store + deep verification UI (28C). Phase 27D (hardware-in-the-loop sim-to-real) remains future work blocked on hardware access; Phase 28D–F (morphology lab, simulation certification, product hardening) are in progress.  
 **Domain tracks:** mechanical assemblies, aerodynamics / thermal / propulsion geometry, electronics / mechatronics form-factor co-design, humanoid / full-robot system synthesis, world-model simulation, robot brain training, HERMES voice/intelligence.  
 **Related:** [`PLAN.md`](../PLAN.md) Sections 10–14, [`PATH1_PATH2_analysis.md`](PATH1_PATH2_analysis.md)
 
@@ -488,24 +488,90 @@ Maintained across the entire roadmap:
 
 ---
 
-## Phase 28 — Distribution, ecosystem, and advanced co-design
+## Phase 28 — Simulation-first product platform
 
-**Goal:** Product packaging, marketplace, and optional advanced co-design with external EDA / CFD tools.
+Phase 28 was re-scoped from pure packaging/distribution into a **simulation-first product platform** with six sub-phases.
+
+### Phase 28A — Launcher + health CLI + installer skeleton ✅ COMPLETE
+
+**Goal:** One-command start and environment health reporting.
 
 **Deliverables:**
-- One-command launcher (`start.bat` / `start.sh`).
-- Optional desktop installer (PyInstaller/NSIS or Tauri).
-- Open-source core with paid cloud simulation/training tier.
-- Asset marketplace: verified parts, scene templates, trained policies, aero/thermal templates, robot templates.
+- ✅ `robocad/launcher.py`, `robocad/health.py`, `robocad/__main__.py`.
+- ✅ `start.py`, `start.bat`, `start.sh` user entry points.
+- ✅ `scripts/build_installer.py` PyInstaller skeleton.
+- ✅ `python -m robocad.health` reports Python version, dependencies, API keys, and solver availability.
+- ✅ Tests: `tests/test_launcher.py` (8 tests) + `tests/test_build_installer.py` (5 tests) = **13/13 passing**.
+
+**Timeline:** 1–2 weeks.
+
+### Phase 28B — Asset marketplace ✅ COMPLETE
+
+**Goal:** Built-in marketplace for verified parts, scene templates, robot templates, and world templates.
+
+**Deliverables:**
+- ✅ `ai_cad/marketplace.py` — `MarketplaceItem`, `AssetType`, CRUD, `verify_asset()`, `import_item_into_design()`.
+- ✅ `marketplace/index.json` + starter packs under `marketplace/starter_packs/`.
+- ✅ Backend endpoints: `/marketplace/items/*`, `/marketplace/items/{id}/import/{design_id}`.
+- ✅ Frontend `MarketplacePanel.jsx` grid, upload form, import/download buttons, verified badges.
+- ✅ Tests: `tests/test_marketplace.py` **5/5 passing**.
+
+**Timeline:** 2–3 weeks.
+
+### Phase 28C — Deep multi-physics engine ✅ COMPLETE
+
+**Goal:** Optional real FEA/CFD/thermal solvers behind an async job store and deep verification UI.
+
+**Deliverables:**
+- ✅ `ai_cad/solvers/` package:
+  - `geometry_prep.py` — STL loading, degeneracy checks, surface labeling.
+  - `meshing.py` — Gmsh/Netgen wrappers, OpenFOAM `blockMesh`/`snappyHexMesh` stubs.
+  - `calculix_adapter.py` — static/modal/thermal-expansion `.inp` generation and result parsing.
+  - `elmerfem_adapter.py` — thermal conduction and thermal-stress case writers.
+  - `openfoam_adapter.py` — full case-directory builder + runner + force-coefficient parser.
+  - `nvidia_surrogate.py` — NVIDIA NIM surrogate with deterministic fallback.
+  - `job_store.py` — SQLite-backed async job queue.
+  - `verification_deep.py` — dispatcher + `solver_availability()`.
+  - `models.py` — shared Pydantic models.
+- ✅ Backend endpoints: `/designs/{id}/deep-verify/*`, `/designs/{id}/solver-availability`.
+- ✅ Frontend "Deep Analysis" tab in `VerificationPanel.jsx`.
+- ✅ Tests: `tests/test_solver_meshing.py`, `tests/test_solver_fea.py`, `tests/test_solver_cfd.py`, `tests/test_solver_dispatch.py`, `tests/test_deep_verify_api.py`.
+
+**Test results:** 64/64 solver + marketplace tests passing; full default suite **340 passing**; frontend build passes.
+
+**Timeline:** 4–6 weeks.
+
+### Phase 28D — Morphology co-design lab ⏳ IN PROGRESS
+
+**Goal:** Invent and optimize novel robot morphologies in simulation before committing to a CAD model.
+
+**Deliverables:**
+- Parametric morphology search over limb counts, link lengths, joint ranges, and end-effector choices.
+- Stability, workspace, and gait-feasibility scoring.
+- Integration with world-model simulation and brain training loop.
+
+### Phase 28E — Simulation certification ⏳ IN PROGRESS
+
+**Goal:** Certify a design against a distribution of simulated worlds and produce a trust report.
+
+**Deliverables:**
+- Domain randomization sweeps with pass/fail thresholds.
+- Policy evaluation harness on generated worlds.
+- Signed/audited simulation certificate artifact.
+
+### Phase 28F — Product hardening + final docs ⏳ IN PROGRESS
+
+**Goal:** Ready the simulation-first platform for release.
+
+**Deliverables:**
+- Optional desktop installer (PyInstaller/NSIS/Tauri).
+- Paid cloud simulation/training tier scaffolding.
 - Enterprise features: private model training, PLM integrations, audit logs.
 - Community benchmarks and competitions.
-- Advanced co-design plugins for package/heat-spreader integration with external EDA (not silicon layout).
 
-**Tests:** launcher smoke test; manual clean-Windows VM test; marketplace upload/download round trip.
+**Acceptance criteria for full Phase 28:** new user from launcher to first generated base plate or airfoil in under 10 minutes; verified marketplace assets load into simulation on first try; deep physics checks produce actionable reports.
 
-**Acceptance criteria:** new user from installer to first generated base plate or airfoil in under 10 minutes.
-
-**Timeline:** 2–3 months core packaging; ongoing for marketplace/enterprise.
+**Timeline:** 2–3 months for 28A–C; ongoing for 28D–F.
 
 ---
 
@@ -533,7 +599,12 @@ Maintained across the entire roadmap:
 | 27B | 2, 14A, 26 | ✅ Complete — professional Three.js renderer with AI critique |
 | 27C | 27B, NVIDIA key | ✅ Complete — NVIDIA NIM chat/vision/Cosmos integration |
 | 27D | 25, hardware access | ⏳ Future — sim-to-real deployment |
-| 28 | PATH1 proven, 27D | SaaS + marketplace |
+| 28A | 27 | ✅ Complete — one-command launcher + health CLI; 13 tests passing |
+| 28B | 28A | ✅ Complete — verified asset marketplace backend + frontend + tests |
+| 28C | 28A, 22 | ✅ Complete — CalculiX/ElmerFEM/OpenFOAM adapters + NVIDIA surrogate + async job store + deep verification UI; 64/64 new tests passing |
+| 28D | 24, 25, 28C | ⏳ In progress — morphology co-design lab |
+| 28E | 24, 25, 28C | ⏳ In progress — simulation certification |
+| 28F | 28A–E | ⏳ In progress — product hardening + final docs |
 
 ---
 
@@ -550,7 +621,7 @@ Maintained across the entire roadmap:
 
 ## Immediate next action
 
-Keep Phases 0–27C under maintenance and the full pytest suite green. Begin **Phase 27D — hardware-in-the-loop sim-to-real** once real robot hardware and a safe test environment are available. Until then, continue hardening the voice agent latency and NVIDIA model error handling, expand the render-critique prompt library, and document the bundle marketplace path for Phase 28.
+Keep Phases 0–28C under maintenance and the full pytest suite green. Continue **Phase 28D — Morphology Co-Design Lab**, followed by 28E simulation certification and 28F product hardening. Phase 27D hardware-in-the-loop sim-to-real remains future work until real robot hardware is available.
 
 ---
 

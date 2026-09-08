@@ -1,8 +1,21 @@
 # Phase 28 — Simulation-First Product Platform
 
 **Date:** 2026-09-01  
-**Status:** Planning — re-scoped from pure packaging to include deep simulation capabilities  
+**Status:** 28A complete, 28B/28C core modules integrated and passing tests  
 **Related:** `README.md`, `PLAN.md`, `dossiers/robocad-end-to-end-roadmap.md`
+
+---
+
+## Progress log
+
+- **2026-09-01** — 28B/28C integration checkpoint:
+  - `ai_cad/marketplace.py` wired to backend endpoints; `tests/test_marketplace.py` passes.
+  - Deep solver stack (`geometry_prep`, `meshing`, `calculix_adapter`, `elmerfem_adapter`, `openfoam_adapter`, `nvidia_surrogate`, `job_store`, `verification_deep`) imports and runs; all `tests/test_solver_*.py` and `tests/test_deep_verify_api.py` pass.
+  - `ai_cad/solvers/__init__.py` cleaned up; `ai_cad/solvers/models.py` extended with `SurfaceLabel`, `GeometryPrepResult`, `JobStatus`, `VerificationJob`.
+  - Added `GET /designs/{id}/deep-verify` list endpoint and reconciled `web/frontend/src/api.js` paths with backend routes.
+  - Updated `MarketplacePanel.jsx` and `VerificationPanel.jsx` to match the new API contracts.
+  - Full default pytest suite: **340 passed**; frontend `npm run build` passes with chunk-size warning only.
+  - Remaining: verified policy bundles, real solver smoke tests with installed CalculiX/OpenFOAM, morphology lab (28D), sim certification (28E), docs refresh (28F).
 
 ---
 

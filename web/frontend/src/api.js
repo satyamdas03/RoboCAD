@@ -339,6 +339,35 @@ export async function checkMeshQuality(id) {
   return apiFetch(`/designs/${id}/mesh-quality-check`, { method: 'POST' })
 }
 
+export async function getSolverAvailability(id = 'system') {
+  return apiFetch(`/designs/${id}/solver-availability`)
+}
+
+export async function submitDeepVerification(id, { solver = 'calculix', loadCase = 'static_stress', materials = {}, parameters = {}, boundaryConditions = {} } = {}) {
+  return apiFetch(`/designs/${id}/deep-verify`, {
+    method: 'POST',
+    body: JSON.stringify({
+      solver,
+      load_case: loadCase,
+      materials,
+      parameters,
+      boundary_conditions: boundaryConditions,
+    }),
+  })
+}
+
+export async function listDeepVerificationJobs(id) {
+  return apiFetch(`/designs/${id}/deep-verify`)
+}
+
+export async function getDeepVerificationJob(id, jobId) {
+  return apiFetch(`/designs/${id}/deep-verify/${jobId}`)
+}
+
+export async function cancelDeepVerificationJob(id, jobId) {
+  return apiFetch(`/designs/${id}/deep-verify/${jobId}/cancel`, { method: 'POST' })
+}
+
 export async function listRobotTemplates() {
   return apiFetch('/robot-templates')
 }
@@ -477,4 +506,45 @@ export async function generateScenario(prompt, imageB64 = null, model = null) {
     method: 'POST',
     body: JSON.stringify(body),
   })
+}
+
+export async function listMarketplaceItems() {
+  return apiFetch('/marketplace/items')
+}
+
+export async function getMarketplaceItem(id) {
+  return apiFetch(`/marketplace/items/${id}`)
+}
+
+export async function uploadMarketplaceItem({
+  name,
+  description = '',
+  author = 'RoboCAD',
+  assetType = 'part',
+  sourcePath,
+  tags = [],
+  thumbnailUrl = null,
+  metadata = {},
+}) {
+  return apiFetch('/marketplace/items', {
+    method: 'POST',
+    body: JSON.stringify({
+      name,
+      description,
+      author,
+      asset_type: assetType,
+      source_path: sourcePath,
+      tags,
+      thumbnail_url: thumbnailUrl,
+      metadata,
+    }),
+  })
+}
+
+export async function downloadMarketplaceItem(id) {
+  return apiFetch(`/marketplace/items/${id}/download`, { method: 'POST' })
+}
+
+export async function importMarketplaceItem(id, designId) {
+  return apiFetch(`/marketplace/items/${id}/import/${designId}`, { method: 'POST' })
 }
