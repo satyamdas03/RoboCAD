@@ -221,7 +221,7 @@ def print_health() -> None:
         status = "[OK]" if row["ok"] else "[FAIL]"
         version = f" ({row.get('version')})" if row.get("version") else ""
         print(f"  {status} {row['name']}{version}: {row['message']}")
-        if not row["ok"] and row.get("install_hint"):
+        if not row.get("installed", row["ok"]) and row.get("install_hint"):
             print(f"        install hint: {row['install_hint']}")
     print("\n" + ("READY" if report["ready"] else "NOT READY"))
 
