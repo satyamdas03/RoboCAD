@@ -1,0 +1,62 @@
+{
+  "schema_version": "2.0.0",
+  "design_id": null,
+  "name": "manipulator_on_base",
+  "created_at": "2026-09-08T00:04:45.518937Z",
+  "generator": "RoboCAD GEDA Bridge",
+  "length_unit": "m",
+  "mass_unit": "kg",
+  "urdf_file": "manipulator_on_base.urdf",
+  "mjcf_file": "manipulator_on_base.mjcf",
+  "parts": [
+    {
+      "part_id": "manipulator_on_base",
+      "instance_id": null,
+      "name": "manipulator_on_base",
+      "material": "PLA",
+      "density_kg_m3": 1250.0,
+      "mesh_file": "meshes/manipulator_on_base.stl",
+      "inertial": {
+        "mass_kg": 0.08999999999999998,
+        "center_of_mass_m": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "inertia_tensor_kg_m2": [
+          0.00003,
+          0.00003,
+          0.000054,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "principal_moments_kg_m2": [
+          0.00003,
+          0.00003,
+          0.000054
+        ],
+        "principal_axes": [
+          [
+            1.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            1.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "density_kg_m3": 1250.0,
+        "material": "PLA"
+      },
+      "transform_m": null
+    }
+  ]
+}

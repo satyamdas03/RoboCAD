@@ -96,6 +96,19 @@ from ai_cad.hermes.planner import build_plan
 from ai_cad.nvidia_client import NvidiaClient
 from ai_cad.render_critique import critique_render
 from ai_cad.manufacturing import analyze_model as _analyze_manufacturing
+from ai_cad.marketplace import (
+    AssetType,
+    MarketplaceImportResult,
+    MarketplaceItem,
+    create_item,
+    delete_item,
+    get_item,
+    import_item_into_design,
+    list_items,
+    record_download,
+    update_item,
+    verify_asset,
+)
 from ai_cad.models import CADParameter, ExportPaths, GenerationResult, ManufacturingReport, ValidationReport
 from ai_cad.onshape import OnshapeClient
 from ai_cad.parameters import extract_parameters
@@ -108,6 +121,28 @@ from ai_cad.transpiler import transpile
 from ai_cad.validator import validate_model
 from ai_cad.verification import get_report, run_verification
 from ai_cad.verification_models import LoadCase, VerificationRequest, VerificationResult as VerificationResultModel
+try:
+    from ai_cad.solvers.verification_deep import (
+        cancel_deep_verification,
+        poll_deep_verification,
+        solver_availability,
+        submit_deep_verification,
+    )
+    from ai_cad.solvers.job_store import JobStore
+except Exception:  # pragma: no cover - solvers may be partially implemented in early Phase 28.
+    JobStore = None  # type: ignore[misc, assignment]
+
+    def submit_deep_verification(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        return {"error": "deep verification backend unavailable"}
+
+    def poll_deep_verification(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        return {"error": "deep verification backend unavailable"}
+
+    def cancel_deep_verification(*args: Any, **kwargs: Any) -> bool:
+        return False
+
+    def solver_availability(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        return {"available": False}
 from ai_cad.robot_templates import humanoid_template, manipulator_on_base_template, quadruped_template
 from ai_cad.actuator_sizing import actuator_summary, size_actuators_for_tree
 from ai_cad.kinematic_tree import forward_kinematics, sample_reachable_workspace
@@ -292,6 +327,18 @@ class VerifyRequest(BaseModel):
     parameters: dict[str, Any] = Field(default_factory=dict, description="Case-specific parameter overrides.")
 
 
+class DeepVerifyRequest(BaseModel):
+    """Request to start a Phase 28C deep-analysis job."""
+
+    load_case: str = Field(..., description="One of the supported verification load-case names.")
+    solver: str | None = Field(
+        default=None,
+        description="Optional deep solver override (calculix, elmerfem, openfoam, surrogate).",
+    )
+    materials: dict[str, str] = Field(default_factory=dict, description="Map of part_id to material name.")
+    parameters: dict[str, Any] = Field(default_factory=dict, description="Case-specific parameter overrides.")
+
+
 class MeshQualityRequest(BaseModel):
     part_id: str | None = Field(default=None, description="Optional part id; ignored for single STL designs.")
 
@@ -391,6 +438,32 @@ class RobotAnalysisRequest(BaseModel):
     lateral_accel_m_s2: float = Field(default=0.5, ge=0, description="Lateral acceleration budget for ZMP check in m/s^2.")
     end_effector_id: str = Field(default="hand_r", description="Instance id used for reachable workspace sampling.")
     swing_foot_id: str = Field(default="foot_l", description="Foot instance id used for gait feasibility proxy.")
+
+
+class MarketplaceCreateRequest(BaseModel):
+    name: str = Field(..., min_length=1, description="Display name for the asset.")
+    description: str = Field(default="", description="Short description of the asset.")
+    author: str = Field(default="", description="Author or publisher name.")
+    version: str = Field(default="1.0.0", description="Semantic version string.")
+    tags: list[str] = Field(default_factory=list, description="Searchable tags.")
+    asset_type: str = Field(..., description="One of: part, scene_template, robot_template, world_template, electronics_template, aero_template.")
+    source_path: str = Field(..., min_length=1, description="Relative path under the repo root to the asset directory.")
+    thumbnail_url: str | None = Field(default=None, description="Optional thumbnail image URL.")
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Extra asset metadata.")
+
+
+class MarketplaceUpdateRequest(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    author: str | None = None
+    version: str | None = None
+    tags: list[str] | None = None
+    thumbnail_url: str | None = None
+    metadata: dict[str, Any] | None = None
+
+
+class MarketplaceVerifyResponse(MarketplaceItem):
+    """Verification result; identical to the item with updated verification_report."""
 
 
 
@@ -1760,6 +1833,131 @@ def capabilities() -> dict[str, Any]:
     return get_capabilities()
 
 
+@app.get("/marketplace/items")
+def marketplace_list_items(
+    asset_type: str | None = Query(default=None, description="Filter by asset type."),
+    tag: str | None = Query(default=None, description="Filter by tag."),
+    search: str = Query(default="", description="Free-text search over name/description/tags."),
+    verified_only: bool = Query(default=False, description="Only return verified items."),
+) -> list[MarketplaceItem]:
+    """List marketplace assets with optional filters."""
+    return list_items(
+        asset_type=AssetType(asset_type) if asset_type else None,
+        tag=tag,
+        search=search,
+        verified_only=verified_only,
+    )
+
+
+@app.get("/marketplace/items/{item_id}")
+def marketplace_get_item(item_id: str) -> MarketplaceItem:
+    """Get a single marketplace asset by id."""
+    try:
+        return get_item(item_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+@app.post("/marketplace/items", response_model=MarketplaceItem)
+def marketplace_create_item(request: MarketplaceCreateRequest) -> MarketplaceItem:
+    """Create a new marketplace catalog entry."""
+    try:
+        asset_type = AssetType(request.asset_type)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid asset_type: {exc}")
+
+    item = MarketplaceItem(
+        name=request.name,
+        description=request.description,
+        author=request.author,
+        version=request.version,
+        tags=request.tags,
+        asset_type=asset_type,
+        source_path=request.source_path,
+        thumbnail_url=request.thumbnail_url,
+        metadata=request.metadata,
+    )
+    try:
+        return create_item(item)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+
+@app.post("/marketplace/items/{item_id}")
+def marketplace_update_item(item_id: str, request: MarketplaceUpdateRequest) -> MarketplaceItem:
+    """Update a marketplace catalog entry."""
+    updates = request.model_dump(exclude_unset=True)
+    try:
+        return update_item(item_id, updates)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+@app.post("/marketplace/items/{item_id}/verify")
+def marketplace_verify_item(item_id: str) -> MarketplaceItem:
+    """Run verification checks on a marketplace item and update its verified badge."""
+    try:
+        item = get_item(item_id)
+        item = verify_asset(item)
+        update_item(item_id, {
+            "verified": item.verified,
+            "verification_report": item.verification_report,
+            "updated_at": item.updated_at,
+        })
+        return item
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Verification failed: {exc}")
+
+
+@app.post("/marketplace/items/{item_id}/download")
+def marketplace_download_item(item_id: str) -> dict[str, Any]:
+    """Record a download and return item metadata + resolved asset paths."""
+    try:
+        item = record_download(item_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+    source_dir = Path(item.source_path)
+    if not source_dir.is_absolute():
+        source_dir = Path(__file__).resolve().parent.parent.parent / source_dir
+    source_dir = source_dir.resolve()
+
+    files: list[str] = []
+    if source_dir.exists():
+        files = [str(p.relative_to(source_dir).as_posix()) for p in sorted(source_dir.rglob("*")) if p.is_file()]
+
+    return {
+        "item_id": item_id,
+        "name": item.name,
+        "asset_type": item.asset_type.value,
+        "source_path": item.source_path,
+        "downloads_count": item.downloads_count,
+        "files": files,
+    }
+
+
+@app.post("/marketplace/items/{item_id}/import/{design_id}")
+def marketplace_import_item(item_id: str, design_id: str) -> MarketplaceImportResult:
+    """Import a marketplace asset into a persisted design."""
+    try:
+        return import_item_into_design(item_id, design_id, designs_dir=DESIGNS_DIR)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Import failed: {exc}")
+
+
+@app.delete("/marketplace/items/{item_id}")
+def marketplace_delete_item(item_id: str) -> dict[str, bool]:
+    """Remove a marketplace catalog entry."""
+    deleted = delete_item(item_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Marketplace item not found.")
+    return {"deleted": True}
+
+
 @app.post("/designs/{design_id}/handshake")
 def handshake(design_id: str, template: str = Query(default="wedge_push_block", description="Scene template for stability check.")) -> dict[str, Any]:
     """Run the LearningRobotics handshake: export → scene → 10 s MuJoCo stability rollout."""
@@ -2672,6 +2870,77 @@ def mesh_quality_check(design_id: str, request: MeshQualityRequest) -> dict[str,
         design_id,
         VerifyRequest(load_case=LoadCase.MESH_QUALITY.value),
     )
+
+
+def _deep_job_store() -> JobStore:
+    """Return the shared job store for deep-analysis jobs."""
+    return JobStore(DESIGNS_DIR / "deep_jobs.db")
+
+
+@app.post("/designs/{design_id}/deep-verify")
+def deep_verify_start(design_id: str, request: DeepVerifyRequest) -> dict[str, Any]:
+    """Start a long-running deep multi-physics analysis job for a design."""
+    design_dir = DESIGNS_DIR / design_id
+    if not (design_dir / "metadata.json").exists():
+        raise HTTPException(status_code=404, detail="Design not found.")
+
+    try:
+        load_case = LoadCase(request.load_case)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported load case: {request.load_case}. Supported: {[c.value for c in LoadCase]}",
+        )
+
+    parameters = dict(request.parameters)
+    if request.solver:
+        parameters["solver"] = request.solver
+
+    verification_request = VerificationRequest(
+        design_id=design_id,
+        load_case=load_case,
+        materials=request.materials,
+        parameters=parameters,
+    )
+    store = _deep_job_store()
+    job_id = submit_deep_verification(
+        verification_request,
+        design_dir=design_dir,
+        job_store=store,
+    )
+    return {"design_id": design_id, "job_id": job_id, "status": "queued"}
+
+
+@app.get("/designs/{design_id}/deep-verify/{job_id}")
+def deep_verify_status(design_id: str, job_id: str) -> dict[str, Any]:
+    """Poll the status / result of a deep-analysis job."""
+    store = _deep_job_store()
+    job = poll_deep_verification(job_id, job_store=store)
+    if job is None or job.design_id != design_id:
+        raise HTTPException(status_code=404, detail="Deep verification job not found.")
+    return {"design_id": design_id, "job": job.to_dict()}
+
+
+@app.post("/designs/{design_id}/deep-verify/{job_id}/cancel")
+def deep_verify_cancel(design_id: str, job_id: str) -> dict[str, Any]:
+    """Cancel a queued or running deep-analysis job."""
+    store = _deep_job_store()
+    job = poll_deep_verification(job_id, job_store=store)
+    if job is None or job.design_id != design_id:
+        raise HTTPException(status_code=404, detail="Deep verification job not found.")
+
+    cancelled = cancel_deep_verification(job_id, job_store=store)
+    return {"design_id": design_id, "job_id": job_id, "cancelled": cancelled}
+
+
+@app.get("/designs/{design_id}/solver-availability")
+def design_solver_availability(design_id: str) -> dict[str, Any]:
+    """Return which optional deep-analysis solvers are available for this design."""
+    design_dir = DESIGNS_DIR / design_id
+    if not (design_dir / "metadata.json").exists():
+        raise HTTPException(status_code=404, detail="Design not found.")
+
+    return {"design_id": design_id, **solver_availability()}
 
 
 @app.post("/designs/{design_id}/render-critique")

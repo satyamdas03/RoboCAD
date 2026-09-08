@@ -1,0 +1,12 @@
+{
+  "name": "L-bracket",
+  "asset_type": "part",
+  "description": "Parametric L-bracket starter part.",
+  "author": "RoboCAD",
+  "version": "1.0.0",
+  "tags": [
+    "structural",
+    "bracket",
+    "starter"
+  ]
+}
