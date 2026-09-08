@@ -184,6 +184,47 @@ def create_item(item: MarketplaceItem) -> MarketplaceItem:
     return item
 
 
+def create_item_from_upload(
+    source_dir: Path | str,
+    name: str,
+    asset_type: AssetType = AssetType.PART,
+    description: str = "",
+    author: str = "",
+    tags: list[str] | None = None,
+) -> MarketplaceItem:
+    """Create a marketplace item from an uploaded/extracted archive directory.
+
+    The contents are copied into ``marketplace/uploads/{uuid}/`` so the original
+    upload path can be deleted safely. The item ``source_path`` points at the
+    copied directory.
+    """
+    source_dir = Path(source_dir)
+    if not source_dir.exists() or not source_dir.is_dir():
+        raise ValueError(f"Upload source directory not found: {source_dir}")
+
+    upload_id = uuid.uuid4().hex
+    dest_dir = _marketplace_dir() / "uploads" / upload_id
+    dest_dir.mkdir(parents=True, exist_ok=True)
+
+    # Copy the archive contents into the stable marketplace directory.
+    for src_path in sorted(source_dir.rglob("*")):
+        if src_path.is_file():
+            rel = src_path.relative_to(source_dir)
+            dest = dest_dir / rel
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src_path, dest)
+
+    item = MarketplaceItem(
+        name=name,
+        description=description,
+        author=author,
+        asset_type=asset_type,
+        source_path=str(dest_dir.relative_to(Path(__file__).resolve().parent.parent).as_posix()),
+        tags=tags or [],
+    )
+    return create_item(item)
+
+
 def update_item(item_id: str, updates: dict[str, Any]) -> MarketplaceItem:
     """Update fields of an existing marketplace item."""
     items = _load_index()

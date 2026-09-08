@@ -18,7 +18,10 @@ import json
 import os
 import shutil
 import sys
+import tarfile
+import tempfile
 import uuid
+import zipfile
 from pathlib import Path
 from typing import Any, Optional
 
@@ -101,6 +104,7 @@ from ai_cad.marketplace import (
     MarketplaceImportResult,
     MarketplaceItem,
     create_item,
+    create_item_from_upload,
     delete_item,
     get_item,
     import_item_into_design,
@@ -128,7 +132,14 @@ try:
         solver_availability,
         submit_deep_verification,
     )
+    from ai_cad.solvers.field_export import extract_field_from_job
     from ai_cad.solvers.job_store import JobStore
+    from ai_cad.solvers.report_export import generate_deep_verify_report
+    from ai_cad.sim_certification import (
+        list_certificates as list_sim_certificates,
+        load_certificate as load_sim_certificate,
+        run_certification,
+    )
 except Exception:  # pragma: no cover - solvers may be partially implemented in early Phase 28.
     JobStore = None  # type: ignore[misc, assignment]
 
@@ -143,6 +154,21 @@ except Exception:  # pragma: no cover - solvers may be partially implemented in 
 
     def solver_availability(*args: Any, **kwargs: Any) -> dict[str, Any]:
         return {"available": False}
+
+    def extract_field_from_job(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        return {"message": "field export unavailable"}
+
+    def generate_deep_verify_report(*args: Any, **kwargs: Any) -> str:
+        return "# Report generation unavailable\n"
+
+    def run_certification(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        return {"error": "simulation certification backend unavailable"}
+
+    def load_sim_certificate(*args: Any, **kwargs: Any) -> dict[str, Any] | None:
+        return None
+
+    def list_sim_certificates(*args: Any, **kwargs: Any) -> list[dict[str, Any]]:
+        return []
 from ai_cad.robot_templates import humanoid_template, manipulator_on_base_template, quadruped_template
 from ai_cad.actuator_sizing import actuator_summary, size_actuators_for_tree
 from ai_cad.kinematic_tree import forward_kinematics, sample_reachable_workspace
@@ -328,12 +354,16 @@ class VerifyRequest(BaseModel):
 
 
 class DeepVerifyRequest(BaseModel):
-    """Request to start a Phase 28C deep-analysis job."""
+    """Request to start a Phase 28C/E deep-analysis job."""
 
     load_case: str = Field(..., description="One of the supported verification load-case names.")
     solver: str | None = Field(
         default=None,
-        description="Optional deep solver override (calculix, elmerfem, openfoam, surrogate).",
+        description="Optional deep solver override (calculix, elmer, openfoam, surrogate).",
+    )
+    solver_mode: str | None = Field(
+        default="auto",
+        description="Dispatch mode: auto (real if installed, else estimate/surrogate), real (fail if missing), surrogate.",
     )
     materials: dict[str, str] = Field(default_factory=dict, description="Map of part_id to material name.")
     parameters: dict[str, Any] = Field(default_factory=dict, description="Case-specific parameter overrides.")
@@ -1883,6 +1913,74 @@ def marketplace_create_item(request: MarketplaceCreateRequest) -> MarketplaceIte
         raise HTTPException(status_code=409, detail=str(exc))
 
 
+@app.post("/marketplace/upload")
+def marketplace_upload_item(
+    file: UploadFile = File(..., description="Asset archive (.zip or .tar.gz)."),
+    name: str = Form(..., min_length=1),
+    asset_type: str = Form(default="part", description="Asset type."),
+    description: str = Form(default=""),
+    author: str = Form(default=""),
+    tags: str = Form(default=""),
+) -> MarketplaceItem:
+    """Upload a zipped/tarred asset archive and create a marketplace item.
+
+    The archive is extracted, copied to a stable marketplace directory, and a
+    catalog entry is returned.
+    """
+    try:
+        asset_enum = AssetType(asset_type)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid asset_type: {exc}") from exc
+
+    if not file.filename or not (
+        file.filename.endswith(".zip") or file.filename.endswith(".tar.gz") or file.filename.endswith(".tgz")
+    ):
+        raise HTTPException(status_code=400, detail="Only .zip or .tar.gz archives are supported.")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        archive_path = tmp_path / "archive"
+        try:
+            archive_path.write_bytes(file.file.read())
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f"Failed to read upload: {exc}") from exc
+        finally:
+            file.file.close()
+
+        extract_dir = tmp_path / "extracted"
+        extract_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            if file.filename.endswith(".zip"):
+                with zipfile.ZipFile(archive_path, "r") as zf:
+                    zf.extractall(extract_dir)
+            else:
+                with tarfile.open(archive_path, "r:gz") as tf:
+                    tf.extractall(extract_dir)
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f"Failed to extract archive: {exc}") from exc
+
+        # If the archive has a single top-level directory, use it as the source.
+        contents = [p for p in extract_dir.iterdir() if p.name != "__MACOSX"]
+        source_dir = contents[0] if len(contents) == 1 and contents[0].is_dir() else extract_dir
+
+        tag_list = [t.strip() for t in tags.split(",") if t.strip()]
+        try:
+            item = create_item_from_upload(
+                source_dir=source_dir,
+                name=name,
+                asset_type=asset_enum,
+                description=description,
+                author=author,
+                tags=tag_list,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"Failed to create marketplace item: {exc}") from exc
+
+    return item
+
+
 @app.post("/marketplace/items/{item_id}")
 def marketplace_update_item(item_id: str, request: MarketplaceUpdateRequest) -> MarketplaceItem:
     """Update a marketplace catalog entry."""
@@ -2895,6 +2993,8 @@ def deep_verify_start(design_id: str, request: DeepVerifyRequest) -> dict[str, A
     parameters = dict(request.parameters)
     if request.solver:
         parameters["solver"] = request.solver
+    if request.solver_mode:
+        parameters["solver_mode"] = request.solver_mode
 
     verification_request = VerificationRequest(
         design_id=design_id,
@@ -2929,6 +3029,45 @@ def deep_verify_status(design_id: str, job_id: str) -> dict[str, Any]:
     return {"design_id": design_id, "job": job.model_dump()}
 
 
+@app.get("/designs/{design_id}/deep-verify/{job_id}/field")
+def deep_verify_field(
+    design_id: str,
+    job_id: str,
+    field: str | None = Query(default=None, description="Scalar field name to extract."),
+) -> dict[str, Any]:
+    """Return a scalar field for the completed deep-analysis job.
+
+    The response contains ``nodes`` and ``scalars`` arrays suitable for a
+    vertex-color heatmap overlay. If the job has no field data, an empty but
+    valid field object is returned.
+    """
+    store = _deep_job_store()
+    job = poll_deep_verification(job_id, job_store=store)
+    if job is None or job.design_id != design_id:
+        raise HTTPException(status_code=404, detail="Deep verification job not found.")
+    if job.status.value not in ("completed", "failed"):
+        raise HTTPException(status_code=400, detail="Job is still running.")
+
+    result = job.result or {}
+    field_data = extract_field_from_job(result, field=field)
+    return {"design_id": design_id, "job_id": job_id, "field": field_data}
+
+
+@app.get("/designs/{design_id}/deep-verify/{job_id}/report.md")
+def deep_verify_report(design_id: str, job_id: str) -> str:
+    """Return a Markdown engineering report for a completed deep-analysis job."""
+    store = _deep_job_store()
+    job = poll_deep_verification(job_id, job_store=store)
+    if job is None or job.design_id != design_id:
+        raise HTTPException(status_code=404, detail="Deep verification job not found.")
+    if job.status.value not in ("completed", "failed"):
+        raise HTTPException(status_code=400, detail="Job is still running.")
+
+    result = job.result or {}
+    report = generate_deep_verify_report(design_id, job_id, result)
+    return report
+
+
 @app.post("/designs/{design_id}/deep-verify/{job_id}/cancel")
 def deep_verify_cancel(design_id: str, job_id: str) -> dict[str, Any]:
     """Cancel a queued or running deep-analysis job."""
@@ -2949,6 +3088,46 @@ def design_solver_availability(design_id: str) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail="Design not found.")
 
     return {"design_id": design_id, **solver_availability()}
+
+
+@app.post("/designs/{design_id}/sim-cert")
+def sim_cert_run(design_id: str) -> dict[str, Any]:
+    """Run the simulation certification suite and persist a certificate."""
+    design_dir = DESIGNS_DIR / design_id
+    if not (design_dir / "metadata.json").exists():
+        raise HTTPException(status_code=404, detail="Design not found.")
+
+    store = _deep_job_store()
+    try:
+        cert = run_certification(
+            design_id=design_id,
+            design_dir=design_dir,
+            job_store=store,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Certification failed: {exc}") from exc
+
+    return {"design_id": design_id, "certificate": cert.model_dump()}
+
+
+@app.get("/designs/{design_id}/sim-cert/{cert_id}")
+def sim_cert_get(design_id: str, cert_id: str) -> dict[str, Any]:
+    """Return a persisted simulation certificate."""
+    design_dir = DESIGNS_DIR / design_id
+    cert = load_sim_certificate(design_dir, cert_id)
+    if cert is None:
+        raise HTTPException(status_code=404, detail="Certificate not found.")
+    return {"design_id": design_id, "certificate": cert.model_dump()}
+
+
+@app.get("/designs/{design_id}/sim-certs")
+def sim_cert_list(design_id: str) -> dict[str, Any]:
+    """List all simulation certificates for a design."""
+    design_dir = DESIGNS_DIR / design_id
+    if not (design_dir / "metadata.json").exists():
+        raise HTTPException(status_code=404, detail="Design not found.")
+    certs = list_sim_certificates(design_dir)
+    return {"design_id": design_id, "certificates": [c.model_dump() for c in certs]}
 
 
 @app.post("/designs/{design_id}/render-critique")

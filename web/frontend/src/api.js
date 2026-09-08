@@ -343,11 +343,12 @@ export async function getSolverAvailability(id = 'system') {
   return apiFetch(`/designs/${id}/solver-availability`)
 }
 
-export async function submitDeepVerification(id, { solver = 'calculix', loadCase = 'static_stress', materials = {}, parameters = {}, boundaryConditions = {} } = {}) {
+export async function submitDeepVerification(id, { solver = 'calculix', solverMode = 'auto', loadCase = 'static_stress', materials = {}, parameters = {}, boundaryConditions = {} } = {}) {
   return apiFetch(`/designs/${id}/deep-verify`, {
     method: 'POST',
     body: JSON.stringify({
       solver,
+      solver_mode: solverMode,
       load_case: loadCase,
       materials,
       parameters,
@@ -362,6 +363,11 @@ export async function listDeepVerificationJobs(id) {
 
 export async function getDeepVerificationJob(id, jobId) {
   return apiFetch(`/designs/${id}/deep-verify/${jobId}`)
+}
+
+export async function getDeepVerificationField(id, jobId, field = null) {
+  const qs = field ? `?field=${encodeURIComponent(field)}` : ''
+  return apiFetch(`/designs/${id}/deep-verify/${jobId}/field${qs}`)
 }
 
 export async function cancelDeepVerificationJob(id, jobId) {
@@ -538,6 +544,28 @@ export async function uploadMarketplaceItem({
       thumbnail_url: thumbnailUrl,
       metadata,
     }),
+  })
+}
+
+export async function uploadMarketplaceArchive({
+  file,
+  name,
+  description = '',
+  author = 'RoboCAD',
+  assetType = 'part',
+  tags = [],
+}) {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('name', name)
+  formData.append('description', description)
+  formData.append('author', author)
+  formData.append('asset_type', assetType)
+  formData.append('tags', tags.join(','))
+  return apiFetch('/marketplace/upload', {
+    method: 'POST',
+    body: formData,
+    headers: {},
   })
 }
 

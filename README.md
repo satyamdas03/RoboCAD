@@ -4,7 +4,7 @@
 >
 > **Core bet:** The AI writes **parametric CAD code** (build123d / FeatureScript), not throwaway meshes. The model you get is editable, versionable, and exportable for 3D printing, machining, Onshape, or physics simulation.
 >
-> **Latest milestone:** Phases 0–**28A/B/C** are complete. RoboCAD now has a **one-command launcher and health CLI** (28A), an **asset marketplace** for verified parts/templates/policies (28B), and a **deep multi-physics engine** with real FEA (CalculiX), CFD (OpenFOAM), thermal (ElmerFEM), and NVIDIA surrogate fast-analysis support (28C). The full pytest suite: **340 default + 222 heavy/slow tests passing** (1 expected failure, 5 benchmark/network tests deselected); frontend production build passes. Phase 27D (hardware-in-the-loop sim-to-real) remains future work blocked on hardware access. Phases 28D–28F (morphology co-design lab, simulation certification, final product hardening) are in progress.
+> **Latest milestone:** Phases 0–**28A/B/C/E/F** are complete. RoboCAD now has a **one-command launcher and health CLI** (28A), an **asset marketplace** with direct archive upload (28B), a **deep multi-physics engine** with real FEA/CFD/thermal solver adapters and NVIDIA surrogate fast analysis (28C), **simulation certification** with signed readiness reports and real-vs-surrogate A/B checks (28E), and **product hardening** with solver install bootstrap and onboarding tests (28F). The full pytest suite: **366 default + 222 heavy/slow tests passing** (1 expected failure, 5 benchmark/network tests deselected); frontend production build passes. Phase 27D (hardware-in-the-loop sim-to-real) remains future work blocked on hardware access. Phase 28D (morphology co-design lab) is in progress.
 
 ---
 

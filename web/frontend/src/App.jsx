@@ -60,6 +60,7 @@ export default function App() {
   const [decomposition, setDecomposition] = useState(null)
   const [inspectorOpen, setInspectorOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [verificationField, setVerificationField] = useState(null)
 
   useEffect(() => {
     checkHealth()
@@ -297,6 +298,7 @@ export default function App() {
             selectedFace={selectedFace}
             guessResult={guessResult}
             designId={result?.design_id}
+            scalarField={verificationField}
           />
 
           <div className="kp-flex kp-justify-between kp-align-center">
@@ -340,7 +342,7 @@ export default function App() {
               {(result?.domain === 'electronics' || result?.domain === 'multi') && (
                 <ElectronicsPanel designId={selectedId} />
               )}
-              <VerificationPanel designId={selectedId} />
+              <VerificationPanel designId={selectedId} onFieldLoaded={setVerificationField} />
               <HumanoidPanel designId={selectedId} onDesignCreated={handleSelect} />
               <BrainTrainingPanel designId={selectedId} />
               <HermesPanel designId={selectedId} />
