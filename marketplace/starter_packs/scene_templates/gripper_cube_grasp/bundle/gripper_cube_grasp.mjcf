@@ -1,0 +1,13 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mujoco model="gripper_cube_grasp">
+  <compiler meshdir="meshes" autolimits="true" />
+  <asset>
+    <mesh name="gripper_cube_grasp" file="gripper_cube_grasp.stl" />
+  </asset>
+  <worldbody>
+    <body name="gripper_cube_grasp" pos="0.000000 0.000000 0.000000">
+      <inertial pos="0.000000 0.000000 0.000000" mass="0.156250" diaginertia="6.510417e-05 6.510417e-05 6.510417e-05" />
+      <geom type="mesh" mesh="gripper_cube_grasp" rgba="0.8 0.8 0.8 1" />
+    </body>
+  </worldbody>
+</mujoco>

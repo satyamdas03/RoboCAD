@@ -1,0 +1,62 @@
+{
+  "schema_version": "2.0.0",
+  "design_id": null,
+  "name": "gripper_cube_grasp",
+  "created_at": "2026-09-08T00:04:45.515544Z",
+  "generator": "RoboCAD GEDA Bridge",
+  "length_unit": "m",
+  "mass_unit": "kg",
+  "urdf_file": "gripper_cube_grasp.urdf",
+  "mjcf_file": "gripper_cube_grasp.mjcf",
+  "parts": [
+    {
+      "part_id": "gripper_cube_grasp",
+      "instance_id": null,
+      "name": "gripper_cube_grasp",
+      "material": "PLA",
+      "density_kg_m3": 1250.0,
+      "mesh_file": "meshes/gripper_cube_grasp.stl",
+      "inertial": {
+        "mass_kg": 0.15625000000000003,
+        "center_of_mass_m": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "inertia_tensor_kg_m2": [
+          0.00006510416666666669,
+          0.00006510416666666669,
+          0.00006510416666666669,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "principal_moments_kg_m2": [
+          0.00006510416666666669,
+          0.00006510416666666669,
+          0.00006510416666666669
+        ],
+        "principal_axes": [
+          [
+            1.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            1.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "density_kg_m3": 1250.0,
+        "material": "PLA"
+      },
+      "transform_m": null
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "name": "Gripper cube grasp scene",
+  "asset_type": "scene_template",
+  "description": "Drop-in manipulation scene with a target cube.",
+  "author": "RoboCAD",
+  "version": "1.0.0",
+  "tags": [
+    "scene",
+    "gripper",
+    "grasp",
+    "starter"
+  ]
+}

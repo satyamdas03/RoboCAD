@@ -20,6 +20,10 @@ backups/
 *.jpg
 *.pdf
 !assets/robocad_kinetic_precision_demo_poster.jpg
+!marketplace/starter_packs/**/*.stl
+!marketplace/starter_packs/**/*.step
+!marketplace/starter_packs/**/*.urdf
+!marketplace/starter_packs/**/*.mjcf
 
 # Local environment / secrets
 .env

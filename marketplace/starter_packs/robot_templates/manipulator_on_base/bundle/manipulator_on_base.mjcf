@@ -1,0 +1,13 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mujoco model="manipulator_on_base">
+  <compiler meshdir="meshes" autolimits="true" />
+  <asset>
+    <mesh name="manipulator_on_base" file="manipulator_on_base.stl" />
+  </asset>
+  <worldbody>
+    <body name="manipulator_on_base" pos="0.000000 0.000000 0.000000">
+      <inertial pos="0.000000 0.000000 0.000000" mass="0.090000" diaginertia="3.000000e-05 3.000000e-05 5.400000e-05" />
+      <geom type="mesh" mesh="manipulator_on_base" rgba="0.8 0.8 0.8 1" />
+    </body>
+  </worldbody>
+</mujoco>

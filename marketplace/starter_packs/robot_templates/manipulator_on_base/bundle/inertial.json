@@ -1,0 +1,42 @@
+{
+  "manipulator_on_base": {
+    "mass_kg": 0.08999999999999998,
+    "center_of_mass_m": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "inertia_tensor_kg_m2": [
+      3e-05,
+      3e-05,
+      5.4e-05,
+      -0.0,
+      -0.0,
+      -0.0
+    ],
+    "principal_moments_kg_m2": [
+      3e-05,
+      3e-05,
+      5.4e-05
+    ],
+    "principal_axes": [
+      [
+        1.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        1.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "density_kg_m3": 1250.0,
+    "material": "PLA"
+  }
+}

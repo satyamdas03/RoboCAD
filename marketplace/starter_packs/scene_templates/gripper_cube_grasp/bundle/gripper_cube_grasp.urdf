@@ -1,0 +1,34 @@
+<?xml version='1.0' encoding='utf-8'?>
+<robot name="gripper_cube_grasp">
+  <link name="world">
+    <inertial>
+      <origin xyz="0.000000 0.000000 0.000000" rpy="0 0 0" />
+      <mass value="0.000000" />
+      <inertia ixx="0.000000e+00" iyy="0.000000e+00" izz="0.000000e+00" ixy="0.000000e+00" ixz="0.000000e+00" iyz="0.000000e+00" />
+    </inertial>
+  </link>
+  <link name="gripper_cube_grasp">
+    <inertial>
+      <origin xyz="0.000000 0.000000 0.000000" rpy="0 0 0" />
+      <mass value="0.156250" />
+      <inertia ixx="6.510417e-05" iyy="6.510417e-05" izz="6.510417e-05" ixy="-0.000000e+00" ixz="-0.000000e+00" iyz="-0.000000e+00" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/gripper_cube_grasp.stl" scale="1 1 1" />
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/gripper_cube_grasp.stl" scale="1 1 1" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="gripper_cube_grasp_fixed" type="fixed">
+    <parent link="world" />
+    <child link="gripper_cube_grasp" />
+    <origin xyz="0.000000 0.000000 0.000000" rpy="0.000000 0.000000 0.000000" />
+  </joint>
+</robot>

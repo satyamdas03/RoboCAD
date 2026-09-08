@@ -1,0 +1,12 @@
+{
+  "name": "Manipulator on base",
+  "asset_type": "robot_template",
+  "description": "Simple manipulator-on-base robot template starter.",
+  "author": "RoboCAD",
+  "version": "1.0.0",
+  "tags": [
+    "robot",
+    "manipulator",
+    "starter"
+  ]
+}
