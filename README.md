@@ -165,10 +165,10 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **28B** | Asset marketplace | ✅ **Complete — verified parts/scene/robot templates, upload/download/import** |
 | **28C** | Deep multi-physics engine | ✅ **Complete — CalculiX FEA, ElmerFEM thermal, OpenFOAM CFD, NVIDIA surrogate, deep verification UI** |
 | **28D** | Morphology Co-Design Lab | ⏳ **In progress** |
-| **28E** | Simulation certification | ⏳ **In progress** |
-| **28F** | Product hardening + final docs | ⏳ **In progress** |
+| **28E** | Simulation certification | ✅ **Complete — real-solver dispatch, readiness score, certificates, field/report export; 15 tests** |
+| **28F** | Product hardening + final docs | ✅ **Complete — marketplace archive upload, solver install bootstrap, health hints, onboarding tests** |
 
-Phases 0–7 proved the **AI → parametric-code loop** for single-part robotics hardware. Phases 8–13 turned that loop into an **engineer-grade CAD system** with feature trees, constraints, assemblies, verification, and model specialization. Phases 14A–15B shipped the **GEDA Bridge** so LearningRobotics can consume verified simulation-ready assets. Phases 16–27C expand RoboCAD into a **multi-domain generative engineering platform** with a real-time voice supervisor, NVIDIA-powered intelligence, and professional rendering.
+Phases 0–7 proved the **AI → parametric-code loop** for single-part robotics hardware. Phases 8–13 turned that loop into an **engineer-grade CAD system** with feature trees, constraints, assemblies, verification, and model specialization. Phases 14A–15B shipped the **GEDA Bridge** so LearningRobotics can consume verified simulation-ready assets. Phases 16–27C expanded RoboCAD into a **multi-domain generative engineering platform** with a real-time voice supervisor, NVIDIA-powered intelligence, and professional rendering. Phases 28A/B/C/E/F turned it into a **simulation-first product platform**: one-command launcher, verified marketplace, real FEA/CFD/thermal solvers, simulation certification, and product hardening.
 
 ---
 
@@ -182,7 +182,7 @@ This roadmap is the canonical plan of record for RoboCAD. **Do not reorder phase
 - **Phases 18–23** add domain-specific tracks (mechanical assembly, aero/thermal geometry, electronics integration, multi-physics verification, humanoid/robot synthesis).
 - **Phases 24–27C** close the world-model → brain-training → HERMES voice/intelligence loop without requiring hardware.
 - **Phase 27D** is the hardware-in-the-loop sim-to-real step, intentionally separated so the software stack can mature first.
-- **Phase 28** re-scoped into a **simulation-first product platform**: launcher/marketplace (28A/B), real FEA/CFD/thermal solvers (28C), morphology co-design lab (28D), simulation certification (28E), and final product hardening (28F).
+- **Phase 28** re-scoped into a **simulation-first product platform**: launcher/marketplace (28A/B), real FEA/CFD/thermal solvers (28C), simulation certification (28E), final product hardening (28F), and morphology co-design lab (28D, in progress).
 
 ---
 
@@ -227,6 +227,39 @@ The 3D viewer and simulation pipeline are now backed by NVIDIA NIM models:
 
 ---
 
+## 🔬 Phase 28C/E/F — Simulation-first product platform
+
+RoboCAD now dispatches real engineering solvers, certifies designs, and ships as a hardened product:
+
+- **Real FEA/CFD/thermal solvers** via `ai_cad/solvers/verification_deep.py`:
+  - `solver_mode`: `auto` (real if installed, else surrogate), `real` (fail if missing), `surrogate` (no binaries needed).
+  - **CalculiX** static/modal stress, **ElmerFEM** thermal conduction/stress, **OpenFOAM** drag/lift.
+  - Coarse bounding-box analysis mesh runs without Gmsh/Netgen; full meshers used when available.
+  - Graceful fallback to lightweight estimates + surrogate when solvers are absent.
+- **Scalar field extraction + viewer heatmaps** (`ai_cad/solvers/field_export.py`):
+  - Parses CalculiX `.dat`, Elmer `.ep`, OpenFOAM coefficients.
+  - Maps values to STL vertices; `STLViewer.jsx` renders vertex-color heatmaps.
+- **Simulation certification** (`ai_cad/sim_certification.py`):
+  - Runs a suite of closed load cases across real/surrogate solvers.
+  - Weighted readiness score + real-vs-surrogate A/B comparison.
+  - Persisted certificates under `certificates/{cert_id}.json`.
+- **Professional reports** (`ai_cad/solvers/report_export.py`):
+  - Markdown reports from any deep-verify job via `GET /designs/{id}/deep-verify/{job_id}/report.md`.
+- **Marketplace archive upload**:
+  - `POST /marketplace/upload` accepts `.zip`/`.tar.gz`/`.tgz`, extracts to `marketplace/uploads/{uuid}/`, creates catalog entry.
+  - Frontend `MarketplacePanel.jsx` file input + `uploadMarketplaceArchive` API helper.
+- **Solver install bootstrap**:
+  - `python scripts/setup_solvers.py --check` shows what is installed.
+  - `python scripts/setup_solvers.py` attempts platform-native installs on Ubuntu/Debian/Arch/macOS; Windows prints download links.
+  - `docs/SOLVER_INSTALL.md` covers licensing, install steps, and troubleshooting.
+  - `python -m robocad.health` prints solver versions + install hints.
+- **Onboarding tests**:
+  - `tests/test_onboarding.py`, `tests/test_health.py`, `tests/test_setup_solvers.py` verify launcher, health CLI, solver bootstrap, and backend `/health`.
+
+Files: `ai_cad/solvers/verification_deep.py`, `ai_cad/solvers/field_export.py`, `ai_cad/solvers/report_export.py`, `ai_cad/sim_certification.py`, `ai_cad/marketplace.py`, `scripts/setup_solvers.py`, `docs/SOLVER_INSTALL.md`, `robocad/health.py`, `web/backend/main.py`, `web/frontend/src/components/VerificationPanel.jsx`, `web/frontend/src/components/STLViewer.jsx`, `web/frontend/src/components/MarketplacePanel.jsx`.
+
+---
+
 ## 🛠️ Getting started
 
 ```bash
@@ -260,12 +293,18 @@ $ python -m robocad.health
 Run tests:
 
 ```bash
-# Default (fast) suite
+# Default (fast) suite — excludes heavy, slow, mujoco, benchmark, network tests
 $ python -m pytest
 
-# Heavy / slow / mujoco tiers
-$ python -m pytest -m "heavy or slow"
-$ python -m pytest -m mujoco
+# Heavy / slow / mujoco tiers (must override the default marker exclusion)
+# On Windows PowerShell:
+$ python -m pytest tests -m "heavy or slow or mujoco" --tb=short
+
+# On Linux/macOS:
+$ python -m pytest tests -m 'heavy or slow or mujoco' --tb=short
+
+# Frontend build
+$ cd web/frontend && npm run build
 ```
 
 ---

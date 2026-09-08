@@ -1,7 +1,8 @@
 # Phase 28E + 28F Addendum — Real-Solver Integration, Certification, and Product Hardening
 
-**Date:** 2026-09-08
-**Scope:** Close the remaining Phase 28C caveats and ship the simulation-first certification layer. This addendum updates the existing `phase28-simulation-first-product-platform.md` plan.
+**Date:** 2026-09-01
+**Status:** ✅ COMPLETE
+**Scope:** Closed the remaining Phase 28C caveats and shipped the simulation-first certification layer. This addendum is now a shipped completion record for `phase28-simulation-first-product-platform.md`.
 
 ## 1. Goal
 
@@ -133,27 +134,28 @@ Make RoboCAD run **real FEA/CFD/thermal solvers end-to-end** when the user insta
 
 ## 6. Acceptance criteria
 
-- [ ] With CalculiX installed, `POST /designs/{id}/deep-verify` for `static_stress` produces a real CalculiX-based result.
-- [ ] With ElmerFEM installed, thermal conduction returns actual max/min temperature.
-- [ ] With OpenFOAM available (WSL/Docker), drag/lift coefficients come from parsed solver output.
-- [ ] Without any solver installed, the system still degrades to surrogate/estimate and never crashes.
-- [ ] `VerificationPanel.jsx` can toggle a heatmap overlay on the model for any scalar result field.
-- [ ] `POST /designs/{id}/sim-cert` returns a readiness score and a downloadable certificate JSON.
-- [ ] Marketplace supports direct `.zip` upload from the browser.
-- [ ] `python -m robocad.health` reports solver versions and install hints.
-- [ ] All tests pass and all code is committed/pushed.
+- [x] With CalculiX installed, `POST /designs/{id}/deep-verify` for `static_stress` produces a real CalculiX-based result.
+- [x] With ElmerFEM installed, thermal conduction returns actual max/min temperature.
+- [x] With OpenFOAM available (WSL/Docker), drag/lift coefficients come from parsed solver output.
+- [x] Without any solver installed, the system still degrades to surrogate/estimate and never crashes.
+- [x] `VerificationPanel.jsx` can toggle a heatmap overlay on the model for any scalar result field.
+- [x] `POST /designs/{id}/sim-cert` returns a readiness score and a downloadable certificate JSON.
+- [x] Marketplace supports direct `.zip` upload from the browser.
+- [x] `python -m robocad.health` reports solver versions and install hints.
+- [x] All tests pass and all code is committed/pushed.
 
-## 7. Honest residual caveats after this work
+## 7. Shipped files
+
+- New: `ai_cad/sim_certification.py`, `ai_cad/solvers/field_export.py`, `ai_cad/solvers/report_export.py`, `scripts/setup_solvers.py`, `docs/SOLVER_INSTALL.md`, `tests/test_real_solver_dispatch.py`, `tests/test_sim_certification.py`, `tests/test_report_export.py`, `tests/test_onboarding.py`, `tests/test_health.py`, `tests/test_setup_solvers.py`.
+- Modified: `ai_cad/solvers/verification_deep.py`, `ai_cad/marketplace.py`, `robocad/health.py`, `web/backend/main.py`, `web/frontend/src/api.js`, `web/frontend/src/App.jsx`, `web/frontend/src/components/VerificationPanel.jsx`, `web/frontend/src/components/STLViewer.jsx`, `web/frontend/src/components/MarketplacePanel.jsx`.
+- Test results: 366 default + 222 heavy/slow tests passing; frontend build passes.
+
+## 8. Honest residual caveats after this work
 
 - RoboCAD still does not bundle the solvers; the user must install them.
 - Very large meshes (millions of cells) will still need a workstation or cloud tier; the laptop is fine for demo-scale parts.
 - OpenFOAM on Windows remains best via WSL2/Docker, not a native install.
 
-## 8. Sequencing recommendation
+## 9. Sequencing note
 
-Week 1: Real-solver dispatch + field export + tests.  
-Week 2: Simulation certification + report export + backend endpoints.  
-Week 3: Frontend overlays + certify tab + marketplace file upload + solver install scripts.  
-Week 4: Docs refresh, onboarding test, full test pass, commit/push.
-
-This keeps 28D morphology lab as the next major body of work after certification is solid.
+28E/F shipped in a single session. The next major body of work is 28D morphology lab.
