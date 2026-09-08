@@ -94,7 +94,95 @@ function CaptureBridge({ onGlReady }) {
   return null
 }
 
-function Model({ url, onFaceClick, selectedFace, showGrid, wireframe }) {
+function heatmapColor(t) {
+  // t in [0, 1]: blue -> cyan -> green -> yellow -> red
+  const stops = [
+    [0.0, 0.0, 0.0, 1.0],
+    [0.25, 0.0, 0.8, 1.0],
+    [0.5, 0.0, 1.0, 0.2],
+    [0.75, 1.0, 0.8, 0.0],
+    [1.0, 1.0, 0.0, 0.0],
+  ]
+  let i = 0
+  while (i < stops.length - 2 && t > stops[i + 1][0]) {
+    i++
+  }
+  const a = stops[i]
+  const b = stops[i + 1]
+  const local = Math.max(0, Math.min(1, (t - a[0]) / (b[0] - a[0] + 1e-9)))
+  return [
+    a[1] + (b[1] - a[1]) * local,
+    a[2] + (b[2] - a[2]) * local,
+    a[3] + (b[3] - a[3]) * local,
+  ]
+}
+
+function applyScalarField(geometry, scalarField, materialRef) {
+  if (!geometry || !scalarField || !scalarField.nodes?.length || !scalarField.scalars?.length) {
+    clearScalarField(geometry, materialRef)
+    return
+  }
+  const nodes = scalarField.nodes
+  const scalars = scalarField.scalars
+  const min = scalarField.min ?? Math.min(...scalars)
+  const max = scalarField.max ?? Math.max(...scalars)
+  const range = max - min || 1e-9
+
+  const posAttr = geometry.getAttribute('position')
+  const count = posAttr.count
+  const colors = new Float32Array(count * 3)
+
+  // Build a tiny lookup cache to avoid O(N*M) cost on large meshes.
+  const nodeTree = []
+  for (let i = 0; i < nodes.length; i++) {
+    const n = nodes[i]
+    nodeTree.push({ x: n[0], y: n[1], z: n[2], s: scalars[i] ?? min })
+  }
+
+  for (let i = 0; i < count; i++) {
+    const vx = posAttr.getX(i)
+    const vy = posAttr.getY(i)
+    const vz = posAttr.getZ(i)
+    let bestDist = Infinity
+    let bestS = min
+    for (let j = 0; j < nodeTree.length; j++) {
+      const n = nodeTree[j]
+      const dx = vx - n.x
+      const dy = vy - n.y
+      const dz = vz - n.z
+      const d = dx * dx + dy * dy + dz * dz
+      if (d < bestDist) {
+        bestDist = d
+        bestS = n.s
+      }
+    }
+    const t = Math.max(0, Math.min(1, (bestS - min) / range))
+    const [r, g, b] = heatmapColor(t)
+    colors[i * 3] = r
+    colors[i * 3 + 1] = g
+    colors[i * 3 + 2] = b
+  }
+
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+  if (materialRef.current) {
+    materialRef.current.vertexColors = true
+    materialRef.current.needsUpdate = true
+  }
+}
+
+function clearScalarField(geometry, materialRef) {
+  if (!geometry) return
+  const colorAttr = geometry.getAttribute('color')
+  if (colorAttr) {
+    geometry.deleteAttribute('color')
+  }
+  if (materialRef.current) {
+    materialRef.current.vertexColors = false
+    materialRef.current.needsUpdate = true
+  }
+}
+
+function Model({ url, onFaceClick, selectedFace, showGrid, wireframe, scalarField }) {
   const meshRef = useRef()
   const geometry = useLoader(STLLoader, exportUrl(url))
   const { camera, raycaster, pointer } = useThree()
@@ -114,6 +202,15 @@ function Model({ url, onFaceClick, selectedFace, showGrid, wireframe }) {
       }
     }
   }, [geometry, bounds])
+
+  useEffect(() => {
+    if (!geometry) return
+    if (scalarField) {
+      applyScalarField(geometry, scalarField, materialRef)
+    } else {
+      clearScalarField(geometry, materialRef)
+    }
+  }, [geometry, scalarField])
 
   const handlePointerDown = (event) => {
     event.stopPropagation()
@@ -178,7 +275,7 @@ function Model({ url, onFaceClick, selectedFace, showGrid, wireframe }) {
   )
 }
 
-export default function STLViewer({ url, onFaceClick, selectedFace, guessResult, designId }) {
+export default function STLViewer({ url, onFaceClick, selectedFace, guessResult, designId, scalarField }) {
   const [hint, setHint] = useState(null)
   const [showGrid, setShowGrid] = useState(true)
   const [wireframe, setWireframe] = useState(false)
@@ -348,6 +445,7 @@ export default function STLViewer({ url, onFaceClick, selectedFace, guessResult,
               selectedFace={selectedFace}
               showGrid={showGrid}
               wireframe={wireframe}
+              scalarField={scalarField}
             />
             <CameraReset nonce={resetNonce} />
             <CaptureBridge onGlReady={handleGlReady} />

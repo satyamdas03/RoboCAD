@@ -3,6 +3,7 @@ import DomainBadge from './DomainBadge.jsx'
 import {
   listMarketplaceItems,
   uploadMarketplaceItem,
+  uploadMarketplaceArchive,
   downloadMarketplaceItem,
   importMarketplaceItem,
 } from '../api.js'
@@ -26,6 +27,7 @@ export default function MarketplacePanel({ designId, onDesignCreated }) {
     assetType: 'part',
     sourcePath: '',
   })
+  const [archiveFile, setArchiveFile] = useState(null)
 
   useEffect(() => {
     refreshItems()
@@ -55,22 +57,36 @@ export default function MarketplacePanel({ designId, onDesignCreated }) {
 
   async function handleUpload(e) {
     e.preventDefault()
-    if (!form.name.trim() || !form.sourcePath.trim()) {
-      setError('Name and source path are required.')
+    if (!form.name.trim()) {
+      setError('Name is required.')
+      return
+    }
+    if (!archiveFile && !form.sourcePath.trim()) {
+      setError('Provide either an archive file or a source path.')
       return
     }
     setUploading(true)
     setError(null)
     setSuccess(null)
     try {
-      await uploadMarketplaceItem({
-        name: form.name.trim(),
-        description: form.description.trim(),
-        assetType: form.assetType,
-        sourcePath: form.sourcePath.trim(),
-        tags: [form.domain],
-        metadata: { domain: form.domain },
-      })
+      if (archiveFile) {
+        await uploadMarketplaceArchive({
+          file: archiveFile,
+          name: form.name.trim(),
+          description: form.description.trim(),
+          assetType: form.assetType,
+          tags: [form.domain],
+        })
+      } else {
+        await uploadMarketplaceItem({
+          name: form.name.trim(),
+          description: form.description.trim(),
+          assetType: form.assetType,
+          sourcePath: form.sourcePath.trim(),
+          tags: [form.domain],
+          metadata: { domain: form.domain },
+        })
+      }
       setSuccess(`Uploaded ${form.name.trim()} to marketplace.`)
       setForm({
         name: '',
@@ -79,6 +95,7 @@ export default function MarketplacePanel({ designId, onDesignCreated }) {
         assetType: 'part',
         sourcePath: designId ? `designs/${designId}` : '',
       })
+      setArchiveFile(null)
       await refreshItems()
     } catch (err) {
       setError(err.message)
@@ -211,7 +228,18 @@ export default function MarketplacePanel({ designId, onDesignCreated }) {
                 onChange={(e) => updateForm('sourcePath', e.target.value)}
                 placeholder="marketplace/starter_packs/parts/bracket"
                 disabled={uploading}
-                required
+              />
+            </div>
+
+            <div className="kp-field">
+              <label htmlFor="mp-archive-file" className="kp-label">Or upload archive (.zip, .tar.gz, .tgz)</label>
+              <input
+                id="mp-archive-file"
+                type="file"
+                accept=".zip,.tar.gz,.tgz"
+                className="kp-input"
+                onChange={(e) => setArchiveFile(e.target.files?.[0] || null)}
+                disabled={uploading}
               />
             </div>
 
@@ -219,7 +247,7 @@ export default function MarketplacePanel({ designId, onDesignCreated }) {
               <button
                 type="submit"
                 className="kp-button kp-button-primary"
-                disabled={uploading || !form.name.trim() || !form.sourcePath.trim()}
+                disabled={uploading || !form.name.trim() || (!archiveFile && !form.sourcePath.trim())}
               >
                 {uploading ? 'Uploading…' : 'Contribute asset'}
               </button>

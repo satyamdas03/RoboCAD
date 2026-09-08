@@ -5,6 +5,7 @@ import {
   getSolverAvailability,
   submitDeepVerification,
   getDeepVerificationJob,
+  getDeepVerificationField,
   listDeepVerificationJobs,
   cancelDeepVerificationJob,
 } from '../api.js'
@@ -38,9 +39,15 @@ const MATERIALS = [
 
 const DEEP_SOLVERS = [
   { value: 'calculix', label: 'CalculiX' },
-  { value: 'elmerfem', label: 'ElmerFEM' },
+  { value: 'elmer', label: 'ElmerFEM' },
   { value: 'openfoam', label: 'OpenFOAM' },
-  { value: 'nvidia_surrogate', label: 'NVIDIA surrogate' },
+  { value: 'surrogate', label: 'NVIDIA surrogate' },
+]
+
+const SOLVER_MODES = [
+  { value: 'auto', label: 'Auto (real if installed)' },
+  { value: 'real', label: 'Real solver only' },
+  { value: 'surrogate', label: 'Surrogate only' },
 ]
 
 const DEFAULT_BOUNDARY_JSON = JSON.stringify({
@@ -51,7 +58,7 @@ const DEFAULT_BOUNDARY_JSON = JSON.stringify({
   flow_velocity_ms: 10,
 }, null, 2)
 
-export default function VerificationPanel({ designId }) {
+export default function VerificationPanel({ designId, onFieldLoaded }) {
   const [report, setReport] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -61,11 +68,14 @@ export default function VerificationPanel({ designId }) {
 
   const [mode, setMode] = useState('quick')
   const [solver, setSolver] = useState('calculix')
+  const [solverMode, setSolverMode] = useState('auto')
   const [boundaryJson, setBoundaryJson] = useState(DEFAULT_BOUNDARY_JSON)
   const [solverAvailability, setSolverAvailability] = useState({})
   const [deepJobId, setDeepJobId] = useState(null)
   const [deepJob, setDeepJob] = useState(null)
   const [deepJobs, setDeepJobs] = useState([])
+  const [fieldData, setFieldData] = useState(null)
+  const [fieldLoading, setFieldLoading] = useState(false)
 
   useEffect(() => {
     setReport(null)
@@ -73,6 +83,7 @@ export default function VerificationPanel({ designId }) {
     setDeepJobId(null)
     setDeepJob(null)
     setDeepJobs([])
+    setFieldData(null)
   }, [designId, loadCase])
 
   useEffect(() => {
@@ -191,6 +202,7 @@ export default function VerificationPanel({ designId }) {
     try {
       const data = await submitDeepVerification(designId, {
         solver,
+        solverMode,
         loadCase,
         materials: { default: material },
         parameters: { ...parameters, material },
@@ -219,6 +231,34 @@ export default function VerificationPanel({ designId }) {
       setError(err.message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleLoadField() {
+    if (!designId || !deepJobId) return
+    setFieldLoading(true)
+    setError(null)
+    try {
+      const fieldName = loadCase === 'heat_sink_thermal_resistance' || loadCase === 'thermal_expansion'
+        ? 'temperature_c'
+        : 'von_mises_stress_mpa'
+      const data = await getDeepVerificationField(designId, deepJobId, fieldName)
+      const field = data?.field || data
+      setFieldData(field)
+      if (onFieldLoaded) {
+        onFieldLoaded(field)
+      }
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setFieldLoading(false)
+    }
+  }
+
+  function handleClearField() {
+    setFieldData(null)
+    if (onFieldLoaded) {
+      onFieldLoaded(null)
     }
   }
 
@@ -316,6 +356,18 @@ export default function VerificationPanel({ designId }) {
             {solverAvailability[solver].description}
           </div>
         )}
+
+        <label className="kp-label">Solver mode</label>
+        <select
+          className="kp-input"
+          value={solverMode}
+          onChange={(e) => setSolverMode(e.target.value)}
+          disabled={loading}
+        >
+          {SOLVER_MODES.map((m) => (
+            <option key={m.value} value={m.value}>{m.label}</option>
+          ))}
+        </select>
 
         <label className="kp-label">Boundary conditions (JSON)</label>
         <textarea
@@ -606,6 +658,36 @@ export default function VerificationPanel({ designId }) {
                     <li key={i} className="kp-tag kp-badge-warning" style={{ width: 'fit-content' }}>{warn}</li>
                   ))}
                 </ul>
+              )}
+
+              <div className="kp-flex kp-gap-2 kp-flex-wrap">
+                <button
+                  type="button"
+                  className="kp-button kp-button-secondary"
+                  onClick={handleLoadField}
+                  disabled={fieldLoading || deepStatus !== 'completed'}
+                >
+                  {fieldLoading ? 'Loading field…' : 'Show heatmap'}
+                </button>
+                {fieldData && (
+                  <button
+                    type="button"
+                    className="kp-button kp-button-ghost"
+                    onClick={handleClearField}
+                  >
+                    Clear heatmap
+                  </button>
+                )}
+              </div>
+
+              {fieldData?.message === 'ok' && fieldData.scalars?.length > 0 && (
+                <div className="kp-flex-col kp-gap-1" style={{ padding: 'var(--kp-space-2)', background: 'var(--kp-surface-container)', borderRadius: 'var(--kp-radius-md)', border: '1px solid var(--kp-border)' }}>
+                  <span className="kp-label">Field: {fieldData.field_name} ({fieldData.unit || 'n/a'})</span>
+                  <div className="kp-flex kp-justify-between kp-align-center">
+                    <span className="kp-small kp-text-muted">min: {fieldData.min?.toFixed?.(4) ?? fieldData.min}</span>
+                    <span className="kp-small kp-text-muted">max: {fieldData.max?.toFixed?.(4) ?? fieldData.max}</span>
+                  </div>
+                </div>
               )}
 
               {deepResult.output_url && (

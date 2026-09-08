@@ -25,12 +25,18 @@ OPTIONAL_ENV = [
 ]
 
 SOLVERS: list[dict[str, Any]] = [
-    {"name": "gmsh", "command": "gmsh", "version_flag": "-info", "optional": True},
-    {"name": "calculix", "command": "ccx", "version_flag": "-v", "optional": True},
-    {"name": "elmerfem", "command": "ElmerSolver", "version_flag": "-v", "optional": True},
-    {"name": "openfoam", "command": "blockMesh", "version_flag": "-help", "optional": True},
-    {"name": "mujoco", "command": None, "python_module": "mujoco", "optional": True},
-    {"name": "livekit", "command": None, "python_module": "livekit", "optional": True},
+    {"name": "gmsh", "command": "gmsh", "version_flag": "-info", "optional": True,
+     "install_hint": "https://gmsh.info/#Download or `pip install gmsh` (SDK wrapper; binary still required for meshing)"},
+    {"name": "calculix", "command": "ccx", "version_flag": "-v", "optional": True,
+     "install_hint": "Ubuntu/Debian: `sudo apt install calculix-ccx` | Windows: download https://www.calculix.de"},
+    {"name": "elmerfem", "command": "ElmerSolver", "version_flag": "-v", "optional": True,
+     "install_hint": "Ubuntu: `sudo snap install elmerfem` or build from https://www.elmerfem.org"},
+    {"name": "openfoam", "command": "blockMesh", "version_flag": "-help", "optional": True,
+     "install_hint": "Ubuntu: https://openfoam.org/download | Windows/WSL or Docker recommended"},
+    {"name": "mujoco", "command": None, "python_module": "mujoco", "optional": True,
+     "install_hint": "`pip install mujoco`"},
+    {"name": "livekit", "command": None, "python_module": "livekit", "optional": True,
+     "install_hint": "`pip install livekit livekit-agents` (requires LiveKit cloud or self-hosted server)"},
 ]
 
 
@@ -145,6 +151,7 @@ def check_solvers() -> list[dict[str, Any]]:
                 "installed": installed,
                 "version": version,
                 "path": path,
+                "install_hint": solver.get("install_hint"),
                 "message": "OK" if installed else (f"optional solver {solver['name']} not found" if optional else f"{solver['name']} not found"),
             }
         )
@@ -214,6 +221,8 @@ def print_health() -> None:
         status = "[OK]" if row["ok"] else "[FAIL]"
         version = f" ({row.get('version')})" if row.get("version") else ""
         print(f"  {status} {row['name']}{version}: {row['message']}")
+        if not row["ok"] and row.get("install_hint"):
+            print(f"        install hint: {row['install_hint']}")
     print("\n" + ("READY" if report["ready"] else "NOT READY"))
 
 
