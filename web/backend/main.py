@@ -2911,6 +2911,14 @@ def deep_verify_start(design_id: str, request: DeepVerifyRequest) -> dict[str, A
     return {"design_id": design_id, "job_id": job_id, "status": "queued"}
 
 
+@app.get("/designs/{design_id}/deep-verify")
+def deep_verify_list(design_id: str) -> dict[str, Any]:
+    """List all deep-analysis jobs for a design."""
+    store = _deep_job_store()
+    jobs = store.list_jobs(design_id=design_id)
+    return {"design_id": design_id, "jobs": [job.model_dump() for job in jobs]}
+
+
 @app.get("/designs/{design_id}/deep-verify/{job_id}")
 def deep_verify_status(design_id: str, job_id: str) -> dict[str, Any]:
     """Poll the status / result of a deep-analysis job."""
@@ -2918,7 +2926,7 @@ def deep_verify_status(design_id: str, job_id: str) -> dict[str, Any]:
     job = poll_deep_verification(job_id, job_store=store)
     if job is None or job.design_id != design_id:
         raise HTTPException(status_code=404, detail="Deep verification job not found.")
-    return {"design_id": design_id, "job": job.to_dict()}
+    return {"design_id": design_id, "job": job.model_dump()}
 
 
 @app.post("/designs/{design_id}/deep-verify/{job_id}/cancel")

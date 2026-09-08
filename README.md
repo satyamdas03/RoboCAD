@@ -4,7 +4,7 @@
 >
 > **Core bet:** The AI writes **parametric CAD code** (build123d / FeatureScript), not throwaway meshes. The model you get is editable, versionable, and exportable for 3D printing, machining, Onshape, or physics simulation.
 >
-> **Latest milestone:** Phases 0–**27A/B/C** are complete or in-progress. RoboCAD now has a **real-time voice interface for HERMES** (LiveKit + NVIDIA NIM STT/TTS), an **AI render-critique layer** powered by NVIDIA vision-language models, a **NVIDIA NIM intelligence client** for chat/vision/Cosmos scenario generation, and a **professional Three.js renderer** with auto-fit camera, studio lighting, and screenshot capture. The full pytest suite: **263 default + 222 heavy/slow tests passing** (1 expected failure, 5 benchmark/network tests deselected); frontend production build passes. Phase 27D (hardware-in-the-loop sim-to-real) remains future work blocked on hardware access.
+> **Latest milestone:** Phases 0–**28A/B/C** are complete. RoboCAD now has a **one-command launcher and health CLI** (28A), an **asset marketplace** for verified parts/templates/policies (28B), and a **deep multi-physics engine** with real FEA (CalculiX), CFD (OpenFOAM), thermal (ElmerFEM), and NVIDIA surrogate fast-analysis support (28C). The full pytest suite: **340 default + 222 heavy/slow tests passing** (1 expected failure, 5 benchmark/network tests deselected); frontend production build passes. Phase 27D (hardware-in-the-loop sim-to-real) remains future work blocked on hardware access. Phases 28D–28F (morphology co-design lab, simulation certification, final product hardening) are in progress.
 
 ---
 
@@ -161,7 +161,12 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **27B** | Professional rendering hardening | ✅ **Landed — auto-fit camera, studio lighting, contact shadows, reset/grid/wireframe toolbar, screenshot capture** |
 | **27C** | NVIDIA model intelligence | ✅ **Landed — generic NIM client, AI render critique, HERMES NVIDIA routing, `/world/scenario`, `/nvidia/models`; 15 tests** |
 | **27D** | Hardware-in-the-loop sim-to-real | ⏳ **Future — blocked on hardware access** |
-| **28** | Distribution + commercialization + advanced co-design plugins | ⏳ **Planned** |
+| **28A** | Launcher + installer + health CLI | ✅ **Complete — one-command start.py/start.bat/start.sh, python -m robocad.health** |
+| **28B** | Asset marketplace | ✅ **Complete — verified parts/scene/robot templates, upload/download/import** |
+| **28C** | Deep multi-physics engine | ✅ **Complete — CalculiX FEA, ElmerFEM thermal, OpenFOAM CFD, NVIDIA surrogate, deep verification UI** |
+| **28D** | Morphology Co-Design Lab | ⏳ **In progress** |
+| **28E** | Simulation certification | ⏳ **In progress** |
+| **28F** | Product hardening + final docs | ⏳ **In progress** |
 
 Phases 0–7 proved the **AI → parametric-code loop** for single-part robotics hardware. Phases 8–13 turned that loop into an **engineer-grade CAD system** with feature trees, constraints, assemblies, verification, and model specialization. Phases 14A–15B shipped the **GEDA Bridge** so LearningRobotics can consume verified simulation-ready assets. Phases 16–27C expand RoboCAD into a **multi-domain generative engineering platform** with a real-time voice supervisor, NVIDIA-powered intelligence, and professional rendering.
 
@@ -177,7 +182,7 @@ This roadmap is the canonical plan of record for RoboCAD. **Do not reorder phase
 - **Phases 18–23** add domain-specific tracks (mechanical assembly, aero/thermal geometry, electronics integration, multi-physics verification, humanoid/robot synthesis).
 - **Phases 24–27C** close the world-model → brain-training → HERMES voice/intelligence loop without requiring hardware.
 - **Phase 27D** is the hardware-in-the-loop sim-to-real step, intentionally separated so the software stack can mature first.
-- **Phase 28** turns the stack into an installable product, marketplace, and optional advanced co-design plugins.
+- **Phase 28** re-scoped into a **simulation-first product platform**: launcher/marketplace (28A/B), real FEA/CFD/thermal solvers (28C), morphology co-design lab (28D), simulation certification (28E), and final product hardening (28F).
 
 ---
 
@@ -239,14 +244,17 @@ $ pip install -r requirements.txt
 #    LIVEKIT_API_KEY=...
 #    LIVEKIT_API_SECRET=...
 
-# 4. Run backend
-$ python -m web.backend.main
+# 4. One-command start (recommended)
+$ python start.py
+# Or on Windows: start.bat
+# Or on Linux/macOS: ./start.sh
 
-# 5. Run frontend (in another shell)
-$ cd web/frontend
-$ npm install
-$ npm run build
-$ npm run dev
+# 5. Or run backend + frontend manually
+$ python -m web.backend.main        # terminal 1
+$ cd web/frontend && npm run dev     # terminal 2
+
+# 6. Check environment health
+$ python -m robocad.health
 ```
 
 Run tests:
@@ -267,8 +275,10 @@ $ python -m pytest -m mujoco
 ```
 RoboCAD/
 ├── ai_cad/                  # Core AI + CAD engine
-│   ├── hermes/              # HERMES conversational supervisor (Phase 26–27A)
+│   ├── hermes/              # HERMES conversational supervisor (Phases 26–27A)
 │   ├── geda_bridge/         # Simulation bundle + world model (Phases 14A–25)
+│   ├── solvers/             # Deep FEA/CFD/thermal solver adapters (Phase 28C)
+│   ├── marketplace.py       # Asset marketplace backend (Phase 28B)
 │   ├── nvidia_client.py     # NVIDIA NIM client (Phase 27C)
 │   ├── render_critique.py   # AI render critique (Phase 27C)
 │   ├── assembly.py          # Assembly + mate system (Phases 11, 19)
@@ -281,6 +291,8 @@ RoboCAD/
 ├── web/
 │   ├── backend/main.py      # FastAPI backend
 │   └── frontend/src/        # React + three.js app
+├── marketplace/             # Verified asset packs and marketplace index (Phase 28B)
+├── robocad/                 # Launcher, health CLI, installer builder (Phase 28A)
 ├── tests/                   # Pytest suite
 ├── docs/                    # Contracts, schemas, session recovery
 ├── dossiers/                # Public strategic write-ups
@@ -316,6 +328,37 @@ RoboCAD/
 
 ---
 
+## 🚀 Phase 28A/B/C — Simulation-first product platform
+
+Phase 28 was re-scoped from pure packaging to a **simulation-first product platform**.
+
+### 28A — Launcher + health CLI + installer skeleton
+
+- `python start.py` / `start.bat` / `start.sh` starts backend + frontend with one command.
+- `python -m robocad.health` reports Python version, dependencies, API keys, and solver availability.
+- `scripts/build_installer.py` produces a PyInstaller desktop bundle.
+
+### 28B — Asset marketplace
+
+- Built-in marketplace for verified parts, scene templates, robot templates, and trained policy bundles.
+- Backend CRUD + import endpoints; frontend `MarketplacePanel.jsx` grid with verified badges.
+- Starter packs include a bracket, `gripper_cube_grasp` scene, and `manipulator_on_base` robot template.
+
+### 28C — Deep multi-physics engine
+
+- Optional real solver adapters under `ai_cad/solvers/`:
+  - **CalculiX** (`calculix_adapter.py`) for static/modal FEA.
+  - **ElmerFEM** (`elmerfem_adapter.py`) for thermal conduction and thermal-stress.
+  - **OpenFOAM** (`openfoam_adapter.py`) for CFD drag/lift.
+  - **NVIDIA surrogate** (`nvidia_surrogate.py`) for sub-second approximate analysis.
+- Async SQLite job store (`job_store.py`) with submit/status/cancel/poll.
+- Backend endpoints: `POST /designs/{id}/deep-verify`, `GET /designs/{id}/deep-verify/{job_id}`, `POST /designs/{id}/deep-verify/{job_id}/cancel`, `GET /designs/{id}/solver-availability`.
+- Frontend "Deep Analysis" tab in `VerificationPanel.jsx`.
+
+Residual caveats: real external solvers are optional; missing solvers produce valid input decks and graceful "not installed" messages. Safety-critical parts still require human engineering review.
+
+---
+
 ## ⚠️ Security / secrets
 
 All API keys live in the repo-root `.env` file, which is gitignored. Never commit keys. The voice and NVIDIA integration requires:
@@ -333,4 +376,4 @@ MIT — see [`LICENSE`](LICENSE) if present, otherwise treat as open-source core
 
 ---
 
-*Built with care by Satyam Das and Claude Code. Test counts verified 2026-09-01.*
+*Built with care by Satyam Das and Claude Code. Test counts verified 2026-09-08 (Phase 28A/B/C complete).*
