@@ -31,6 +31,7 @@ import HumanoidPanel from './components/HumanoidPanel.jsx'
 import BrainTrainingPanel from './components/BrainTrainingPanel.jsx'
 import HermesPanel from './components/HermesPanel.jsx'
 import MarketplacePanel from './components/MarketplacePanel.jsx'
+import MorphologyPanel from './components/MorphologyPanel.jsx'
 import {
   checkHealth,
   generateDesign,
@@ -347,6 +348,7 @@ export default function App() {
               <BrainTrainingPanel designId={selectedId} />
               <HermesPanel designId={selectedId} />
               <MarketplacePanel designId={selectedId} onDesignCreated={handleSelect} />
+              <MorphologyPanel />
               <OnshapeUpload designId={selectedId} prompt={result?.prompt} />
               <TagEditor tags={result?.tags || []} onUpdate={handleUpdateTags} />
               <RemixPanel designId={selectedId} onRemix={handleRemix} loading={loading} />

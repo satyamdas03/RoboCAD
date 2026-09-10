@@ -56,6 +56,15 @@ from ai_cad.feature_store import save as save_feature_tree
 from ai_cad.feature_tree import Assembly, FeatureTree
 from ai_cad.intent_parser import parse_domain_intent
 from ai_cad.mate_inference import infer_mates
+from ai_cad.morphology import (
+    MorphologyCandidate,
+    MorphologyDimension,
+    MorphologySpace,
+    default_space,
+    load_search_results,
+    save_search_results,
+    search_morphologies,
+)
 from ai_cad.fea import run_static_analysis
 from ai_cad.geda_bridge import (
     AbstractAttentionEnv,
@@ -82,6 +91,8 @@ from ai_cad.geda_bridge import (
     train_push_skill,
     validate_bundle_with_mujoco,
     verify_bundle,
+    train_attention_policy,
+    evaluate_attention_policy,
 )
 from ai_cad.geda_bridge.models import BundleManifest, BundleVerification
 from ai_cad.guess_parameter import guess_parameter as _guess_parameter
@@ -468,6 +479,24 @@ class RobotAnalysisRequest(BaseModel):
     lateral_accel_m_s2: float = Field(default=0.5, ge=0, description="Lateral acceleration budget for ZMP check in m/s^2.")
     end_effector_id: str = Field(default="hand_r", description="Instance id used for reachable workspace sampling.")
     swing_foot_id: str = Field(default="foot_l", description="Foot instance id used for gait feasibility proxy.")
+
+
+class MorphologySearchRequest(BaseModel):
+    template: str = Field(default="humanoid", description="Robot template name: humanoid, quadruped, manipulator_on_base.")
+    dimensions: list[dict[str, Any]] = Field(default_factory=list, description="Override dimensions as list of {name, min, max, step}.")
+    n_max: int = Field(default=48, ge=4, le=128, description="Maximum number of candidate morphologies to evaluate.")
+    seed: int = Field(default=0, description="Deterministic seed for reproducible search.")
+    payload_kg: float = Field(default=5.0, gt=0, description="Design payload mass used for actuator scoring.")
+    robot_mass_kg: float | None = Field(default=None, description="Total mass estimate; defaults to payload * 4.")
+    weights: dict[str, float] = Field(default_factory=dict, description="Optional scoring weights: stability, workspace, gait, actuator, compactness.")
+
+
+class MorphologySimulateRequest(BaseModel):
+    world_template: str = Field(default="walker", description="World template: walker, humanoid_stand.")
+    n_iters: int = Field(default=10, ge=3, le=50, description="CEM training iterations for brain smoke test.")
+    pop_size: int = Field(default=30, ge=10, le=100, description="CEM population size.")
+    eval_episodes: int = Field(default=5, ge=1, le=20, description="Evaluation episodes.")
+    seed: int = Field(default=0, description="Seed for brain training smoke test.")
 
 
 class MarketplaceCreateRequest(BaseModel):
@@ -3354,6 +3383,183 @@ def robot_analysis(design_id: str, request: RobotAnalysisRequest) -> dict[str, A
         "swing_workspace": swing_workspace,
         "gait_feasible": gait_feasible,
         "zero_pose": pose_summary,
+    }
+
+
+@app.get("/morphology/templates")
+def list_morphology_templates() -> dict[str, Any]:
+    """Return available morphology search templates and default spaces."""
+    templates = []
+    for name in ["humanoid", "quadruped", "manipulator_on_base"]:
+        space = default_space(name)
+        templates.append(
+            {
+                "name": name,
+                "dimensions": [
+                    {"name": d.name, "min": d.min, "max": d.max, "step": d.step}
+                    for d in space.dimensions
+                ],
+                "n_max": space.n_max,
+                "seed": space.seed,
+            }
+        )
+    return {"templates": templates}
+
+
+@app.post("/morphology/search")
+def run_morphology_search(request: MorphologySearchRequest) -> dict[str, Any]:
+    """Run a deterministic morphology search and persist the ranked results."""
+    space = default_space(request.template)
+    if request.dimensions:
+        space.dimensions = [
+            MorphologyDimension(
+                name=d.get("name", "unknown"),
+                min=float(d.get("min", 0.0)),
+                max=float(d.get("max", 0.0)),
+                step=float(d.get("step", 1.0)),
+            )
+            for d in request.dimensions
+        ]
+    space.n_max = request.n_max
+    space.seed = request.seed
+
+    candidates = search_morphologies(
+        space,
+        payload_kg=request.payload_kg,
+        robot_mass_kg=request.robot_mass_kg,
+        weights=request.weights,
+    )
+
+    search_id = uuid.uuid4().hex
+    design_dir = DESIGNS_DIR / search_id
+    design_dir.mkdir(parents=True, exist_ok=True)
+
+    meta = {
+        "id": search_id,
+        "prompt": f"Morphology search: {request.template}",
+        "success": True,
+        "model": "morphology-search",
+        "attempts_used": 1,
+        "max_retries": 0,
+        "latency_seconds": 0.0,
+        "created_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "exports": {},
+        "tags": ["morphology_search", request.template],
+        "domain": "mechanical",
+    }
+    _write_json(design_dir / "metadata.json", meta)
+
+    save_search_results(search_id, space, candidates, design_dir)
+
+    return {
+        "search_id": search_id,
+        "template": request.template,
+        "n_candidates": len(candidates),
+        "candidates": [c.to_dict() for c in candidates],
+    }
+
+
+@app.get("/morphology/{search_id}")
+def get_morphology_search(search_id: str) -> dict[str, Any]:
+    """Retrieve a persisted morphology search result."""
+    design_dir = DESIGNS_DIR / search_id
+    path = design_dir / f"morphology_search_{search_id}.json"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Morphology search not found.")
+
+    try:
+        data = load_search_results(path)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to load morphology search: {exc}")
+
+    return {
+        "search_id": search_id,
+        "template": data["space"]["template"],
+        "n_candidates": len(data["candidates"]),
+        "candidates": [
+            {
+                "candidate_id": c["candidate_id"],
+                "template": c["template"],
+                "parameters": c["parameters"],
+                "scores": c["scores"],
+                "composite_score": c["composite_score"],
+                "rank": c["rank"],
+            }
+            for c in data["candidates"]
+        ],
+    }
+
+
+@app.post("/morphology/{search_id}/candidates/{candidate_id}/simulate")
+def simulate_morphology_candidate(
+    search_id: str,
+    candidate_id: str,
+    request: MorphologySimulateRequest,
+) -> dict[str, Any]:
+    """Export a candidate morphology to a world and run a brain-training smoke test."""
+    design_dir = DESIGNS_DIR / search_id
+    path = design_dir / f"morphology_search_{search_id}.json"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Morphology search not found.")
+
+    try:
+        data = load_search_results(path)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to load morphology search: {exc}")
+
+    candidate_data = next(
+        (c for c in data["candidates"] if c["candidate_id"] == candidate_id),
+        None,
+    )
+    if candidate_data is None:
+        raise HTTPException(status_code=404, detail=f"Candidate '{candidate_id}' not found in search.")
+
+    try:
+        tree = FeatureTree(**candidate_data["feature_tree"])
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to load candidate feature tree: {exc}")
+
+    sim_dir = design_dir / "simulation"
+    sim_dir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        bundle_paths = export_bundle_from_tree(tree, sim_dir, name="candidate", tolerance=0.1)
+        manifest = load_bundle_manifest(sim_dir)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to export candidate bundle: {exc}")
+
+    try:
+        world = build_world(request.world_template, manifest.parts)
+        world.robot_mjcf_file = manifest.mjcf_file or "candidate.mjcf"
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to build world: {exc}")
+
+    try:
+        env = AbstractAttentionEnv(world=world, seed=request.seed)
+        best_weights, train_report = train_attention_policy(
+            env=env,
+            n_iters=request.n_iters,
+            pop_size=request.pop_size,
+            seed=request.seed,
+        )
+        eval_report = evaluate_attention_policy(env, best_weights, n_episodes=request.eval_episodes, seed=request.seed)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Brain training smoke test failed: {exc}")
+
+    return {
+        "search_id": search_id,
+        "candidate_id": candidate_id,
+        "world_template": request.world_template,
+        "brain_smoke_test": {
+            "success": bool(eval_report["success_rate"] >= 0.5),
+            "success_rate": eval_report["success_rate"],
+            "mean_reward": eval_report["mean_reward"],
+            "mean_final_distance": eval_report["mean_final_distance"],
+            "best_training_reward": train_report["best_training_reward"],
+        },
+        "candidate": candidate_data,
     }
 
 

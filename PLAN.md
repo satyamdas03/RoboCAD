@@ -318,21 +318,23 @@ RoboCAD becomes extraordinary when a user can describe a multi-domain robot syst
   - ✅ **28A — Launcher + health CLI + installer skeleton:** `robocad/launcher.py`, `robocad/health.py`, `robocad/__main__.py`, `start.py`/`start.bat`/`start.sh`, `scripts/build_installer.py`; `python -m robocad.health` reports environment + solver availability; 13/13 launcher/installer tests passing.
   - ✅ **28B — Asset marketplace:** `ai_cad/marketplace.py`, repo-root `marketplace/` catalog + starter packs, backend `/marketplace/items/*` endpoints, frontend `MarketplacePanel.jsx`; 5/5 marketplace tests passing.
   - ✅ **28C — Deep multi-physics engine:** `ai_cad/solvers/` package (geometry prep, meshing, CalculiX/ElmerFEM/OpenFOAM adapters, NVIDIA surrogate, SQLite job store, deep dispatcher), backend `/designs/{id}/deep-verify/*` endpoints, frontend "Deep Analysis" tab in `VerificationPanel.jsx`; 64/64 solver + marketplace tests passing.
-- **Full test status (Phase 28A/B/C/E/F):** 366 default + 222 heavy/slow tests passing (1 expected failure, 5 benchmark/network tests deselected); frontend production build passes.
-- **Documentation refreshed:** `README.md`, `PLAN.md`, dossiers, and private memory files updated to reflect Phase 28A/B/C/E/F completion and 28D scope.
+  - ✅ **28D — Morphology co-design lab:** `ai_cad/morphology.py` engine, backend `/morphology/*` endpoints, frontend `MorphologyPanel.jsx`, world-model + brain smoke-test integration; 15/15 morphology tests passing.
+- **Full test status (Phase 28A/B/C/D/E/F):** 380 default + 223 heavy/slow tests passing (1 expected failure, 5 benchmark/network tests deselected); frontend production build passes.
+- **Documentation refreshed:** `README.md`, `PLAN.md`, dossiers, and private memory files updated to reflect Phase 28A/B/C/D/E/F completion.
 
 ## 9. Immediate next session plan
 
 ### Completed since last update
 
+- ✅ Phase 28D (morphology co-design lab) implemented, tested, and committed.
 - ✅ Phase 28E (simulation certification) and 28F (product hardening + solver install bootstrap + marketplace archive upload) implemented, tested, and committed.
-- ✅ README, PLAN, dossiers, and memory files synchronized.
+- ✅ README, PLAN, and memory files synchronized.
 - ✅ All new/modified files staged and pushed to `origin/master`.
 
 ### Next session
 
-1. **Begin Phase 28D — Morphology Co-Design Lab:** parametric morphology search over limb counts/link lengths/joint ranges, stability/workspace/gait scoring, integration with world-model simulation and brain training loop.
-2. **Keep Phase 28A–C/E/F under maintenance** while extending into 28D.
+1. ✅ **Phase 28D — Morphology Co-Design Lab complete.** Consider follow-on work: end-to-end voice/sketch-to-morphology pipeline, batch morphology certification, or revisit Phase 27D hardware-in-the-loop when hardware is available.
+2. **Keep Phase 28A–F under maintenance** and monitor the new morphology tests for timeout creep on slower CI runners.
 
 ---
 
@@ -984,14 +986,20 @@ Phase 28 was re-scoped from pure packaging into a **simulation-first product pla
 
 **Status:** Complete — 2026-09-08. **64/64 solver + marketplace tests passing; 340 default + 222 heavy/slow tests passing** (1 expected failure, 5 benchmark/network tests deselected).
 
-#### Phase 28D — Morphology co-design lab ⏳ IN PROGRESS
+#### Phase 28D — Morphology co-design lab ✅ COMPLETE
 
 **Goal:** Invent and optimize novel robot morphologies in simulation before committing to a CAD model.
 
-**Deliverables:**
-- Parametric morphology search over limb counts, link lengths, joint ranges, and end-effector choices.
-- Stability, workspace, and gait-feasibility scoring.
-- Integration with world-model simulation and brain training loop.
+**Deliverables shipped:**
+- `ai_cad/morphology.py` engine with `MorphologySpace`, `MorphologyDimension`, `MorphologyCandidate`, `search_morphologies`, `score_candidate`, `default_space`, `save_search_results`, `load_search_results`.
+- Deterministic, seedable parametric search over limb counts, link lengths, joint ranges, and end-effector choices for `humanoid`, `quadruped`, and `manipulator_on_base` templates.
+- Composite scoring from stability, workspace reach, gait feasibility, actuator sizing, and span/height compactness.
+- FastAPI endpoints: `/morphology/templates`, `/morphology/search`, `/morphology/{search_id}`, `/morphology/{search_id}/candidates/{candidate_id}/simulate`.
+- Frontend `MorphologyPanel.jsx` integrated into the Kinetic Precision UI.
+- Tests: `tests/test_morphology.py` (10) + `tests/test_morphology_api.py` (5).
+- Performance fix: `forward_kinematics` reuses precomputed nominal transforms during workspace sampling.
+
+**Status:** Complete — 2026-09-08. **380 default + 223 heavy/slow tests passing; frontend production build passes.**
 
 #### Phase 28E — Simulation certification ✅ COMPLETE
 
@@ -1051,7 +1059,7 @@ Phase 28 was re-scoped from pure packaging into a **simulation-first product pla
 | 28A (launcher + health CLI) | 27 | ✅ Complete — one-command launcher + health CLI; 13 tests passing |
 | 28B (asset marketplace) | 28A | ✅ Complete — verified asset marketplace backend + frontend + tests |
 | 28C (deep multi-physics engine) | 28A, 22 | ✅ Complete — CalculiX/ElmerFEM/OpenFOAM adapters + NVIDIA surrogate + async job store + deep verification UI; 64/64 new tests passing |
-| 28D (morphology lab) | 24, 25, 28C | ⏳ In progress |
+| 28D (morphology lab) | 24, 25, 28C | ✅ Complete — deterministic parametric morphology search with stability/workspace/gait/actuator scoring, world-model + brain smoke-test integration; 15 tests |
 | 28E (simulation certification) | 24, 25, 28C | ✅ Complete — signed certificates, real-vs-surrogate A/B, field/report export |
 | 28F (product hardening) | 28A–E | ✅ Complete — marketplace upload, solver install bootstrap, health hints, onboarding tests |
 
@@ -1088,4 +1096,4 @@ Full analysis is saved in `.claude/memory/robocad-path-analysis.md` and the end-
 
 ---
 
-*Last updated: 2026-09-01 (Phases 0–28A/B/C/E/F complete; 366 default + 222 heavy/slow tests passing with 1 expected failure, 5 benchmark/network tests deselected; Phase 27D hardware-in-the-loop sim-to-real blocked on hardware access; Phase 28 re-scoped into simulation-first product platform with 28D in progress)*
+*Last updated: 2026-09-08 (Phases 0–28A/B/C/D/E/F complete; 380 default + 223 heavy/slow tests passing with 1 expected failure, 5 benchmark/network tests deselected; Phase 27D hardware-in-the-loop sim-to-real blocked on hardware access)*
