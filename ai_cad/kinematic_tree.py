@@ -101,6 +101,7 @@ def forward_kinematics(
     assembly: Assembly | None = None,
     joint_states: dict[str, float] | None = None,
     base_transform: np.ndarray | None = None,
+    nominal_transforms: dict[str, np.ndarray] | None = None,
 ) -> dict[str, LinkPose]:
     """Compute world poses for every link in an articulated assembly.
 
@@ -109,6 +110,8 @@ def forward_kinematics(
         assembly: Assembly to solve. Defaults to tree.assemblies[0].
         joint_states: optional map of joint_id -> value. Defaults to zero.
         base_transform: optional 4x4 base transform for the root link(s).
+        nominal_transforms: optional precomputed zero-pose transforms. If omitted,
+            they are computed once from the assembly solver.
 
     Returns:
         dict mapping link/instance id to LinkPose.
@@ -119,10 +122,11 @@ def forward_kinematics(
         return {}
 
     # Start with nominal instance transforms from the assembly solver.
-    from ai_cad.assembly import compute_instance_transforms
+    if nominal_transforms is None:
+        from ai_cad.assembly import compute_instance_transforms
 
-    parameters = tree.parameter_dict()
-    nominal_transforms = compute_instance_transforms(tree, assembly, parameters)
+        parameters = tree.parameter_dict()
+        nominal_transforms = compute_instance_transforms(tree, assembly, parameters)
 
     joints = assembly.joints or []
     joint_states = joint_states or {}
@@ -229,6 +233,12 @@ def sample_reachable_workspace(
     total = math.prod(counts) if counts else 0
     rng = np.random.default_rng(0)
 
+    # Precompute zero-pose transforms once; reuse for every joint combination.
+    from ai_cad.assembly import compute_instance_transforms
+
+    parameters = tree.parameter_dict()
+    nominal_transforms = compute_instance_transforms(tree, assembly, parameters)
+
     if total <= 4096:
         combinations = list(itertools.product(*value_lists))
     else:
@@ -239,7 +249,7 @@ def sample_reachable_workspace(
 
     for combo in combinations:
         states = {jid: combo[i] for i, (jid, _) in enumerate(joint_limits)}
-        poses = forward_kinematics(tree, assembly, joint_states=states)
+        poses = forward_kinematics(tree, assembly, joint_states=states, nominal_transforms=nominal_transforms)
         if end_effector_id in poses:
             points.append(poses[end_effector_id].position)
 

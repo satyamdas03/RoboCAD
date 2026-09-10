@@ -164,7 +164,7 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **28A** | Launcher + installer + health CLI | ✅ **Complete — one-command start.py/start.bat/start.sh, python -m robocad.health** |
 | **28B** | Asset marketplace | ✅ **Complete — verified parts/scene/robot templates, upload/download/import** |
 | **28C** | Deep multi-physics engine | ✅ **Complete — CalculiX FEA, ElmerFEM thermal, OpenFOAM CFD, NVIDIA surrogate, deep verification UI** |
-| **28D** | Morphology Co-Design Lab | ⏳ **In progress** |
+| **28D** | Morphology Co-Design Lab | ✅ **Complete — parametric morphology search, stability/workspace/gait scoring, world-model + brain smoke-test integration, backend endpoints + frontend panel; 15 tests** |
 | **28E** | Simulation certification | ✅ **Complete — real-solver dispatch, readiness score, certificates, field/report export; 15 tests** |
 | **28F** | Product hardening + final docs | ✅ **Complete — marketplace archive upload, solver install bootstrap, health hints, onboarding tests** |
 
@@ -182,7 +182,7 @@ This roadmap is the canonical plan of record for RoboCAD. **Do not reorder phase
 - **Phases 18–23** add domain-specific tracks (mechanical assembly, aero/thermal geometry, electronics integration, multi-physics verification, humanoid/robot synthesis).
 - **Phases 24–27C** close the world-model → brain-training → HERMES voice/intelligence loop without requiring hardware.
 - **Phase 27D** is the hardware-in-the-loop sim-to-real step, intentionally separated so the software stack can mature first.
-- **Phase 28** re-scoped into a **simulation-first product platform**: launcher/marketplace (28A/B), real FEA/CFD/thermal solvers (28C), simulation certification (28E), final product hardening (28F), and morphology co-design lab (28D, in progress).
+- **Phase 28** re-scoped into a **simulation-first product platform**: launcher/marketplace (28A/B), real FEA/CFD/thermal solvers (28C), morphology co-design lab (28D), simulation certification (28E), and final product hardening (28F).
 
 ---
 

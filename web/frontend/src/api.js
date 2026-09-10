@@ -399,6 +399,42 @@ export async function runRobotAnalysis(id, { payloadKg = 5.0, safetyFactor = 2.0
   })
 }
 
+export async function listMorphologyTemplates() {
+  return apiFetch('/morphology/templates')
+}
+
+export async function runMorphologySearch({ template = 'humanoid', dimensions = [], nMax = 48, seed = 0, payloadKg = 5.0, robotMassKg = null, weights = {} } = {}) {
+  return apiFetch('/morphology/search', {
+    method: 'POST',
+    body: JSON.stringify({
+      template,
+      dimensions,
+      n_max: nMax,
+      seed,
+      payload_kg: payloadKg,
+      robot_mass_kg: robotMassKg,
+      weights,
+    }),
+  })
+}
+
+export async function getMorphologySearch(searchId) {
+  return apiFetch(`/morphology/${searchId}`)
+}
+
+export async function simulateMorphologyCandidate(searchId, candidateId, { worldTemplate = 'walker', nIters = 10, popSize = 30, evalEpisodes = 5, seed = 0 } = {}) {
+  return apiFetch(`/morphology/${searchId}/candidates/${candidateId}/simulate`, {
+    method: 'POST',
+    body: JSON.stringify({
+      world_template: worldTemplate,
+      n_iters: nIters,
+      pop_size: popSize,
+      eval_episodes: evalEpisodes,
+      seed,
+    }),
+  })
+}
+
 export async function trainBrain(id, { nIters = 15, popSize = 40, evalEpisodes = 10, successRateThreshold = 0.7, seed = 42 } = {}) {
   return apiFetch(`/designs/${id}/train-brain`, {
     method: 'POST',
