@@ -29,6 +29,17 @@ def test_fallback_to_mechanical(monkeypatch):
             multi_domain=False,
         ),
     )
+    # Force the LLM extract to report zero confidence so the fallback path fires.
+    monkeypatch.setattr(
+        "ai_cad.intent_parser._llm_extract",
+        lambda p, d: {
+            "parameters": [],
+            "features": [],
+            "constraints": [],
+            "notes": ["LLM fallback failed"],
+            "confidence": 0.0,
+        },
+    )
     intent = parse_domain_intent("some random text")
     assert intent.domain == "mechanical"
     assert intent.confidence == 0.0
