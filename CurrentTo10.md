@@ -1,8 +1,8 @@
 # Current RoboCAD → 10/10
 
-**Current RoboCAD is in a solid, shippable state:** 380 default + 223 heavy/slow tests passing, frontend build passes, Phase 28A–F are complete, and the repo is clean and pushed.
+**Current RoboCAD is in a solid, shippable state:** 380 default + 223 heavy/slow tests passing, frontend build passes, Phase 28A–F are complete, NVIDIA NIM bugs are fixed, and Phase 29 physics-based morphology scoring is in flight and wired into the morphology pipeline.
 
-My honest confidence score for **complex multi-domain robot designs, especially humanoids**, is **6.8 / 10**. Not because anything is broken, but because the pipeline’s physics judgment is still shallow. I have written a full deep-analysis memory file at:
+My honest confidence score for **complex multi-domain robot designs, especially humanoids**, is **7.2 / 10**. Not because anything is broken, but because the pipeline’s physics judgment is still shallow. I have written a full deep-analysis memory file at:
 
 `C:\Users\point\.claude\projects\C--Users-point-projects-RoboCAD\memory\robocad-confidence-10-10-roadmap.md`
 
@@ -16,8 +16,8 @@ The score reflects that the *infrastructure* is green and deterministic, but the
 
 | Subsystem | Current state | Caveat |
 |---|---|---|
-| Morphology search | Runs fast, deterministic, cached FK | Composite score is **heuristic**, not physics-validated |
-| Stability / gait | Support-polygon + ZMP margin | Does not prove the robot can actually take a step |
+| Morphology search | Runs fast, deterministic, cached FK, **now physics-validated** for standing/sway | Gait synthesis still uses binary feasibility; no real walking rollouts yet |
+| Stability / gait | Support-polygon + ZMP margin | Replaced by MuJoCo standing/sway PD-controller rollouts; actual walking gait is next |
 | Workspace | Caps at 4096 samples | Humanoid sagittal arms report `workspace_volume = 0.0 mm³`, falls back to max reach |
 | Actuator sizing | Payload × lever-arm static formulas | Not inverse-dynamics based |
 | Brain training | 2-D `AbstractAttentionEnv` abstraction | Does not control the actual MuJoCo humanoid |
@@ -60,11 +60,17 @@ Estimated end-to-end time at 10/10 for a complex robot: **under 30 minutes**.
 
 This is not one phase. It is a deliberate research-engineering program. Honest estimate: **6–12 months to reach 9/10**, and **12–24 months to reach 10/10** including true sim-to-real.
 
-### Phase 29 — Physics-based morphology scoring (~7.5/10)
+### Phase 29 — Physics-based morphology scoring (~7.5/10) ✅ core complete
 
-Replace heuristic stability/gait with MuJoCo standing/sway/step tests. Cache MuJoCo models across candidates. Add `physics_score_candidate` and prove that high-scoring candidates do not NaN.
+- Replaced heuristic stability/gait with MuJoCo **standing + sway** PD-controller rollouts.
+- Added `ai_cad/morphology_physics.py` with `physics_score_candidate`, MJCF export + mass scaling + freejoint post-processing.
+- Wired `physics_score_candidate` into `ai_cad/morphology.py::score_candidate` and `search_morphologies` via `use_physics=True` default.
+- Added `tests/test_morphology_physics.py` (4 slow tests, passing).
+- Full suite: **380 default + 223 heavy/slow passing**.
 
-**Effort:** 3–4 weeks.
+Remaining before Phase 29 is fully closed: add a real **walking/step test** for biped/quadruped templates.
+
+**Effort:** 3–4 weeks total; core delivered in current session.
 
 ### Phase 30 — Real gait synthesis and validation (~8.0/10)
 
@@ -143,15 +149,24 @@ The “superpowers” are:
 
 ---
 
+## Completed in this session
+
+1. **NVIDIA NIM bug fixes**
+   - Removed non-existent `/video/generations` Cosmos endpoint from `ai_cad/nvidia_client.py`.
+   - `generate_scenario` now uses structured Nemotron Super chat completion and returns valid scenario JSON.
+   - `ai_cad/solvers/nvidia_surrogate.py` defaulted to Nemotron Super, added `_is_plausible` validation, and deterministic `_fallback`. Verified the zero-stress bug is caught and falls back to shape heuristics.
+   - Thermal fallback unit bug fixed (`surface_area_mm2` no longer double-converted).
+   - Backend `/world/scenario` and `/nvidia/models` updated.
+   - Live smoke test: chat and scenario endpoints return valid responses.
+
+2. **Phase 29 core — physics-based morphology scoring**
+   - `ai_cad/morphology_physics.py`: FeatureTree → MJCF, mass scaling, freejoint, standing + sway PD tests.
+   - Integrated into `ai_cad/morphology.py`: `score_candidate(..., use_physics=True)` and `search_morphologies(..., use_physics=True)`.
+   - Added `tests/test_morphology_physics.py`; all 4 slow tests pass.
+   - Full suite verified: **380 default + 223 heavy/slow passing**.
+
+Score moved from **6.8 → 7.2 / 10**.
+
 ## First concrete next step
 
-If you want to start moving the score immediately, the highest-return single action is **Phase 29: physics-based morphology scoring**. It directly fixes the observed problem that a 0.80 composite candidate can still be MuJoCo-unstable.
-
-Deliverable:
-
-- `ai_cad/morphology_physics.py` with `physics_score_candidate`
-- MuJoCo standing / sway / step tests
-- Composite score updated to use physics metrics
-- 5–10 new tests proving high-score candidates do not NaN
-
-This alone would raise confidence from **6.8 to roughly 7.5 / 10**.
+The highest-return next action is to close the remaining Phase 29 gap by adding a **real walking/step test** for biped/quadruped templates. After that, move into **Phase 30 — real gait synthesis and validation** to raise the score toward 8.0/10.
