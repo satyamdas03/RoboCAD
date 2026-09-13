@@ -3209,7 +3209,7 @@ def cosmos_scenario(request: CosmosScenarioRequest) -> dict[str, Any]:
         scenario = client.generate_scenario(
             request.prompt,
             image_bytes=image_bytes,
-            model=request.model or "nvidia/cosmos3-nano",
+            model=request.model,
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Scenario generation failed: {exc}") from exc
@@ -3235,6 +3235,7 @@ def list_nvidia_models() -> dict[str, Any]:
                 catalog.CHAT_MODEL_MUSE_GLIMMER,
             ],
             "physics_scenario": [
+                catalog.COSMOS_REASON_8B,
                 catalog.COSMOS_NANO,
                 catalog.COSMOS_NANO_REASONER,
             ],

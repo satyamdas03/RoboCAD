@@ -2,12 +2,12 @@
 
 This module predicts drag, stress, and thermal behavior for common shapes by
 first trying a lightweight NVIDIA NIM chat call, then falling back to simple
-shape-based heuristics when no API key is configured or the call fails.
+shape-based heuristics when no API key is configured, the call fails, or the
+returned values are physically implausible.
 """
 from __future__ import annotations
 
 import json
-import math
 import os
 import re
 from typing import Any
@@ -15,7 +15,12 @@ from typing import Any
 import trimesh
 
 from ai_cad.materials import Material, get_material
-from ai_cad.nvidia_client import NvidiaClient, NvidiaError
+from ai_cad.nvidia_client import CHAT_MODEL_NEMOTRON_SUPER, NvidiaClient, NvidiaError
+
+
+# The Super model follows JSON instructions far more reliably than Lightning for
+# these small structured engineering estimates.
+DEFAULT_SURROGATE_MODEL = CHAT_MODEL_NEMOTRON_SUPER
 
 
 class NvidiaSurrogate:
@@ -46,7 +51,20 @@ class NvidiaSurrogate:
         material = material or get_material("PLA")
         if self.has_key:
             try:
-                return self._call_nim(mesh, quantity, params, material)
+                nim_result = self._call_nim(mesh, quantity, params, material)
+                if self._is_plausible(nim_result, quantity):
+                    return nim_result
+                # NIM returned something, but the numbers don't make sense.
+                return self._fallback(
+                    mesh,
+                    quantity,
+                    params,
+                    material,
+                    warning=(
+                        "NVIDIA NIM returned physically implausible values "
+                        f"({nim_result}); using deterministic fallback."
+                    ),
+                )
             except NvidiaError as exc:
                 # Fall through to deterministic lookup on any NIM failure.
                 return self._fallback(
@@ -62,9 +80,7 @@ class NvidiaSurrogate:
         material: Material,
     ) -> dict[str, Any]:
         prompt = self._build_prompt(mesh, quantity, params, material)
-        model = os.environ.get(
-            "ROBOCAD_SURROGATE_MODEL", "nvidia/nemotron-3.5-lightning-30b-a3b"
-        )
+        model = os.environ.get("ROBOCAD_SURROGATE_MODEL", DEFAULT_SURROGATE_MODEL)
         response = self.client.chat(
             messages=[{"role": "user", "content": prompt}],
             model=model,
@@ -87,9 +103,10 @@ class NvidiaSurrogate:
         volume_mm3 = float(mesh.volume) if mesh.volume else 0.0
         area_mm2 = float(mesh.area) if mesh.area else 0.0
         base = (
-            "You are a fast engineering surrogate. Return ONLY a compact JSON object "
-            "with numeric estimates and a short list of redesign suggestions. "
-            "Do not include markdown fences or explanation."
+            "You are a fast engineering surrogate. "
+            "Return ONLY a compact JSON object with numeric estimates and a short list of redesign suggestions. "
+            "Do not include markdown fences, code blocks, explanation, or any thinking process. "
+            "The output must be parseable JSON only."
         )
         shape = (
             f"Mesh extents (mm): {extents.tolist()}, volume (mm^3): {volume_mm3:.2f}, "
@@ -152,6 +169,27 @@ class NvidiaSurrogate:
             }
         return {"value": float(data.get("value", 0.0)), "warnings": []}
 
+    @staticmethod
+    def _is_plausible(result: dict[str, Any], quantity: str) -> bool:
+        """Return True if the NIM result contains physically reasonable numbers."""
+        if quantity == "drag":
+            cd = float(result.get("drag_coefficient", 0.0))
+            f = float(result.get("drag_force_n", 0.0))
+            # A drag force of exactly zero with any non-trivial velocity is implausible.
+            return 0.0 < cd <= 10.0 and f > 0.0
+        if quantity == "stress":
+            stress = float(result.get("max_stress_mpa", 0.0))
+            sf = float(result.get("safety_factor", 0.0))
+            # A zero stress for a loaded part is implausible; safety factor must be positive.
+            return stress > 0.0 and sf > 0.0
+        if quantity == "thermal":
+            rth = float(result.get("thermal_resistance_c_per_w", 0.0))
+            tmax = float(result.get("max_temperature_c", 0.0))
+            # A thermal resistance of exactly zero usually means the model skipped the
+            # calculation. Require a positive resistance or a temperature above ambient.
+            return (rth > 0.0 and tmax > 0.0) or tmax > 25.0
+        return bool(result.get("value"))
+
     def _fallback(
         self,
         mesh: trimesh.Trimesh,
@@ -210,7 +248,7 @@ class NvidiaSurrogate:
                 max_temp = ambient
             result["thermal_resistance_c_per_w"] = round(r_th, 4)
             result["max_temperature_c"] = round(max_temp, 2)
-            result["surface_area_mm2"] = round(area_mm2 * 1e6, 4)
+            result["surface_area_mm2"] = round(area_mm2, 4)
             result["volume_mm3"] = round(volume_mm3, 4)
 
         else:

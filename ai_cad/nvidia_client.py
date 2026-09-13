@@ -5,15 +5,17 @@ so RoboCAD can use NVIDIA models for:
 
 * HERMES reasoning (nemotron LLMs)
 * Render critique and design inspection (vision-language models)
-* Physics-aware scenario generation (cosmos video/world models)
+* Physics-aware scenario generation (cosmos reasoning models)
 
 All calls are synchronous HTTP helpers that return parsed text or bytes. Long-running
 or streaming calls are delegated to the callers so the client stays simple and testable.
 """
 from __future__ import annotations
 
+import json
 import os
 import base64
+import re
 from typing import Any
 
 import httpx
@@ -21,7 +23,10 @@ import httpx
 
 DEFAULT_BASE_URL = "https://integrate.api.nvidia.com/v1"
 
-# Model IDs from https://build.nvidia.com/models that are useful for RoboCAD.
+# Model IDs available through the hosted NVIDIA NIM endpoint used by RoboCAD.
+# These are validated against https://integrate.api.nvidia.com/v1/models with a
+# valid NVIDIA_API_KEY. Self-hosted NIMs on other base URLs may support more
+# models, but the defaults below are guaranteed on the hosted catalog.
 CHAT_MODEL_NEMOTRON_LIGHTNING = "nvidia/nemotron-3.5-lightning-30b-a3b"
 CHAT_MODEL_NEMOTRON_SUPER = "nvidia/nemotron-3-super-120b-a12b"
 CHAT_MODEL_NEMOTRON_ULTRA = "nvidia/nemotron-3-ultra-550b-a55b"
@@ -29,9 +34,15 @@ CHAT_MODEL_LLAMA_3_2_90B_VISION = "meta/llama-3.2-90b-vision-instruct"
 CHAT_MODEL_LLAMA_3_2_11B_VISION = "meta/llama-3.2-11b-vision-instruct"
 CHAT_MODEL_MUSE_GLIMMER = "nvidia/muse-glimmer-30b"
 
-COSMOS_NANO = "nvidia/cosmos3-nano"
-COSMOS_NANO_REASONER = "nvidia/cosmos3-nano-reasoner"
+# Cosmos video-generation NIMs are primarily self-hosted. The hosted catalog
+# exposes a small reasoning model, so scenario generation is implemented as a
+# structured reasoning call rather than a true video-generation call.
+COSMOS_REASON_8B = "nvidia/cosmos-reason2-8b"
+COSMOS_NANO = "nvidia/cosmos3-nano"  # self-hosted only
+COSMOS_NANO_REASONER = "nvidia/cosmos3-nano-reasoner"  # self-hosted only
 
+# Hosted audio NIMs are not currently exposed on integrate.api.nvidia.com.
+# These defaults are kept for self-hosted / future hosted endpoints.
 TTS_DEFAULT = "chatterbox-multilingual-tts"
 STT_DEFAULT = "nemotron-asr-streaming"
 
@@ -142,30 +153,104 @@ class NvidiaClient:
         prompt: str,
         *,
         image_bytes: bytes | None = None,
-        model: str = COSMOS_NANO,
+        model: str | None = None,
     ) -> dict[str, Any]:
-        """Generate a physics-aware scenario description or asset using Cosmos.
+        """Generate a physics-aware scenario description using a Cosmos/Nemotron model.
 
-        The current implementation uses the video-generation endpoint shape. If the
-        service returns a video URL, it is passed through; if it returns text,
-        that text is returned under ``description``. This is an experimental
-        integration point that will evolve as the Cosmos NIM contract stabilizes.
+        Hosted NVIDIA NIM does not currently expose the Cosmos video-generation
+        endpoint, so this implementation uses a structured chat-completion call
+        to produce a JSON scenario description. The returned dict preserves the
+        same shape as before for backward compatibility: ``description``,
+        ``video_url`` (None when no video is produced), and ``raw``.
         """
-        body: dict[str, Any] = {
-            "model": model,
-            "prompt": prompt,
-            "aspect_ratio": "16:9",
-            "num_frames": 24,
-            "fps": 8,
-        }
+        model = model or os.environ.get("ROBOCAD_SCENARIO_MODEL")
+        # If a self-hosted video-generation model is configured, warn clearly.
+        if model in {COSMOS_NANO, COSMOS_NANO_REASONER} and self.base_url == DEFAULT_BASE_URL:
+            return {
+                "description": prompt,
+                "video_url": None,
+                "note": (
+                    f"{model} is a self-hosted NIM on the hosted catalog. "
+                    "Set NVIDIA_BASE_URL to your NIM endpoint to generate video."
+                ),
+                "raw": {},
+            }
+
+        # Hosted video-generation NIMs are not available for this account, so we use a
+        # structured chat call. The Super model follows JSON instructions far more
+        # reliably than Lightning for these small structured outputs.
+        structured_model = model or CHAT_MODEL_NEMOTRON_SUPER
+
+        system_prompt = (
+            "You are a robotics world-builder. Given a user prompt, produce a structured "
+            "scenario description useful for MuJoCo/Isaac Sim simulation. "
+            "Return ONLY a compact JSON object with no markdown fences and no explanation."
+        )
+        user_prompt = (
+            f"Scenario prompt: {prompt}\n\n"
+            "Return JSON with this exact schema:\n"
+            '{"title": str, "description": str, "terrain": str, "objects": [str], '
+            '"robot_tasks": [str], "physics_notes": [str], "difficulty": "easy|medium|hard"}'
+        )
+        messages: list[dict[str, Any]] = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
         if image_bytes:
-            body["image"] = base64.b64encode(image_bytes).decode("ascii")
-        data = self._post("/video/generations", body)
-        # Normalize either a direct video URL/text response.
+            image_b64 = base64.b64encode(image_bytes).decode("ascii")
+            messages.append(
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "Reference image:"},
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/png;base64,{image_b64}"},
+                        },
+                    ],
+                }
+            )
+
+        try:
+            response_text = self.chat(
+                messages=messages,
+                model=structured_model,
+                temperature=0.3,
+                max_tokens=512,
+            )
+        except NvidiaError:
+            # Fall back to the default chat model if the requested model is unavailable.
+            response_text = self.chat(
+                messages=messages,
+                model=CHAT_MODEL_NEMOTRON_LIGHTNING,
+                temperature=0.3,
+                max_tokens=512,
+            )
+
+        # Extract JSON object from response text.
+        match = re.search(r"\{.*\}", response_text, re.DOTALL)
+        parsed: dict[str, Any] = {}
+        if match:
+            try:
+                parsed = json.loads(match.group(0))
+            except json.JSONDecodeError:
+                parsed = {}
+        if not parsed:
+            parsed = {
+                "title": "Generated scenario",
+                "description": prompt,
+                "terrain": "flat",
+                "objects": [],
+                "robot_tasks": [],
+                "physics_notes": ["NVIDIA NIM did not return valid JSON"],
+                "difficulty": "medium",
+            }
+
         return {
-            "description": data.get("description") or data.get("prompt") or prompt,
-            "video_url": data.get("video_url") or data.get("url"),
-            "raw": data,
+            "description": parsed.get("description", prompt),
+            "video_url": None,
+            "note": "Text scenario generated by NVIDIA NIM; video generation requires self-hosted Cosmos NIM.",
+            "raw": parsed,
         }
 
 
