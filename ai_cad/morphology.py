@@ -22,6 +22,7 @@ from ai_cad.feature_tree import FeatureTree
 from ai_cad.kinematic_tree import sample_reachable_workspace
 from ai_cad.robot_templates import humanoid_template, manipulator_on_base_template, quadruped_template
 from ai_cad.stability import check_stability, stability_summary
+from ai_cad.morphology_physics import physics_score_candidate
 
 
 DEFAULT_TEMPLATE_FACTORIES: dict[str, Any] = {
@@ -187,10 +188,15 @@ def score_candidate(
     payload_kg: float = 5.0,
     robot_mass_kg: float = 20.0,
     weights: dict[str, float] | None = None,
+    use_physics: bool = True,
 ) -> dict[str, float]:
     """Score a candidate tree using existing deterministic analysis tools.
 
     Returns a dict of normalized sub-scores and a composite score in [0, 1].
+
+    Args:
+        use_physics: when True, run real MuJoCo standing/sway rollouts to
+            validate morphology instead of purely heuristic stability checks.
     """
     weights = weights or {}
     w_stability = weights.get("stability", 0.30)
@@ -199,15 +205,27 @@ def score_candidate(
     w_actuator = weights.get("actuator", 0.15)
     w_compact = weights.get("compactness", 0.05)
 
-    # Stability score.
-    stability_report = check_stability(tree, robot_mass_kg=robot_mass_kg)
-    stability_score = 0.0
-    if stability_report.statically_stable:
-        stability_score += 0.4
-    if stability_report.dynamically_stable:
-        stability_score += 0.4
-    if stability_report.gait_feasible:
-        stability_score += 0.2
+    if use_physics:
+        physics_scores = physics_score_candidate(tree, n_steps=200)
+        stability_score = physics_scores["standing_score"] * 0.5 + physics_scores["sway_score"] * 0.5
+        gait_feasible = stability_score >= 0.5
+        dynamically_stable = physics_scores["sway_score"] >= 0.5
+        statically_stable = physics_scores["standing_score"] >= 0.5
+        zmp_margin_m = physics_scores.get("zmp_margin_m", 0.0)
+    else:
+        # Stability score.
+        stability_report = check_stability(tree, robot_mass_kg=robot_mass_kg)
+        stability_score = 0.0
+        if stability_report.statically_stable:
+            stability_score += 0.4
+        if stability_report.dynamically_stable:
+            stability_score += 0.4
+        if stability_report.gait_feasible:
+            stability_score += 0.2
+        gait_feasible = bool(stability_report.gait_feasible)
+        dynamically_stable = bool(stability_report.dynamically_stable)
+        statically_stable = bool(stability_report.statically_stable)
+        zmp_margin_m = float(stability_report.zmp_margin_m)
 
     # Workspace score from end-effector / foot reachability.
     # Pick a reasonable end-effector id based on the template.
@@ -227,7 +245,7 @@ def score_candidate(
     workspace_score = _normalize(reach_mm, 0.0, 1500.0)
 
     # Gait score.
-    gait_score = 1.0 if stability_report.gait_feasible else 0.0
+    gait_score = 1.0 if gait_feasible else 0.0
 
     # Actuator feasibility: lower max torque and power are better.
     specs = size_actuators_for_tree(tree, payload_kg=payload_kg)
@@ -276,7 +294,7 @@ def score_candidate(
         + w_compact * compact_score
     )
 
-    return {
+    result: dict[str, Any] = {
         "stability": round(stability_score, 4),
         "workspace": round(workspace_score, 4),
         "gait": round(gait_score, 4),
@@ -289,11 +307,16 @@ def score_candidate(
         "workspace_envelope_mm": [round(e, 4) for e in envelope],
         "workspace_reach_mm": round(reach_mm, 4),
         "span_ratio": round(ratio, 4),
-        "zmp_margin_m": round(stability_report.zmp_margin_m, 6),
-        "statically_stable": bool(stability_report.statically_stable),
-        "dynamically_stable": bool(stability_report.dynamically_stable),
-        "gait_feasible": bool(stability_report.gait_feasible),
+        "zmp_margin_m": round(zmp_margin_m, 6),
+        "statically_stable": bool(statically_stable),
+        "dynamically_stable": bool(dynamically_stable),
+        "gait_feasible": bool(gait_feasible),
     }
+    if use_physics:
+        result["physics_standing_score"] = round(physics_scores["standing_score"], 4)
+        result["physics_sway_score"] = round(physics_scores["sway_score"], 4)
+        result["physics_com_score"] = round(physics_scores.get("com_height_mm", 0.0), 4)
+    return result
 
 
 def default_space(template: str) -> MorphologySpace:
@@ -351,6 +374,7 @@ def search_morphologies(
     payload_kg: float = 5.0,
     robot_mass_kg: float | None = None,
     weights: dict[str, float] | None = None,
+    use_physics: bool = True,
 ) -> list[MorphologyCandidate]:
     """Run a deterministic morphology search and return ranked candidates.
 
@@ -359,6 +383,7 @@ def search_morphologies(
         payload_kg: design payload used by actuator sizing.
         robot_mass_kg: total mass estimate; defaults to payload * 4.
         weights: optional scoring weights.
+        use_physics: when True, run real MuJoCo rollouts to score candidates.
 
     Returns:
         Candidates sorted by composite score (highest first).
@@ -380,7 +405,7 @@ def search_morphologies(
                     rng.uniform(space.joint_range_scale[0], space.joint_range_scale[1])
                 )
                 tree = _scale_joint_limits(tree, scale)
-            scores = score_candidate(tree, payload_kg, robot_mass_kg, weights)
+            scores = score_candidate(tree, payload_kg, robot_mass_kg, weights, use_physics=use_physics)
             candidate_id = f"{space.template}_{counter:04d}"
             candidates.append(
                 MorphologyCandidate(
