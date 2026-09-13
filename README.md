@@ -4,7 +4,7 @@
 >
 > **Core bet:** The AI writes **parametric CAD code** (build123d / FeatureScript), not throwaway meshes. The model you get is editable, versionable, and exportable for 3D printing, machining, Onshape, or physics simulation.
 >
-> **Latest milestone:** Phases 0–**28A/B/C/E/F** are complete. RoboCAD now has a **one-command launcher and health CLI** (28A), an **asset marketplace** with direct archive upload (28B), a **deep multi-physics engine** with real FEA/CFD/thermal solver adapters and NVIDIA surrogate fast analysis (28C), **simulation certification** with signed readiness reports and real-vs-surrogate A/B checks (28E), and **product hardening** with solver install bootstrap and onboarding tests (28F). The full pytest suite: **366 default + 222 heavy/slow tests passing** (1 expected failure, 5 benchmark/network tests deselected); frontend production build passes. Phase 27D (hardware-in-the-loop sim-to-real) remains future work blocked on hardware access. Phase 28D (morphology co-design lab) is in progress.
+> **Latest milestone:** Phases 0–**28A/B/C/D/E/F** are complete, **Phase 29 core** is delivered, and two live **NVIDIA NIM bugs** (Cosmos 404 endpoint + surrogate zero-stress fallback) are fixed. RoboCAD now has a **one-command launcher and health CLI** (28A), an **asset marketplace** (28B), a **deep multi-physics engine** (28C), a **morphology co-design lab** (28D), **simulation certification** (28E), **product hardening** (28F), and **physics-based morphology scoring** (29) using real MuJoCo standing/sway rollouts. The full pytest suite: **380 default + 223 heavy/slow tests passing** (1 expected failure, 5 benchmark/network tests deselected); frontend production build passes. Phase 27D (hardware-in-the-loop sim-to-real) remains future work blocked on hardware access.
 
 ---
 
@@ -167,8 +167,9 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **28D** | Morphology Co-Design Lab | ✅ **Complete — parametric morphology search, stability/workspace/gait scoring, world-model + brain smoke-test integration, backend endpoints + frontend panel; 15 tests** |
 | **28E** | Simulation certification | ✅ **Complete — real-solver dispatch, readiness score, certificates, field/report export; 15 tests** |
 | **28F** | Product hardening + final docs | ✅ **Complete — marketplace archive upload, solver install bootstrap, health hints, onboarding tests** |
+| **29** | Physics-based morphology scoring | ✅ **Core complete — MuJoCo standing/sway rollouts replace heuristic stability/gait; walking/step test remaining** |
 
-Phases 0–7 proved the **AI → parametric-code loop** for single-part robotics hardware. Phases 8–13 turned that loop into an **engineer-grade CAD system** with feature trees, constraints, assemblies, verification, and model specialization. Phases 14A–15B shipped the **GEDA Bridge** so LearningRobotics can consume verified simulation-ready assets. Phases 16–27C expanded RoboCAD into a **multi-domain generative engineering platform** with a real-time voice supervisor, NVIDIA-powered intelligence, and professional rendering. Phases 28A/B/C/E/F turned it into a **simulation-first product platform**: one-command launcher, verified marketplace, real FEA/CFD/thermal solvers, simulation certification, and product hardening.
+Phases 0–7 proved the **AI → parametric-code loop** for single-part robotics hardware. Phases 8–13 turned that loop into an **engineer-grade CAD system** with feature trees, constraints, assemblies, verification, and model specialization. Phases 14A–15B shipped the **GEDA Bridge** so LearningRobotics can consume verified simulation-ready assets. Phases 16–27C expanded RoboCAD into a **multi-domain generative engineering platform** with a real-time voice supervisor, NVIDIA-powered intelligence, and professional rendering. Phases 28A–F and 29 turned it into a **simulation-first product platform** with a physics-validated morphology co-design lab.
 
 ---
 
