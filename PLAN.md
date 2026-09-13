@@ -1062,6 +1062,7 @@ Phase 28 was re-scoped from pure packaging into a **simulation-first product pla
 | 28D (morphology lab) | 24, 25, 28C | ✅ Complete — deterministic parametric morphology search with stability/workspace/gait/actuator scoring, world-model + brain smoke-test integration; 15 tests |
 | 28E (simulation certification) | 24, 25, 28C | ✅ Complete — signed certificates, real-vs-surrogate A/B, field/report export |
 | 28F (product hardening) | 28A–E | ✅ Complete — marketplace upload, solver install bootstrap, health hints, onboarding tests |
+| 29 (physics-based morphology scoring) | 28D | ✅ Core complete — MuJoCo standing/sway rollouts wired into morphology search; NVIDIA NIM bugs fixed; walking/step test remaining |
 
 ---
 
@@ -1096,4 +1097,4 @@ Full analysis is saved in `.claude/memory/robocad-path-analysis.md` and the end-
 
 ---
 
-*Last updated: 2026-09-08 (Phases 0–28A/B/C/D/E/F complete; 380 default + 223 heavy/slow tests passing with 1 expected failure, 5 benchmark/network tests deselected; Phase 27D hardware-in-the-loop sim-to-real blocked on hardware access)*
+*Last updated: 2026-09-13 (Phases 0–28A/B/C/D/E/F complete; Phase 29 physics-based morphology scoring core delivered; NVIDIA NIM Cosmos 404 + surrogate zero-stress bugs fixed; 380 default + 223 heavy/slow tests passing with 1 expected failure, 5 benchmark/network tests deselected; Phase 27D hardware-in-the-loop sim-to-real blocked on hardware access)*
