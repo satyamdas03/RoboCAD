@@ -117,13 +117,26 @@ def test_generate_scenario_passes_prompt(monkeypatch):
             status_code = 200
             def raise_for_status(self): pass
             def json(self):
-                return {"description": "robot walking on stairs", "video_url": "https://example.com/v.mp4"}
+                return {
+                    "choices": [
+                        {
+                            "message": {
+                                "content": (
+                                    '{"title": "Stairs", "description": "robot walking on stairs", '
+                                    '"terrain": "stairs", "objects": ["stairs"], '
+                                    '"robot_tasks": ["walk"], "physics_notes": [], "difficulty": "medium"}'
+                                )
+                            }
+                        }
+                    ]
+                }
         return Resp()
 
     monkeypatch.setattr("ai_cad.nvidia_client.httpx.post", fake_post)
     result = client.generate_scenario("humanoid robot climbing stairs")
     assert result["description"] == "robot walking on stairs"
-    assert result["video_url"] == "https://example.com/v.mp4"
+    assert result["video_url"] is None
+    assert result["raw"]["difficulty"] == "medium"
 
 
 # -----------------------------------------------------------------------------
@@ -224,7 +237,19 @@ def test_cosmos_scenario_endpoint_with_mock(monkeypatch):
             status_code = 200
             def raise_for_status(self): pass
             def json(self):
-                return {"description": "robot on stairs", "video_url": "https://x.com/v.mp4"}
+                return {
+                    "choices": [
+                        {
+                            "message": {
+                                "content": (
+                                    '{"title": "Stairs", "description": "robot on stairs", '
+                                    '"terrain": "stairs", "objects": ["stairs"], '
+                                    '"robot_tasks": ["walk"], "physics_notes": [], "difficulty": "medium"}'
+                                )
+                            }
+                        }
+                    ]
+                }
         return Resp()
 
     monkeypatch.setattr("ai_cad.nvidia_client.httpx.post", fake_post)
@@ -233,6 +258,7 @@ def test_cosmos_scenario_endpoint_with_mock(monkeypatch):
     assert response.status_code == 200
     data = response.json()
     assert data["scenario"]["description"] == "robot on stairs"
+    assert data["scenario"]["raw"]["difficulty"] == "medium"
 
 
 def test_render_critique_endpoint(monkeypatch):
