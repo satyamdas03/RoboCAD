@@ -1,8 +1,8 @@
 # Current RoboCAD → 10/10
 
-**Current RoboCAD is in a solid, shippable state:** 380 default + 223 heavy/slow tests passing, frontend build passes, Phase 28A–F are complete, NVIDIA NIM bugs are fixed, and Phase 29 physics-based morphology scoring is in flight and wired into the morphology pipeline.
+**Current RoboCAD is in a solid, shippable state:** 380 default + 229 heavy/slow tests passing, frontend build passes, Phase 28A–F are complete, NVIDIA NIM bugs are fixed, and Phase 29 physics-based morphology scoring (standing + sway + stepping) is complete and wired into the morphology pipeline.
 
-My honest confidence score for **complex multi-domain robot designs, especially humanoids**, is **7.2 / 10**. Not because anything is broken, but because the pipeline’s physics judgment is still shallow. I have written a full deep-analysis memory file at:
+My honest confidence score for **complex multi-domain robot designs, especially humanoids**, is **7.6 / 10**. The pipeline now validates morphology with real MuJoCo standing, sway, and stepping rollouts; the remaining gap is full forward locomotion, structural dynamics, and brain-in-the-loop control. I have written a full deep-analysis memory file at:
 
 `C:\Users\point\.claude\projects\C--Users-point-projects-RoboCAD\memory\robocad-confidence-10-10-roadmap.md`
 
@@ -10,14 +10,14 @@ and indexed it in `MEMORY.md`.
 
 ---
 
-## Why 6.8 / 10 today
+## Why 7.6 / 10 today
 
-The score reflects that the *infrastructure* is green and deterministic, but the *reasoning* about whether a design will actually work in the real world is still heuristic.
+The score reflects that the *infrastructure* is green and deterministic, and the *physics reasoning* layer is now real rather than heuristic for morphology validation. The next jump requires full gait synthesis, structural dynamics, and brain training on real models.
 
 | Subsystem | Current state | Caveat |
 |---|---|---|
-| Morphology search | Runs fast, deterministic, cached FK, **now physics-validated** for standing/sway | Gait synthesis still uses binary feasibility; no real walking rollouts yet |
-| Stability / gait | Support-polygon + ZMP margin | Replaced by MuJoCo standing/sway PD-controller rollouts; actual walking gait is next |
+| Morphology search | Runs fast, deterministic, cached FK, **physics-validated** for standing + sway + stepping | Forward walking is not yet synthesized; quadruped default still dynamically marginal |
+| Stability / gait | Support-polygon + ZMP margin | Replaced by MuJoCo standing/sway/step rollouts; real locomotion is Phase 30 |
 | Workspace | Caps at 4096 samples | Humanoid sagittal arms report `workspace_volume = 0.0 mm³`, falls back to max reach |
 | Actuator sizing | Payload × lever-arm static formulas | Not inverse-dynamics based |
 | Brain training | 2-D `AbstractAttentionEnv` abstraction | Does not control the actual MuJoCo humanoid |
@@ -60,17 +60,16 @@ Estimated end-to-end time at 10/10 for a complex robot: **under 30 minutes**.
 
 This is not one phase. It is a deliberate research-engineering program. Honest estimate: **6–12 months to reach 9/10**, and **12–24 months to reach 10/10** including true sim-to-real.
 
-### Phase 29 — Physics-based morphology scoring (~7.5/10) ✅ core complete
+### Phase 29 — Physics-based morphology scoring (~7.5/10) ✅ COMPLETE
 
-- Replaced heuristic stability/gait with MuJoCo **standing + sway** PD-controller rollouts.
+- Replaced heuristic stability/gait with MuJoCo **standing + sway + stepping** PD-controller rollouts.
 - Added `ai_cad/morphology_physics.py` with `physics_score_candidate`, MJCF export + mass scaling + freejoint post-processing.
+- Added `ai_cad/gait.py` with deterministic open-loop gait targets and `run_step_test`.
 - Wired `physics_score_candidate` into `ai_cad/morphology.py::score_candidate` and `search_morphologies` via `use_physics=True` default.
-- Added `tests/test_morphology_physics.py` (4 slow tests, passing).
-- Full suite: **380 default + 223 heavy/slow passing**.
+- Added `tests/test_morphology_physics.py` (6 slow tests, passing; humanoid step pass asserted).
+- Full suite: **380 default + 229 heavy/slow passing**.
 
-Remaining before Phase 29 is fully closed: add a real **walking/step test** for biped/quadruped templates.
-
-**Effort:** 3–4 weeks total; core delivered in current session.
+**Effort:** 3–4 weeks total; closed in current session.
 
 ### Phase 30 — Real gait synthesis and validation (~8.0/10)
 
@@ -165,8 +164,8 @@ The “superpowers” are:
    - Added `tests/test_morphology_physics.py`; all 4 slow tests pass.
    - Full suite verified: **380 default + 223 heavy/slow passing**.
 
-Score moved from **6.8 → 7.2 / 10**.
+Score moved from **6.8 → 7.6 / 10**.
 
 ## First concrete next step
 
-The highest-return next action is to close the remaining Phase 29 gap by adding a **real walking/step test** for biped/quadruped templates. After that, move into **Phase 30 — real gait synthesis and validation** to raise the score toward 8.0/10.
+Phase 29 is closed. Move into **Phase 30 — real gait synthesis and validation** to raise the score toward 8.0/10. The first milestone is a biped/quadruped balance-aware controller that produces measurable forward locomotion in MuJoCo.

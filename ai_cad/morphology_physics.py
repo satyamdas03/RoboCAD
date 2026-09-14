@@ -25,6 +25,7 @@ except Exception:  # pragma: no cover - exercised only where mujoco is installed
     mujoco = None
 
 from ai_cad.feature_tree import FeatureTree
+from ai_cad.gait import default_step_params, run_step_test
 from ai_cad.geda_bridge.exporter import export_bundle_from_tree
 
 
@@ -77,7 +78,20 @@ def _scale_masses_and_add_freejoint(mjcf_path: Path, tree: FeatureTree) -> None:
     if current_total > 0:
         scale = total_budget / current_total
         for inertial, mass in zip(inertial_elems, masses):
-            inertial.set("mass", f"{mass * scale:.6f}")
+            new_mass = mass * scale
+            inertial.set("mass", f"{new_mass:.6f}")
+            # Exported template meshes often have numerically tiny inertias,
+            # which makes MuJoCo unstable. Enforce a minimum sane inertia
+            # based on mass: I ~ m * r^2 with r = 50 mm characteristic size.
+            min_inertia = new_mass * 0.0025
+            try:
+                diag_str = inertial.get("diaginertia", "")
+                diag = [float(x) for x in diag_str.split()]
+                if len(diag) == 3:
+                    diag = [max(d, min_inertia) for d in diag]
+                    inertial.set("diaginertia", f"{diag[0]:.6e} {diag[1]:.6e} {diag[2]:.6e}")
+            except (TypeError, ValueError, AttributeError):
+                pass
 
     # Add freejoint to the first body under worldbody so the robot is free-floating.
     worldbody = root.find("worldbody")
@@ -278,14 +292,22 @@ def physics_score_candidate(
 
     Returns a dict with sub-scores and a composite ``physics_score`` in [0, 1].
     If MuJoCo is unavailable or the model fails to load/simulate, the score is 0.
+
+    Phase 29 tests:
+    - Standing equilibrium with a PD controller.
+    - Sway recovery from a lateral push.
+    - Single-step/stepping-in-place: the robot lifts feet rhythmically while
+      remaining upright. Forward progress is not required at this phase.
     """
     result: dict[str, Any] = {
         "mujoco_available": _mujoco_available(),
         "load_ok": False,
         "standing_ok": False,
         "sway_ok": False,
+        "step_ok": False,
         "standing_score": 0.0,
         "sway_score": 0.0,
+        "step_score": 0.0,
         "physics_score": 0.0,
         "notes": [],
     }
@@ -331,16 +353,30 @@ def physics_score_candidate(
         if sway.get("nan_inf"):
             result["sway_score"] = 0.0
 
-        # Composite physics score: standing is 70%, sway is 30%.
+        # Step test: open-loop rhythmic foot lifting (Phase 29).
+        mujoco.mj_resetData(model, data)
+        step = run_step_test(model, data, template=None, n_steps=n_steps + 100)
+        result["step"] = step
+        result["step_ok"] = step.get("step_ok", False)
+        result["step_score"] = 1.0 if result["step_ok"] else 0.0
+        if step.get("nan_inf"):
+            result["step_score"] = 0.0
+
+        # Composite physics score: standing 50%, sway 25%, step 25%.
         result["physics_score"] = round(
-            0.7 * result["standing_score"] + 0.3 * result["sway_score"], 6
+            0.5 * result["standing_score"]
+            + 0.25 * result["sway_score"]
+            + 0.25 * result["step_score"],
+            6,
         )
 
         if not result["standing_ok"]:
             result["notes"].append("standing test failed")
         if not result["sway_ok"]:
             result["notes"].append("sway test failed")
-        if result["physics_score"] >= 0.8:
+        if not result["step_ok"]:
+            result["notes"].append("stepping test failed")
+        if result["physics_score"] >= 0.75:
             result["notes"].append("candidate looks dynamically stable")
     finally:
         if cleanup and tmp_dir is None:

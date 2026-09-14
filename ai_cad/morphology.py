@@ -207,8 +207,12 @@ def score_candidate(
 
     if use_physics:
         physics_scores = physics_score_candidate(tree, n_steps=200)
-        stability_score = physics_scores["standing_score"] * 0.5 + physics_scores["sway_score"] * 0.5
-        gait_feasible = stability_score >= 0.5
+        stability_score = (
+            physics_scores["standing_score"] * 0.4
+            + physics_scores["sway_score"] * 0.3
+            + physics_scores["step_score"] * 0.3
+        )
+        gait_feasible = physics_scores["step_score"] >= 0.5
         dynamically_stable = physics_scores["sway_score"] >= 0.5
         statically_stable = physics_scores["standing_score"] >= 0.5
         zmp_margin_m = physics_scores.get("zmp_margin_m", 0.0)
@@ -315,7 +319,8 @@ def score_candidate(
     if use_physics:
         result["physics_standing_score"] = round(physics_scores["standing_score"], 4)
         result["physics_sway_score"] = round(physics_scores["sway_score"], 4)
-        result["physics_com_score"] = round(physics_scores.get("com_height_mm", 0.0), 4)
+        result["physics_step_score"] = round(physics_scores["step_score"], 4)
+        result["physics_score"] = round(physics_scores["physics_score"], 4)
     return result
 
 

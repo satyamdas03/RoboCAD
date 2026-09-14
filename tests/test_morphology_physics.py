@@ -26,8 +26,10 @@ def test_physics_score_candidate_humanoid_returns_keys():
         "load_ok",
         "standing_ok",
         "sway_ok",
+        "step_ok",
         "standing_score",
         "sway_score",
+        "step_score",
         "physics_score",
         "notes",
     }
@@ -55,6 +57,26 @@ def test_physics_score_standing_score_components():
     assert isinstance(standing.get("torso_z_drop_m"), float)
     assert 0.0 <= result["standing_score"] <= 1.0
     assert 0.0 <= result["sway_score"] <= 1.0
+    assert 0.0 <= result["step_score"] <= 1.0
+    assert isinstance(result["step"], dict)
+
+
+def test_physics_score_candidate_humanoid_step_ok():
+    _skip_if_no_mujoco()
+    tree = humanoid_template()
+    result = physics_score_candidate(tree, n_steps=100)
+    assert result["step_ok"] is True
+    assert result["physics_score"] >= 0.7
+
+
+def test_physics_score_candidate_quadruped_runs_without_nan():
+    _skip_if_no_mujoco()
+    tree = quadruped_template()
+    result = physics_score_candidate(tree, n_steps=100)
+    assert result["mujoco_available"] is True
+    assert isinstance(result["physics_score"], float)
+    assert 0.0 <= result["physics_score"] <= 1.0
+    assert isinstance(result.get("step", {}).get("nan_inf"), bool)
 
 
 def test_physics_score_candidate_no_mujoco_path(monkeypatch):
