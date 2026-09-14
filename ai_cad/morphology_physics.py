@@ -25,7 +25,7 @@ except Exception:  # pragma: no cover - exercised only where mujoco is installed
     mujoco = None
 
 from ai_cad.feature_tree import FeatureTree
-from ai_cad.gait import default_step_params, run_step_test
+from ai_cad.gait import default_step_params, default_walk_params, run_step_test, run_walk_test
 from ai_cad.geda_bridge.exporter import export_bundle_from_tree
 
 
@@ -305,9 +305,11 @@ def physics_score_candidate(
         "standing_ok": False,
         "sway_ok": False,
         "step_ok": False,
+        "walk_ok": False,
         "standing_score": 0.0,
         "sway_score": 0.0,
         "step_score": 0.0,
+        "walk_score": 0.0,
         "physics_score": 0.0,
         "notes": [],
     }
@@ -362,7 +364,20 @@ def physics_score_candidate(
         if step.get("nan_inf"):
             result["step_score"] = 0.0
 
+        # Walk test: Phase 30 forward-locomotion objective (scaffold).
+        # Currently recorded but not weighted into the composite until a stable
+        # balance-aware gait controller is proven.
+        mujoco.mj_resetData(model, data)
+        walk = run_walk_test(model, data, template=None, n_steps=n_steps + 200)
+        result["walk"] = walk
+        result["walk_ok"] = walk.get("walk_ok", False)
+        result["walk_score"] = 1.0 if result["walk_ok"] else 0.0
+        if walk.get("nan_inf"):
+            result["walk_score"] = 0.0
+
         # Composite physics score: standing 50%, sway 25%, step 25%.
+        # Walk_score is reported but not yet weighted; it will join once Phase 30
+        # gait synthesis reliably produces forward motion.
         result["physics_score"] = round(
             0.5 * result["standing_score"]
             + 0.25 * result["sway_score"]
@@ -376,6 +391,8 @@ def physics_score_candidate(
             result["notes"].append("sway test failed")
         if not result["step_ok"]:
             result["notes"].append("stepping test failed")
+        if not result["walk_ok"]:
+            result["notes"].append("walk test did not produce forward locomotion")
         if result["physics_score"] >= 0.75:
             result["notes"].append("candidate looks dynamically stable")
     finally:

@@ -320,6 +320,7 @@ def score_candidate(
         result["physics_standing_score"] = round(physics_scores["standing_score"], 4)
         result["physics_sway_score"] = round(physics_scores["sway_score"], 4)
         result["physics_step_score"] = round(physics_scores["step_score"], 4)
+        result["physics_walk_score"] = round(physics_scores["walk_score"], 4)
         result["physics_score"] = round(physics_scores["physics_score"], 4)
     return result
 

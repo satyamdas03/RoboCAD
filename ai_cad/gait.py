@@ -32,6 +32,7 @@ class GaitParams:
     ankle_comp_rad: float = 0.10
     arm_swing_rad: float = 0.15
     abduction_rad: float = 0.0
+    forward_bias_rad: float = 0.0
 
 
 # Quadruped leg suffixes in MuJoCo naming convention.
@@ -63,13 +64,13 @@ def _humanoid_leg_targets(
 
     if swing is None:
         # Stance: slight hip extension, nearly straight knee, neutral ankle.
-        targets[prefix] = -0.03
+        targets[prefix] = -0.03 + params.forward_bias_rad
         targets[knee] = 0.03
         targets[ankle] = 0.0
     else:
         # Swing: lift foot, move forward, then extend.
         # Hip pitch: start slightly back, swing forward through mid, then place.
-        targets[prefix] = params.hip_swing_rad * math.sin(math.pi * (swing - 0.3))
+        targets[prefix] = params.hip_swing_rad * math.sin(math.pi * (swing - 0.3)) + params.forward_bias_rad
         # Knee: bend in first half to lift foot, extend in second half.
         if swing < 0.5:
             targets[knee] = params.knee_lift_rad * math.sin(math.pi * 2.0 * swing)
@@ -138,12 +139,12 @@ def _quadruped_leg_targets(
     ankle = f"ankle_{suffix}"
 
     if swing is None:
-        targets[hip_pitch] = 0.0
+        targets[hip_pitch] = params.forward_bias_rad
         targets[hip_abd] = 0.0
         targets[knee] = 0.03
         targets[ankle] = 0.0
     else:
-        targets[hip_pitch] = params.hip_swing_rad * math.sin(math.pi * (swing - 0.3))
+        targets[hip_pitch] = params.hip_swing_rad * math.sin(math.pi * (swing - 0.3)) + params.forward_bias_rad
         targets[hip_abd] = params.abduction_rad * (1.0 if "l" in suffix else -1.0)
         if swing < 0.5:
             targets[knee] = params.knee_lift_rad * math.sin(math.pi * 2.0 * swing)
@@ -197,6 +198,71 @@ def default_step_params(template: str) -> GaitParams:
             abduction_rad=0.0,
         )
     return GaitParams()
+
+
+def default_walk_params(template: str) -> GaitParams:
+    """Return more aggressive walking parameters for Phase 30.
+
+    The same gait generator is used, but with larger motion and a forward hip
+    bias so the robot attempts to make forward progress. The balance controller
+    in Phase 30 will refine this so the gait is stable.
+    """
+    if template == "humanoid":
+        return GaitParams(
+            step_length_m=0.08,
+            step_height_m=0.03,
+            step_period_s=1.2,
+            duty_factor=0.75,
+            hip_swing_rad=0.15,
+            knee_lift_rad=0.30,
+            ankle_comp_rad=0.05,
+            arm_swing_rad=0.10,
+            forward_bias_rad=0.06,
+        )
+    if template == "quadruped":
+        return GaitParams(
+            step_length_m=0.05,
+            step_height_m=0.02,
+            step_period_s=1.4,
+            duty_factor=0.80,
+            hip_swing_rad=0.08,
+            knee_lift_rad=0.15,
+            ankle_comp_rad=0.03,
+            abduction_rad=0.0,
+            forward_bias_rad=0.04,
+        )
+    return GaitParams()
+
+
+def run_walk_test(
+    model,
+    data,
+    template: str | None = None,
+    n_steps: int = 600,
+    params: GaitParams | None = None,
+) -> dict[str, Any]:
+    """Run an open-loop walking attempt and return locomotion metrics.
+
+    Phase 30 uses this as the target objective for gait synthesis. Success
+    requires measurable forward distance while staying upright.
+    """
+    if mujoco is None:
+        return {"walk_ok": False, "error": "mujoco not installed"}
+
+    template = template or _detect_template(model)
+    params = params or default_walk_params(template)
+    result = run_step_test(model, data, template=template, n_steps=n_steps, params=params)
+
+    # Phase 30 interim success: moved forward at least 5 cm without collapse.
+    walk_ok = (
+        result["step_ok"]
+        and result["forward_distance_m"] > 0.05
+        and result["torso_z_drop_m"] < 0.10
+        and result["max_pitch_roll_deg"] < 20.0
+    )
+    result["walk_ok"] = walk_ok
+    result["walk_distance_m"] = result["forward_distance_m"]
+    return result
 
 
 def _body_id(model, *candidates: str) -> int | None:
