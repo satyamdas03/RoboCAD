@@ -27,9 +27,11 @@ def test_physics_score_candidate_humanoid_returns_keys():
         "standing_ok",
         "sway_ok",
         "step_ok",
+        "walk_ok",
         "standing_score",
         "sway_score",
         "step_score",
+        "walk_score",
         "physics_score",
         "notes",
     }
@@ -58,7 +60,9 @@ def test_physics_score_standing_score_components():
     assert 0.0 <= result["standing_score"] <= 1.0
     assert 0.0 <= result["sway_score"] <= 1.0
     assert 0.0 <= result["step_score"] <= 1.0
+    assert 0.0 <= result["walk_score"] <= 1.0
     assert isinstance(result["step"], dict)
+    assert isinstance(result["walk"], dict)
 
 
 def test_physics_score_candidate_humanoid_step_ok():

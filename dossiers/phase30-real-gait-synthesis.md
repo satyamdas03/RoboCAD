@@ -1,7 +1,7 @@
 # Phase 30 — Real Gait Synthesis and Validation
 
 **Date:** 2026-09-13  
-**Status:** 🚧 **Started** — scoping and first controller prototype.  
+**Status:** 🚧 **Started** — Phase 30 scaffold delivered: `run_walk_test` exists in `ai_cad/gait.py`, `walk_score` is recorded by `physics_score_candidate`, but the balance-aware controller is not yet producing reliable forward locomotion.  
 **Score impact:** 7.6 / 10 → ~8.0 / 10.  
 **Related:** [`CurrentTo10.md`](../CurrentTo10.md), [`PLAN.md`](../PLAN.md), [`phase29-physics-morphology-scoring.md`](phase29-physics-morphology-scoring.md)
 
@@ -28,15 +28,13 @@ At the end of Phase 30, RoboCAD's morphology search will rank candidates by whet
 
 ## Engineering plan
 
-### 1. Balance-aware gait generator (`ai_cad/gait.py`)
+### 1. Balance-aware gait generator (`ai_cad/gait.py`) — scaffold delivered
 
-- Extend `GaitParams` with balance feedback gains and a `walk_speed_m_s` target.
-- Add `humanoid_walk_targets(phase, params, torso_feedback)` that:
-  - Generates a periodic COM trajectory (sinusoidal lateral + vertical oscillation).
-  - Computes foot landing targets from the COM plan.
-  - Adds hip/ankle corrections based on torso pitch/roll error and CoM velocity.
-- Add `quadruped_walk_targets(phase, params, gait_style)` for trot and wave gaits with diagonal/sequential support phases.
-- Provide a `run_walk_test(model, data, template, n_steps=2500)` that returns distance, stability, and energy metrics.
+- ✅ `GaitParams` extended with `forward_bias_rad` to bias hip pitch forward.
+- ✅ `humanoid_gait_targets` and `quadruped_gait_targets` include the forward bias.
+- ✅ `default_walk_params(template)` returns more aggressive parameters than the step test.
+- ✅ `run_walk_test(model, data, template, n_steps=600)` calls the open-loop gait and returns distance, stability, and foot-clearance metrics; `walk_ok` requires > 5 cm forward progress, < 10 cm torso drop, and < 20° pitch/roll.
+- 🔄 Next: add torso-feedback balance corrections (hip/ankle) and a COM trajectory so the gait is stable and produces reliable forward velocity.
 
 ### 2. Simple balance controller
 
@@ -51,13 +49,14 @@ At the end of Phase 30, RoboCAD's morphology search will rank candidates by whet
 - Candidate fixes: adjust default `robot_height`/link lengths, add a stable crouch `qpos0` keyframe, or tune mass distribution in `_scale_masses_and_add_freejoint`.
 - Goal: default quadruped survives the walk test long enough to be scored meaningfully.
 
-### 4. Score integration
+### 4. Score integration — scaffold delivered
 
-- In `ai_cad/morphology_physics.py`:
-  - Add `walk_score` from `run_walk_test`.
-  - Rebalance composite: standing 0.35, sway 0.20, step 0.20, walk 0.25.
-- In `ai_cad/morphology.py`:
-  - Expose `physics_walk_score` and adjust `gait_feasible` to require `step_score >= 0.5` or `walk_score > 0`.
+- ✅ In `ai_cad/morphology_physics.py`:
+  - `physics_score_candidate` now calls `run_walk_test` and records `walk_score`.
+  - `walk_score` is reported but not yet weighted into `physics_score`; the current composite remains standing 0.50, sway 0.25, step 0.25.
+- ✅ In `ai_cad/morphology.py`:
+  - Score dict exposes `physics_walk_score`.
+- 🔄 Next: once `walk_ok` is reliable, rebalance composite to standing 0.35, sway 0.20, step 0.20, walk 0.25.
 
 ### 5. Certification extension
 

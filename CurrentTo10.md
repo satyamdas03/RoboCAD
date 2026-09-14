@@ -71,11 +71,18 @@ This is not one phase. It is a deliberate research-engineering program. Honest e
 
 **Effort:** 3–4 weeks total; closed in current session.
 
-### Phase 30 — Real gait synthesis and validation (~8.0/10)
+### Phase 30 — Real gait synthesis and validation (~8.0/10) 🚧 scaffold delivered
 
 Build a trajectory-generator + IK + balance-feedback controller for biped/quadruped templates. Run 5-second flat/slope/stair walking rollouts. Score by distance, pitch/roll, energy, falls.
 
-**Effort:** 6–8 weeks.
+**Scaffold delivered in this session:**
+- `ai_cad/gait.py` gained `run_walk_test`, `default_walk_params`, and `forward_bias_rad` in `GaitParams`.
+- `ai_cad/morphology_physics.py` records `walk_score` from `run_walk_test`.
+- `ai_cad/morphology.py` exposes `physics_walk_score`.
+
+**Remaining:** balance-feedback controller that reliably produces forward locomotion and is weighted into the composite score.
+
+**Effort:** 6–8 weeks total; scaffold ~1 session.
 
 ### Phase 31 — Structural dynamics / FEA for links (~8.3/10)
 
