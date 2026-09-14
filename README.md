@@ -167,7 +167,8 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **28D** | Morphology Co-Design Lab | ✅ **Complete — parametric morphology search, stability/workspace/gait scoring, world-model + brain smoke-test integration, backend endpoints + frontend panel; 15 tests** |
 | **28E** | Simulation certification | ✅ **Complete — real-solver dispatch, readiness score, certificates, field/report export; 15 tests** |
 | **28F** | Product hardening + final docs | ✅ **Complete — marketplace archive upload, solver install bootstrap, health hints, onboarding tests** |
-| **29** | Physics-based morphology scoring | ✅ **Core complete — MuJoCo standing/sway rollouts replace heuristic stability/gait; walking/step test remaining** |
+| **29** | Physics-based morphology scoring | ✅ **Complete — MuJoCo standing/sway/step rollouts; humanoid passes end-to-end; score 7.6/10** |
+| **30** | Real gait synthesis and validation | 🚧 **Started — balance-aware walking controller, forward-locomotion rollout scoring** |
 
 Phases 0–7 proved the **AI → parametric-code loop** for single-part robotics hardware. Phases 8–13 turned that loop into an **engineer-grade CAD system** with feature trees, constraints, assemblies, verification, and model specialization. Phases 14A–15B shipped the **GEDA Bridge** so LearningRobotics can consume verified simulation-ready assets. Phases 16–27C expanded RoboCAD into a **multi-domain generative engineering platform** with a real-time voice supervisor, NVIDIA-powered intelligence, and professional rendering. Phases 28A–F and 29 turned it into a **simulation-first product platform** with a physics-validated morphology co-design lab.
 
