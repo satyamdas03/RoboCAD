@@ -28,7 +28,11 @@ def test_list_morphology_templates():
         assert "n_max" in t
 
 
+
+@pytest.mark.timeout(180)
 def test_run_morphology_search(search_dir):
+    # Quadruped workspace sampling can exceed the default 120 s timeout on
+    # slower runners; give this endpoint smoke test a little extra headroom.
     resp = client.post(
         "/morphology/search",
         json={
