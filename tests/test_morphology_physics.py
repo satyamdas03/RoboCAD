@@ -83,6 +83,26 @@ def test_physics_score_candidate_quadruped_runs_without_nan():
     assert isinstance(result.get("step", {}).get("nan_inf"), bool)
 
 
+def test_physics_score_candidate_humanoid_walk_ok():
+    _skip_if_no_mujoco()
+    tree = humanoid_template()
+    result = physics_score_candidate(tree, n_steps=100)
+    assert result["walk_ok"] is True
+    assert result["walk"]["forward_distance_m"] > 0.05
+    assert result["walk"]["torso_z_drop_m"] < 0.10
+    assert result["walk"]["max_pitch_roll_deg"] < 20.0
+
+
+def test_physics_score_candidate_quadruped_walk_ok():
+    _skip_if_no_mujoco()
+    tree = quadruped_template()
+    result = physics_score_candidate(tree, n_steps=100)
+    assert result["walk_ok"] is True
+    assert result["walk"]["forward_distance_m"] > 0.05
+    assert result["walk"]["torso_z_drop_m"] < 0.10
+    assert result["walk"]["max_pitch_roll_deg"] < 20.0
+
+
 def test_physics_score_candidate_no_mujoco_path(monkeypatch):
     """When mujoco is unavailable the function returns gracefully."""
     import ai_cad.morphology_physics as mp

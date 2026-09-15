@@ -19,6 +19,7 @@ from typing import Any, Optional
 import numpy as np
 import trimesh
 
+from ai_cad.actuator_sizing import size_actuators_for_tree
 from ai_cad.executor import execute_code
 from ai_cad.feature_tree import FeatureTree, KinematicJoint
 from ai_cad.geda_bridge.models import (
@@ -337,6 +338,38 @@ def _joint_axis(joint: KinematicJoint) -> tuple[float, float, float]:
     return (0.0, 0.0, 1.0)
 
 
+def _actuator_torque_specs(tree: FeatureTree) -> dict[str, float]:
+    """Return joint_id -> peak torque (N m) from actuator sizing."""
+    params = tree.parameter_dict()
+    payload = float(params.get("payload_kg", 5.0))
+    specs = size_actuators_for_tree(
+        tree,
+        payload_kg=payload,
+        safety_factor=2.0,
+        walking_speed_m_s=0.5,
+    )
+    return {
+        jid: spec.torque_nm
+        for jid, spec in specs.items()
+        if spec.torque_nm is not None and spec.torque_nm > 0.0
+    }
+
+
+def _fallback_torque_nm(joint: KinematicJoint, payload_kg: float = 5.0) -> float:
+    """Heuristic peak torque for joints without an actuator sizing spec."""
+    G = 9.80665
+    safety = 2.0
+    jid = joint.id.lower()
+    lever = 0.15  # generic 15 cm lever arm
+    if any(k in jid for k in ("hip", "shoulder")):
+        lever = 0.22
+    elif any(k in jid for k in ("knee", "elbow")):
+        lever = 0.24
+    elif any(k in jid for k in ("ankle", "wrist", "foot", "hand")):
+        lever = 0.08
+    return payload_kg * G * lever * safety
+
+
 def _build_body_hierarchy(
     parts: list[BundlePart], joints: list[KinematicJoint]
 ) -> tuple[dict[str, BundlePart], dict[str, str], dict[str, list[str]], list[BundlePart], list[tuple[KinematicJoint, str, str]]]:
@@ -521,16 +554,23 @@ def _build_mjcf(
     output_path: Path,
     model_name: str,
     joints: Optional[list[KinematicJoint]] = None,
+    torque_specs: Optional[dict[str, float]] = None,
+    default_payload_kg: float = 5.0,
 ) -> Path:
     """Write a MuJoCo MJCF file with nested bodies and real joints.
 
     Child bodies are placed inside their parent body according to the joint
     hierarchy. Each real joint becomes a ``<joint>`` inside its child body, and
     actuators/sensors are emitted for every revolute/prismatic joint.
+
+    ``torque_specs`` maps joint id to peak motor torque in N m.  When absent, a
+    conservative payload-based heuristic is used so that walking is physically
+    plausible.
     """
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     joints = joints or []
+    torque_specs = torque_specs or {}
 
     name_to_part, _, children_map, roots, real_joints = _build_body_hierarchy(parts, joints)
     actuated_joints = [joint for joint, _, _ in real_joints if joint.type in ("revolute", "prismatic")]
@@ -647,14 +687,16 @@ def _build_mjcf(
         actuator = ET.SubElement(mujoco, "actuator")
         for joint in actuated_joints:
             jname = _sanitize_name(joint.id)
-            lower, upper = _joint_limits_native(joint)
+            peak = torque_specs.get(joint.id)
+            if peak is None or peak <= 0.0:
+                peak = _fallback_torque_nm(joint, default_payload_kg)
             ET.SubElement(
                 actuator,
                 "motor",
                 {
                     "name": f"{jname}_motor",
                     "joint": jname,
-                    "ctrlrange": f"{lower:.6f} {upper:.6f}",
+                    "ctrlrange": f"{-peak:.6f} {peak:.6f}",
                     "gear": "1",
                 },
             )
@@ -758,7 +800,16 @@ def export_bundle_from_tree(
     inertial_data = {p.name: p.inertial.model_dump() for p in parts}
     inertial_path.write_text(json.dumps(inertial_data, indent=2), encoding="utf-8")
     _build_urdf(parts, urdf_path, name, joints=joints)
-    _build_mjcf(parts, mjcf_path, name, joints=joints)
+    torque_specs = _actuator_torque_specs(tree) if tree.assemblies else {}
+    payload_kg = float(parameters.get("payload_kg", 5.0))
+    _build_mjcf(
+        parts,
+        mjcf_path,
+        name,
+        joints=joints,
+        torque_specs=torque_specs,
+        default_payload_kg=payload_kg,
+    )
 
     return BundlePaths(
         directory=output_dir,
@@ -818,7 +869,7 @@ def export_bundle_from_mesh(
     inertial_path = output_dir / "inertial.json"
     inertial_path.write_text(json.dumps({part.name: part.inertial.model_dump()}, indent=2), encoding="utf-8")
     _build_urdf([part], urdf_path, name)
-    _build_mjcf([part], mjcf_path, name)
+    _build_mjcf([part], mjcf_path, name, default_payload_kg=5.0)
 
     return BundlePaths(
         directory=output_dir,

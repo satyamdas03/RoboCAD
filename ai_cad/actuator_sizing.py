@@ -66,10 +66,17 @@ def size_actuators_for_assembly(
     shin_length = _resolve_parameter(tree, "shin_length", 240.0) * 0.001
     segment_length = _resolve_parameter(tree, "segment_length", 150.0) * 0.001
     robot_height = _resolve_parameter(tree, "robot_height", 1000.0) * 0.001
+    robot_mass = _resolve_parameter(tree, "robot_mass_kg", 0.0)
 
-    # Link mass estimate: 10% of payload per leg link, 5% per arm link.
-    leg_link_mass = payload_kg * 0.10
-    arm_link_mass = payload_kg * 0.05
+    # Actuators must support the robot's own mass as well as any external payload.
+    # For stability and gait, size all actuators against the full body-plus-payload
+    # load. This is conservative for arms but necessary for ankles to hold a heavy
+    # humanoid/quadruped upright.
+    design_load = robot_mass + payload_kg
+
+    # Link mass estimate: 10% of design load per leg link, 5% per arm link.
+    leg_link_mass = design_load * 0.10
+    arm_link_mass = design_load * 0.05
 
     for joint in joints:
         jtype = joint.type
@@ -80,20 +87,30 @@ def size_actuators_for_assembly(
             speed_rpm = 30.0
             if "hip" in jid or "shoulder" in jid:
                 lever = max(thigh_length, segment_length, robot_height * 0.15)
-                torque = payload_kg * G * lever * safety_factor
+                torque = design_load * G * lever * safety_factor
                 speed_rpm = 30.0
             elif "knee" in jid or "elbow" in jid:
                 lever = max(shin_length, segment_length, robot_height * 0.12)
                 # load includes lower leg/hand mass as well.
-                torque = (payload_kg * 0.5 + leg_link_mass) * G * lever * safety_factor
+                load = design_load * 0.5 + (leg_link_mass if "knee" in jid else arm_link_mass)
+                torque = load * G * lever * safety_factor
                 speed_rpm = 45.0
-            elif "ankle" in jid or "wrist" in jid or "foot" in jid or "hand" in jid:
+            elif "ankle" in jid or "foot" in jid:
+                # Ankle/foot must support essentially the full body-plus-payload
+                # weight during single-leg stance, so size it against the full
+                # design load rather than a small fraction.
                 lever = robot_height * 0.08
-                torque = (payload_kg * 0.25 + leg_link_mass * 0.5) * G * lever * safety_factor
+                load = design_load + leg_link_mass * 0.5
+                torque = load * G * lever * safety_factor
+                speed_rpm = 60.0
+            elif "wrist" in jid or "hand" in jid:
+                lever = robot_height * 0.08
+                load = design_load * 0.25 + arm_link_mass * 0.5
+                torque = load * G * lever * safety_factor
                 speed_rpm = 60.0
             else:
                 lever = max(thigh_length, segment_length)
-                torque = payload_kg * G * lever * safety_factor
+                torque = design_load * G * lever * safety_factor
                 speed_rpm = 45.0
 
             power = torque * (speed_rpm * 2 * math.pi / 60)
