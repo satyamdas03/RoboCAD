@@ -10,7 +10,7 @@ and indexed it in `MEMORY.md`.
 
 ---
 
-## Why 7.6 / 10 today
+## Why 7.7 / 10 today
 
 The score reflects that the *infrastructure* is green and deterministic, and the *physics reasoning* layer is now real rather than heuristic for morphology validation. The next jump requires full gait synthesis, structural dynamics, and brain training on real models.
 
@@ -71,9 +71,9 @@ This is not one phase. It is a deliberate research-engineering program. Honest e
 
 **Effort:** 3–4 weeks total; closed in current session.
 
-### Phase 30 — Real gait synthesis and validation (~8.0/10) ✅ COMPLETE
+### Phase 30 — Real gait synthesis and validation ✅ COMPLETE (honest validation revised score 7.7/10)
 
-Built a deterministic balance-feedback gait controller for biped/quadruped templates and integrated walking into the morphology score.
+Built a deterministic balance-feedback gait controller for biped/quadruped templates and integrated walking into the morphology score. Honest end-to-end validation shows default-template walking passes, but the humanoid controller is not yet robust across searched morphologies or mass perturbations.
 
 **Delivered in this session:**
 - `ai_cad/gait.py`: balance-aware `run_walk_test`, `default_walk_params`, `default_walk_balance_gains`, stance/swing detection, capture-point swing-foot corrections, and safe clamped feedback.
@@ -171,7 +171,7 @@ The “superpowers” are:
    - Added humanoid and quadruped walk-progress slow tests.
    - Full suite verified: **380 default + 232 heavy/slow passing**.
 
-Score moved from **7.6 → 8.0 / 10**.
+Score moved from **7.6 → 7.7 / 10** after honest validation (default-template walk OK; grid/perturbation/backend flow still brittle).
 
 ## First concrete next step
 

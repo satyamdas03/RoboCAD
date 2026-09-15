@@ -1,8 +1,8 @@
 # Phase 29 — Physics-Based Morphology Scoring
 
-**Date:** 2026-09-13  
-**Status:** ✅ **Complete**. Single-step / stepping-in-place test added and wired into scoring. Phase 30 subsequently delivered full balance-aware walking integration on top of this foundation.  
-**Score impact:** 6.8 / 10 → 7.6 / 10 (subsequently 7.6 → 8.0 in Phase 30).  
+**Date:** 2026-09-13; updated 2026-09-15  
+**Status:** ✅ **Complete**. Single-step / stepping-in-place test added and wired into scoring. Phase 30 subsequently delivered walking integration on top of this foundation; a rigorous validation pass in September 2026 showed the humanoid gait is stable for the *default* template but brittle across the searched morphology grid.  
+**Score impact:** 6.8 / 10 → 7.6 / 10. Phase 30 originally claimed 7.6 → 8.0 / 10, but was revised to **7.7 / 10** after honest pass-rate evidence showed 0/48 humanoid grid variants and 0/8 mass perturbations walked successfully.  
 **Related:** [`CurrentTo10.md`](../CurrentTo10.md), [`PLAN.md`](../PLAN.md), [`robocad-end-to-end-roadmap.md`](robocad-end-to-end-roadmap.md), [`phase30-real-gait-synthesis.md`](phase30-real-gait-synthesis.md)
 
 ---
