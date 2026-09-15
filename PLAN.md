@@ -1063,7 +1063,7 @@ Phase 28 was re-scoped from pure packaging into a **simulation-first product pla
 | 28E (simulation certification) | 24, 25, 28C | ✅ Complete — signed certificates, real-vs-surrogate A/B, field/report export |
 | 28F (product hardening) | 28A–E | ✅ Complete — marketplace upload, solver install bootstrap, health hints, onboarding tests |
 | 29 (physics-based morphology scoring) | 28D | ✅ Complete — MuJoCo standing/sway/step rollouts wired into morphology search; score 7.6/10 |
-| 30 (real gait synthesis and validation) | 29 | ✅ Complete — balance-aware walking controller produces forward locomotion for biped + quadruped; walk_score integrated into morphology composite; score 8.0/10 |
+| 30 (real gait synthesis and validation) | 29 | ✅ Complete — balance-aware walking controller produces forward locomotion for default biped + quadruped templates; walk_score integrated into morphology composite; honest validation revised score 7.7/10 (default-template walk OK, grid/perturbation/backend flow still brittle) |
 
 ---
 
@@ -1098,4 +1098,4 @@ Full analysis is saved in `.claude/memory/robocad-path-analysis.md` and the end-
 
 ---
 
-*Last updated: 2026-09-13 (Phases 0–28A/B/C/D/E/F complete; Phase 29 physics-based morphology scoring complete with standing + sway + stepping tests; Phase 30 real gait synthesis and validation complete with balance-aware biped/quadruped walking and walk_score integration; 380 default + 232 heavy/slow tests passing with 1 expected failure, 5 benchmark/network tests deselected; Phase 27D hardware-in-the-loop sim-to-real blocked on hardware access)*
+*Last updated: 2026-09-15 (Phases 0–28A/B/C/D/E/F complete; Phase 29 physics-based morphology scoring complete with standing + sway + stepping tests; Phase 30 real gait synthesis and validation complete with honest pass-rate validation — default biped/quadruped walk OK, humanoid grid 0/48 and mass-perturbation 0/8 walk OK, non-legged fallback safe, backend /generate → /morphology/search → /simulate flow wired but returns 0 walking humanoids; score revised 8.0 → 7.7/10; 380 default + 232 heavy/slow tests passing with 1 expected failure, 5 benchmark/network tests deselected; Phase 27D hardware-in-the-loop sim-to-real blocked on hardware access)*

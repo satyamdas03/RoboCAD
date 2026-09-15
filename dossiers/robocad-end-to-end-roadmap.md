@@ -4,7 +4,7 @@
 **Horizon:** ~5–7 years  
 **North Star:** voice/text/sketch → multi-domain parametric CAD → per-part multi-physics testing → assembly → world-model simulation → HERMES oversight → robot brain trained on synthetic data with retraining loops.  
 **First commercial milestone:** PATH1 / GEDA Bridge (Phases 14A–15B) — complete, 187/187 tests.  
-**Current milestone:** Phases 28A–F and 29–30 — **simulation-first product platform + physics-validated morphology co-design lab complete**, 380 default + 232 heavy/slow tests passing. RoboCAD now has a one-command launcher/health CLI (28A), an asset marketplace (28B), a deep multi-physics engine (28C), a morphology co-design lab (28D), simulation certification (28E), product hardening (28F), physics-based morphology scoring (29), and real balance-aware gait synthesis for biped/quadruped templates (30). Phase 27D (hardware-in-the-loop sim-to-real) remains future work blocked on hardware access.  
+**Current milestone:** Phases 28A–F and 29–30 — **simulation-first product platform + physics-validated morphology co-design lab complete**, 612 tests passing (1 xfailed). RoboCAD now has a one-command launcher/health CLI (28A), an asset marketplace (28B), a deep multi-physics engine (28C), a morphology co-design lab (28D), simulation certification (28E), product hardening (28F), physics-based morphology scoring (29), and balance-aware gait synthesis for the *default* biped/quadruped templates (30). A rigorous September 2026 validation revealed the humanoid gait is **brittle across searched morphologies and mass perturbations**; the complex-design confidence score was revised from 8.0 to **7.7 / 10**. Phase 27D (hardware-in-the-loop sim-to-real) remains future work blocked on hardware access.  
 **Domain tracks:** mechanical assemblies, aerodynamics / thermal / propulsion geometry, electronics / mechatronics form-factor co-design, humanoid / full-robot system synthesis, world-model simulation, robot brain training, HERMES voice/intelligence.  
 **Related:** [`PLAN.md`](../PLAN.md) Sections 10–14, [`PATH1_PATH2_analysis.md`](PATH1_PATH2_analysis.md)
 
@@ -593,13 +593,13 @@ Phase 28 was re-scoped from pure packaging/distribution into a **simulation-firs
 - ✅ Wired into `ai_cad/morphology.py::score_candidate` and `search_morphologies` via `use_physics=True` default.
 - ✅ Tests: `tests/test_morphology_physics.py` (6 slow tests), humanoid step-ok asserted.
 
-**Test results:** 380 default + 229 heavy/slow tests passing; score **6.8 → 7.6 / 10**.
+**Test results:** 380 default + 229 heavy/slow tests passing; score **6.8 → 7.6 / 10**. Phase 30 originally claimed a further jump to 8.0 / 10; a rigorous validation pass revised the complex-design confidence to **7.7 / 10** because the humanoid gait does not generalize across the searched morphology grid.
 
 **Timeline:** 3–4 weeks total.
 
 ---
 
-## Phase 30 — Real gait synthesis and validation ✅ COMPLETE
+## Phase 30 — Real gait synthesis and validation ⚠️ REVISED
 
 **Goal:** Produce a balance-aware walking controller that yields measurable forward locomotion in MuJoCo for biped and quadruped templates, and fold the gait score into the morphology composite.
 
@@ -613,14 +613,27 @@ Phase 28 was re-scoped from pure packaging/distribution into a **simulation-firs
 - ✅ `ai_cad/morphology_physics.py`: `physics_score_candidate` runs a ≥600-step walk test; `physics_score` rebalanced to 0.4 × standing + 0.2 × sway + 0.2 × step + 0.2 × walk.
 - ✅ `ai_cad/morphology.py`: stability sub-score includes 20% `walk_score`; gait feasibility uses walk (with step fallback); score dict exposes `physics_walk_score`.
 - ✅ `tests/test_morphology_physics.py`: added `humanoid_walk_ok` and `quadruped_walk_ok` slow tests.
+- ✅ **Non-legged fallback safety:** `physics_score_candidate` now detects non-legged templates (no torso or no feet) and skips sway/step/walk tests instead of failing them; `manipulator_on_base` passes cleanly.
+- ⚠️ **Honest validation:** the default-template walk succeeds, but the controller is **not yet robust** across the morphology grid or perturbations.
 
-**Verification:**
-- humanoid: forward 0.065 m, drop 0.001 m, tilt 4.2°, physics_score 0.994.
-- quadruped: forward 0.059 m, drop 0.019 m, tilt 8.2°, physics_score 0.883.
+**Verification (default templates after tuning):**
+- humanoid: forward 0.117 m, drop 0.006 m, tilt 9.8°, physics_score 0.994.
+- quadruped: forward 0.064 m, drop 0.018 m, tilt 8.1°, physics_score 0.871.
 
-**Test results:** 380 default + 232 heavy/slow tests passing (1 xfailed); score **7.6 → 8.0 / 10**.
+**Rigorous end-to-end validation (2026-09-15):**
+| Check | Result |
+|---|---|
+| Humanoid default template walks | ✅ |
+| Quadruped default template walks | ✅ |
+| Humanoid morphology grid (`n=48`) walks | **0/48 (0%)** |
+| Quadruped morphology grid (`n=32`) walks | **12/32 (37.5%)** |
+| Humanoid mass perturbations (8 combos) walk | **0/8 (0%)** |
+| Manipulator-on-base gait fallback | ✅ skipped cleanly |
+| `/generate → /morphology/search → /simulate` backend flow | ✅ wired end-to-end; search returned **0 walking humanoids** for the LLM prompt |
 
-**Timeline:** ~2 sessions on top of the Phase 30 scaffold.
+**Test results:** 612 tests passing (1 xfailed). The originally claimed score **7.6 → 8.0 / 10** is revised to **7.7 / 10** because the humanoid gait does not generalize across searched designs.
+
+**Timeline:** Core walking delivered in ~2 sessions on top of the scaffold; generalization across the grid is future work.
 
 ---
 
@@ -655,7 +668,7 @@ Phase 28 was re-scoped from pure packaging/distribution into a **simulation-firs
 | 28E | 24, 25, 28C | ✅ Complete — real-solver dispatch, readiness score, signed certificates, report export |
 | 28F | 28A–E | ✅ Complete — marketplace archive upload, solver install bootstrap, onboarding tests, docs synced |
 | 29 | 28D | ✅ Complete — MuJoCo standing/sway/step physics scoring; 380 default + 229 heavy/slow tests passing; score 7.6/10 |
-| 30 | 29 | ✅ Complete — balance-aware biped/quadruped walking, walk_score integrated; 380 default + 232 heavy/slow tests passing; score 8.0/10 |
+| 30 | 29 | ✅ Complete — balance-aware biped/quadruped walking for default templates, walk_score integrated; 380 default + 232 heavy/slow tests passing; score revised to 7.7/10 after honest pass-rate validation |
 
 ---
 
