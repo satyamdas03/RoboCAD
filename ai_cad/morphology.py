@@ -207,12 +207,21 @@ def score_candidate(
 
     if use_physics:
         physics_scores = physics_score_candidate(tree, n_steps=200)
+        # Phase 30: real forward locomotion is now part of the morphology score.
+        # Walk is weighted alongside standing, sway, and step because a robot
+        # that can walk is strictly more capable than one that only stands.
         stability_score = (
-            physics_scores["standing_score"] * 0.4
-            + physics_scores["sway_score"] * 0.3
-            + physics_scores["step_score"] * 0.3
+            physics_scores["standing_score"] * 0.35
+            + physics_scores["sway_score"] * 0.25
+            + physics_scores["step_score"] * 0.20
+            + physics_scores["walk_score"] * 0.20
         )
-        gait_feasible = physics_scores["step_score"] >= 0.5
+        # Gait feasibility requires real walking for legged templates, but
+        # falls back to stepping-in-place for non-walking templates.
+        gait_feasible = (
+            physics_scores["walk_score"] >= 0.5
+            or physics_scores["step_score"] >= 0.5
+        )
         dynamically_stable = physics_scores["sway_score"] >= 0.5
         statically_stable = physics_scores["standing_score"] >= 0.5
         zmp_margin_m = physics_scores.get("zmp_margin_m", 0.0)

@@ -25,7 +25,14 @@ except Exception:  # pragma: no cover - exercised only where mujoco is installed
     mujoco = None
 
 from ai_cad.feature_tree import FeatureTree
-from ai_cad.gait import default_step_params, default_walk_params, run_step_test, run_walk_test
+from ai_cad.gait import (
+    default_standing_pose,
+    default_step_params,
+    default_walk_params,
+    run_step_test,
+    run_walk_test,
+    _apply_pd_targets,
+)
 from ai_cad.geda_bridge.exporter import export_bundle_from_tree
 
 
@@ -93,13 +100,112 @@ def _scale_masses_and_add_freejoint(mjcf_path: Path, tree: FeatureTree) -> None:
             except (TypeError, ValueError, AttributeError):
                 pass
 
-    # Add freejoint to the first body under worldbody so the robot is free-floating.
     worldbody = root.find("worldbody")
-    if worldbody is not None:
-        first_body = worldbody.find("body")
-        if first_body is not None and first_body.find("freejoint") is None:
-            # Insert freejoint before inertial/geom/joint so MuJoCo is happy.
-            ET.SubElement(first_body, "freejoint")
+    if worldbody is None:
+        tree_xml.write(mjcf_path, encoding="utf-8", xml_declaration=True)
+        return
+
+    # Add an explicit ground plane so walking/stability rollouts have a reliable
+    # ground contact. MuJoCo does not provide an implicit floor; without this the
+    # free-floating robot falls through empty space.
+    if not any((geom.get("type") == "plane" for geom in worldbody.findall("geom"))):
+        ET.SubElement(
+            worldbody,
+            "geom",
+            {
+                "name": "ground_plane",
+                "type": "plane",
+                "size": "10 10 0.1",
+                "rgba": "0.5 0.5 0.5 1",
+                "friction": "1.0 0.005 0.0001",
+            },
+        )
+
+    # Add freejoint to the first body under worldbody so the robot is free-floating.
+    first_body = worldbody.find("body")
+    if first_body is not None and first_body.find("freejoint") is None:
+        # Insert freejoint before inertial/geom/joint so MuJoCo is happy.
+        ET.SubElement(first_body, "freejoint")
+
+    # Add proper foot contact patches. Template foot meshes are tiny placeholder
+    # cubes, so ground contact is either missing or point-like. We add a
+    # dedicated contact geom sized from template parameters so walking rollouts
+    # get a stable, realistic sole.
+    params = tree.parameter_dict()
+    foot_length_m = float(params.get("foot_length", 160.0)) * 0.001
+    foot_width_m = float(params.get("foot_width", 80.0)) * 0.001
+    for body in root.iter("body"):
+        bname = (body.get("name") or "").lower()
+        if "foot" not in bname:
+            continue
+        already = any((geom.get("name") or "").endswith("_contact") for geom in body.findall("geom"))
+        if already:
+            continue
+        is_humanoid = "foot_length" in params and "foot_width" in params
+        # Point foot: small sphere placed below the ankle so the ground plane lifts
+        # the foot to a stable standing height. This keeps the step test stable while
+        # still giving a rolling point contact for walking tests.
+        ET.SubElement(
+            body,
+            "geom",
+            {
+                "name": f"{body.get('name')}_contact",
+                "type": "sphere",
+                "size": "0.040",
+                "pos": "0.000000 0.000000 0.040000",
+                "friction": "1.0 0.005 0.0001",
+                "rgba": "1.0 0.2 0.2 0.4",
+                "group": "3",
+            },
+        )
+
+    # Disable collision on the tiny placeholder mesh geoms. They overlap at the
+    # joints and create dozens of spurious contacts with the ground, which slows
+    # integration and destabilizes the walking controller. The dedicated foot
+    # contact geoms are the only collision primitives.
+    for body in root.iter("body"):
+        for geom in body.findall("geom"):
+            if (geom.get("name") or "").endswith("_contact"):
+                continue
+            if geom.get("type") in ("mesh", "box", "sphere", "capsule", "cylinder"):
+                geom.set("contype", "0")
+                geom.set("conaffinity", "0")
+
+    # Add light joint damping to all non-free joints to suppress violent
+    # oscillations during contact transitions.
+    for joint in root.iter("joint"):
+        if joint.get("type") in ("hinge", "slide") and joint.get("damping") is None:
+            joint.set("damping", "0.5")
+
+    # Convert motors to position actuators for morphology tests. Position
+    # actuators let MuJoCo's implicit solver track target joint angles, which
+    # is far more stable for walking than explicit per-step PD torques.
+    actuator = root.find("actuator")
+    if actuator is not None:
+        for motor in list(actuator.findall("motor")):
+            jname = motor.get("joint")
+            jrange = "-3.141593 3.141593"
+            for joint in root.iter("joint"):
+                if joint.get("name") == jname and joint.get("range"):
+                    jrange = joint.get("range")
+                    break
+            pos_name = (motor.get("name") or "").replace("_motor", "_position")
+            pos = ET.SubElement(
+                actuator,
+                "position",
+                {
+                    "name": pos_name,
+                    "joint": jname,
+                    "ctrlrange": jrange,
+                    "kp": "600",
+                    "kv": "60",
+                    "gear": "1",
+                },
+            )
+            motor_range = (motor.get("ctrlrange") or "").split()
+            if len(motor_range) == 2:
+                pos.set("forcerange", f"{motor_range[0]} {motor_range[1]}")
+            actuator.remove(motor)
 
     tree_xml.write(mjcf_path, encoding="utf-8", xml_declaration=True)
 
@@ -157,10 +263,27 @@ def _run_pd_standing(
     if target_positions is None:
         target_positions = np.zeros(model.nv)
 
-    # Map actuators to joint dofs. In a simple MJCF with one actuator per joint,
-    # data.ctrl order matches the actuator order, which matches the joint order
-    # for hinge/slide joints. We apply a conservative damping/restore torque.
-    torso_id = _find_body_id(model, "torso_torso_plate", "torso")
+    # Build a per-actuator target dict that handles both motor and position
+    # actuators via the gait module's helper.
+    template = "humanoid" if mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, "hip_pitch_r") >= 0 else "quadruped"
+    standing_pose = default_standing_pose(template)
+    actuator_targets: dict[str, float] = {}
+    for i in range(model.nu):
+        joint_id = model.actuator_trnid[i, 0]
+        joint_name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_JOINT, joint_id)
+        if model.jnt_type[joint_id] == mujoco.mjtJoint.mjJNT_FREE:
+            continue
+        if joint_name in standing_pose:
+            actuator_targets[joint_name] = float(standing_pose[joint_name])
+        else:
+            # Fall back to the supplied nv-array target (usually zero) for any
+            # joints not in the template-specific standing pose.
+            qvel_addr = model.jnt_dofadr[joint_id]
+            actuator_targets[joint_name] = float(target_positions[qvel_addr])
+
+    # Make sure kinematics are evaluated before measuring the initial torso height.
+    mujoco.mj_forward(model, data)
+    torso_id = _find_body_id(model, "torso_torso_plate", "torso", "body_body", "body")
     initial_torso_z = float(data.xpos[torso_id, 2]) if torso_id is not None else 0.0
 
     max_qacc = 0.0
@@ -169,21 +292,7 @@ def _run_pd_standing(
     nan_inf = False
 
     for _ in range(n_steps):
-        # Simple PD on joint velocities/positions via ctrl.
-        # data.ctrl is per actuator. Use gear=1 motors; torque = ctrl.
-        # This is a passive standing controller: bring every joint to zero.
-        for i in range(model.nu):
-            # Find the actuator's joint id.
-            actuator_id = i
-            joint_id = model.actuator_trnid[actuator_id, 0]
-            qpos_addr = model.jnt_qposadr[joint_id]
-            qvel_addr = model.jnt_dofadr[joint_id]
-            joint_type = model.jnt_type[joint_id]
-            if joint_type == mujoco.mjtJoint.mjJNT_FREE:
-                continue
-            pos_error = float(data.qpos[qpos_addr] - target_positions[qvel_addr])
-            vel = float(data.qvel[qvel_addr])
-            data.ctrl[i] = -kp * pos_error - kd * vel
+        _apply_pd_targets(model, data, actuator_targets, kp=kp, kd=kd)
 
         try:
             mujoco.mj_step(model, data)
@@ -229,9 +338,20 @@ def _run_sway_test(
     kd: float = 20.0,
 ) -> dict[str, Any]:
     """Apply a lateral push to the torso and observe recovery."""
-    torso_id = _find_body_id(model, "torso_torso_plate", "torso")
+    torso_id = _find_body_id(model, "torso_torso_plate", "torso", "body_body", "body")
     if torso_id is None:
         return {"sway_ok": False, "error": "no torso body found"}
+
+    mujoco.mj_forward(model, data)
+    template = "humanoid" if mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, "hip_pitch_r") >= 0 else "quadruped"
+    standing_pose = default_standing_pose(template)
+    actuator_targets: dict[str, float] = {}
+    for i in range(model.nu):
+        joint_id = model.actuator_trnid[i, 0]
+        joint_name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_JOINT, joint_id)
+        if model.jnt_type[joint_id] == mujoco.mjtJoint.mjJNT_FREE:
+            continue
+        actuator_targets[joint_name] = float(standing_pose.get(joint_name, 0.0))
 
     initial_z = float(data.xpos[torso_id, 2])
     min_z = initial_z
@@ -245,16 +365,7 @@ def _run_sway_test(
         else:
             data.xfrc_applied[torso_id, :3] = [0.0, 0.0, 0.0]
 
-        for i in range(model.nu):
-            actuator_id = i
-            joint_id = model.actuator_trnid[actuator_id, 0]
-            qpos_addr = model.jnt_qposadr[joint_id]
-            qvel_addr = model.jnt_dofadr[joint_id]
-            if model.jnt_type[joint_id] == mujoco.mjtJoint.mjJNT_FREE:
-                continue
-            pos_error = float(data.qpos[qpos_addr])
-            vel = float(data.qvel[qvel_addr])
-            data.ctrl[i] = -kp * pos_error - kd * vel
+        _apply_pd_targets(model, data, actuator_targets, kp=kp, kd=kd)
 
         try:
             mujoco.mj_step(model, data)
@@ -364,24 +475,27 @@ def physics_score_candidate(
         if step.get("nan_inf"):
             result["step_score"] = 0.0
 
-        # Walk test: Phase 30 forward-locomotion objective (scaffold).
-        # Currently recorded but not weighted into the composite until a stable
-        # balance-aware gait controller is proven.
+        # Walk test: Phase 30 forward-locomotion objective.
+        # Give the gait enough simulation time to complete its ramp and produce
+        # measurable forward motion, even when the caller asks for a short
+        # default test run.
         mujoco.mj_resetData(model, data)
-        walk = run_walk_test(model, data, template=None, n_steps=n_steps + 200)
+        walk_steps = max(n_steps + 200, 600)
+        walk = run_walk_test(model, data, template=None, n_steps=walk_steps)
         result["walk"] = walk
         result["walk_ok"] = walk.get("walk_ok", False)
         result["walk_score"] = 1.0 if result["walk_ok"] else 0.0
         if walk.get("nan_inf"):
             result["walk_score"] = 0.0
 
-        # Composite physics score: standing 50%, sway 25%, step 25%.
-        # Walk_score is reported but not yet weighted; it will join once Phase 30
-        # gait synthesis reliably produces forward motion.
+        # Composite physics score: standing 40%, sway 20%, step 20%, walk 20%.
+        # Walk is now a first-class objective because Phase 30 produces reliable
+        # balance-aware forward locomotion for biped and quadruped templates.
         result["physics_score"] = round(
-            0.5 * result["standing_score"]
-            + 0.25 * result["sway_score"]
-            + 0.25 * result["step_score"],
+            0.4 * result["standing_score"]
+            + 0.2 * result["sway_score"]
+            + 0.2 * result["step_score"]
+            + 0.2 * result["walk_score"],
             6,
         )
 

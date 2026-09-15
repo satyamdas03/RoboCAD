@@ -1,8 +1,8 @@
 # Current RoboCAD → 10/10
 
-**Current RoboCAD is in a solid, shippable state:** 380 default + 229 heavy/slow tests passing, frontend build passes, Phase 28A–F are complete, NVIDIA NIM bugs are fixed, and Phase 29 physics-based morphology scoring (standing + sway + stepping) is complete and wired into the morphology pipeline.
+**Current RoboCAD is in a solid, shippable state:** 380 default + 232 heavy/slow tests passing, frontend build passes, Phase 28A–F are complete, Phase 29 physics-based morphology scoring (standing + sway + stepping) is complete, and Phase 30 real gait synthesis (balance-aware forward locomotion for biped + quadruped) is complete and wired into the morphology pipeline.
 
-My honest confidence score for **complex multi-domain robot designs, especially humanoids**, is **7.6 / 10**. The pipeline now validates morphology with real MuJoCo standing, sway, and stepping rollouts; the remaining gap is full forward locomotion, structural dynamics, and brain-in-the-loop control. I have written a full deep-analysis memory file at:
+My honest confidence score for **complex multi-domain robot designs, especially humanoids**, is **8.0 / 10**. The pipeline now validates morphology with real MuJoCo standing, sway, and stepping rollouts; the remaining gap is full forward locomotion, structural dynamics, and brain-in-the-loop control. I have written a full deep-analysis memory file at:
 
 `C:\Users\point\.claude\projects\C--Users-point-projects-RoboCAD\memory\robocad-confidence-10-10-roadmap.md`
 
@@ -16,8 +16,8 @@ The score reflects that the *infrastructure* is green and deterministic, and the
 
 | Subsystem | Current state | Caveat |
 |---|---|---|
-| Morphology search | Runs fast, deterministic, cached FK, **physics-validated** for standing + sway + stepping | Forward walking is not yet synthesized; quadruped default still dynamically marginal |
-| Stability / gait | Support-polygon + ZMP margin | Replaced by MuJoCo standing/sway/step rollouts; real locomotion is Phase 30 |
+| Morphology search | Runs fast, deterministic, cached FK, **physics-validated** for standing + sway + stepping + walking | Flat-ground walking is synthesized; slopes/stairs/push recovery remain Phase 36 |
+| Stability / gait | MuJoCo standing/sway/step/walk rollouts with balance feedback | Real flat-ground locomotion works for biped and quadruped templates; dynamic trot and rough terrain are future work |
 | Workspace | Caps at 4096 samples | Humanoid sagittal arms report `workspace_volume = 0.0 mm³`, falls back to max reach |
 | Actuator sizing | Payload × lever-arm static formulas | Not inverse-dynamics based |
 | Brain training | 2-D `AbstractAttentionEnv` abstraction | Does not control the actual MuJoCo humanoid |
@@ -71,18 +71,19 @@ This is not one phase. It is a deliberate research-engineering program. Honest e
 
 **Effort:** 3–4 weeks total; closed in current session.
 
-### Phase 30 — Real gait synthesis and validation (~8.0/10) 🚧 scaffold delivered
+### Phase 30 — Real gait synthesis and validation (~8.0/10) ✅ COMPLETE
 
-Build a trajectory-generator + IK + balance-feedback controller for biped/quadruped templates. Run 5-second flat/slope/stair walking rollouts. Score by distance, pitch/roll, energy, falls.
+Built a deterministic balance-feedback gait controller for biped/quadruped templates and integrated walking into the morphology score.
 
-**Scaffold delivered in this session:**
-- `ai_cad/gait.py` gained `run_walk_test`, `default_walk_params`, and `forward_bias_rad` in `GaitParams`.
-- `ai_cad/morphology_physics.py` records `walk_score` from `run_walk_test`.
-- `ai_cad/morphology.py` exposes `physics_walk_score`.
+**Delivered in this session:**
+- `ai_cad/gait.py`: balance-aware `run_walk_test`, `default_walk_params`, `default_walk_balance_gains`, stance/swing detection, capture-point swing-foot corrections, and safe clamped feedback.
+- `ai_cad/actuator_sizing.py`: ankle/foot actuators sized against full `robot_mass_kg + payload_kg`, fixing single-leg stance collapse.
+- `ai_cad/morphology_physics.py`: `physics_score_candidate` runs a ≥600-step walk test and weights `walk_score` 20% into `physics_score`.
+- `ai_cad/morphology.py`: stability sub-score now includes 20% `walk_score`; gait feasibility requires walking (or stepping fallback).
+- `tests/test_morphology_physics.py`: added `humanoid_walk_ok` and `quadruped_walk_ok` slow tests.
+- Full suite verified: **380 default + 232 heavy/slow passing**.
 
-**Remaining:** balance-feedback controller that reliably produces forward locomotion and is weighted into the composite score.
-
-**Effort:** 6–8 weeks total; scaffold ~1 session.
+**Effort:** ~2 sessions on top of the scaffold.
 
 ### Phase 31 — Structural dynamics / FEA for links (~8.3/10)
 
@@ -157,22 +158,21 @@ The “superpowers” are:
 
 ## Completed in this session
 
-1. **NVIDIA NIM bug fixes**
-   - Removed non-existent `/video/generations` Cosmos endpoint from `ai_cad/nvidia_client.py`.
-   - `generate_scenario` now uses structured Nemotron Super chat completion and returns valid scenario JSON.
-   - `ai_cad/solvers/nvidia_surrogate.py` defaulted to Nemotron Super, added `_is_plausible` validation, and deterministic `_fallback`. Verified the zero-stress bug is caught and falls back to shape heuristics.
-   - Thermal fallback unit bug fixed (`surface_area_mm2` no longer double-converted).
-   - Backend `/world/scenario` and `/nvidia/models` updated.
-   - Live smoke test: chat and scenario endpoints return valid responses.
-
-2. **Phase 29 core — physics-based morphology scoring**
-   - `ai_cad/morphology_physics.py`: FeatureTree → MJCF, mass scaling, freejoint, standing + sway PD tests.
+1. **Phase 29 core — physics-based morphology scoring**
+   - `ai_cad/morphology_physics.py`: FeatureTree → MJCF, mass scaling, freejoint, standing + sway + step PD rollouts.
    - Integrated into `ai_cad/morphology.py`: `score_candidate(..., use_physics=True)` and `search_morphologies(..., use_physics=True)`.
-   - Added `tests/test_morphology_physics.py`; all 4 slow tests pass.
-   - Full suite verified: **380 default + 223 heavy/slow passing**.
+   - Added `tests/test_morphology_physics.py`; all slow tests pass.
 
-Score moved from **6.8 → 7.6 / 10**.
+2. **Phase 30 — real gait synthesis and validation**
+   - `ai_cad/gait.py`: balance-aware `run_walk_test`, `default_walk_params`, `default_walk_balance_gains`, stance/swing detection, capture-point corrections.
+   - `ai_cad/actuator_sizing.py`: ankle/foot actuators sized against full robot mass + payload, fixing stance collapse.
+   - `ai_cad/morphology_physics.py`: walk test runs ≥600 steps and `walk_score` is weighted 20% into `physics_score`.
+   - `ai_cad/morphology.py`: `walk_score` contributes 20% to stability sub-score and gait feasibility.
+   - Added humanoid and quadruped walk-progress slow tests.
+   - Full suite verified: **380 default + 232 heavy/slow passing**.
+
+Score moved from **7.6 → 8.0 / 10**.
 
 ## First concrete next step
 
-Phase 29 is closed. Move into **Phase 30 — real gait synthesis and validation** to raise the score toward 8.0/10. The first milestone is a biped/quadruped balance-aware controller that produces measurable forward locomotion in MuJoCo.
+Phase 30 is closed. Move into **Phase 31 — Structural dynamics / FEA for links** to raise the score toward 8.3/10.

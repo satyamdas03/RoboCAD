@@ -168,9 +168,9 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **28E** | Simulation certification | ✅ **Complete — real-solver dispatch, readiness score, certificates, field/report export; 15 tests** |
 | **28F** | Product hardening + final docs | ✅ **Complete — marketplace archive upload, solver install bootstrap, health hints, onboarding tests** |
 | **29** | Physics-based morphology scoring | ✅ **Complete — MuJoCo standing/sway/step rollouts; humanoid passes end-to-end; score 7.6/10** |
-| **30** | Real gait synthesis and validation | 🚧 **Started — balance-aware walking controller, forward-locomotion rollout scoring** |
+| **30** | Real gait synthesis and validation | ✅ **Complete — balance-aware walking controller produces >5 cm forward locomotion for biped + quadruped; walk_score weighted into morphology composite; score 8.0/10** |
 
-Phases 0–7 proved the **AI → parametric-code loop** for single-part robotics hardware. Phases 8–13 turned that loop into an **engineer-grade CAD system** with feature trees, constraints, assemblies, verification, and model specialization. Phases 14A–15B shipped the **GEDA Bridge** so LearningRobotics can consume verified simulation-ready assets. Phases 16–27C expanded RoboCAD into a **multi-domain generative engineering platform** with a real-time voice supervisor, NVIDIA-powered intelligence, and professional rendering. Phases 28A–F and 29 turned it into a **simulation-first product platform** with a physics-validated morphology co-design lab.
+Phases 0–7 proved the **AI → parametric-code loop** for single-part robotics hardware. Phases 8–13 turned that loop into an **engineer-grade CAD system** with feature trees, constraints, assemblies, verification, and model specialization. Phases 14A–15B shipped the **GEDA Bridge** so LearningRobotics can consume verified simulation-ready assets. Phases 16–27C expanded RoboCAD into a **multi-domain generative engineering platform** with a real-time voice supervisor, NVIDIA-powered intelligence, and professional rendering. Phases 28A–F and 29–30 turned it into a **simulation-first product platform** with a physics-validated morphology co-design lab that scores robots by whether they can actually walk.
 
 ---
 

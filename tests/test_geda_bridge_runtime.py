@@ -4,6 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+import xml.etree.ElementTree as ET
 
 pytest.importorskip("mujoco")
 
@@ -111,3 +112,32 @@ def test_runtime_tree_two_part_assembly(tmp_path: Path):
     paths = export_bundle_from_tree(tree, tmp_path / "asm", name="asm")
     paths = package_bundle_paths(paths)
     _assert_runtime_ok(paths.directory, expected_mjcf_nbody=3, expected_urdf_nbody=1)
+
+
+def test_runtime_humanoid_actuator_torque_limits(tmp_path: Path):
+    """Exported humanoid MJCF must use physically plausible motor torque limits."""
+    from ai_cad.robot_templates import humanoid_template
+
+    tree = humanoid_template(height_mm=1000.0, payload_kg=5.0, mass_kg=20.0)
+    paths = export_bundle_from_tree(tree, tmp_path / "humanoid", name="humanoid")
+    mjcf_text = paths.mjcf.read_text(encoding="utf-8")
+    root = ET.fromstring(mjcf_text)
+    motors = root.findall(".//actuator/motor")
+    assert motors, "expected motor actuators in humanoid MJCF"
+    for motor in motors:
+        jname = motor.get("joint", "")
+        low, high = (float(v) for v in motor.get("ctrlrange", "0 0").split())
+        peak = max(abs(low), abs(high))
+        jid = jname.lower()
+        if any(k in jid for k in ("hip", "shoulder")):
+            min_peak = 10.0
+        elif any(k in jid for k in ("knee", "elbow")):
+            min_peak = 5.0
+        elif any(k in jid for k in ("ankle", "wrist")):
+            min_peak = 2.0
+        else:
+            min_peak = 2.0
+        assert peak >= min_peak, (
+            f"motor {motor.get('name')} torque limit {peak:.3f} N m is below "
+            f"expected {min_peak:.1f} N m for joint {jname}"
+        )

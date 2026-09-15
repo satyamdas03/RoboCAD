@@ -1062,7 +1062,8 @@ Phase 28 was re-scoped from pure packaging into a **simulation-first product pla
 | 28D (morphology lab) | 24, 25, 28C | ✅ Complete — deterministic parametric morphology search with stability/workspace/gait/actuator scoring, world-model + brain smoke-test integration; 15 tests |
 | 28E (simulation certification) | 24, 25, 28C | ✅ Complete — signed certificates, real-vs-surrogate A/B, field/report export |
 | 28F (product hardening) | 28A–E | ✅ Complete — marketplace upload, solver install bootstrap, health hints, onboarding tests |
-| 29 (physics-based morphology scoring) | 28D | ✅ Core complete — MuJoCo standing/sway rollouts wired into morphology search; NVIDIA NIM bugs fixed; walking/step test remaining |
+| 29 (physics-based morphology scoring) | 28D | ✅ Complete — MuJoCo standing/sway/step rollouts wired into morphology search; score 7.6/10 |
+| 30 (real gait synthesis and validation) | 29 | ✅ Complete — balance-aware walking controller produces forward locomotion for biped + quadruped; walk_score integrated into morphology composite; score 8.0/10 |
 
 ---
 
@@ -1097,4 +1098,4 @@ Full analysis is saved in `.claude/memory/robocad-path-analysis.md` and the end-
 
 ---
 
-*Last updated: 2026-09-13 (Phases 0–28A/B/C/D/E/F complete; Phase 29 physics-based morphology scoring complete with standing + sway + stepping tests; Phase 30 real gait synthesis and validation started; NVIDIA NIM Cosmos 404 + surrogate zero-stress bugs fixed; 380 default + 229 heavy/slow tests passing with 1 expected failure, 5 benchmark/network tests deselected; Phase 27D hardware-in-the-loop sim-to-real blocked on hardware access)*
+*Last updated: 2026-09-13 (Phases 0–28A/B/C/D/E/F complete; Phase 29 physics-based morphology scoring complete with standing + sway + stepping tests; Phase 30 real gait synthesis and validation complete with balance-aware biped/quadruped walking and walk_score integration; 380 default + 232 heavy/slow tests passing with 1 expected failure, 5 benchmark/network tests deselected; Phase 27D hardware-in-the-loop sim-to-real blocked on hardware access)*
