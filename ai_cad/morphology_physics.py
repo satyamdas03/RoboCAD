@@ -32,6 +32,8 @@ from ai_cad.gait import (
     run_step_test,
     run_walk_test,
     _apply_pd_targets,
+    _detect_template,
+    _foot_body_ids,
 )
 from ai_cad.geda_bridge.exporter import export_bundle_from_tree
 
@@ -438,6 +440,11 @@ def physics_score_candidate(
         model, data = loaded
         result["load_ok"] = True
 
+        template = _detect_template(model)
+        torso_id = _find_body_id(model, "torso_torso_plate", "torso", "body_body", "body")
+        foot_ids = _foot_body_ids(model, template)
+        is_legged = torso_id is not None and len(foot_ids) > 0
+
         # Standing test.
         standing = _run_pd_standing(model, data, n_steps=n_steps)
         result["standing"] = standing
@@ -457,36 +464,55 @@ def physics_score_candidate(
         if standing["nan_inf"]:
             result["standing_score"] = 0.0
 
-        # Sway test: reset data and run push/recovery.
-        mujoco.mj_resetData(model, data)
-        sway = _run_sway_test(model, data, n_steps=n_steps + 100)
-        result["sway"] = sway
-        result["sway_ok"] = sway.get("sway_ok", False)
-        result["sway_score"] = 1.0 if result["sway_ok"] else 0.0
-        if sway.get("nan_inf"):
-            result["sway_score"] = 0.0
+        # Sway test: reset data and run push/recovery. Skip for non-legged designs
+        # (no torso or no feet) so manipulators and other fixed/mobile-base systems
+        # are not penalized by tests that do not apply to them.
+        if is_legged:
+            mujoco.mj_resetData(model, data)
+            sway = _run_sway_test(model, data, n_steps=n_steps + 100)
+            result["sway"] = sway
+            result["sway_ok"] = sway.get("sway_ok", False)
+            result["sway_score"] = 1.0 if result["sway_ok"] else 0.0
+            if sway.get("nan_inf"):
+                result["sway_score"] = 0.0
+        else:
+            result["sway"] = {"sway_ok": True, "skipped": True, "reason": "non-legged template"}
+            result["sway_ok"] = True
+            result["sway_score"] = 1.0
+            result["notes"].append("sway test skipped (non-legged template)")
 
-        # Step test: open-loop rhythmic foot lifting (Phase 29).
-        mujoco.mj_resetData(model, data)
-        step = run_step_test(model, data, template=None, n_steps=n_steps + 100)
-        result["step"] = step
-        result["step_ok"] = step.get("step_ok", False)
-        result["step_score"] = 1.0 if result["step_ok"] else 0.0
-        if step.get("nan_inf"):
-            result["step_score"] = 0.0
+        # Step test: open-loop rhythmic foot lifting (Phase 29). Skipped for
+        # non-legged designs for the same reason as sway.
+        if is_legged:
+            mujoco.mj_resetData(model, data)
+            step = run_step_test(model, data, template=None, n_steps=n_steps + 100)
+            result["step"] = step
+            result["step_ok"] = step.get("step_ok", False)
+            result["step_score"] = 1.0 if result["step_ok"] else 0.0
+            if step.get("nan_inf"):
+                result["step_score"] = 0.0
+        else:
+            result["step"] = {"step_ok": True, "skipped": True, "reason": "non-legged template"}
+            result["step_ok"] = True
+            result["step_score"] = 1.0
+            result["notes"].append("stepping test skipped (non-legged template)")
 
-        # Walk test: Phase 30 forward-locomotion objective.
-        # Give the gait enough simulation time to complete its ramp and produce
-        # measurable forward motion, even when the caller asks for a short
-        # default test run.
-        mujoco.mj_resetData(model, data)
-        walk_steps = max(n_steps + 200, 600)
-        walk = run_walk_test(model, data, template=None, n_steps=walk_steps)
-        result["walk"] = walk
-        result["walk_ok"] = walk.get("walk_ok", False)
-        result["walk_score"] = 1.0 if result["walk_ok"] else 0.0
-        if walk.get("nan_inf"):
-            result["walk_score"] = 0.0
+        # Walk test: Phase 30 forward-locomotion objective. Skipped for
+        # non-legged designs.
+        if is_legged:
+            mujoco.mj_resetData(model, data)
+            walk_steps = max(n_steps + 200, 600)
+            walk = run_walk_test(model, data, template=None, n_steps=walk_steps)
+            result["walk"] = walk
+            result["walk_ok"] = walk.get("walk_ok", False)
+            result["walk_score"] = 1.0 if result["walk_ok"] else 0.0
+            if walk.get("nan_inf"):
+                result["walk_score"] = 0.0
+        else:
+            result["walk"] = {"walk_ok": True, "skipped": True, "reason": "non-legged template"}
+            result["walk_ok"] = True
+            result["walk_score"] = 1.0
+            result["notes"].append("walk test skipped (non-legged template)")
 
         # Composite physics score: standing 40%, sway 20%, step 20%, walk 20%.
         # Walk is now a first-class objective because Phase 30 produces reliable

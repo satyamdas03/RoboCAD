@@ -2,7 +2,7 @@
 
 **Current RoboCAD is in a solid, shippable state:** 380 default + 232 heavy/slow tests passing, frontend build passes, Phase 28A–F are complete, Phase 29 physics-based morphology scoring (standing + sway + stepping) is complete, and Phase 30 real gait synthesis (balance-aware forward locomotion for biped + quadruped) is complete and wired into the morphology pipeline.
 
-My honest confidence score for **complex multi-domain robot designs, especially humanoids**, is **8.0 / 10**. The pipeline now validates morphology with real MuJoCo standing, sway, and stepping rollouts; the remaining gap is full forward locomotion, structural dynamics, and brain-in-the-loop control. I have written a full deep-analysis memory file at:
+My honest confidence score for **complex multi-domain robot designs, especially humanoids**, is **7.7 / 10**. The pipeline validates morphology with real MuJoCo standing, sway, stepping, and *default-template* walking rollouts, but the humanoid walking controller is **not yet robust** across searched morphologies or mass perturbations. The remaining gap is robust gait synthesis across the morphology grid, structural dynamics, and brain-in-the-loop control. I have written a full deep-analysis memory file at:
 
 `C:\Users\point\.claude\projects\C--Users-point-projects-RoboCAD\memory\robocad-confidence-10-10-roadmap.md`
 
