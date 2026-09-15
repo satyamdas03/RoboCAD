@@ -1,7 +1,7 @@
 # RoboCAD Strategic Analysis: PATH1 vs PATH2
 
-**Date:** 2026-08-25 (updated 2026-09-01)  
-**Status:** Decision made; PATH1 (Phases 14A–15B), Batch A (Phases 16–18), Phase 19, Phase 20, Phase 21, Phase 22, Phase 23, Phase 24, Phase 25, Phase 26, and Phase 27A/B/C complete; Phase 27D — hardware-in-the-loop sim-to-real — is next once hardware is available  
+**Date:** 2026-08-25 (updated 2026-09-17)  
+**Status:** Decision made; PATH1 (Phases 14A–15B), Batch A (Phases 16–18), Phases 19–27A/B/C, Phases 28A–F, Phase 29, and Phase 30 complete; Phase 27D — hardware-in-the-loop sim-to-real — is next once hardware is available; Phase 31 (structural dynamics / FEA for robot links) is next active phase  
 **Related:** [`PLAN.md`](../PLAN.md) Sections 12–14, [`robocad-end-to-end-roadmap.md`](robocad-end-to-end-roadmap.md)
 
 ---
@@ -95,8 +95,10 @@ A full-stack, multi-domain robotics design operating system. It now spans **Phas
 9. **World-model simulation builder** — manipulation, locomotion, aerial, humanoid scenes (Phase 24).
 10. **Robot brain training loop** — synthetic data, RL/IL, design feedback (Phase 25).
 11. **HERMES cross-domain conversational supervisor** — status, approvals, explanations (Phase 26).
-12. **Sim-to-real feedback loop** — real robot deployment, failure logging, retraining (Phase 27).
-13. **Distribution + ecosystem + advanced co-design plugins** — launcher, marketplace, enterprise (Phase 28).
+12. **Sim-to-real feedback loop** — real robot deployment, failure logging, retraining (Phase 27D; future, blocked on hardware).
+13. **Simulation-first product platform** — launcher, marketplace, deep multi-physics, morphology co-design lab, simulation certification, product hardening (Phases 28A–F).
+14. **Physics-based morphology scoring** — MuJoCo standing/sway/step rollouts (Phase 29).
+15. **Real gait synthesis and validation** — balance-aware biped/quadruped walking (Phase 30).
 
 ### Market context
 
