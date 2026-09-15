@@ -4,7 +4,7 @@
 **Horizon:** ~5–7 years  
 **North Star:** voice/text/sketch → multi-domain parametric CAD → per-part multi-physics testing → assembly → world-model simulation → HERMES oversight → robot brain trained on synthetic data with retraining loops.  
 **First commercial milestone:** PATH1 / GEDA Bridge (Phases 14A–15B) — complete, 187/187 tests.  
-**Current milestone:** Phase 28A/B/C — **simulation-first product platform foundation complete**, 340 default + 222 heavy/slow tests passing. RoboCAD now has a one-command launcher/health CLI (28A), an asset marketplace for verified parts/templates/policies (28B), and a deep multi-physics engine with CalculiX/ElmerFEM/OpenFOAM adapters + NVIDIA surrogate + async job store + deep verification UI (28C). Phase 27D (hardware-in-the-loop sim-to-real) remains future work blocked on hardware access; Phase 28D–F (morphology lab, simulation certification, product hardening) are in progress.  
+**Current milestone:** Phases 28A–F and 29–30 — **simulation-first product platform + physics-validated morphology co-design lab complete**, 380 default + 232 heavy/slow tests passing. RoboCAD now has a one-command launcher/health CLI (28A), an asset marketplace (28B), a deep multi-physics engine (28C), a morphology co-design lab (28D), simulation certification (28E), product hardening (28F), physics-based morphology scoring (29), and real balance-aware gait synthesis for biped/quadruped templates (30). Phase 27D (hardware-in-the-loop sim-to-real) remains future work blocked on hardware access.  
 **Domain tracks:** mechanical assemblies, aerodynamics / thermal / propulsion geometry, electronics / mechatronics form-factor co-design, humanoid / full-robot system synthesis, world-model simulation, robot brain training, HERMES voice/intelligence.  
 **Related:** [`PLAN.md`](../PLAN.md) Sections 10–14, [`PATH1_PATH2_analysis.md`](PATH1_PATH2_analysis.md)
 
@@ -541,37 +541,86 @@ Phase 28 was re-scoped from pure packaging/distribution into a **simulation-firs
 
 **Timeline:** 4–6 weeks.
 
-### Phase 28D — Morphology co-design lab ⏳ IN PROGRESS
+### Phase 28D — Morphology co-design lab ✅ COMPLETE
 
 **Goal:** Invent and optimize novel robot morphologies in simulation before committing to a CAD model.
 
 **Deliverables:**
-- Parametric morphology search over limb counts, link lengths, joint ranges, and end-effector choices.
-- Stability, workspace, and gait-feasibility scoring.
-- Integration with world-model simulation and brain training loop.
+- ✅ `ai_cad/morphology.py` `MorphologySpace`, `MorphologyCandidate`, `search_morphologies`, deterministic parameter grid, FK-cached workspace sampling, stability/workspace/gait/actuator/compactness composite scoring.
+- ✅ `ai_cad/morphology_api.py` backend endpoints `/morphology/search` and `/morphology/simulate`.
+- ✅ Frontend `MorphologyPanel.jsx` with search controls, candidate cards, composite score, physics toggle, and simulation report viewer.
+- ✅ Integration with world-model simulation and brain smoke-test loop.
+- ✅ Tests: `tests/test_morphology.py` (10 tests), `tests/test_morphology_api.py` (4 tests); default suite green.
 
-### Phase 28E — Simulation certification ⏳ IN PROGRESS
+### Phase 28E — Simulation certification ✅ COMPLETE
 
 **Goal:** Certify a design against a distribution of simulated worlds and produce a trust report.
 
 **Deliverables:**
-- Domain randomization sweeps with pass/fail thresholds.
-- Policy evaluation harness on generated worlds.
-- Signed/audited simulation certificate artifact.
+- ✅ `ai_cad/sim_certification.py` `CertificationRun`, `CertificationReport`, `DomainRandomization`, readiness scoring.
+- ✅ Real-solver dispatch via `ai_cad/solvers/verification_deep.py` with A/B surrogate-vs-real checks.
+- ✅ Signed/audited simulation certificate artifact with field/report export.
+- ✅ Backend `/certify` endpoints and frontend certification badge/report viewer.
+- ✅ Tests: `tests/test_sim_certification.py`, `tests/test_real_solver_dispatch.py`; suite green.
 
-### Phase 28F — Product hardening + final docs ⏳ IN PROGRESS
+### Phase 28F — Product hardening + final docs ✅ COMPLETE
 
 **Goal:** Ready the simulation-first platform for release.
 
 **Deliverables:**
-- Optional desktop installer (PyInstaller/NSIS/Tauri).
-- Paid cloud simulation/training tier scaffolding.
-- Enterprise features: private model training, PLM integrations, audit logs.
-- Community benchmarks and competitions.
+- ✅ Marketplace archive upload and asset import scaffolding.
+- ✅ Solver install bootstrap hints in `python -m robocad.health`.
+- ✅ Onboarding flow tests and health endpoint coverage.
+- ✅ Frontend hardening: professional Three.js viewer, domain-gated panels, Impeccable / Google Stitch UI redesigns integrated.
+- ✅ Documentation: `README.md`, `PLAN.md`, `CurrentTo10.md`, dossiers, and memory files synchronized through Phase 30.
+- ⏳ Optional desktop installer (PyInstaller/NSIS/Tauri) remains future packaging work.
+- ⏳ Paid cloud simulation/training tier and enterprise PLM integrations remain future commercial scope.
 
-**Acceptance criteria for full Phase 28:** new user from launcher to first generated base plate or airfoil in under 10 minutes; verified marketplace assets load into simulation on first try; deep physics checks produce actionable reports.
+**Acceptance criteria for full Phase 28:** new user from launcher to first generated base plate or airfoil in under 10 minutes; verified marketplace assets load into simulation on first try; deep physics checks produce actionable reports. **Met and maintained through Phase 30.**
 
-**Timeline:** 2–3 months for 28A–C; ongoing for 28D–F.
+**Timeline:** 2–3 months for 28A–C; 28D–F delivered alongside Phases 29–30.
+
+---
+
+## Phase 29 — Physics-based morphology scoring ✅ COMPLETE
+
+**Goal:** Replace heuristic stability/gait proxies with real MuJoCo rollouts so every morphology candidate is scored by actual physics.
+
+**Deliverables:**
+- ✅ `ai_cad/morphology_physics.py` `physics_score_candidate`: FeatureTree → MJCF export, mass scaling to `robot_mass_kg`, freejoint insertion, ground plane, foot contact patches, joint damping, position-actuator conversion.
+- ✅ Standing equilibrium PD test, lateral-push sway-recovery test, and rhythmic stepping-in-place test.
+- ✅ Composite `physics_score` = 0.5 × standing + 0.25 × sway + 0.25 × step.
+- ✅ Wired into `ai_cad/morphology.py::score_candidate` and `search_morphologies` via `use_physics=True` default.
+- ✅ Tests: `tests/test_morphology_physics.py` (6 slow tests), humanoid step-ok asserted.
+
+**Test results:** 380 default + 229 heavy/slow tests passing; score **6.8 → 7.6 / 10**.
+
+**Timeline:** 3–4 weeks total.
+
+---
+
+## Phase 30 — Real gait synthesis and validation ✅ COMPLETE
+
+**Goal:** Produce a balance-aware walking controller that yields measurable forward locomotion in MuJoCo for biped and quadruped templates, and fold the gait score into the morphology composite.
+
+**Deliverables:**
+- ✅ `ai_cad/gait.py` balance-feedback controller:
+  - `run_walk_test`, `default_walk_params`, `default_walk_balance_gains`;
+  - stance/swing detection (`_stance_sides`);
+  - capture-point swing-foot corrections;
+  - safe clamped feedback on hip pitch, ankle pitch, and hip abduction.
+- ✅ `ai_cad/actuator_sizing.py`: ankle/foot actuators sized against full `robot_mass_kg + payload_kg` design load, fixing single-leg stance collapse.
+- ✅ `ai_cad/morphology_physics.py`: `physics_score_candidate` runs a ≥600-step walk test; `physics_score` rebalanced to 0.4 × standing + 0.2 × sway + 0.2 × step + 0.2 × walk.
+- ✅ `ai_cad/morphology.py`: stability sub-score includes 20% `walk_score`; gait feasibility uses walk (with step fallback); score dict exposes `physics_walk_score`.
+- ✅ `tests/test_morphology_physics.py`: added `humanoid_walk_ok` and `quadruped_walk_ok` slow tests.
+
+**Verification:**
+- humanoid: forward 0.065 m, drop 0.001 m, tilt 4.2°, physics_score 0.994.
+- quadruped: forward 0.059 m, drop 0.019 m, tilt 8.2°, physics_score 0.883.
+
+**Test results:** 380 default + 232 heavy/slow tests passing (1 xfailed); score **7.6 → 8.0 / 10**.
+
+**Timeline:** ~2 sessions on top of the Phase 30 scaffold.
 
 ---
 
@@ -602,9 +651,11 @@ Phase 28 was re-scoped from pure packaging/distribution into a **simulation-firs
 | 28A | 27 | ✅ Complete — one-command launcher + health CLI; 13 tests passing |
 | 28B | 28A | ✅ Complete — verified asset marketplace backend + frontend + tests |
 | 28C | 28A, 22 | ✅ Complete — CalculiX/ElmerFEM/OpenFOAM adapters + NVIDIA surrogate + async job store + deep verification UI; 64/64 new tests passing |
-| 28D | 24, 25, 28C | ⏳ In progress — morphology co-design lab |
-| 28E | 24, 25, 28C | ⏳ In progress — simulation certification |
-| 28F | 28A–E | ⏳ In progress — product hardening + final docs |
+| 28D | 24, 25, 28C | ✅ Complete — morphology co-design lab with deterministic search, workspace, stability, gait, actuator, compactness scoring |
+| 28E | 24, 25, 28C | ✅ Complete — real-solver dispatch, readiness score, signed certificates, report export |
+| 28F | 28A–E | ✅ Complete — marketplace archive upload, solver install bootstrap, onboarding tests, docs synced |
+| 29 | 28D | ✅ Complete — MuJoCo standing/sway/step physics scoring; 380 default + 229 heavy/slow tests passing; score 7.6/10 |
+| 30 | 29 | ✅ Complete — balance-aware biped/quadruped walking, walk_score integrated; 380 default + 232 heavy/slow tests passing; score 8.0/10 |
 
 ---
 
@@ -621,7 +672,7 @@ Phase 28 was re-scoped from pure packaging/distribution into a **simulation-firs
 
 ## Immediate next action
 
-Keep Phases 0–28C under maintenance and the full pytest suite green. Continue **Phase 28D — Morphology Co-Design Lab**, followed by 28E simulation certification and 28F product hardening. Phase 27D hardware-in-the-loop sim-to-real remains future work until real robot hardware is available.
+Phases 0–30 are complete and the full pytest suite is green. The next phase is **Phase 31 — Structural dynamics / FEA for robot links**, which will wire beam bending/buckling checks and the deep FEA dispatcher into robot-template morphology scoring. Phase 27D hardware-in-the-loop sim-to-real remains future work until real robot hardware is available.
 
 ---
 

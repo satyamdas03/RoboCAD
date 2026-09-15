@@ -1,8 +1,8 @@
 # Phase 29 — Physics-Based Morphology Scoring
 
 **Date:** 2026-09-13  
-**Status:** ✅ **Complete**. Single-step / stepping-in-place test added and wired into scoring.  
-**Score impact:** 6.8 / 10 → 7.6 / 10.  
+**Status:** ✅ **Complete**. Single-step / stepping-in-place test added and wired into scoring. Phase 30 subsequently delivered full balance-aware walking integration on top of this foundation.  
+**Score impact:** 6.8 / 10 → 7.6 / 10 (subsequently 7.6 → 8.0 in Phase 30).  
 **Related:** [`CurrentTo10.md`](../CurrentTo10.md), [`PLAN.md`](../PLAN.md), [`robocad-end-to-end-roadmap.md`](robocad-end-to-end-roadmap.md), [`phase30-real-gait-synthesis.md`](phase30-real-gait-synthesis.md)
 
 ---
