@@ -42,12 +42,15 @@ def _current_milestone() -> tuple[str, str, float, float, float]:
     """Detect active milestone from plan checkbox state.
 
     Returns (code, name, start_pct, end_pct, fraction_done).
+    A milestone with no plan file is treated as not yet started (0% done) once
+    all earlier milestones are fully checked off.
     """
     for code, name, start_pct, end_pct in MILESTONES:
         plan_file = PLANS_DIR / f"2026-09-16-milestone-{code.lower()}-*.md"
         paths = list(PLANS_DIR.glob(plan_file.name))
         if not paths:
-            continue
+            # No plan yet for this milestone: it is the next active one at 0%.
+            return code, name, start_pct, end_pct, 0.0
         text = paths[0].read_text(encoding="utf-8")
         total = text.count("- [ ]") + text.count("- [x]")
         done = text.count("- [x]")
