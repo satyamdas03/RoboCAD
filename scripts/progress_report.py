@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import datetime
+import re
 import subprocess
 import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
+PLANS_DIR = REPO / "docs" / "superpowers" / "plans"
 
 MILESTONES = [
     ("A", "Adaptive gait robustness", 0.0, 0.30),      # 7.7 -> 8.0
@@ -36,19 +38,36 @@ def _uncommitted_files() -> str:
     return _run(["git", "status", "--short"])
 
 
-def _current_milestone() -> tuple[str, str, float, float]:
-    # TODO: replace with real detection from docs/superpowers/plans/*.md state.
-    # For now, hard-code Milestone A as active.
-    return MILESTONES[0]
+def _current_milestone() -> tuple[str, str, float, float, float]:
+    """Detect active milestone from plan checkbox state.
+
+    Returns (code, name, start_pct, end_pct, fraction_done).
+    """
+    for code, name, start_pct, end_pct in MILESTONES:
+        plan_file = PLANS_DIR / f"2026-09-16-milestone-{code.lower()}-*.md"
+        paths = list(PLANS_DIR.glob(plan_file.name))
+        if not paths:
+            continue
+        text = paths[0].read_text(encoding="utf-8")
+        total = text.count("- [ ]") + text.count("- [x]")
+        done = text.count("- [x]")
+        fraction = done / total if total else 0.0
+        if fraction < 1.0:
+            return code, name, start_pct, end_pct, fraction
+    # All milestones complete.
+    code, name, start_pct, end_pct = MILESTONES[-1]
+    return code, name, start_pct, end_pct, 1.0
 
 
 def main() -> None:
     now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
-    code, name, start_pct, end_pct = _current_milestone()
-    progress = start_pct  # placeholder; future version reads task checkboxes
+    code, name, start_pct, end_pct, fraction = _current_milestone()
+    milestone_span = end_pct - start_pct
+    progress = start_pct + milestone_span * fraction
     completion = int(progress * 100)
     print(f"[{now}] RoboCAD 7.7 -> 10.0 progress report")
     print(f"  Active milestone: {code} — {name} ({start_pct*100:.0f}% -> {end_pct*100:.0f}%)")
+    print(f"  Milestone tasks done: {int(fraction * 100)}%")
     print(f"  Overall completion: {completion}%")
     print(f"  Latest commit: {_latest_commit()}")
     uncommitted = _uncommitted_files()
@@ -57,8 +76,6 @@ def main() -> None:
         print("  Files:")
         for line in uncommitted.splitlines()[:5]:
             print(f"    {line}")
-    print("  Work completed so far: roadmap spec + Milestone A implementation plan committed.")
-    print("  Next step: execute Milestone A tasks via subagent-driven development.")
 
 
 if __name__ == "__main__":
