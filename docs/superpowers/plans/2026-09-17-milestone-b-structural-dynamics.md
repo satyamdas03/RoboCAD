@@ -1,6 +1,6 @@
 # Milestone B — Structural Dynamics / FEA for Robot Links
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Wire structural dynamics checks into the morphology pipeline so that no candidate with slender, weak links survives the search, raising the honest complex-design confidence score from **8.0 → 8.3 / 10**.
 
@@ -33,7 +33,7 @@
 - Produces: `list[LinkStructuralProperties]` with length, cross-section area, min/max second moments of area, radius of gyration, slenderness, and material.
 
 **Steps:**
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 import pytest
@@ -56,13 +56,13 @@ def test_extract_limb_segment_properties():
     assert thigh[0].i_max_m4 > 0.0
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 `python -m pytest tests/test_morphology_structural.py::test_extract_limb_segment_properties -v -o addopts=`
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'ai_cad.morphology_structural'`.
 
-- [ ] **Step 3: Create `ai_cad/morphology_structural.py`**
+- [x] **Step 3: Create `ai_cad/morphology_structural.py`**
 
 Implement `LinkStructuralProperties` dataclass and `extract_link_properties(tree, material="PLA")` that:
 1. Walks the FeatureTree parts and selects parts with `family == "limb_segment"` or `family == "link"`.
@@ -75,13 +75,13 @@ Implement `LinkStructuralProperties` dataclass and `extract_link_properties(tree
 
 For parts that lack explicit dimensions, fall back to bounding-box estimates from the part's sketch extents (width from rectangle width, thickness from extrude amount).
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 `python -m pytest tests/test_morphology_structural.py::test_extract_limb_segment_properties -v -o addopts=`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add ai_cad/morphology_structural.py tests/test_morphology_structural.py
@@ -101,7 +101,7 @@ git commit -m "robocad: Milestone B — extract link cross-section properties fr
 - Produces: `BeamCheckResult` with max stress, safety factor, buckling load, and pass/fail.
 
 **Steps:**
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 def test_cantilever_beam_check_passes_for_stocky_link():
@@ -140,13 +140,13 @@ def test_slender_link_fails_buckling():
     assert result.failure_modes
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 `python -m pytest tests/test_morphology_structural.py -v -o addopts=`
 
 Expected: FAIL with missing `BeamCheckResult` / `beam_check`.
 
-- [ ] **Step 3: Implement beam checks in `ai_cad/morphology_structural.py`**
+- [x] **Step 3: Implement beam checks in `ai_cad/morphology_structural.py`**
 
 Add `BeamCheckResult` dataclass and `beam_check(link, load_case, payload_kg=0.0, drop_height_m=0.0, safety_factor_target=2.0)`:
 
@@ -170,13 +170,13 @@ Add `BeamCheckResult` dataclass and `beam_check(link, load_case, payload_kg=0.0,
 6. A link passes if `safety_factor >= safety_factor_target` AND `buckling_safety >= safety_factor_target`.
 7. Return failure modes: `"yield_exceeded"`, `"buckling"`, or both.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 `python -m pytest tests/test_morphology_structural.py -v -o addopts=`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add ai_cad/morphology_structural.py tests/test_morphology_structural.py
@@ -197,7 +197,7 @@ git commit -m "robocad: Milestone B — lightweight beam bending and buckling ch
 - Produces: `float` in [0, 1] penalizing links that fail stress/buckling.
 
 **Steps:**
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 def test_structural_score_penalizes_slender_humanoid():
@@ -212,13 +212,13 @@ def test_structural_score_penalizes_slender_humanoid():
     assert result["scores"]["structural"] < 0.5
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 `python -m pytest tests/test_morphology_structural.py::test_structural_score_penalizes_slender_humanoid -v -o addopts=`
 
 Expected: FAIL — `score_candidate` has no `use_structural` argument.
 
-- [ ] **Step 3: Implement structural scoring**
+- [x] **Step 3: Implement structural scoring**
 
 In `ai_cad/morphology_structural.py`:
 
@@ -249,19 +249,19 @@ In `ai_cad/morphology.py`:
    - Keep other weights: workspace 0.25, gait 0.25, actuator 0.15, compactness 0.05.
 5. Expose `structural_score` and `structural_notes` in the returned score dict.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 `python -m pytest tests/test_morphology_structural.py::test_structural_score_penalizes_slender_humanoid -v -o addopts=`
 
 Expected: PASS.
 
-- [ ] **Step 5: Run default suite to confirm no regressions**
+- [x] **Step 5: Run default suite to confirm no regressions**
 
 `python -m pytest --timeout=120 -q`
 
 Expected: 380 passed.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add ai_cad/morphology_structural.py ai_cad/morphology.py tests/test_morphology_structural.py
@@ -282,7 +282,7 @@ git commit -m "robocad: Milestone B — structural_score wired into morphology c
 - Produces: `VerificationResult` from deep structural analysis, or graceful fallback.
 
 **Steps:**
-- [ ] **Step 1: Add helper `run_deep_structural_for_candidate`**
+- [x] **Step 1: Add helper `run_deep_structural_for_candidate`**
 
 In `ai_cad/morphology_structural.py`:
 
@@ -321,11 +321,11 @@ def run_deep_structural_for_candidate(
     }
 ```
 
-- [ ] **Step 2: Add optional deep verification in `search_morphologies`**
+- [x] **Step 2: Add optional deep verification in `search_morphologies`**
 
 Add parameter `run_deep_structural: bool = False` and `deep_top_n: int = 3` to `search_morphologies`. When enabled, after scoring all candidates, run `run_deep_structural_for_candidate` on the top-N candidates and merge the result into their score dicts. The lightweight `structural_score` remains the primary filter; deep verification adds diagnostic detail.
 
-- [ ] **Step 3: Write smoke test**
+- [x] **Step 3: Write smoke test**
 
 ```python
 @pytest.mark.heavy
@@ -341,13 +341,13 @@ def test_deep_structural_smoke_falls_back_gracefully():
         assert "passed" in result
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 `python -m pytest tests/test_morphology_structural.py -v -o addopts=`
 
 Expected: PASS (deep test may be deselected by default, run with `-m heavy`).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add ai_cad/morphology_structural.py ai_cad/morphology.py tests/test_morphology_structural.py
@@ -362,7 +362,7 @@ git commit -m "robocad: Milestone B — optional deep FEA dispatch for top-N mor
 - Test: `tests/test_morphology_structural.py`
 
 **Steps:**
-- [ ] **Step 1: Add end-to-end morphology search test**
+- [x] **Step 1: Add end-to-end morphology search test**
 
 ```python
 @pytest.mark.slow
@@ -378,13 +378,13 @@ def test_morphology_search_prefers_structurally_sound_humanoid():
     assert top.scores.get("structural", 0.0) > 0.0
 ```
 
-- [ ] **Step 2: Run test**
+- [x] **Step 2: Run test**
 
 `python -m pytest tests/test_morphology_structural.py::test_morphology_search_prefers_structurally_sound_humanoid -v -o addopts=`
 
 Expected: PASS.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add tests/test_morphology_structural.py
@@ -400,26 +400,26 @@ git commit -m "robocad: Milestone B — structural regression test on morphology
 - Test: full suite
 
 **Steps:**
-- [ ] **Step 1: Run default suite**
+- [x] **Step 1: Run default suite**
 
 `python -m pytest --timeout=120 -q`
 
 Expected: 380 passed, same baseline.
 
-- [ ] **Step 2: Run heavy/slow suite**
+- [x] **Step 2: Run heavy/slow suite**
 
 `python -m pytest tests -m "heavy or slow or mujoco" --tb=short -q`
 
 Expected: green.
 
-- [ ] **Step 3: Update documentation**
+- [x] **Step 3: Update documentation**
 
 - `CurrentTo10.md`: update score from 8.0 → 8.3/10, add Milestone B results.
 - `PLAN.md`: append Milestone B acceptance to milestone table.
 - `README.md`: add Milestone B line to phase table.
 - Memory files: create/update `milestone-b-structural-dynamics.md` and update `robocad-confidence-10-10-roadmap.md` / `MEMORY.md`.
 
-- [ ] **Step 4: Final commit**
+- [x] **Step 4: Final commit**
 
 ```bash
 git add -A
