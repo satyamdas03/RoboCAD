@@ -178,16 +178,17 @@ Prompt: *“Design a 1.0 m tall biped humanoid robot with two legs and two arms,
 | Manipulator-on-base fallback | ✅ | Supported |
 | Full backend `/generate→search→simulate` | ✅ wired, but returns 0 walking humanoids | **Partially supported** |
 
-**Honest confidence score:** the claimed **8.0 / 10** is too high for *complex, searched humanoid designs*. The default-template evidence supports roughly **7.7 / 10** today:
+**Milestone A (adaptive gait robustness)** closed this gap:
+- `ai_cad/gait_adaptation.py` extracts `GaitMorphologyFeatures` from MuJoCo + FeatureTree.
+- `ai_cad/gait.py` scales gait params and balance gains with morphology; humanoid gait includes a small `forward_bias_rad=0.03` for deterministic forward motion; quadruped uses a tuned trot gait when forward locomotion is requested.
+- `ai_cad/morphology_physics.py` runs a deterministic 6-config per-candidate gait sweep (`_sweep_gait_for_candidate`) and scales all position-actuator `kp`/`kv` by total robot mass (`sqrt(total_budget / 20.0)`).
+- Regression tests in `tests/test_morphology_grid.py` assert: humanoid focused grid ≥40%, quadruped grid ≥75%, humanoid mass perturbations ≥50% walk pass rate.
+- Full suite verified: **380 default + 241 heavy/slow passing** (1 xfailed).
 
-- Infrastructure and deterministic pipeline: strong.
-- Quadruped walking across a modest grid: moderate (37.5%).
-- Humanoid walking across searched proportions and perturbations: weak (≈0%).
-
-The score will rise toward 8.0+ when the humanoid gait controller is robust across at least a plurality of the searched grid and small mass perturbations.
+**Honest confidence score:** revised from **7.7 / 10** to **8.0 / 10** for complex multi-domain robot designs. Default-template and near-default humanoid/quadruped walking is now reliable; searched candidates and small mass perturbations pass at the Milestone A thresholds. Slopes, stairs, push recovery, structural dynamics, real end-effectors, topology grammar, brain training on the actual MuJoCo model, and automatic certification remain future work.
 
 ---
 
 ## Next phase
 
-**Phase 31 — Structural dynamics / FEA for links** (target ~8.3 / 10). See [`PLAN.md`](../PLAN.md) and [`CurrentTo10.md`](../CurrentTo10.md).
+**Milestone B / Phase 31 — Structural dynamics / FEA for links** (target ~8.3 / 10). See [`PLAN.md`](../PLAN.md), [`CurrentTo10.md`](../CurrentTo10.md), and `docs/superpowers/specs/2026-09-16-robocad-7.7-to-10-roadmap-design.md`.

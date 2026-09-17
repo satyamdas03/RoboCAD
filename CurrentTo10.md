@@ -1,25 +1,25 @@
 # Current RoboCAD → 10/10
 
-**Current RoboCAD is in a solid, shippable state:** 380 default + 232 heavy/slow tests passing, frontend build passes, Phase 28A–F are complete, Phase 29 physics-based morphology scoring (standing + sway + stepping) is complete, and Phase 30 real gait synthesis (balance-aware forward locomotion for biped + quadruped) is complete and wired into the morphology pipeline.
+**Current RoboCAD is in a solid, shippable state:** 380 default + 241 heavy/slow tests passing, frontend build passes, Phase 28A–F complete, Phase 29 physics-based morphology scoring (standing + sway + stepping) complete, and **Milestone A (adaptive gait robustness)** complete. The humanoid and quadruped gait controllers now scale with morphology, run a deterministic per-candidate gait sweep, scale position-actuator gains by total robot mass, and use a tuned quadruped trot gait.
 
-My honest confidence score for **complex multi-domain robot designs, especially humanoids**, is **7.7 / 10**. The pipeline validates morphology with real MuJoCo standing, sway, stepping, and *default-template* walking rollouts, but the humanoid walking controller is **not yet robust** across searched morphologies or mass perturbations. The remaining gap is robust gait synthesis across the morphology grid, structural dynamics, and brain-in-the-loop control. I have written a full deep-analysis memory file at:
+My honest confidence score for **complex multi-domain robot designs, especially humanoids**, is **8.0 / 10**. The pipeline validates morphology with real MuJoCo standing, sway, stepping, and walking rollouts. Default-template and near-default humanoid/quadruped candidates walk reliably; the searched grid and small mass perturbations now pass at the Milestone A acceptance thresholds (humanoid focused grid ≥40%, quadruped grid ≥75%, mass perturbations ≥50%). The remaining gap is structural dynamics, workspace/collision/manipulability, real end-effector families, topology grammar, real MuJoCo brain training, and automatic simulation certification. The full deep-analysis memory file lives at:
 
 `C:\Users\point\.claude\projects\C--Users-point-projects-RoboCAD\memory\robocad-confidence-10-10-roadmap.md`
 
-and indexed it in `MEMORY.md`.
+and is indexed in `MEMORY.md`.
 
 ---
 
-## Why 7.7 / 10 today
+## Why 8.0 / 10 today
 
-The score reflects that the *infrastructure* is green and deterministic, and the *physics reasoning* layer is now real rather than heuristic for morphology validation. The next jump requires full gait synthesis, structural dynamics, and brain training on real models.
+The score reflects that the *infrastructure* is green and deterministic, the *physics reasoning* layer is real rather than heuristic, and **adaptive flat-ground gait synthesis is now robust enough for searched candidates and small mass perturbations**. The next jump requires structural dynamics, self-collision/manipulability, real end-effectors, topology grammar, brain training on the actual MuJoCo model, and automatic certification.
 
 | Subsystem | Current state | Caveat |
 |---|---|---|
 | Morphology search | Runs fast, deterministic, cached FK, **physics-validated** for standing + sway + stepping + walking | Flat-ground walking is synthesized; slopes/stairs/push recovery remain Phase 36 |
-| Stability / gait | MuJoCo standing/sway/step/walk rollouts with balance feedback | Real flat-ground locomotion works for biped and quadruped templates; dynamic trot and rough terrain are future work |
+| Stability / gait | MuJoCo standing/sway/step/walk rollouts with **morphology-aware** balance feedback and per-candidate gait sweep | Dynamic trot and rough terrain are future work |
 | Workspace | Caps at 4096 samples | Humanoid sagittal arms report `workspace_volume = 0.0 mm³`, falls back to max reach |
-| Actuator sizing | Payload × lever-arm static formulas | Not inverse-dynamics based |
+| Actuator sizing | Payload × lever-arm static formulas; position actuators scale with total robot mass | Not inverse-dynamics based |
 | Brain training | 2-D `AbstractAttentionEnv` abstraction | Does not control the actual MuJoCo humanoid |
 | MuJoCo validation | 20-step load test | Catches load errors, not dynamic instability |
 | Topology set | 3 templates | Anything outside biped/quadruped/manipulator falls back to LLM |
@@ -69,11 +69,11 @@ This is not one phase. It is a deliberate research-engineering program. Honest e
 - Added `tests/test_morphology_physics.py` (6 slow tests, passing; humanoid step pass asserted).
 - Full suite: **380 default + 229 heavy/slow passing**.
 
-**Effort:** 3–4 weeks total; closed in current session.
+**Effort:** 3–4 weeks total; closed in prior session.
 
 ### Phase 30 — Real gait synthesis and validation ✅ COMPLETE (honest validation revised score 7.7/10)
 
-Built a deterministic balance-feedback gait controller for biped/quadruped templates and integrated walking into the morphology score. Honest end-to-end validation shows default-template walking passes, but the humanoid controller is not yet robust across searched morphologies or mass perturbations.
+Built a deterministic balance-feedback gait controller for biped/quadruped templates and integrated walking into the morphology score. Honest end-to-end validation showed default-template walking passes, but the humanoid controller was not yet robust across searched morphologies or mass perturbations.
 
 **Delivered in this session:**
 - `ai_cad/gait.py`: balance-aware `run_walk_test`, `default_walk_params`, `default_walk_balance_gains`, stance/swing detection, capture-point swing-foot corrections, and safe clamped feedback.
@@ -85,49 +85,64 @@ Built a deterministic balance-feedback gait controller for biped/quadruped templ
 
 **Effort:** ~2 sessions on top of the scaffold.
 
-### Phase 31 — Structural dynamics / FEA for links (~8.3/10)
+### Milestone A — Adaptive gait robustness (7.7 → 8.0/10) ✅ COMPLETE
+
+Closed the humanoid/quadruped gait generalization gap with morphology-aware controllers, per-candidate gait sweeps, mass-aware actuator gains, and a tuned quadruped trot gait.
+
+**Delivered in this session:**
+- `ai_cad/gait_adaptation.py`: extracts `GaitMorphologyFeatures` (COM height, leg length, mass, foot size, template) from MuJoCo model + FeatureTree.
+- `ai_cad/gait.py`: `morphology_aware_walk_params` and `morphology_aware_balance_gains` scale gait period, step length, duty factor, hip/knee motion, and balance gains to the candidate. Humanoid gait includes a small `forward_bias_rad=0.03` for deterministic forward motion; quadruped uses a dynamic trot gait when forward bias is requested.
+- `ai_cad/morphology_physics.py`: `_sweep_gait_for_candidate` tries 6 deterministic gait variants and keeps the best `walk_score`; position-actuator `kp`/`kv` are scaled by total robot mass (`sqrt(total_budget / 20.0)`) so light and heavy candidates both track well.
+- `tests/test_gait_adaptation.py`: feature extraction and morphology-aware param tests.
+- `tests/test_morphology_grid.py`: grid pass-rate regression tests (humanoid ≥40%, quadruped ≥75%) and mass-perturbation regression test (≥50%).
+- `tests/test_morphology_physics.py`: asserts position-actuator gains scale with mass.
+- Full suite verified: **380 default + 241 heavy/slow passing** (1 xfailed).
+
+**Score impact:** 7.7 → **8.0 / 10** for complex multi-domain robot designs.
+
+### Phase 31 / Milestone B — Structural dynamics / FEA for links (~8.3/10)
 
 Wire the existing deep FEA dispatcher into robot-template certification. Add beam bending / buckling checks using real link cross-sections and materials.
 
 **Effort:** 4–6 weeks.
 
-### Phase 32 — Self-collision and manipulability (~8.5/10)
+### Phase 32 / Milestone C — Self-collision and manipulability (~8.5/10)
 
 Sample task poses, run collision checks, compute manipulability index. Add `collision_penalty` and `manipulability_score` to the composite.
 
 **Effort:** 3–4 weeks.
 
-### Phase 33 — Real end-effector families (~8.7/10)
+### Phase 33 / Milestone D — Real end-effector families (~8.7/10)
 
 Add part families for parallel-jaw gripper, three-finger hand, vacuum gripper, point/compliant feet. Make `_attach_end_effector` actually change the tree and mass distribution.
 
 **Effort:** 4–5 weeks.
 
-### Phase 34 — Topology search beyond templates (~9.0/10)
+### Phase 34 / Milestone E — Topology search beyond templates (~9.0/10)
 
 Implement a grammar for robot topologies: base type, limb count, attachment points, joint sequences. Search the grammar and validate each with Phases 29–32.
 
 **Effort:** 8–10 weeks. This is the hardest layer.
 
-### Phase 35 — Brain training on actual MuJoCo models (~9.3/10)
+### Phase 35 / Milestone F — Brain training on actual MuJoCo models (~9.3/10)
 
 Replace `AbstractAttentionEnv` with a `WorldReplayEnv` that rolls out the real MJCF. Train MLP/RNN policies with CEM/PPO/ES on actual robot tasks (walk, pick-place, push).
 
 **Effort:** 8–12 weeks.
 
-### Phase 36 — Automatic simulation certification (~9.6/10)
+### Phase 36 / Milestone G — Automatic simulation certification (~9.6/10)
 
 Extend certification with randomized terrain, payload lift, push recovery, drop test, actuator saturation. Run automatically after every complex design.
 
 **Effort:** 4–6 weeks.
 
-### Phase 37 — Sim-to-real bridge (~9.8/10)
+### Phase 37 / Milestone H — Sim-to-real bridge (~9.8/10)
 
 System identification from real telemetry, calibrated domain randomization, safety-guarded deployment. This is Phase 27D, currently hardware-blocked.
 
 **Effort:** 6–12 months, gated on physical hardware.
 
-### Phase 38 — Fully automated voice-to-certified-design (~10/10)
+### Phase 38 / Milestone I — Fully automated voice-to-certified-design (~10/10)
 
 HERMES orchestrates decomposition, topology search, physics validation, brain training, and certification. Automatic retry-on-failure. Complete audit trail.
 
@@ -171,8 +186,16 @@ The “superpowers” are:
    - Added humanoid and quadruped walk-progress slow tests.
    - Full suite verified: **380 default + 232 heavy/slow passing**.
 
-Score moved from **7.6 → 7.7 / 10** after honest validation (default-template walk OK; grid/perturbation/backend flow still brittle).
+3. **Milestone A — adaptive gait robustness (7.7 → 8.0/10)**
+   - `ai_cad/gait_adaptation.py`: `GaitMorphologyFeatures` extraction from MuJoCo + FeatureTree.
+   - `ai_cad/gait.py`: `morphology_aware_walk_params` / `morphology_aware_balance_gains`; humanoid `forward_bias_rad=0.03`; quadruped trot selection in `run_step_test`.
+   - `ai_cad/morphology_physics.py`: deterministic 6-config per-candidate gait sweep (`_sweep_gait_for_candidate`); total-mass-aware position-actuator gain scaling.
+   - `tests/test_gait_adaptation.py`, `tests/test_morphology_grid.py`, `tests/test_morphology_physics.py`: morphology features, grid pass-rate, mass-perturbation, and actuator-gain tests.
+   - `scripts/progress_report.py`: dynamic milestone detection from plan checkbox state.
+   - Full suite verified: **380 default + 241 heavy/slow passing** (1 xfailed).
+
+Score moved from **7.7 → 8.0 / 10** after adaptive gait robustness delivered the targeted grid and mass-perturbation pass rates.
 
 ## First concrete next step
 
-Phase 30 is closed. Move into **Phase 31 — Structural dynamics / FEA for links** to raise the score toward 8.3/10.
+Milestone A is closed. Move into **Milestone B (Phase 31) — Structural dynamics / FEA for links** to raise the score toward 8.3/10.
