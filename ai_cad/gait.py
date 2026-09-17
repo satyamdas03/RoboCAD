@@ -384,7 +384,9 @@ def morphology_aware_walk_params(features: "GaitMorphologyFeatures") -> GaitPara
         knee_lift_rad=knee_lift,
         ankle_comp_rad=0.03,
         arm_swing_rad=0.03,
-        forward_bias_rad=0.0,
+        # Small forward hip bias gives the humanoid a deterministic forward
+        # velocity component independent of balance-feedback tuning.
+        forward_bias_rad=0.03,
     )
 
 
@@ -869,7 +871,10 @@ def run_step_test(
         if template == "humanoid":
             targets = humanoid_gait_targets(phase, cur_params)
         elif template == "quadruped":
-            targets = quadruped_gait_targets(phase, cur_params, gait_style="wave")
+            # Use a trot gait when forward locomotion is requested; wave gait is
+            # more stable for stepping-in-place tests but slower for walking.
+            gait_style = "trot" if cur_params.forward_bias_rad > 0.01 or cur_params.step_period_s <= 1.0 else "wave"
+            targets = quadruped_gait_targets(phase, cur_params, gait_style=gait_style)
         else:
             targets = {}
 

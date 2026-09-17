@@ -59,6 +59,7 @@ _GAIT_SWEEP_CONFIGS: list[dict[str, float]] = [
 ]
 
 
+
 def _mujoco_available() -> bool:
     return mujoco is not None
 
@@ -254,6 +255,24 @@ def _sweep_gait_for_candidate(
     features = extract_morphology_features(model, data, tree)
     base_params = morphology_aware_walk_params(features)
     base_gains = morphology_aware_balance_gains(features)
+
+    # For masses far from the nominal 20 kg template, scale the base gait down
+    # and add more double-support so the controller has larger stability margins.
+    mass_margin = abs(features.robot_mass_kg - 20.0)
+    if mass_margin > 2.0:
+        conservative = min(0.80, 1.0 - 0.02 * mass_margin)
+        base_params = GaitParams(
+            step_length_m=_clamp(base_params.step_length_m * conservative, 0.02, 0.30),
+            step_height_m=base_params.step_height_m,
+            step_period_s=_clamp(base_params.step_period_s * (1.0 + 0.015 * mass_margin), 0.5, 3.5),
+            duty_factor=_clamp(base_params.duty_factor + 0.02 * mass_margin, 0.50, 0.95),
+            hip_swing_rad=_clamp(base_params.hip_swing_rad * conservative, 0.02, 0.35),
+            knee_lift_rad=_clamp(base_params.knee_lift_rad * conservative, 0.03, 0.45),
+            ankle_comp_rad=base_params.ankle_comp_rad,
+            arm_swing_rad=base_params.arm_swing_rad,
+            abduction_rad=base_params.abduction_rad,
+            forward_bias_rad=base_params.forward_bias_rad,
+        )
 
     best: dict[str, Any] | None = None
     for config in _GAIT_SWEEP_CONFIGS:
