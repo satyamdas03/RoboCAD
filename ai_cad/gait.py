@@ -366,15 +366,18 @@ def morphology_aware_walk_params(features: "GaitMorphologyFeatures") -> GaitPara
         )
 
     # Humanoid: slow, conservative walking. Taller robots need longer period.
-    max_step = max(0.03, min(features.foot_length_m * 0.9, 0.12))
-    period = _clamp(1.4 + 1.4 * features.com_height_m, 1.2, 2.8)
-    # Heavier robots need more double-support time.
-    duty = _clamp(0.75 + 0.005 * features.robot_mass_kg, 0.70, 0.92)
-    hip_swing = max(0.05, min(0.18, features.total_leg_length_m * 0.3))
-    knee_lift = max(0.06, min(0.22, features.total_leg_length_m * 0.4))
+    # Keep step length small relative to foot length and COM height so the
+    # swing foot lands within the support polygon. Match the default template
+    # at its nominal size (0.46 m COM / 0.46 m leg) so the baseline still passes.
+    max_step = _clamp(0.04 + 0.04 * features.com_height_m, 0.03, 0.08)
+    period = _clamp(1.7 + 0.6 * features.com_height_m, 1.6, 2.4)
+    # Heavier robots need more double-support time; keep duty high for stability.
+    duty = _clamp(0.83 + 0.002 * features.robot_mass_kg, 0.80, 0.90)
+    hip_swing = _clamp(0.08 + 0.05 * features.total_leg_length_m, 0.08, 0.14)
+    knee_lift = _clamp(0.10 + 0.07 * features.total_leg_length_m, 0.10, 0.18)
     return GaitParams(
         step_length_m=max_step,
-        step_height_m=max(0.010, features.com_height_m * 0.015),
+        step_height_m=max(0.015, features.com_height_m * 0.03),
         step_period_s=period,
         duty_factor=duty,
         hip_swing_rad=hip_swing,
@@ -407,13 +410,13 @@ def morphology_aware_balance_gains(features: "GaitMorphologyFeatures") -> Balanc
         )
 
     return BalanceGains(
-        hip_pitch_gain=_clamp(0.12 * height_factor, 0.08, 0.28),
-        ankle_pitch_gain=_clamp(0.16 * height_factor, 0.10, 0.35),
-        com_vel_gain=_clamp(0.05 + 0.001 * mass_factor, 0.03, 0.12),
-        hip_roll_gain=_clamp(0.04 * height_factor, 0.03, 0.10),
-        lean_target_x=_clamp(0.02 * height_factor, 0.01, 0.05),
-        com_vel_target=_clamp(0.10 + 0.05 * height_factor, 0.08, 0.22),
-        capture_gain=_clamp(0.06 + 0.02 * height_factor, 0.04, 0.14),
+        hip_pitch_gain=_clamp(0.12 + 0.12 * height_factor, 0.10, 0.30),
+        ankle_pitch_gain=_clamp(0.16 + 0.16 * height_factor, 0.14, 0.40),
+        com_vel_gain=_clamp(0.06 + 0.002 * mass_factor, 0.04, 0.12),
+        hip_roll_gain=_clamp(0.04 + 0.04 * height_factor, 0.03, 0.12),
+        lean_target_x=_clamp(0.03 + 0.02 * height_factor, 0.02, 0.06),
+        com_vel_target=_clamp(0.10 + 0.10 * height_factor, 0.08, 0.25),
+        capture_gain=_clamp(0.08 + 0.05 * height_factor, 0.05, 0.18),
     )
 
 
