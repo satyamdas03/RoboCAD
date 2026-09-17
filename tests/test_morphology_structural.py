@@ -59,3 +59,19 @@ def test_slender_link_fails_buckling_or_yield():
     result = beam_check(link, load_case="cantilever_payload", payload_kg=5.0)
     assert not result.passed
     assert result.failure_modes
+
+
+def test_structural_score_penalizes_slender_humanoid():
+    from ai_cad.morphology import score_candidate
+    from ai_cad.robot_templates import humanoid_template
+
+    tree = humanoid_template()
+    # Deliberately long limbs to trigger structural failure.
+    tree = tree.update_parameter("thigh_length", 400.0)
+    tree = tree.update_parameter("shin_length", 350.0)
+    tree = tree.update_parameter("upper_arm_length", 350.0)
+    tree = tree.update_parameter("forearm_length", 300.0)
+    result = score_candidate(tree, payload_kg=5.0, robot_mass_kg=20.0, use_physics=False, use_structural=True)
+    # Long thin limbs should cause at least one link to fail.
+    assert result["structural"] < 1.0
+    assert result["structural"] >= 0.0

@@ -90,7 +90,7 @@ def test_score_candidate_returns_expected_keys():
     candidates = search_morphologies(space, payload_kg=5.0)
     assert candidates
     scores = score_candidate(candidates[0].tree, payload_kg=5.0)
-    expected = {"stability", "workspace", "gait", "actuator", "compactness", "composite"}
+    expected = {"stability", "workspace", "gait", "actuator", "compactness", "structural", "composite"}
     assert expected.issubset(scores.keys())
     assert 0.0 <= scores["composite"] <= 1.0
     assert all(0.0 <= scores[k] <= 1.0 for k in expected if k != "composite")
