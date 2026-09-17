@@ -11,6 +11,7 @@ support-polygon heuristics.
 """
 from __future__ import annotations
 
+import math
 import shutil
 import tempfile
 import xml.etree.ElementTree as ET
@@ -26,19 +27,36 @@ except Exception:  # pragma: no cover - exercised only where mujoco is installed
 
 from ai_cad.feature_tree import FeatureTree
 from ai_cad.gait import (
+    BalanceGains,
+    GaitParams,
     default_standing_pose,
     default_step_params,
     default_walk_params,
+    morphology_aware_balance_gains,
+    morphology_aware_walk_params,
     run_step_test,
     run_walk_test,
     _apply_pd_targets,
+    _clamp,
     _detect_template,
     _foot_body_ids,
 )
+from ai_cad.gait_adaptation import extract_morphology_features
 from ai_cad.geda_bridge.exporter import export_bundle_from_tree
 
 
 G = 9.80665
+
+# Deterministic gait sweep configurations used by _sweep_gait_for_candidate.
+# Each entry scales the morphology-aware base gait; same candidate = same best config.
+_GAIT_SWEEP_CONFIGS: list[dict[str, float]] = [
+    {"period_scale": 1.00, "duty_offset": 0.00, "hip_scale": 1.00, "knee_scale": 1.00, "bias": 0.00},
+    {"period_scale": 0.85, "duty_offset": 0.05, "hip_scale": 1.20, "knee_scale": 1.10, "bias": 0.03},
+    {"period_scale": 1.15, "duty_offset": -0.05, "hip_scale": 0.85, "knee_scale": 0.90, "bias": -0.02},
+    {"period_scale": 0.90, "duty_offset": 0.00, "hip_scale": 1.00, "knee_scale": 1.30, "bias": 0.01},
+    {"period_scale": 1.05, "duty_offset": 0.03, "hip_scale": 0.80, "knee_scale": 1.00, "bias": 0.04},
+    {"period_scale": 0.80, "duty_offset": 0.08, "hip_scale": 1.30, "knee_scale": 1.20, "bias": 0.05},
+]
 
 
 def _mujoco_available() -> bool:
@@ -210,6 +228,73 @@ def _scale_masses_and_add_freejoint(mjcf_path: Path, tree: FeatureTree) -> None:
             actuator.remove(motor)
 
     tree_xml.write(mjcf_path, encoding="utf-8", xml_declaration=True)
+
+
+def _sweep_gait_for_candidate(
+    model,
+    data,
+    tree: FeatureTree,
+    template: str,
+    n_steps: int,
+) -> dict[str, Any]:
+    """Try several gait variants and return the best walk result.
+
+    The sweep is deterministic: same candidate, same best config.
+    """
+    features = extract_morphology_features(model, data, tree)
+    base_params = morphology_aware_walk_params(features)
+    base_gains = morphology_aware_balance_gains(features)
+
+    best: dict[str, Any] | None = None
+    for config in _GAIT_SWEEP_CONFIGS:
+        params = GaitParams(
+            step_length_m=_clamp(base_params.step_length_m * (1.0 + config["bias"]), 0.01, 0.30),
+            step_height_m=base_params.step_height_m,
+            step_period_s=_clamp(base_params.step_period_s * config["period_scale"], 0.4, 3.5),
+            duty_factor=_clamp(base_params.duty_factor + config["duty_offset"], 0.40, 0.95),
+            hip_swing_rad=_clamp(base_params.hip_swing_rad * config["hip_scale"], 0.02, 0.35),
+            knee_lift_rad=_clamp(base_params.knee_lift_rad * config["knee_scale"], 0.03, 0.45),
+            ankle_comp_rad=base_params.ankle_comp_rad,
+            arm_swing_rad=base_params.arm_swing_rad,
+            abduction_rad=base_params.abduction_rad,
+            forward_bias_rad=base_params.forward_bias_rad + config["bias"],
+        )
+        gains = BalanceGains(
+            hip_pitch_gain=base_gains.hip_pitch_gain,
+            ankle_pitch_gain=base_gains.ankle_pitch_gain,
+            com_vel_gain=base_gains.com_vel_gain,
+            hip_roll_gain=base_gains.hip_roll_gain,
+            lean_target_x=_clamp(base_gains.lean_target_x + config["bias"] * 0.3, 0.0, 0.10),
+            com_vel_target=base_gains.com_vel_target,
+            capture_gain=base_gains.capture_gain,
+        )
+
+        mujoco.mj_resetData(model, data)
+        walk = run_walk_test(
+            model,
+            data,
+            template=template,
+            n_steps=n_steps,
+            params=params,
+            balance_gains=gains,
+        )
+        if best is None or _walk_result_better(walk, best):
+            best = walk
+            best["_params"] = params
+            best["_gains"] = gains
+    return best or {"walk_ok": False, "forward_distance_m": 0.0, "torso_z_drop_m": 1.0, "max_pitch_roll_deg": 90.0}
+
+
+def _walk_result_better(a: dict[str, Any], b: dict[str, Any]) -> bool:
+    """Prefer walk_ok, then distance, then smallest drop/tilt."""
+    if bool(a.get("walk_ok")) and not bool(b.get("walk_ok")):
+        return True
+    if not bool(a.get("walk_ok")) and bool(b.get("walk_ok")):
+        return False
+    # Both ok or both not ok: compare composite quality.
+    score_a = a.get("forward_distance_m", 0.0) - 2.0 * a.get("torso_z_drop_m", 1.0) - 0.05 * a.get("max_pitch_roll_deg", 90.0)
+    score_b = b.get("forward_distance_m", 0.0) - 2.0 * b.get("torso_z_drop_m", 1.0) - 0.05 * b.get("max_pitch_roll_deg", 90.0)
+    return score_a > score_b
 
 
 def _load_model_from_tree(tree: FeatureTree, output_dir: Path, name: str = "model") -> tuple[Any, Any] | None:
@@ -498,11 +583,12 @@ def physics_score_candidate(
             result["notes"].append("stepping test skipped (non-legged template)")
 
         # Walk test: Phase 30 forward-locomotion objective. Skipped for
-        # non-legged designs.
+        # non-legged designs. Milestone A: sweep a small deterministic set of
+        # gait variants derived from the candidate's morphology and keep the best
+        # result so searched morphologies are not stuck with a single fixed gait.
         if is_legged:
-            mujoco.mj_resetData(model, data)
             walk_steps = max(n_steps + 200, 600)
-            walk = run_walk_test(model, data, template=None, n_steps=walk_steps)
+            walk = _sweep_gait_for_candidate(model, data, tree, template, walk_steps)
             result["walk"] = walk
             result["walk_ok"] = walk.get("walk_ok", False)
             result["walk_score"] = 1.0 if result["walk_ok"] else 0.0
