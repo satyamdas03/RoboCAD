@@ -152,3 +152,144 @@ def extract_link_properties(tree: FeatureTree, material: str = "PLA") -> list[Li
             )
         )
     return links
+
+
+def _recover_rectangular_dimensions(link: LinkStructuralProperties) -> tuple[float, float]:
+    """Recover width and thickness from area and second moments of area.
+
+    Assumes a rectangular cross-section. ``width`` is the larger in-plane
+    dimension and ``thickness`` is the smaller one.
+    """
+    area = max(link.area_m2, 1e-12)
+    i_max = max(link.i_max_m4, 1e-18)
+    i_min = max(link.i_min_m4, 1e-18)
+    ratio = math.sqrt(i_max / i_min)
+    width = math.sqrt(area * ratio)
+    thickness = area / width
+    return width, thickness
+
+
+def beam_check(
+    link: LinkStructuralProperties,
+    load_case: str = "cantilever_payload",
+    payload_kg: float = 0.0,
+    drop_height_m: float = 0.0,
+    safety_factor_target: float = 2.0,
+    impact_duration_s: float = 0.005,
+) -> BeamCheckResult:
+    """Run conservative beam stress and Euler-buckling checks on one link.
+
+    ``load_case`` supports ``cantilever_payload`` and ``simply_supported_payload``.
+    The applied load includes payload plus the link's own self-weight.
+    """
+    material = link.material
+    if material is None:
+        return BeamCheckResult(
+            name=link.name,
+            passed=False,
+            safety_factor=0.0,
+            buckling_safety=0.0,
+            max_stress_mpa=0.0,
+            critical_buckling_load_n=0.0,
+            applied_load_n=0.0,
+            failure_modes=["unknown_material"],
+            redesign_suggestions=["Specify a known material for structural checks."],
+        )
+
+    width_m, thickness_m = _recover_rectangular_dimensions(link)
+    length_m = max(link.length_m, 1e-6)
+    area_m2 = link.area_m2
+
+    # Applied load = payload + self-weight (conservative point-load approximation).
+    self_weight_n = material.density_kg_m3 * area_m2 * length_m * G
+    payload_n = payload_kg * G
+    applied_load_n = payload_n + self_weight_n
+
+    # Impact factor for drop test.
+    impact_factor = 1.0
+    if drop_height_m > 0.0:
+        impact_velocity = math.sqrt(2.0 * G * drop_height_m)
+        peak_accel_g = impact_velocity / (impact_duration_s * G)
+        impact_factor = max(1.0, peak_accel_g)
+    effective_load_n = applied_load_n * impact_factor
+
+    # Moment and stress about the strong axis (I_max).
+    if load_case == "cantilever_payload":
+        max_moment = effective_load_n * length_m
+        k_buckling = 2.0
+    elif load_case == "simply_supported_payload":
+        max_moment = effective_load_n * length_m / 4.0
+        k_buckling = 1.0
+    else:
+        # Default to cantilever.
+        max_moment = effective_load_n * length_m
+        k_buckling = 2.0
+
+    # Distance from neutral axis to extreme fiber for strong-axis bending.
+    c_m = width_m / 2.0
+    i_max_m4 = max(link.i_max_m4, 1e-18)
+    max_stress_pa = (max_moment * c_m) / i_max_m4
+    max_stress_mpa = max_stress_pa / 1e6
+    safety_factor = material.yield_strength_mpa / max_stress_mpa if max_stress_mpa > 0.0 else float("inf")
+
+    # Euler buckling about the weak axis.
+    i_min_m4 = max(link.i_min_m4, 1e-18)
+    e_pa = material.youngs_modulus_mpa * 1e6
+    critical_buckling_load_n = (math.pi**2 * e_pa * i_min_m4) / ((k_buckling * length_m) ** 2)
+    buckling_safety = critical_buckling_load_n / effective_load_n if effective_load_n > 0.0 else float("inf")
+
+    failure_modes: list[str] = []
+    suggestions: list[str] = []
+    passed = True
+    if safety_factor < safety_factor_target:
+        passed = False
+        failure_modes.append("yield_exceeded")
+        suggestions.append(f"Increase thickness or width of {link.name}; current safety factor {safety_factor:.2f}.")
+    if buckling_safety < safety_factor_target:
+        passed = False
+        failure_modes.append("buckling")
+        suggestions.append(f"Shorten {link.name} or increase its weak-axis second moment of area; current buckling safety {buckling_safety:.2f}.")
+    if not failure_modes:
+        suggestions.append("Link passes conservative stress and buckling checks.")
+
+    return BeamCheckResult(
+        name=link.name,
+        passed=passed,
+        safety_factor=safety_factor,
+        buckling_safety=buckling_safety,
+        max_stress_mpa=max_stress_mpa,
+        critical_buckling_load_n=critical_buckling_load_n,
+        applied_load_n=applied_load_n,
+        failure_modes=failure_modes,
+        redesign_suggestions=suggestions,
+    )
+
+
+def score_candidate_structural(
+    tree: FeatureTree,
+    payload_kg: float = 0.0,
+    material: str = "PLA",
+) -> dict[str, Any]:
+    """Return a lightweight structural score for a morphology candidate.
+
+    Score is the fraction of structural links that pass stress and buckling
+    checks. Returns 1.0 when no structural links are found.
+    """
+    links = extract_link_properties(tree, material=material)
+    if not links:
+        return {
+            "structural_score": 1.0,
+            "links": [],
+            "worst_link": None,
+            "notes": "no structural links found",
+        }
+    results = [beam_check(link, "cantilever_payload", payload_kg=payload_kg) for link in links]
+    ok = sum(1 for r in results if r.passed)
+    score = ok / len(results)
+    worst = min(results, key=lambda r: min(r.safety_factor, r.buckling_safety))
+    return {
+        "structural_score": score,
+        "links": [r.__dict__ for r in results],
+        "worst_link": worst.name,
+        "notes": f"{ok}/{len(results)} links passed",
+    }
