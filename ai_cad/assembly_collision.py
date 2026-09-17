@@ -116,6 +116,7 @@ def check_assembly_collision(
     samples: int = 500,
     tolerance: float = 0.1,
     max_instances: int = 50,
+    joint_states: dict[str, float] | None = None,
 ) -> list[CollisionReport]:
     """Check collision/clearance between every unique pair of assembly instances.
 
@@ -155,7 +156,7 @@ def check_assembly_collision(
         )
 
     parameters = tree.parameter_dict()
-    transforms = compute_instance_transforms(tree, assembly, parameters)
+    transforms = compute_instance_transforms(tree, assembly, parameters, joint_states=joint_states)
 
     # Cache per unique part_id. FeatureTree instances may reuse parts.
     mesh_cache: dict[str, trimesh.Trimesh] = {}

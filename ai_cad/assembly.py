@@ -149,13 +149,42 @@ def compute_instance_transforms(
     tree: FeatureTree,
     assembly: Assembly,
     parameters: dict[str, float] | None = None,
+    joint_states: dict[str, float] | None = None,
 ) -> dict[str, np.ndarray]:
     """Compute a 4x4 transform matrix for every instance in the assembly.
 
     Start with explicit transforms, then iteratively relax mate constraints.
+    When ``joint_states`` is provided, the resulting instance transforms are
+    additionally modified by the articulated joint chain so that collision
+    checks can evaluate pose-dependent self-intersections.
     """
     parameters = parameters or tree.parameter_dict()
     transforms = {inst.id: _explicit_transform(inst) for inst in assembly.instances}
+
+    if joint_states:
+        # Apply articulated joint deltas to the nominal transforms. We use
+        # forward_kinematics to compute world link transforms, then map each
+        # instance to the transform of its associated link id.
+        from ai_cad.kinematic_tree import forward_kinematics
+
+        nominal_transforms = dict(transforms)
+        link_poses = forward_kinematics(
+            tree,
+            assembly,
+            joint_states=joint_states,
+            nominal_transforms=nominal_transforms,
+        )
+        # Map instance id to its parent link if it is a child in a joint,
+        # otherwise keep its nominal transform. This lets collision meshes follow
+        # the articulated pose.
+        child_to_joint = {j.child_link: j for j in (assembly.joints or [])}
+        for inst in assembly.instances:
+            if inst.id in link_poses:
+                transforms[inst.id] = link_poses[inst.id].transform
+            elif inst.id in child_to_joint:
+                link_id = child_to_joint[inst.id].parent_link
+                if link_id in link_poses:
+                    transforms[inst.id] = link_poses[link_id].transform
 
     for _ in range(20):
         deltas: dict[str, list[np.ndarray]] = {inst.id: [] for inst in assembly.instances}

@@ -22,7 +22,9 @@ from ai_cad.actuator_sizing import actuator_summary, size_actuators_for_tree
 from ai_cad.feature_tree import FeatureTree
 from ai_cad.kinematic_tree import sample_reachable_workspace
 from ai_cad.morphology_physics import physics_score_candidate
+from ai_cad.morphology_collision import score_candidate_collision
 from ai_cad.morphology_structural import run_deep_structural_for_candidate, score_candidate_structural
+from ai_cad.morphology_workspace import workspace_proxy
 from ai_cad.robot_templates import humanoid_template, manipulator_on_base_template, quadruped_template
 from ai_cad.stability import check_stability, stability_summary
 
@@ -192,6 +194,7 @@ def score_candidate(
     weights: dict[str, float] | None = None,
     use_physics: bool = True,
     use_structural: bool = True,
+    use_collision: bool = True,
 ) -> dict[str, float]:
     """Score a candidate tree using existing deterministic analysis tools.
 
@@ -202,14 +205,18 @@ def score_candidate(
             validate morphology instead of purely heuristic stability checks.
         use_structural: when True, run lightweight beam stress/buckling checks
             on structural links and include the result in the composite score.
+        use_collision: when True, run representative-pose self-collision checks
+            and include the resulting penalty in the composite score.
     """
     weights = weights or {}
-    w_stability = weights.get("stability", 0.25)
-    w_workspace = weights.get("workspace", 0.25)
-    w_gait = weights.get("gait", 0.25)
-    w_actuator = weights.get("actuator", 0.15)
+    w_stability = weights.get("stability", 0.22)
+    w_workspace = weights.get("workspace", 0.20)
+    w_gait = weights.get("gait", 0.22)
+    w_actuator = weights.get("actuator", 0.13)
     w_compact = weights.get("compactness", 0.05)
     w_structural = weights.get("structural", 0.05)
+    w_collision = weights.get("collision", 0.05)
+    w_manipulability = weights.get("manipulability", 0.08)
 
     if use_physics:
         physics_scores = physics_score_candidate(tree, n_steps=200)
@@ -255,13 +262,14 @@ def score_candidate(
         end_effector_id = "end_effector"
     else:
         end_effector_id = "hand_r"
-    workspace = sample_reachable_workspace(tree, end_effector_id, samples_per_joint=4)
-    envelope = workspace.get("envelope_mm", (0.0, 0.0, 0.0))
-    volume = workspace.get("volume_estimate_mm3", 0.0)
-    # Use maximum reach distance as a robust proxy (sagittal-plane robots can
-    # have zero Y envelope but large X/Z reach).
-    reach_mm = max(envelope) if envelope else 0.0
-    workspace_score = _normalize(reach_mm, 0.0, 1500.0)
+    proxy = workspace_proxy(tree, end_effector_id, samples_per_joint=4)
+    workspace_score = proxy["workspace_score"]
+    manipulability_score_value = proxy["manipulability_score"]
+    # Keep legacy fields for API compatibility.
+    reach_mm = proxy["reach_mm"]
+    sagittal_area_mm2 = proxy["sagittal_area_mm2"]
+    lateral_span_mm = proxy["lateral_span_mm"]
+    volume = proxy["sagittal_area_mm2"]  # backwards-compatible volume proxy
 
     # Gait score.
     gait_score = 1.0 if gait_feasible else 0.0
@@ -309,6 +317,12 @@ def score_candidate(
     structural_report = score_candidate_structural(tree, payload_kg=payload_kg) if use_structural else {"structural_score": 1.0}
     structural_score = float(structural_report["structural_score"])
 
+    # Self-collision: penalize candidates that interfere with themselves in
+    # representative task poses.
+    collision_report = score_candidate_collision(tree) if use_collision else {"collision_penalty": 0.0}
+    collision_penalty = float(collision_report["collision_penalty"])
+    collision_score = 1.0 - collision_penalty
+
     composite = (
         w_stability * stability_score
         + w_workspace * workspace_score
@@ -316,6 +330,8 @@ def score_candidate(
         + w_actuator * actuator_score
         + w_compact * compact_score
         + w_structural * structural_score
+        + w_collision * collision_score
+        + w_manipulability * manipulability_score_value
     )
 
     result: dict[str, Any] = {
@@ -325,11 +341,15 @@ def score_candidate(
         "actuator": round(actuator_score, 4),
         "compactness": round(compact_score, 4),
         "structural": round(structural_score, 4),
+        "collision_penalty": round(collision_penalty, 4),
+        "collision_score": round(collision_score, 4),
+        "manipulability": round(manipulability_score_value, 4),
         "composite": round(composite, 6),
         "max_torque_nm": round(max_torque, 4),
         "total_power_w": round(total_power, 4),
         "workspace_volume_mm3": round(volume, 4),
-        "workspace_envelope_mm": [round(e, 4) for e in envelope],
+        "workspace_sagittal_area_mm2": round(sagittal_area_mm2, 4),
+        "workspace_lateral_span_mm": round(lateral_span_mm, 4),
         "workspace_reach_mm": round(reach_mm, 4),
         "span_ratio": round(ratio, 4),
         "zmp_margin_m": round(zmp_margin_m, 6),
@@ -403,6 +423,7 @@ def search_morphologies(
     weights: dict[str, float] | None = None,
     use_physics: bool = True,
     use_structural: bool = True,
+    use_collision: bool = True,
     run_deep_structural: bool = False,
     deep_top_n: int = 3,
 ) -> list[MorphologyCandidate]:
@@ -415,6 +436,7 @@ def search_morphologies(
         weights: optional scoring weights.
         use_physics: when True, run real MuJoCo rollouts to score candidates.
         use_structural: when True, run beam stress/buckling checks.
+        use_collision: when True, run representative-pose self-collision checks.
         run_deep_structural: when True, run deep CalculiX/surrogate structural
             verification on the top-N ranked candidates.
         deep_top_n: number of top candidates to verify with deep structural FEA.
@@ -440,7 +462,7 @@ def search_morphologies(
                 )
                 tree = _scale_joint_limits(tree, scale)
             scores = score_candidate(
-                tree, payload_kg, robot_mass_kg, weights, use_physics=use_physics, use_structural=use_structural
+                tree, payload_kg, robot_mass_kg, weights, use_physics=use_physics, use_structural=use_structural, use_collision=use_collision
             )
             candidate_id = f"{space.template}_{counter:04d}"
             candidates.append(
