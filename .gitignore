@@ -48,3 +48,7 @@ Thumbs.db
 
 # MuJoCo runtime logs
 MUJOCO_LOG.TXT
+
+# Solver job store artifacts
+verification_jobs.db
+*.db-journal

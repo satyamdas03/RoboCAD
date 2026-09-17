@@ -2,7 +2,7 @@
 
 **Current RoboCAD is in a solid, shippable state:** 380 default + 241 heavy/slow tests passing, frontend build passes, Phase 28A–F complete, Phase 29 physics-based morphology scoring (standing + sway + stepping) complete, and **Milestone A (adaptive gait robustness)** complete. The humanoid and quadruped gait controllers now scale with morphology, run a deterministic per-candidate gait sweep, scale position-actuator gains by total robot mass, and use a tuned quadruped trot gait.
 
-My honest confidence score for **complex multi-domain robot designs, especially humanoids**, is **8.0 / 10**. The pipeline validates morphology with real MuJoCo standing, sway, stepping, and walking rollouts. Default-template and near-default humanoid/quadruped candidates walk reliably; the searched grid and small mass perturbations now pass at the Milestone A acceptance thresholds (humanoid focused grid ≥40%, quadruped grid ≥75%, mass perturbations ≥50%). The remaining gap is structural dynamics, workspace/collision/manipulability, real end-effector families, topology grammar, real MuJoCo brain training, and automatic simulation certification. The full deep-analysis memory file lives at:
+My honest confidence score for **complex multi-domain robot designs, especially humanoids**, is **8.3 / 10**. The pipeline validates morphology with real MuJoCo standing, sway, stepping, and walking rollouts, and now rejects candidates whose limb segments fail lightweight beam bending / buckling checks under payload and drop loads. Default-template and near-default humanoid/quadruped candidates walk reliably; the searched grid and small mass perturbations pass at the Milestone A thresholds; structural scoring penalizes slender or weak links before they are presented. The remaining gap is workspace/collision/manipulability, real end-effector families, topology grammar, real MuJoCo brain training, and automatic simulation certification. The full deep-analysis memory file lives at:
 
 `C:\Users\point\.claude\projects\C--Users-point-projects-RoboCAD\memory\robocad-confidence-10-10-roadmap.md`
 
@@ -10,9 +10,9 @@ and is indexed in `MEMORY.md`.
 
 ---
 
-## Why 8.0 / 10 today
+## Why 8.3 / 10 today
 
-The score reflects that the *infrastructure* is green and deterministic, the *physics reasoning* layer is real rather than heuristic, and **adaptive flat-ground gait synthesis is now robust enough for searched candidates and small mass perturbations**. The next jump requires structural dynamics, self-collision/manipulability, real end-effectors, topology grammar, brain training on the actual MuJoCo model, and automatic certification.
+The score reflects that the *infrastructure* is green and deterministic, the *physics reasoning* layer is real rather than heuristic, **adaptive flat-ground gait synthesis is robust enough for searched candidates and small mass perturbations**, and **structural link checks now filter out candidates whose limbs would yield or buckle under payload + drop loads**. The next jump requires self-collision/manipulability, real end-effectors, topology grammar, brain training on the actual MuJoCo model, and automatic certification.
 
 | Subsystem | Current state | Caveat |
 |---|---|---|
@@ -20,6 +20,7 @@ The score reflects that the *infrastructure* is green and deterministic, the *ph
 | Stability / gait | MuJoCo standing/sway/step/walk rollouts with **morphology-aware** balance feedback and per-candidate gait sweep | Dynamic trot and rough terrain are future work |
 | Workspace | Caps at 4096 samples | Humanoid sagittal arms report `workspace_volume = 0.0 mm³`, falls back to max reach |
 | Actuator sizing | Payload × lever-arm static formulas; position actuators scale with total robot mass | Not inverse-dynamics based |
+| Structural dynamics | Lightweight cantilever / simply-supported bending + Euler buckling for every limb segment; optional deep CalculiX dispatch on top-N | Assumes rectangular cross-section; non-rectangular families need mesh-based properties |
 | Brain training | 2-D `AbstractAttentionEnv` abstraction | Does not control the actual MuJoCo humanoid |
 | MuJoCo validation | 20-step load test | Catches load errors, not dynamic instability |
 | Topology set | 3 templates | Anything outside biped/quadruped/manipulator falls back to LLM |
@@ -100,11 +101,17 @@ Closed the humanoid/quadruped gait generalization gap with morphology-aware cont
 
 **Score impact:** 7.7 → **8.0 / 10** for complex multi-domain robot designs.
 
-### Phase 31 / Milestone B — Structural dynamics / FEA for links (~8.3/10)
+### Milestone B — Structural dynamics / FEA for links (8.0 → 8.3/10) ✅ COMPLETE
 
-Wire the existing deep FEA dispatcher into robot-template certification. Add beam bending / buckling checks using real link cross-sections and materials.
+Closed the structural-dynamics gap by extracting real link cross-sections from morphology candidates, running lightweight cantilever / simply-supported beam bending and Euler-buckling checks, adding a `structural_score` to the morphology composite, and wiring the existing deep CalculiX dispatcher for optional top-N verification.
 
-**Effort:** 4–6 weeks.
+**Delivered in this session:**
+- `ai_cad/morphology_structural.py`: `LinkStructuralProperties`, `extract_link_properties`, `beam_check`, `score_candidate_structural`, `run_deep_structural_for_candidate`.
+- `ai_cad/morphology.py`: `use_structural=True` default in `score_candidate`; `structural_score` weighted 0.05 in composite; optional deep verification in `search_morphologies` via `run_deep_structural` / `deep_top_n`.
+- `tests/test_morphology_structural.py`: extraction, stocky/slender beam checks, slender-humanoid penalty, deep-dispatch graceful fallback, and morphology-search structural regression.
+- Full suite verified: **380 default + 246 heavy/slow passing** (1 xfailed; the unrelated `test_simulate_morphology_candidate` attention-policy timeout is pre-existing).
+
+**Score impact:** 8.0 → **8.3 / 10**.
 
 ### Phase 32 / Milestone C — Self-collision and manipulability (~8.5/10)
 
@@ -196,6 +203,13 @@ The “superpowers” are:
 
 Score moved from **7.7 → 8.0 / 10** after adaptive gait robustness delivered the targeted grid and mass-perturbation pass rates.
 
+### 4. **Milestone B — structural dynamics / FEA for links (8.0 → 8.3/10)** ✅ COMPLETE
+   - `ai_cad/morphology_structural.py`: `LinkStructuralProperties`, `extract_link_properties`, `beam_check`, `score_candidate_structural`, `run_deep_structural_for_candidate`.
+   - `ai_cad/morphology.py`: `use_structural=True` default; `structural_score` weighted 0.05 in composite; optional deep CalculiX dispatch on top-N candidates.
+   - `tests/test_morphology_structural.py`: extraction, beam checks, slender-humanoid penalty, deep-dispatch fallback, morphology-search regression.
+   - Full suite verified: **380 default + 246 heavy/slow passing** (1 xfailed; the unrelated `test_simulate_morphology_candidate` attention-policy timeout is pre-existing).
+   - Score moved from **8.0 → 8.3 / 10**.
+
 ## First concrete next step
 
-Milestone A is closed. Move into **Milestone B (Phase 31) — Structural dynamics / FEA for links** to raise the score toward 8.3/10.
+Milestone A and B are closed. Move into **Milestone C (Phase 32) — Self-collision and manipulability** to raise the score toward 8.5/10.

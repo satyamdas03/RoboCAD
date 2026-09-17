@@ -319,8 +319,12 @@ RoboCAD becomes extraordinary when a user can describe a multi-domain robot syst
   - ✅ **28B — Asset marketplace:** `ai_cad/marketplace.py`, repo-root `marketplace/` catalog + starter packs, backend `/marketplace/items/*` endpoints, frontend `MarketplacePanel.jsx`; 5/5 marketplace tests passing.
   - ✅ **28C — Deep multi-physics engine:** `ai_cad/solvers/` package (geometry prep, meshing, CalculiX/ElmerFEM/OpenFOAM adapters, NVIDIA surrogate, SQLite job store, deep dispatcher), backend `/designs/{id}/deep-verify/*` endpoints, frontend "Deep Analysis" tab in `VerificationPanel.jsx`; 64/64 solver + marketplace tests passing.
   - ✅ **28D — Morphology co-design lab:** `ai_cad/morphology.py` engine, backend `/morphology/*` endpoints, frontend `MorphologyPanel.jsx`, world-model + brain smoke-test integration; 15/15 morphology tests passing.
-- **Full test status (Phase 28A/B/C/D/E/F):** 380 default + 223 heavy/slow tests passing (1 expected failure, 5 benchmark/network tests deselected); frontend production build passes.
-- **Documentation refreshed:** `README.md`, `PLAN.md`, dossiers, and private memory files updated to reflect Phase 28A/B/C/D/E/F completion.
+- **Phase 29 — Physics-based morphology scoring:** MuJoCo standing/sway/step rollouts wired into morphology search; humanoid passes end-to-end; score ~7.6/10.
+- **Phase 30 — Real gait synthesis and validation:** balance-aware walking controller produces >5 cm forward locomotion for default biped + quadruped templates; `walk_score` weighted into morphology composite; honest validation revised score 7.7/10.
+- **Milestone A — Adaptive gait robustness:** morphology-aware gait params/balance gains, per-candidate gait sweep, mass-aware actuator gains, quadruped trot gait; humanoid grid ≥40%, quadruped grid ≥75%, mass perturbations ≥50% walk pass rate; score 7.7 → 8.0/10.
+- **Milestone B — Structural dynamics / FEA for links:** link cross-section extraction, cantilever/simply-supported beam bending + Euler buckling, `structural_score` in morphology composite, optional deep CalculiX dispatch on top-N; score 8.0 → 8.3/10.
+- **Full test status:** 380 default + 246 heavy/slow tests passing (1 xfailed; the unrelated `test_simulate_morphology_candidate` attention-policy timeout is pre-existing), 5 benchmark/network tests deselected; frontend production build passes.
+- **Documentation refreshed:** `README.md`, `CurrentTo10.md`, `PLAN.md`, dossiers, and private memory files updated to reflect Phase 28A–F, Phase 29–30, Milestone A, and Milestone B completion.
 
 ## 9. Immediate next session plan
 
@@ -328,13 +332,15 @@ RoboCAD becomes extraordinary when a user can describe a multi-domain robot syst
 
 - ✅ Phase 28D (morphology co-design lab) implemented, tested, and committed.
 - ✅ Phase 28E (simulation certification) and 28F (product hardening + solver install bootstrap + marketplace archive upload) implemented, tested, and committed.
-- ✅ README, PLAN, and memory files synchronized.
+- ✅ Phase 29 — physics-based morphology scoring; Phase 30 — real gait synthesis and validation; Milestone A — adaptive gait robustness; and Milestone B — structural dynamics / FEA for links implemented, tested, and committed.
+- ✅ README, `CurrentTo10.md`, PLAN, dossiers, and memory files synchronized.
 - ✅ All new/modified files staged and pushed to `origin/master`.
 
 ### Next session
 
 1. ✅ **Phase 28D — Morphology Co-Design Lab complete.** Consider follow-on work: end-to-end voice/sketch-to-morphology pipeline, batch morphology certification, or revisit Phase 27D hardware-in-the-loop when hardware is available.
-2. **Keep Phase 28A–F under maintenance** and monitor the new morphology tests for timeout creep on slower CI runners.
+2. ✅ **Milestone B — Structural dynamics / FEA for links complete.** Move into **Milestone C — Self-collision and manipulability** to raise the score toward 8.5/10.
+3. **Keep Phase 28A–F and Milestones A–B under maintenance** and monitor the new morphology tests for timeout creep on slower CI runners.
 
 ---
 
@@ -1065,6 +1071,7 @@ Phase 28 was re-scoped from pure packaging into a **simulation-first product pla
 | 29 (physics-based morphology scoring) | 28D | ✅ Complete — MuJoCo standing/sway/step rollouts wired into morphology search; score 7.6/10 |
 | 30 (real gait synthesis and validation) | 29 | ✅ Complete — balance-aware walking controller produces forward locomotion for default biped + quadruped templates; walk_score integrated into morphology composite; honest validation revised score 7.7/10 (default-template walk OK, grid/perturbation/backend flow still brittle) |
 | **Milestone A (adaptive gait robustness)** | 30 | ✅ Complete — morphology-aware gait params/balance gains, per-candidate gait sweep, mass-aware position-actuator gains, quadruped trot gait; humanoid grid ≥40%, quadruped grid ≥75%, mass perturbations ≥50% walk pass rate; score 7.7 → 8.0/10 |
+| **Milestone B (structural dynamics / FEA for links)** | 31 | ✅ Complete — link cross-section extraction, cantilever/simply-supported beam bending + Euler buckling, `structural_score` in morphology composite, optional deep CalculiX dispatch on top-N; score 8.0 → 8.3/10 |
 
 ---
 
@@ -1099,4 +1106,4 @@ Full analysis is saved in `.claude/memory/robocad-path-analysis.md` and the end-
 
 ---
 
-*Last updated: 2026-09-17 (Phases 0–28A/B/C/D/E/F complete; Phase 29 physics-based morphology scoring complete with standing + sway + stepping tests; Phase 30 real gait synthesis and validation complete; Milestone A adaptive gait robustness complete — morphology-aware gait params/balance gains, per-candidate gait sweep, mass-aware actuator gains, quadruped trot gait; humanoid grid ≥40%, quadruped grid ≥75%, mass perturbations ≥50% walk pass rate; score 7.7 → 8.0/10; 380 default + 241 heavy/slow tests passing with 1 expected failure, 5 benchmark/network tests deselected; Phase 27D hardware-in-the-loop sim-to-real blocked on hardware access)*
+*Last updated: 2026-09-17 (Phases 0–28A/B/C/D/E/F complete; Phase 29 physics-based morphology scoring complete with standing + sway + stepping tests; Phase 30 real gait synthesis and validation complete; Milestone A adaptive gait robustness complete — score 7.7 → 8.0/10; Milestone B structural dynamics / FEA for links complete — link cross-section extraction, cantilever/simply-supported beam bending + Euler buckling, `structural_score` in morphology composite, optional deep CalculiX dispatch on top-N; score 8.0 → 8.3/10; 380 default + 246 heavy/slow tests passing with 1 expected failure, 5 benchmark/network tests deselected; Phase 27D hardware-in-the-loop sim-to-real blocked on hardware access)*

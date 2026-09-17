@@ -46,8 +46,7 @@ def _current_milestone() -> tuple[str, str, float, float, float]:
     all earlier milestones are fully checked off.
     """
     for code, name, start_pct, end_pct in MILESTONES:
-        plan_file = PLANS_DIR / f"2026-09-16-milestone-{code.lower()}-*.md"
-        paths = list(PLANS_DIR.glob(plan_file.name))
+        paths = list(PLANS_DIR.glob(f"*milestone-{code.lower()}-*.md"))
         if not paths:
             # No plan yet for this milestone: it is the next active one at 0%.
             return code, name, start_pct, end_pct, 0.0
