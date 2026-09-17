@@ -91,3 +91,22 @@ def test_deep_structural_smoke_falls_back_gracefully():
         )
         assert result["deep_available"] is True
         assert "passed" in result
+
+
+@pytest.mark.slow
+def test_morphology_search_detects_structural_issues():
+    from ai_cad.morphology import default_space, search_morphologies
+
+    space = default_space("humanoid")
+    space.n_max = 8
+    # Search near the upper end of the default height range where limbs are long.
+    candidates = search_morphologies(
+        space,
+        payload_kg=5.0,
+        robot_mass_kg=20.0,
+        use_physics=False,
+        use_structural=True,
+    )
+    assert candidates
+    top = max(candidates, key=lambda c: c.composite_score)
+    assert top.scores.get("structural", 0.0) > 0.0
