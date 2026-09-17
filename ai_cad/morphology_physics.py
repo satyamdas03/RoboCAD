@@ -51,11 +51,11 @@ G = 9.80665
 # Each entry scales the morphology-aware base gait; same candidate = same best config.
 _GAIT_SWEEP_CONFIGS: list[dict[str, float]] = [
     {"period_scale": 1.00, "duty_offset": 0.00, "hip_scale": 1.00, "knee_scale": 1.00, "bias": 0.00},
-    {"period_scale": 0.85, "duty_offset": 0.05, "hip_scale": 1.20, "knee_scale": 1.10, "bias": 0.03},
-    {"period_scale": 1.15, "duty_offset": -0.05, "hip_scale": 0.85, "knee_scale": 0.90, "bias": -0.02},
-    {"period_scale": 0.90, "duty_offset": 0.00, "hip_scale": 1.00, "knee_scale": 1.30, "bias": 0.01},
-    {"period_scale": 1.05, "duty_offset": 0.03, "hip_scale": 0.80, "knee_scale": 1.00, "bias": 0.04},
-    {"period_scale": 0.80, "duty_offset": 0.08, "hip_scale": 1.30, "knee_scale": 1.20, "bias": 0.05},
+    {"period_scale": 0.95, "duty_offset": 0.02, "hip_scale": 1.15, "knee_scale": 1.10, "bias": 0.02},
+    {"period_scale": 1.05, "duty_offset": -0.02, "hip_scale": 0.90, "knee_scale": 0.95, "bias": -0.01},
+    {"period_scale": 0.90, "duty_offset": 0.00, "hip_scale": 1.00, "knee_scale": 1.25, "bias": 0.01},
+    {"period_scale": 1.02, "duty_offset": 0.01, "hip_scale": 0.95, "knee_scale": 1.05, "bias": 0.03},
+    {"period_scale": 0.88, "duty_offset": 0.03, "hip_scale": 1.20, "knee_scale": 1.15, "bias": 0.04},
 ]
 
 
@@ -200,8 +200,17 @@ def _scale_masses_and_add_freejoint(mjcf_path: Path, tree: FeatureTree) -> None:
     # Convert motors to position actuators for morphology tests. Position
     # actuators let MuJoCo's implicit solver track target joint angles, which
     # is far more stable for walking than explicit per-step PD torques.
+    # Scale gains with the total robot mass so the whole leg chain has
+    # consistent authority; per-link scaling under-damps light distal links
+    # that still need to support and propel the entire body.
     actuator = root.find("actuator")
     if actuator is not None:
+        # Reference mass 20 kg -> kp 600, kv 60. Scale roughly with sqrt(total mass)
+        # to avoid over-damping very light robots.
+        mass_scale = math.sqrt(max(total_budget, 0.1) / 20.0)
+        kp = 600.0 * mass_scale
+        kv = 60.0 * mass_scale
+
         for motor in list(actuator.findall("motor")):
             jname = motor.get("joint")
             jrange = "-3.141593 3.141593"
@@ -209,6 +218,7 @@ def _scale_masses_and_add_freejoint(mjcf_path: Path, tree: FeatureTree) -> None:
                 if joint.get("name") == jname and joint.get("range"):
                     jrange = joint.get("range")
                     break
+
             pos_name = (motor.get("name") or "").replace("_motor", "_position")
             pos = ET.SubElement(
                 actuator,
@@ -217,8 +227,8 @@ def _scale_masses_and_add_freejoint(mjcf_path: Path, tree: FeatureTree) -> None:
                     "name": pos_name,
                     "joint": jname,
                     "ctrlrange": jrange,
-                    "kp": "600",
-                    "kv": "60",
+                    "kp": f"{kp:.1f}",
+                    "kv": f"{kv:.1f}",
                     "gear": "1",
                 },
             )

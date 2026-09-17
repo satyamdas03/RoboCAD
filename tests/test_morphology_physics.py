@@ -113,3 +113,25 @@ def test_physics_score_candidate_no_mujoco_path(monkeypatch):
     assert result["mujoco_available"] is False
     assert result["physics_score"] == 0.0
     assert "mujoco not installed" in result["notes"]
+
+
+def test_position_actuator_gains_scale_with_mass():
+    _skip_if_no_mujoco()
+    import mujoco
+    from ai_cad.morphology_physics import _load_model_from_tree
+    import tempfile
+    from pathlib import Path
+
+    tree = humanoid_template().update_parameter("robot_mass_kg", 30.0)
+    with tempfile.TemporaryDirectory() as tmp:
+        loaded = _load_model_from_tree(tree, Path(tmp), name="candidate")
+        assert loaded is not None
+        model, _ = loaded
+        position_actuators = [
+            i for i in range(model.nu)
+            if mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_ACTUATOR, i).endswith("_position")
+        ]
+        assert len(position_actuators) > 0
+        # At least one position actuator should have kp != 600 if mass-aware scaling is active.
+        kps = [model.actuator_gainprm[i][0] for i in position_actuators]
+        assert any(kp != 600.0 for kp in kps)
