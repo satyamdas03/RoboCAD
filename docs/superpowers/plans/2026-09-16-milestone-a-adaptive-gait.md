@@ -1,6 +1,6 @@
 # Milestone A — Adaptive Humanoid/Quadruped Gait Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Make the humanoid and quadruped gait controllers robust across the searched morphology grid and small mass perturbations, raising the honest complex-design confidence score from **7.7 → 8.0 / 10**.
 
@@ -33,7 +33,7 @@
 - Consumes: `model` (MuJoCo `MjModel`), `data` (MuJoCo `MjData`), `tree` (`FeatureTree`)
 - Produces: `GaitMorphologyFeatures` dataclass with `com_height_m`, `total_leg_length_m`, `robot_mass_kg`, `foot_length_m`, `foot_width_m`, `template`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 import pytest
@@ -69,13 +69,13 @@ def test_gait_morphology_features_humanoid():
         assert features.foot_width_m > 0.0
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python -m pytest tests/test_gait_adaptation.py::test_gait_morphology_features_humanoid -v -o addopts=`
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'ai_cad.gait_adaptation'`
 
-- [ ] **Step 3: Create `ai_cad/gait_adaptation.py`**
+- [x] **Step 3: Create `ai_cad/gait_adaptation.py`**
 
 ```python
 """Extract morphology-derived features used to adapt gait parameters."""
@@ -199,17 +199,17 @@ def extract_morphology_features(
     )
 ```
 
-- [ ] **Step 4: Add import to `ai_cad/gait.py`**
+- [x] **Step 4: Add import to `ai_cad/gait.py`**
 
 No code change beyond ensuring existing imports are untouched. The helper is used in later tasks.
 
-- [ ] **Step 5: Run test to verify it passes**
+- [x] **Step 5: Run test to verify it passes**
 
 Run: `python -m pytest tests/test_gait_adaptation.py::test_gait_morphology_features_humanoid -v -o addopts=`
 
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 cd C:/Users/point/projects/RoboCAD
@@ -229,7 +229,7 @@ git commit -m "robocad: Milestone A — extract morphology features for gait ada
 - Consumes: `GaitMorphologyFeatures` from `ai_cad.gait_adaptation`
 - Produces: `GaitParams` and `BalanceGains` scaled to the candidate.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 def test_morphology_aware_params_humanoid():
@@ -273,13 +273,13 @@ def test_morphology_aware_params_quadruped():
     assert gains.com_vel_target >= 0.0
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python -m pytest tests/test_gait_adaptation.py::test_morphology_aware_params_humanoid -v -o addopts=`
 
 Expected: FAIL with `AttributeError: module 'ai_cad.gait' has no attribute 'morphology_aware_walk_params'`
 
-- [ ] **Step 3: Add functions to `ai_cad/gait.py`**
+- [x] **Step 3: Add functions to `ai_cad/gait.py`**
 
 Insert after `default_walk_balance_gains`:
 
@@ -368,13 +368,13 @@ def _clamp(value: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, value))
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `python -m pytest tests/test_gait_adaptation.py -v -o addopts=`
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd C:/Users/point/projects/RoboCAD
@@ -394,7 +394,7 @@ git commit -m "robocad: Milestone A — morphology-aware gait params and balance
 - Consumes: `model`, `data`, `tree`, `template`, `features`
 - Produces: best `walk_score` and `walk_ok` for the candidate after a small deterministic sweep.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 import pytest
@@ -423,13 +423,13 @@ def test_physics_score_candidate_uses_sweep():
     assert result["walk_score"] <= 1.0
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python -m pytest tests/test_morphology_grid.py::test_physics_score_candidate_uses_sweep -v -o addopts=`
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'tests.test_morphology_grid'` or assertion failure because sweep not present.
 
-- [ ] **Step 3: Add sweep helper to `ai_cad/morphology_physics.py`**
+- [x] **Step 3: Add sweep helper to `ai_cad/morphology_physics.py`**
 
 Add imports at top:
 
@@ -536,7 +536,7 @@ from ai_cad.gait import (
 )
 ```
 
-- [ ] **Step 4: Wire sweep into `physics_score_candidate`**
+- [x] **Step 4: Wire sweep into `physics_score_candidate`**
 
 Replace the existing walk-test block in `physics_score_candidate`:
 
@@ -559,13 +559,13 @@ Replace the existing walk-test block in `physics_score_candidate`:
             result["notes"].append("walk test skipped (non-legged template)")
 ```
 
-- [ ] **Step 5: Run test to verify it passes**
+- [x] **Step 5: Run test to verify it passes**
 
 Run: `python -m pytest tests/test_morphology_grid.py::test_physics_score_candidate_uses_sweep -v -o addopts=`
 
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 cd C:/Users/point/projects/RoboCAD
@@ -585,7 +585,7 @@ git commit -m "robocad: Milestone A — per-candidate gait sweep in physics scor
 - Consumes: `tree`, exported MJCF
 - Produces: position actuators with `kp`/`kv` scaled by body mass/inertia.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 def test_position_actuator_gains_scale_with_mass():
@@ -610,13 +610,13 @@ def test_position_actuator_gains_scale_with_mass():
         assert any(kp != 600.0 for kp in kps)
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python -m pytest tests/test_morphology_physics.py::test_position_actuator_gains_scale_with_mass -v -o addopts=`
 
 Expected: FAIL with assertion that all kp == 600.0
 
-- [ ] **Step 3: Update `_scale_masses_and_add_freejoint`**
+- [x] **Step 3: Update `_scale_masses_and_add_freejoint`**
 
 Replace the fixed `kp="600" kv="60"` block with mass-aware computation:
 
@@ -682,13 +682,13 @@ Replace the fixed `kp="600" kv="60"` block with mass-aware computation:
 
 Add `import math` at the top of `ai_cad/morphology_physics.py` if not already present (it currently imports only `shutil`, `tempfile`, `xml.etree.ElementTree`, `pathlib`, `typing`, `numpy`).
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `python -m pytest tests/test_morphology_physics.py::test_position_actuator_gains_scale_with_mass -v -o addopts=`
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd C:/Users/point/projects/RoboCAD
@@ -709,7 +709,7 @@ git commit -m "robocad: Milestone A — mass-aware position-actuator gains"
 - Consumes: `GaitParams`, `template`
 - Produces: `run_step_test` uses trot for quadruped walking tests; grid tests assert pass-rate thresholds.
 
-- [ ] **Step 1: Write the failing grid tests**
+- [x] **Step 1: Write the failing grid tests**
 
 ```python
 def test_humanoid_grid_walk_rate():
@@ -758,13 +758,13 @@ def test_humanoid_mass_perturbation_walk_rate():
     assert ok >= 2, f"only {ok}/{len(perturbations)} mass perturbations walked"
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `python -m pytest tests/test_morphology_grid.py -v -o addopts=`
 
 Expected: FAIL — humanoid grid rate 0%, quadruped likely below 75%, mass perturbations 0%.
 
-- [ ] **Step 3: Ensure quadruped trot is used for walking tests**
+- [x] **Step 3: Ensure quadruped trot is used for walking tests**
 
 In `ai_cad/gait.py::run_step_test`, the quadruped branch currently always uses `gait_style="wave"`:
 
@@ -783,7 +783,7 @@ Change to:
             targets = quadruped_gait_targets(phase, cur_params, gait_style=gait_style)
 ```
 
-- [ ] **Step 4: Tune default quadruped walk params if needed**
+- [x] **Step 4: Tune default quadruped walk params if needed**
 
 The morphology-aware function from Task 2 already produces trot-like params for quadruped. Verify by running:
 
@@ -796,13 +796,13 @@ If below threshold, adjust `morphology_aware_walk_params` for quadruped:
 - Raise `forward_bias_rad` to 0.12
 - Increase `hip_swing_rad` to 0.20
 
-- [ ] **Step 5: Run all Milestone A tests**
+- [x] **Step 5: Run all Milestone A tests**
 
 Run: `python -m pytest tests/test_gait_adaptation.py tests/test_morphology_grid.py tests/test_morphology_physics.py -v -o addopts=`
 
 Expected: All pass, including the new grid-rate thresholds.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 cd C:/Users/point/projects/RoboCAD
@@ -822,7 +822,7 @@ git commit -m "robocad: Milestone A — quadruped trot and grid walk-rate regres
 - Consumes: repo state, git log, test counts
 - Produces: 2-minute notifications to the user with work log and completion percentage.
 
-- [ ] **Step 1: Create `scripts/progress_report.py`**
+- [x] **Step 1: Create `scripts/progress_report.py`**
 
 ```python
 """Emit a progress report for the 7.7 -> 10.0 RoboCAD roadmap."""
@@ -892,7 +892,7 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **Step 2: Commit the script**
+- [x] **Step 2: Commit the script**
 
 ```bash
 cd C:/Users/point/projects/RoboCAD
@@ -900,13 +900,13 @@ git add scripts/progress_report.py
 git commit -m "robocad: Milestone A — add progress report script for 7.7 -> 10.0 roadmap"
 ```
 
-- [ ] **Step 3: Create the 2-minute cron job**
+- [x] **Step 3: Create the 2-minute cron job**
 
 Use the `CronCreate` tool with a 2-minute interval. The cron should prompt for a progress report.
 
 Cron expression for every 2 minutes: `*/2 * * * *`.
 
-- [ ] **Step 4: Verify the first report**
+- [x] **Step 4: Verify the first report**
 
 Run manually once:
 
@@ -925,7 +925,7 @@ Expected: printed report with overall completion ~30% (Milestone A active).
 - Modify: `README.md`, `PLAN.md`, `CurrentTo10.md`, memory files
 - Test: full suite
 
-- [ ] **Step 1: Run default suite**
+- [x] **Step 1: Run default suite**
 
 ```bash
 cd C:/Users/point/projects/RoboCAD
@@ -934,7 +934,7 @@ python -m pytest --timeout=120 -q
 
 Expected: 380 passed, 233 deselected, same as baseline.
 
-- [ ] **Step 2: Run heavy/slow suite**
+- [x] **Step 2: Run heavy/slow suite**
 
 ```bash
 python -m pytest tests -m "heavy or slow or mujoco" --tb=short
@@ -942,14 +942,14 @@ python -m pytest tests -m "heavy or slow or mujoco" --tb=short
 
 Expected: 232+ passing, 1 xfailed.
 
-- [ ] **Step 3: Update documentation**
+- [x] **Step 3: Update documentation**
 
 - `CurrentTo10.md`: update score from 7.7 → 8.0/10, add Milestone A results.
 - `PLAN.md`: append Milestone A acceptance.
 - `dossiers/phase30-real-gait-synthesis.md`: add grid pass-rate improvements.
 - Memory files: update `phase30-real-gait-synthesis.md` and `robocad-confidence-10-10-roadmap.md` with Milestone A closure.
 
-- [ ] **Step 4: Final commit**
+- [x] **Step 4: Final commit**
 
 ```bash
 cd C:/Users/point/projects/RoboCAD
