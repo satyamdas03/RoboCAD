@@ -293,3 +293,52 @@ def score_candidate_structural(
         "worst_link": worst.name,
         "notes": f"{ok}/{len(results)} links passed",
     }
+
+
+def run_deep_structural_for_candidate(
+    tree: FeatureTree,
+    design_dir: Path,
+    payload_kg: float = 0.0,
+    material: str = "PLA",
+    solver_mode: str = "auto",
+) -> dict[str, Any]:
+    """Dispatch deep structural verification for a morphology candidate.
+
+    Exports the candidate to a bundle, then runs the existing deep verification
+    dispatcher in static-stress mode. Falls back gracefully if the solver is
+    unavailable or the export fails.
+    """
+    # Lazy imports avoid circular dependencies at module load time.
+    from ai_cad.geda_bridge.exporter import export_bundle_from_tree
+    from ai_cad.solvers.verification_deep import run_deep_verification
+    from ai_cad.verification_models import LoadCase
+
+    try:
+        export_bundle_from_tree(tree, design_dir)
+    except Exception as exc:
+        return {"deep_available": False, "error": f"export failed: {exc}"}
+
+    params = {
+        "load_magnitude_n": payload_kg * G,
+        "safety_factor_target": 2.0,
+        "material": material,
+        "solver_mode": solver_mode,
+    }
+    try:
+        result = run_deep_verification(
+            design_id="candidate",
+            load_case=LoadCase.STATIC_STRESS,
+            params=params,
+            design_dir=design_dir,
+        )
+    except Exception as exc:
+        return {"deep_available": False, "error": f"solver dispatch failed: {exc}"}
+
+    return {
+        "deep_available": True,
+        "passed": result.passed,
+        "metrics": dict(result.metrics),
+        "failure_modes": list(result.failure_modes),
+        "redesign_suggestions": list(result.redesign_suggestions),
+        "errors": list(result.errors),
+    }

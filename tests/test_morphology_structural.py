@@ -1,6 +1,7 @@
 """Tests for morphology structural dynamics / FEA integration (Milestone B)."""
 from __future__ import annotations
 
+from pathlib import Path
 import pytest
 
 pytestmark = pytest.mark.slow
@@ -75,3 +76,18 @@ def test_structural_score_penalizes_slender_humanoid():
     # Long thin limbs should cause at least one link to fail.
     assert result["structural"] < 1.0
     assert result["structural"] >= 0.0
+
+
+@pytest.mark.heavy
+def test_deep_structural_smoke_falls_back_gracefully():
+    from ai_cad.morphology_structural import run_deep_structural_for_candidate
+    from ai_cad.robot_templates import humanoid_template
+    import tempfile
+
+    tree = humanoid_template()
+    with tempfile.TemporaryDirectory() as tmp:
+        result = run_deep_structural_for_candidate(
+            tree, Path(tmp), payload_kg=5.0, solver_mode="surrogate"
+        )
+        assert result["deep_available"] is True
+        assert "passed" in result

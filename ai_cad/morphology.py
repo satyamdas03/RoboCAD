@@ -11,6 +11,7 @@ from __future__ import annotations
 import copy
 import json
 import math
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -21,7 +22,7 @@ from ai_cad.actuator_sizing import actuator_summary, size_actuators_for_tree
 from ai_cad.feature_tree import FeatureTree
 from ai_cad.kinematic_tree import sample_reachable_workspace
 from ai_cad.morphology_physics import physics_score_candidate
-from ai_cad.morphology_structural import score_candidate_structural
+from ai_cad.morphology_structural import run_deep_structural_for_candidate, score_candidate_structural
 from ai_cad.robot_templates import humanoid_template, manipulator_on_base_template, quadruped_template
 from ai_cad.stability import check_stability, stability_summary
 
@@ -402,6 +403,8 @@ def search_morphologies(
     weights: dict[str, float] | None = None,
     use_physics: bool = True,
     use_structural: bool = True,
+    run_deep_structural: bool = False,
+    deep_top_n: int = 3,
 ) -> list[MorphologyCandidate]:
     """Run a deterministic morphology search and return ranked candidates.
 
@@ -412,6 +415,9 @@ def search_morphologies(
         weights: optional scoring weights.
         use_physics: when True, run real MuJoCo rollouts to score candidates.
         use_structural: when True, run beam stress/buckling checks.
+        run_deep_structural: when True, run deep CalculiX/surrogate structural
+            verification on the top-N ranked candidates.
+        deep_top_n: number of top candidates to verify with deep structural FEA.
 
     Returns:
         Candidates sorted by composite score (highest first).
@@ -454,6 +460,20 @@ def search_morphologies(
             break
 
     candidates.sort(key=lambda c: c.composite_score, reverse=True)
+
+    # Optional deep structural verification on the top-N candidates.
+    if run_deep_structural and candidates:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            for c in candidates[:deep_top_n]:
+                deep = run_deep_structural_for_candidate(
+                    c.tree,
+                    tmp_path / c.candidate_id,
+                    payload_kg=payload_kg,
+                    solver_mode="auto",
+                )
+                c.scores["deep_structural"] = deep
+
     for i, c in enumerate(candidates):
         c.rank = i + 1
     return candidates
