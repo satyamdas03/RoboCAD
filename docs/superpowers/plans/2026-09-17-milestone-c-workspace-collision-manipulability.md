@@ -1,6 +1,6 @@
 # Milestone C — Workspace, Self-Collision, and Manipulability
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Make the morphology composite robust to sagittal-plane arms, self-collisions, and kinematic dexterity, raising the honest complex-design confidence score from **8.3 → 8.5 / 10**.
 
@@ -34,7 +34,7 @@
 - Produces: dict with `reach_mm`, `sagittal_area_mm2`, `lateral_span_mm`, `manipulability_index`, `workspace_score`.
 
 **Steps:**
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 import pytest
@@ -52,13 +52,13 @@ def test_humanoid_workspace_proxy_nonzero_for_sagittal_arm():
     assert result["workspace_score"] > 0.0
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 `python -m pytest tests/test_morphology_workspace.py::test_humanoid_workspace_proxy_nonzero_for_sagittal_arm -v -o addopts=`
 
 Expected: FAIL with `ModuleNotFoundError: no module named 'ai_cad.morphology_workspace'`.
 
-- [ ] **Step 3: Create `ai_cad/morphology_workspace.py`**
+- [x] **Step 3: Create `ai_cad/morphology_workspace.py`**
 
 Implement:
 1. `workspace_proxy(tree, end_effector_id, samples_per_joint=5)` that calls `sample_reachable_workspace`.
@@ -73,13 +73,13 @@ Implement:
    - 20% lateral_span (normalize to 800 mm)
 4. Graceful fallback: if no assembly or no points, return zeros.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 `python -m pytest tests/test_morphology_workspace.py -v -o addopts=`
 
 Expected: PASS.
 
-- [ ] **Step 5: Wire into `score_candidate`**
+- [x] **Step 5: Wire into `score_candidate`**
 
 In `ai_cad/morphology.py`:
 1. Import `workspace_proxy`.
@@ -90,13 +90,13 @@ In `ai_cad/morphology.py`:
    ```
 3. Keep `workspace_volume_mm3` and `workspace_envelope_mm` in the returned dict for backward compatibility, but use proxy-derived `reach_mm` and `sagittal_area_mm2`.
 
-- [ ] **Step 6: Run default suite to confirm no regressions**
+- [x] **Step 6: Run default suite to confirm no regressions**
 
 `python -m pytest --timeout=120 -q`
 
 Expected: 380 passed.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add ai_cad/morphology_workspace.py ai_cad/morphology.py tests/test_morphology_workspace.py
@@ -117,7 +117,7 @@ git commit -m "robocad: Milestone C — sagittal-plane workspace proxy for morph
 - Produces: dict with `collision_penalty` in [0, 1], `interference_count`, `worst_clearance_mm`, `poses_checked`.
 
 **Steps:**
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 import pytest
@@ -136,13 +136,13 @@ def test_humanoid_default_pose_has_no_self_collision():
     assert result["poses_checked"] >= 1
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 `python -m pytest tests/test_morphology_collision.py -v -o addopts=`
 
 Expected: FAIL with missing module / function.
 
-- [ ] **Step 3: Create `ai_cad/morphology_collision.py`**
+- [x] **Step 3: Create `ai_cad/morphology_collision.py`**
 
 Implement:
 1. `_default_pose_set(tree)` returns representative poses based on template:
@@ -159,13 +159,13 @@ For simplicity in the first pass, collision per pose can be approximated by runn
 
 **Decision:** Add an optional `joint_states` parameter to `check_assembly_collision` and `compute_instance_transforms`. When provided, apply the joint deltas to the nominal transforms before collision checking.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 `python -m pytest tests/test_morphology_collision.py -v -o addopts=`
 
 Expected: PASS.
 
-- [ ] **Step 5: Wire `collision_penalty` into `score_candidate`**
+- [x] **Step 5: Wire `collision_penalty` into `score_candidate`**
 
 In `ai_cad/morphology.py`:
 1. Import `score_candidate_collision`.
@@ -191,13 +191,13 @@ In `ai_cad/morphology.py`:
    This is simpler and conservative.
 5. Expose `collision_penalty`, `collision_interference_count`, `collision_poses_checked` in result dict.
 
-- [ ] **Step 6: Run default suite**
+- [x] **Step 6: Run default suite**
 
 `python -m pytest --timeout=120 -q`
 
 Expected: 380 passed.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add ai_cad/morphology_collision.py ai_cad/morphology.py ai_cad/assembly_collision.py ai_cad/assembly.py tests/test_morphology_collision.py
@@ -218,7 +218,7 @@ git commit -m "robocad: Milestone C — self-collision checks across representat
 - Produces: `manipulability_score` in [0, 1].
 
 **Steps:**
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 import pytest
@@ -234,13 +234,13 @@ def test_manipulability_nonzero_for_manipulator():
     assert score > 0.0
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 `python -m pytest tests/test_morphology_workspace.py::test_manipulability_nonzero_for_manipulator -v -o addopts=`
 
 Expected: FAIL.
 
-- [ ] **Step 3: Implement manipulability computation**
+- [x] **Step 3: Implement manipulability computation**
 
 In `ai_cad/morphology_workspace.py`:
 1. `compute_jacobian(chain, joint_values)` builds a 6×n Jacobian from the joint chain using geometric Jacobian (cross product of axis-to-EE vector with joint axis for revolute; joint axis for prismatic).
@@ -248,13 +248,13 @@ In `ai_cad/morphology_workspace.py`:
 3. `manipulability_score(tree, end_effector_id, samples=8)` samples random/representative joint values within limits, computes average index, and normalizes to [0, 1] using a target of 5000 mm³ (unit-agnostic scaling).
 4. Expose `manipulability_index` and `manipulability_score` in the workspace proxy result.
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 `python -m pytest tests/test_morphology_workspace.py -v -o addopts=`
 
 Expected: PASS.
 
-- [ ] **Step 5: Wire into `score_candidate`**
+- [x] **Step 5: Wire into `score_candidate`**
 
 In `ai_cad/morphology.py`:
 1. Update `workspace_proxy` call to capture `manipulability_score`.
@@ -272,13 +272,13 @@ In `ai_cad/morphology.py`:
 4. Compute composite with manipulability and collision as weighted sub-scores (replace the previous multiplicative collision penalty).
 5. Expose `manipulability` in returned scores.
 
-- [ ] **Step 6: Run default suite**
+- [x] **Step 6: Run default suite**
 
 `python -m pytest --timeout=120 -q`
 
 Expected: 380 passed.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add ai_cad/morphology_workspace.py ai_cad/morphology.py tests/test_morphology_workspace.py
@@ -293,7 +293,7 @@ git commit -m "robocad: Milestone C — manipulability index for end-effector ch
 - Test: `tests/test_morphology_collision.py`
 
 **Steps:**
-- [ ] **Step 1: Add end-to-end morphology search test**
+- [x] **Step 1: Add end-to-end morphology search test**
 
 ```python
 @pytest.mark.slow
@@ -308,13 +308,13 @@ def test_morphology_search_prefers_collision_free_humanoid():
     assert top.scores.get("collision_penalty", 1.0) < 0.5
 ```
 
-- [ ] **Step 2: Run test**
+- [x] **Step 2: Run test**
 
 `python -m pytest tests/test_morphology_collision.py::test_morphology_search_prefers_collision_free_humanoid -v -o addopts=`
 
 Expected: PASS.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add tests/test_morphology_collision.py
@@ -330,19 +330,19 @@ git commit -m "robocad: Milestone C — collision regression on morphology searc
 - Test: full suite
 
 **Steps:**
-- [ ] **Step 1: Run default suite**
+- [x] **Step 1: Run default suite**
 
 `python -m pytest --timeout=120 -q`
 
 Expected: 380 passed, same baseline.
 
-- [ ] **Step 2: Run heavy/slow suite**
+- [x] **Step 2: Run heavy/slow suite**
 
 `python -m pytest tests -m "heavy or slow or mujoco" --deselect tests/test_morphology_api.py::test_simulate_morphology_candidate --tb=short -q`
 
 Expected: green.
 
-- [ ] **Step 3: Update documentation**
+- [x] **Step 3: Update documentation**
 
 - `CurrentTo10.md`: update score from 8.3 → 8.5/10, add Milestone C results.
 - `PLAN.md`: append Milestone C acceptance to milestone table.
@@ -350,7 +350,7 @@ Expected: green.
 - Memory files: create/update `milestone-c-workspace-collision-manipulability.md` and update `robocad-confidence-10-10-roadmap.md` / `MEMORY.md`.
 - Mark Milestone C plan checkboxes complete.
 
-- [ ] **Step 4: Final commit**
+- [x] **Step 4: Final commit**
 
 ```bash
 git add -A

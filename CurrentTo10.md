@@ -1,8 +1,8 @@
 # Current RoboCAD → 10/10
 
-**Current RoboCAD is in a solid, shippable state:** 380 default + 241 heavy/slow tests passing, frontend build passes, Phase 28A–F complete, Phase 29 physics-based morphology scoring (standing + sway + stepping) complete, and **Milestone A (adaptive gait robustness)** complete. The humanoid and quadruped gait controllers now scale with morphology, run a deterministic per-candidate gait sweep, scale position-actuator gains by total robot mass, and use a tuned quadruped trot gait.
+**Current RoboCAD is in a solid, shippable state:** 380 default + 250 heavy/slow tests passing, frontend build passes, Phase 28A–F complete, Phase 29 physics-based morphology scoring complete, Phase 30 real gait synthesis complete, and **Milestones A (adaptive gait robustness), B (structural dynamics / FEA for links), and C (workspace / self-collision / manipulability)** complete.
 
-My honest confidence score for **complex multi-domain robot designs, especially humanoids**, is **8.3 / 10**. The pipeline validates morphology with real MuJoCo standing, sway, stepping, and walking rollouts, and now rejects candidates whose limb segments fail lightweight beam bending / buckling checks under payload and drop loads. Default-template and near-default humanoid/quadruped candidates walk reliably; the searched grid and small mass perturbations pass at the Milestone A thresholds; structural scoring penalizes slender or weak links before they are presented. The remaining gap is workspace/collision/manipulability, real end-effector families, topology grammar, real MuJoCo brain training, and automatic simulation certification. The full deep-analysis memory file lives at:
+My honest confidence score for **complex multi-domain robot designs, especially humanoids**, is **8.5 / 10**. The pipeline validates morphology with real MuJoCo standing, sway, stepping, and walking rollouts; rejects candidates whose limb segments fail lightweight beam bending / buckling checks; and now scores sagittal-plane workspace reach, penalizes self-collision across representative poses, and rewards kinematic dexterity with a Yoshikawa-style manipulability index. Default-template and near-default humanoid/quadruped candidates walk reliably; the searched grid and small mass perturbations pass at the Milestone A thresholds; structural and kinematic checks filter bad candidates before they are presented. The remaining gap is real end-effector families, topology grammar, real MuJoCo brain training, and automatic simulation certification. The full deep-analysis memory file lives at:
 
 `C:\Users\point\.claude\projects\C--Users-point-projects-RoboCAD\memory\robocad-confidence-10-10-roadmap.md`
 
@@ -10,15 +10,17 @@ and is indexed in `MEMORY.md`.
 
 ---
 
-## Why 8.3 / 10 today
+## Why 8.5 / 10 today
 
-The score reflects that the *infrastructure* is green and deterministic, the *physics reasoning* layer is real rather than heuristic, **adaptive flat-ground gait synthesis is robust enough for searched candidates and small mass perturbations**, and **structural link checks now filter out candidates whose limbs would yield or buckle under payload + drop loads**. The next jump requires self-collision/manipulability, real end-effectors, topology grammar, brain training on the actual MuJoCo model, and automatic certification.
+The score reflects that the *infrastructure* is green and deterministic, the *physics reasoning* layer is real rather than heuristic, **adaptive flat-ground gait synthesis is robust enough for searched candidates and small mass perturbations**, **structural link checks filter candidates whose limbs would yield or buckle under payload + drop loads**, and **kinematic reasoning now rewards reachable, collision-free, dexterous workspaces**. The next jump requires real end-effector families, topology grammar, brain training on the actual MuJoCo model, and automatic certification.
 
 | Subsystem | Current state | Caveat |
 |---|---|---|
 | Morphology search | Runs fast, deterministic, cached FK, **physics-validated** for standing + sway + stepping + walking | Flat-ground walking is synthesized; slopes/stairs/push recovery remain Phase 36 |
 | Stability / gait | MuJoCo standing/sway/step/walk rollouts with **morphology-aware** balance feedback and per-candidate gait sweep | Dynamic trot and rough terrain are future work |
-| Workspace | Caps at 4096 samples | Humanoid sagittal arms report `workspace_volume = 0.0 mm³`, falls back to max reach |
+| Workspace | **Sagittal-plane proxy** with reach, area, and lateral span; replaces the old volume metric that failed for planar arms | Full 3D oriented workspace envelope is future work |
+| Self-collision | Pairwise checks across **neutral + flexed representative poses** with articulated instance transforms | Checks assembly instances only; fixed collision-mesh resolution |
+| Manipulability | Topology-aware geometric Jacobian + Yoshikawa product-of-singular-values score for end-effector chains | Sagittal-plane focus; full 6-DOF task manipulability is future work |
 | Actuator sizing | Payload × lever-arm static formulas; position actuators scale with total robot mass | Not inverse-dynamics based |
 | Structural dynamics | Lightweight cantilever / simply-supported bending + Euler buckling for every limb segment; optional deep CalculiX dispatch on top-N | Assumes rectangular cross-section; non-rectangular families need mesh-based properties |
 | Brain training | 2-D `AbstractAttentionEnv` abstraction | Does not control the actual MuJoCo humanoid |
@@ -28,7 +30,7 @@ The score reflects that the *infrastructure* is green and deterministic, the *ph
 
 Concrete evidence from the current code:
 
-- `ai_cad/morphology.py::score_candidate` weights: stability 0.30, workspace 0.25, gait 0.25, actuator 0.15, compactness 0.05 — all heuristic.
+- `ai_cad/morphology.py::score_candidate` weights: stability 0.22, workspace 0.20, gait 0.22, actuator 0.13, compactness 0.05, structural 0.05, collision 0.05, manipulability 0.08 — physics- and geometry-grounded.
 - The top-ranked humanoid in the benchmark (composite **0.804**) still produced a MuJoCo instability warning: `Nan, Inf or huge value in QACC at DOF 8`. The score did not predict it.
 - `ai_cad/geda_bridge/brain/envs.py::AbstractAttentionEnv` is a toy 2-D navigation task, not a robot controller.
 
@@ -113,11 +115,22 @@ Closed the structural-dynamics gap by extracting real link cross-sections from m
 
 **Score impact:** 8.0 → **8.3 / 10**.
 
-### Phase 32 / Milestone C — Self-collision and manipulability (~8.5/10)
+### Milestone C — Workspace / self-collision / manipulability (8.3 → 8.5/10) ✅ COMPLETE
 
-Sample task poses, run collision checks, compute manipulability index. Add `collision_penalty` and `manipulability_score` to the composite.
+Closed the kinematic-reasoning gap with a sagittal-plane workspace proxy, representative-pose self-collision checks, and a topology-aware Yoshikawa-style manipulability index fed into the morphology composite.
 
-**Effort:** 3–4 weeks.
+**Delivered in this session:**
+- `ai_cad/morphology_workspace.py`: `workspace_proxy`, `compute_jacobian`, `manipulability_index`, `manipulability_score`; sagittal-plane reach/area/lateral-span scoring and SVD-based manipulability for arm chains.
+- `ai_cad/morphology_collision.py`: `score_candidate_collision` across default neutral/flexed poses using articulated instance transforms.
+- `ai_cad/assembly.py` / `ai_cad/assembly_collision.py`: optional `joint_states` parameter on `compute_instance_transforms` and `check_assembly_collision` so collision checks follow real poses.
+- `ai_cad/morphology.py`: `use_collision=True` default; composite weights revised to stability 0.22, workspace 0.20, gait 0.22, actuator 0.13, compactness 0.05, structural 0.05, collision 0.05, manipulability 0.08.
+- `tests/test_morphology_workspace.py`: nonzero sagittal workspace for a humanoid arm and nonzero manipulability for a manipulator.
+- `tests/test_morphology_collision.py`: default humanoid pose has low self-collision; morphology search prefers collision-free candidates.
+- Full suite verified: **380 default + 250 heavy/slow passing** (1 xfailed; the unrelated `test_simulate_morphology_candidate` attention-policy timeout is pre-existing).
+
+**Score impact:** 8.3 → **8.5 / 10**.
+
+**Effort:** ~1.5 sessions on top of the Milestone B scaffold.
 
 ### Phase 33 / Milestone D — Real end-effector families (~8.7/10)
 
@@ -210,6 +223,16 @@ Score moved from **7.7 → 8.0 / 10** after adaptive gait robustness delivered t
    - Full suite verified: **380 default + 246 heavy/slow passing** (1 xfailed; the unrelated `test_simulate_morphology_candidate` attention-policy timeout is pre-existing).
    - Score moved from **8.0 → 8.3 / 10**.
 
+### 5. **Milestone C — workspace / self-collision / manipulability (8.3 → 8.5/10)** ✅ COMPLETE
+   - `ai_cad/morphology_workspace.py`: `workspace_proxy`, `compute_jacobian`, `manipulability_index`, `manipulability_score`; sagittal-plane reach/area/lateral-span scoring and SVD-based manipulability for arm chains.
+   - `ai_cad/morphology_collision.py`: `score_candidate_collision` across default neutral/flexed poses using articulated instance transforms.
+   - `ai_cad/assembly.py` / `ai_cad/assembly_collision.py`: optional `joint_states` parameter on `compute_instance_transforms` and `check_assembly_collision` so collision checks follow real poses.
+   - `ai_cad/morphology.py`: `use_collision=True` default; composite weights revised to stability 0.22, workspace 0.20, gait 0.22, actuator 0.13, compactness 0.05, structural 0.05, collision 0.05, manipulability 0.08.
+   - `tests/test_morphology_workspace.py`: nonzero sagittal workspace for a humanoid arm and nonzero manipulability for a manipulator.
+   - `tests/test_morphology_collision.py`: default humanoid pose has low self-collision; morphology search prefers collision-free candidates.
+   - Full suite verified: **380 default + 250 heavy/slow passing** (1 xfailed; the unrelated `test_simulate_morphology_candidate` attention-policy timeout is pre-existing).
+   - Score moved from **8.3 → 8.5 / 10**.
+
 ## First concrete next step
 
-Milestone A and B are closed. Move into **Milestone C (Phase 32) — Self-collision and manipulability** to raise the score toward 8.5/10.
+Milestones A, B, and C are closed. Move into **Milestone D (Phase 33) — Real end-effector families** to raise the score toward 8.7/10.
