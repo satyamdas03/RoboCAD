@@ -64,6 +64,11 @@ def _lerp(a: float, b: float, t: float) -> float:
     return a + (b - a) * t
 
 
+def _clamp(value: float, lo: float, hi: float) -> float:
+    """Clamp ``value`` to the inclusive interval [``lo``, ``hi``]."""
+    return max(lo, min(hi, value))
+
+
 def _blend_gait_params(start: GaitParams, end: GaitParams, alpha: float) -> GaitParams:
     """Return a GaitParams that is ``alpha`` of the way from ``start`` to ``end``."""
     return GaitParams(
@@ -333,6 +338,83 @@ def default_walk_balance_gains(template: str) -> BalanceGains:
             capture_gain=0.06,
         )
     return BalanceGains()
+
+
+def morphology_aware_walk_params(features: "GaitMorphologyFeatures") -> GaitParams:
+    """Return gait parameters scaled to the candidate's morphology.
+
+    Taller / heavier robots get slower, more conservative gaits with longer
+    double-support so the COM stays over the feet. Shorter / lighter robots
+    can use faster gaits. Foot length is used to bound step length so the
+    swing foot lands within the support polygon.
+    """
+    if features.template == "quadruped":
+        # Trot-style gait: faster period, lower duty factor for dynamic
+        # quadruped locomotion. Step length is bounded by foot length.
+        max_step = max(0.05, min(features.foot_length_m * 1.2, 0.25))
+        period = _clamp(0.6 + 0.4 * features.com_height_m, 0.5, 1.2)
+        return GaitParams(
+            step_length_m=max_step,
+            step_height_m=max(0.015, features.com_height_m * 0.04),
+            step_period_s=period,
+            duty_factor=0.50,
+            hip_swing_rad=max(0.08, min(0.22, features.total_leg_length_m * 0.4)),
+            knee_lift_rad=max(0.10, min(0.30, features.total_leg_length_m * 0.6)),
+            ankle_comp_rad=0.05,
+            abduction_rad=0.0,
+            forward_bias_rad=0.10,
+        )
+
+    # Humanoid: slow, conservative walking. Taller robots need longer period.
+    max_step = max(0.03, min(features.foot_length_m * 0.9, 0.12))
+    period = _clamp(1.4 + 1.4 * features.com_height_m, 1.2, 2.8)
+    # Heavier robots need more double-support time.
+    duty = _clamp(0.75 + 0.005 * features.robot_mass_kg, 0.70, 0.92)
+    hip_swing = max(0.05, min(0.18, features.total_leg_length_m * 0.3))
+    knee_lift = max(0.06, min(0.22, features.total_leg_length_m * 0.4))
+    return GaitParams(
+        step_length_m=max_step,
+        step_height_m=max(0.010, features.com_height_m * 0.015),
+        step_period_s=period,
+        duty_factor=duty,
+        hip_swing_rad=hip_swing,
+        knee_lift_rad=knee_lift,
+        ankle_comp_rad=0.03,
+        arm_swing_rad=0.03,
+        forward_bias_rad=0.0,
+    )
+
+
+def morphology_aware_balance_gains(features: "GaitMorphologyFeatures") -> BalanceGains:
+    """Return balance-feedback gains scaled to the candidate.
+
+    Taller robots need stronger ankle correction to stabilize a higher COM.
+    Heavier robots tolerate slightly larger lean targets but need more
+    velocity damping to avoid oscillation.
+    """
+    height_factor = _clamp(features.com_height_m, 0.3, 1.6)
+    mass_factor = _clamp(features.robot_mass_kg, 5.0, 80.0)
+
+    if features.template == "quadruped":
+        return BalanceGains(
+            hip_pitch_gain=_clamp(0.06 * height_factor, 0.04, 0.14),
+            ankle_pitch_gain=_clamp(0.10 * height_factor, 0.06, 0.20),
+            com_vel_gain=_clamp(0.03 + 0.001 * mass_factor, 0.02, 0.08),
+            hip_roll_gain=_clamp(0.03 * height_factor, 0.02, 0.08),
+            lean_target_x=0.02,
+            com_vel_target=0.10,
+            capture_gain=0.06,
+        )
+
+    return BalanceGains(
+        hip_pitch_gain=_clamp(0.12 * height_factor, 0.08, 0.28),
+        ankle_pitch_gain=_clamp(0.16 * height_factor, 0.10, 0.35),
+        com_vel_gain=_clamp(0.05 + 0.001 * mass_factor, 0.03, 0.12),
+        hip_roll_gain=_clamp(0.04 * height_factor, 0.03, 0.10),
+        lean_target_x=_clamp(0.02 * height_factor, 0.01, 0.05),
+        com_vel_target=_clamp(0.10 + 0.05 * height_factor, 0.08, 0.22),
+        capture_gain=_clamp(0.06 + 0.02 * height_factor, 0.04, 0.14),
+    )
 
 
 def _stance_sides(phase: float, duty_factor: float, template: str) -> set[str]:
