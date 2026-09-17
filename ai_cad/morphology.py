@@ -20,9 +20,10 @@ import numpy as np
 from ai_cad.actuator_sizing import actuator_summary, size_actuators_for_tree
 from ai_cad.feature_tree import FeatureTree
 from ai_cad.kinematic_tree import sample_reachable_workspace
+from ai_cad.morphology_physics import physics_score_candidate
+from ai_cad.morphology_structural import score_candidate_structural
 from ai_cad.robot_templates import humanoid_template, manipulator_on_base_template, quadruped_template
 from ai_cad.stability import check_stability, stability_summary
-from ai_cad.morphology_physics import physics_score_candidate
 
 
 DEFAULT_TEMPLATE_FACTORIES: dict[str, Any] = {
@@ -189,6 +190,7 @@ def score_candidate(
     robot_mass_kg: float = 20.0,
     weights: dict[str, float] | None = None,
     use_physics: bool = True,
+    use_structural: bool = True,
 ) -> dict[str, float]:
     """Score a candidate tree using existing deterministic analysis tools.
 
@@ -197,13 +199,16 @@ def score_candidate(
     Args:
         use_physics: when True, run real MuJoCo standing/sway rollouts to
             validate morphology instead of purely heuristic stability checks.
+        use_structural: when True, run lightweight beam stress/buckling checks
+            on structural links and include the result in the composite score.
     """
     weights = weights or {}
-    w_stability = weights.get("stability", 0.30)
+    w_stability = weights.get("stability", 0.25)
     w_workspace = weights.get("workspace", 0.25)
     w_gait = weights.get("gait", 0.25)
     w_actuator = weights.get("actuator", 0.15)
     w_compact = weights.get("compactness", 0.05)
+    w_structural = weights.get("structural", 0.05)
 
     if use_physics:
         physics_scores = physics_score_candidate(tree, n_steps=200)
@@ -299,12 +304,17 @@ def score_candidate(
     else:
         compact_score = _normalize(2.0 - ratio, 1.0, 2.0)
 
+    # Structural dynamics: penalize links that fail conservative beam checks.
+    structural_report = score_candidate_structural(tree, payload_kg=payload_kg) if use_structural else {"structural_score": 1.0}
+    structural_score = float(structural_report["structural_score"])
+
     composite = (
         w_stability * stability_score
         + w_workspace * workspace_score
         + w_gait * gait_score
         + w_actuator * actuator_score
         + w_compact * compact_score
+        + w_structural * structural_score
     )
 
     result: dict[str, Any] = {
@@ -313,6 +323,7 @@ def score_candidate(
         "gait": round(gait_score, 4),
         "actuator": round(actuator_score, 4),
         "compactness": round(compact_score, 4),
+        "structural": round(structural_score, 4),
         "composite": round(composite, 6),
         "max_torque_nm": round(max_torque, 4),
         "total_power_w": round(total_power, 4),
@@ -390,6 +401,7 @@ def search_morphologies(
     robot_mass_kg: float | None = None,
     weights: dict[str, float] | None = None,
     use_physics: bool = True,
+    use_structural: bool = True,
 ) -> list[MorphologyCandidate]:
     """Run a deterministic morphology search and return ranked candidates.
 
@@ -399,6 +411,7 @@ def search_morphologies(
         robot_mass_kg: total mass estimate; defaults to payload * 4.
         weights: optional scoring weights.
         use_physics: when True, run real MuJoCo rollouts to score candidates.
+        use_structural: when True, run beam stress/buckling checks.
 
     Returns:
         Candidates sorted by composite score (highest first).
@@ -420,7 +433,9 @@ def search_morphologies(
                     rng.uniform(space.joint_range_scale[0], space.joint_range_scale[1])
                 )
                 tree = _scale_joint_limits(tree, scale)
-            scores = score_candidate(tree, payload_kg, robot_mass_kg, weights, use_physics=use_physics)
+            scores = score_candidate(
+                tree, payload_kg, robot_mass_kg, weights, use_physics=use_physics, use_structural=use_structural
+            )
             candidate_id = f"{space.template}_{counter:04d}"
             candidates.append(
                 MorphologyCandidate(
