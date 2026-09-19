@@ -1,5 +1,7 @@
 # Milestone B — Structural Dynamics / FEA for Robot Links
 
+**Status:** ✅ COMPLETE — 2026-09-17
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Wire structural dynamics checks into the morphology pipeline so that no candidate with slender, weak links survives the search, raising the honest complex-design confidence score from **8.0 → 8.3 / 10**.

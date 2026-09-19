@@ -1,5 +1,6 @@
 # Milestone D — Real end-effector families
 
+**Status:** ✅ COMPLETE — 2026-09-19
 **Date:** 2026-09-17
 **Goal:** Make end-effector choices actually change the FeatureTree, mass distribution, and morphology score, raising the honest complex-design confidence score from **8.5 → 8.7 / 10**.
 
@@ -29,7 +30,7 @@
 
 **Steps:**
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 import pytest
@@ -50,7 +51,7 @@ Run:
 
 Expected: FAIL with missing families.
 
-- [ ] **Step 2: Implement the families**
+- [x] **Step 2: Implement the families**
 
 In `ai_cad/part_families.py`:
 
@@ -62,13 +63,13 @@ In `ai_cad/part_families.py`:
 
 Register all five in `_FAMILY_BUILDERS`.
 
-- [ ] **Step 3: Run tests**
+- [x] **Step 3: Run tests**
 
 `python -m pytest tests/test_end_effector_families.py -v -o addopts=`
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add ai_cad/part_families.py tests/test_end_effector_families.py
@@ -84,7 +85,7 @@ git commit -m "robocad: Milestone D — end-effector part family definitions"
 
 **Steps:**
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```python
 import pytest
@@ -122,7 +123,7 @@ Run:
 
 Expected: FAIL because `_attach_end_effector` is still a placeholder.
 
-- [ ] **Step 2: Implement `_attach_end_effector`**
+- [x] **Step 2: Implement `_attach_end_effector`**
 
 In `ai_cad/morphology.py`:
 
@@ -171,13 +172,13 @@ def _replace_part_in_tree(tree: FeatureTree, instance_id: str, family_name: str)
     instance.part_id = new_part_id
 ```
 
-- [ ] **Step 3: Run tests**
+- [x] **Step 3: Run tests**
 
 `python -m pytest tests/test_end_effector_families.py -v -o addopts=`
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add ai_cad/morphology.py tests/test_end_effector_families.py
@@ -193,26 +194,26 @@ git commit -m "robocad: Milestone D — _attach_end_effector swaps real part fam
 
 **Steps:**
 
-- [ ] **Step 1: Add end-effector choices to default spaces**
+- [x] **Step 1: Add end-effector choices to default spaces**
 
 Change `default_space`:
 - `humanoid`: `end_effectors=["default", "parallel_jaw_gripper", "three_finger_hand", "vacuum_gripper"]`
 - `quadruped`: `end_effectors=["default", "point_foot", "compliant_foot"]`
 - `manipulator_on_base`: `end_effectors=["default", "parallel_jaw_gripper", "three_finger_hand", "vacuum_gripper"]`
 
-- [ ] **Step 2: Account for end-effector mass in scoring**
+- [x] **Step 2: Account for end-effector mass in scoring**
 
 In `score_candidate`:
 - After computing actuator specs, add a small end-effector mass bonus/penalty if the end-effector family is heavier/lighter than the placeholder. Use the part metadata or estimate from bounding volume. Keep it lightweight; do not call deep FEA.
 - Expose `end_effector_family` and `end_effector_mass_kg` in the result.
 
-- [ ] **Step 3: Run default suite**
+- [x] **Step 3: Run default suite**
 
 `python -m pytest --timeout=120 -q`
 
 Expected: 380 passed.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add ai_cad/morphology.py
@@ -228,7 +229,7 @@ git commit -m "robocad: Milestone D — default spaces include end-effector choi
 
 **Steps:**
 
-- [ ] **Step 1: Add state and selector**
+- [x] **Step 1: Add state and selector**
 
 Add `const [endEffectors, setEndEffectors] = useState([])` and `const [selectedEE, setSelectedEE] = useState('default')`.
 
@@ -249,17 +250,17 @@ Add a selector below the template dropdown:
 </select>
 ```
 
-- [ ] **Step 2: Wire to backend request**
+- [x] **Step 2: Wire to backend request**
 
 Update `runMorphologySearch` payload to include `endEffectors: [selectedEE]` (or a list if multi-select is supported later). The backend `MorphologySearchRequest` already accepts a `dimensions` list; add an optional `end_effectors: list[str]` field and `default_space` will be overridden if provided.
 
-- [ ] **Step 3: Run frontend build**
+- [x] **Step 3: Run frontend build**
 
 `cd web/frontend && npm run build`
 
 Expected: passes.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add web/frontend/src/components/MorphologyPanel.jsx web/backend/main.py
@@ -274,7 +275,7 @@ git commit -m "robocad: Milestone D — frontend end-effector selector and backe
 
 **Steps:**
 
-- [ ] **Step 1: Add export/load tests**
+- [x] **Step 1: Add export/load tests**
 
 ```python
 @pytest.mark.heavy
@@ -291,13 +292,13 @@ def test_parallel_jaw_humanoid_exports_and_loads_in_mujoco():
 
 (Use the actual export function from the codebase.)
 
-- [ ] **Step 2: Run tests**
+- [x] **Step 2: Run tests**
 
 `python -m pytest tests/test_end_effector_families.py -v -o addopts=`
 
 Expected: PASS.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add tests/test_end_effector_families.py
@@ -314,19 +315,19 @@ git commit -m "robocad: Milestone D — end-effector MuJoCo export/load regressi
 
 **Steps:**
 
-- [ ] **Step 1: Run default suite**
+- [x] **Step 1: Run default suite**
 
 `python -m pytest --timeout=120 -q`
 
-Expected: 380 passed, same baseline.
+Expected: 385 passed.
 
-- [ ] **Step 2: Run heavy/slow suite**
+- [x] **Step 2: Run heavy/slow suite**
 
 `python -m pytest tests -m "heavy or slow or mujoco" --deselect tests/test_morphology_api.py::test_simulate_morphology_candidate --tb=short -q`
 
-Expected: green.
+Expected: 256 passed, 1 xfailed (unrelated `test_simulate_morphology_candidate` attention-policy timeout).
 
-- [ ] **Step 3: Update documentation**
+- [x] **Step 3: Update documentation**
 
 - `CurrentTo10.md`: update score from 8.5 → 8.7/10, add Milestone D results.
 - `PLAN.md`: append Milestone D acceptance to milestone table.
@@ -334,7 +335,7 @@ Expected: green.
 - Memory files: create/update `milestone-d-end-effector-families.md` and update `robocad-confidence-10-10-roadmap.md` / `MEMORY.md`.
 - Mark Milestone D plan checkboxes complete.
 
-- [ ] **Step 4: Final commit**
+- [x] **Step 4: Final commit**
 
 ```bash
 git add -A
