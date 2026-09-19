@@ -1,8 +1,8 @@
 # Current RoboCAD → 10/10
 
-**Current RoboCAD is in a solid, shippable state:** 380 default + 250 heavy/slow tests passing, frontend build passes, Phase 28A–F complete, Phase 29 physics-based morphology scoring complete, Phase 30 real gait synthesis complete, and **Milestones A (adaptive gait robustness), B (structural dynamics / FEA for links), and C (workspace / self-collision / manipulability)** complete.
+**Current RoboCAD is in a solid, shippable state:** 385 default + 255 heavy/slow tests passing, frontend build passes, Phase 28A–F complete, Phase 29 physics-based morphology scoring complete, Phase 30 real gait synthesis complete, and **Milestones A (adaptive gait robustness), B (structural dynamics / FEA for links), C (workspace / self-collision / manipulability), and D (real end-effector families)** complete.
 
-My honest confidence score for **complex multi-domain robot designs, especially humanoids**, is **8.5 / 10**. The pipeline validates morphology with real MuJoCo standing, sway, stepping, and walking rollouts; rejects candidates whose limb segments fail lightweight beam bending / buckling checks; and now scores sagittal-plane workspace reach, penalizes self-collision across representative poses, and rewards kinematic dexterity with a Yoshikawa-style manipulability index. Default-template and near-default humanoid/quadruped candidates walk reliably; the searched grid and small mass perturbations pass at the Milestone A thresholds; structural and kinematic checks filter bad candidates before they are presented. The remaining gap is real end-effector families, topology grammar, real MuJoCo brain training, and automatic simulation certification. The full deep-analysis memory file lives at:
+My honest confidence score for **complex multi-domain robot designs, especially humanoids**, is **8.7 / 10**. The pipeline validates morphology with real MuJoCo standing, sway, stepping, and walking rollouts; rejects candidates whose limb segments fail lightweight beam bending / buckling checks; scores sagittal-plane workspace reach, penalizes self-collision across representative poses, rewards kinematic dexterity with a Yoshikawa-style manipulability index, and **now swaps real end-effector part families (parallel-jaw gripper, three-finger hand, vacuum gripper, point foot, compliant foot) into the FeatureTree so the chosen gripper/foot changes mass distribution and geometry**. Default-template and near-default humanoid/quadruped candidates walk reliably; the searched grid and small mass perturbations pass at the Milestone A thresholds; structural and kinematic checks filter bad candidates before they are presented. The remaining gap is topology grammar beyond templates, real MuJoCo brain training, and automatic simulation certification. The full deep-analysis memory file lives at:
 
 `C:\Users\point\.claude\projects\C--Users-point-projects-RoboCAD\memory\robocad-confidence-10-10-roadmap.md`
 
@@ -10,9 +10,9 @@ and is indexed in `MEMORY.md`.
 
 ---
 
-## Why 8.5 / 10 today
+## Why 8.7 / 10 today
 
-The score reflects that the *infrastructure* is green and deterministic, the *physics reasoning* layer is real rather than heuristic, **adaptive flat-ground gait synthesis is robust enough for searched candidates and small mass perturbations**, **structural link checks filter candidates whose limbs would yield or buckle under payload + drop loads**, and **kinematic reasoning now rewards reachable, collision-free, dexterous workspaces**. The next jump requires real end-effector families, topology grammar, brain training on the actual MuJoCo model, and automatic certification.
+The score reflects that the *infrastructure* is green and deterministic, the *physics reasoning* layer is real rather than heuristic, **adaptive flat-ground gait synthesis is robust enough for searched candidates and small mass perturbations**, **structural link checks filter candidates whose limbs would yield or buckle under payload + drop loads**, **kinematic reasoning now rewards reachable, collision-free, dexterous workspaces**, and **end-effector choices are no longer cosmetic: the selected gripper or foot family is instantiated in the FeatureTree, exported to MuJoCo, and its estimated mass influences actuator and structural scoring**. The next jump requires topology grammar beyond the three fixed templates, brain training on the actual MuJoCo model, and automatic certification.
 
 | Subsystem | Current state | Caveat |
 |---|---|---|
@@ -26,7 +26,7 @@ The score reflects that the *infrastructure* is green and deterministic, the *ph
 | Brain training | 2-D `AbstractAttentionEnv` abstraction | Does not control the actual MuJoCo humanoid |
 | MuJoCo validation | 20-step load test | Catches load errors, not dynamic instability |
 | Topology set | 3 templates | Anything outside biped/quadruped/manipulator falls back to LLM |
-| End-effector selection | Only changes prompt string | No real morphological effect |
+| End-effector selection | **Real part-family swap** in FeatureTree; mass affects actuator/structural score; exported to MuJoCo | Gripper/foot geometry is still lightweight bounding-volume; full finger/contact dynamics are future work |
 
 Concrete evidence from the current code:
 
@@ -132,11 +132,22 @@ Closed the kinematic-reasoning gap with a sagittal-plane workspace proxy, repres
 
 **Effort:** ~1.5 sessions on top of the Milestone B scaffold.
 
-### Phase 33 / Milestone D — Real end-effector families (~8.7/10)
+### Milestone D — Real end-effector families (8.5 → 8.7/10) ✅ COMPLETE
 
-Add part families for parallel-jaw gripper, three-finger hand, vacuum gripper, point/compliant feet. Make `_attach_end_effector` actually change the tree and mass distribution.
+Closed the end-effector gap by adding real part families for hands and feet, making `_attach_end_effector` actually swap geometry in the FeatureTree, and feeding end-effector mass into actuator and structural scoring.
 
-**Effort:** 4–5 weeks.
+**Delivered in this session:**
+- `ai_cad/part_families.py`: `_parallel_jaw_gripper`, `_three_finger_hand`, `_vacuum_gripper`, `_point_foot`, `_compliant_foot` families registered in `PART_FAMILY_REGISTRY`.
+- `ai_cad/morphology.py`: `_attach_end_effector` now instantiates the chosen family for the template's hand/foot/end-effector parts; default spaces expose end-effector choices per template; lightweight bounding-volume mass estimator `_estimate_part_mass_kg` feeds into actuator sizing and structural checks; `score_candidate` reports `end_effector_family` and `end_effector_mass_kg`.
+- `web/backend/main.py`: `MorphologySearchRequest` accepts `end_effectors`; `/morphology/templates` returns the default end-effector list.
+- `web/frontend/src/components/MorphologyPanel.jsx`: end-effector family selector wired to the search request.
+- `tests/test_end_effector_families.py`: family-instantiation tests, FeatureTree swap tests, and MuJoCo export/load regression tests for `parallel_jaw_gripper` and `point_foot`.
+- `tests/test_part_families.py`: registry expected-set updated for the five new families.
+- Full suite verified: **385 default + 255 heavy/slow tests passing** (1 xfailed; the unrelated `test_simulate_morphology_candidate` attention-policy timeout is pre-existing).
+
+**Score impact:** 8.5 → **8.7 / 10**.
+
+**Effort:** ~1 session on top of the Milestone C scaffold.
 
 ### Phase 34 / Milestone E — Topology search beyond templates (~9.0/10)
 
@@ -233,6 +244,15 @@ Score moved from **7.7 → 8.0 / 10** after adaptive gait robustness delivered t
    - Full suite verified: **380 default + 250 heavy/slow passing** (1 xfailed; the unrelated `test_simulate_morphology_candidate` attention-policy timeout is pre-existing).
    - Score moved from **8.3 → 8.5 / 10**.
 
+### 6. **Milestone D — real end-effector families (8.5 → 8.7/10)** ✅ COMPLETE
+   - `ai_cad/part_families.py`: `_parallel_jaw_gripper`, `_three_finger_hand`, `_vacuum_gripper`, `_point_foot`, `_compliant_foot` registered.
+   - `ai_cad/morphology.py`: `_attach_end_effector` swaps real families into the FeatureTree; default spaces include end-effector choices; end-effector mass influences actuator sizing and structural scoring; `score_candidate` exposes `end_effector_family` and `end_effector_mass_kg`.
+   - `web/backend/main.py`: `MorphologySearchRequest.end_effectors` and `/morphology/templates` return default end-effector lists.
+   - `web/frontend/src/components/MorphologyPanel.jsx` + `web/frontend/src/api.js`: end-effector family selector wired to the backend.
+   - `tests/test_end_effector_families.py`: family instantiation, FeatureTree swap, and MuJoCo export/load regression tests.
+   - Full suite verified: **385 default + 255 heavy/slow passing** (1 xfailed; the unrelated `test_simulate_morphology_candidate` attention-policy timeout is pre-existing).
+   - Score moved from **8.5 → 8.7 / 10**.
+
 ## First concrete next step
 
-Milestones A, B, and C are closed. Move into **Milestone D (Phase 33) — Real end-effector families** to raise the score toward 8.7/10.
+Milestones A, B, C, and D are closed. Move into **Milestone E (Phase 34) — Topology grammar beyond templates** to raise the score toward 9.0/10.

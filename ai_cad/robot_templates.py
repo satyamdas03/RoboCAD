@@ -57,6 +57,8 @@ def _link(name: str, length_mm: float = 100.0, radius_mm: float = 15.0) -> Part:
         family = "hip_hub"
     elif "shoulder_hub" in name:
         family = "shoulder_hub"
+    elif "end_effector" in name:
+        family = "end_effector"
     elif "hand" in name:
         family = "end_effector"
     elif any(x in name for x in ("thigh", "shin", "upper_arm", "forearm")):

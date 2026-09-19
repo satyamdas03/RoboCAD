@@ -403,7 +403,7 @@ export async function listMorphologyTemplates() {
   return apiFetch('/morphology/templates')
 }
 
-export async function runMorphologySearch({ template = 'humanoid', dimensions = [], nMax = 48, seed = 0, payloadKg = 5.0, robotMassKg = null, weights = {} } = {}) {
+export async function runMorphologySearch({ template = 'humanoid', dimensions = [], nMax = 48, seed = 0, payloadKg = 5.0, robotMassKg = null, weights = {}, endEffectors = [] } = {}) {
   return apiFetch('/morphology/search', {
     method: 'POST',
     body: JSON.stringify({
@@ -414,6 +414,7 @@ export async function runMorphologySearch({ template = 'humanoid', dimensions = 
       payload_kg: payloadKg,
       robot_mass_kg: robotMassKg,
       weights,
+      end_effectors: endEffectors,
     }),
   })
 }

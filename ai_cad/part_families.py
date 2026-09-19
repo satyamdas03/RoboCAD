@@ -11,6 +11,7 @@ family metadata.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -1256,6 +1257,369 @@ def _humanoid_limb_segment() -> PartFamily:
     )
 
 
+# ---------------------------------------------------------------------------
+# End-effector families
+# ---------------------------------------------------------------------------
+
+
+def _parallel_jaw_gripper() -> PartFamily:
+    """Two-finger parallel-jaw gripper with a wrist mount pivot."""
+    params = [
+        Parameter(name="gripper_width", value=60.0, unit="mm"),
+        Parameter(name="jaw_depth", value=40.0, unit="mm"),
+        Parameter(name="jaw_thickness", value=8.0, unit="mm"),
+        Parameter(name="finger_gap", value=10.0, unit="mm"),
+        Parameter(name="mount_bore", value=8.0, unit="mm"),
+    ]
+    sketch = Sketch(
+        id="gripper_profile",
+        name="gripper_profile",
+        plane=PlaneReference(type="base", name="XY"),
+        entities=[
+            SketchEntity(
+                type="rectangle",
+                id="jaw_top",
+                center=("jaw_depth / 2", "finger_gap / 2 + jaw_thickness / 2"),
+                width="jaw_depth",
+                height="jaw_thickness",
+            ),
+            SketchEntity(
+                type="rectangle",
+                id="jaw_bottom",
+                center=("jaw_depth / 2", "-(finger_gap / 2 + jaw_thickness / 2)"),
+                width="jaw_depth",
+                height="jaw_thickness",
+            ),
+            SketchEntity(
+                type="circle",
+                id="mount_hole",
+                center=(0, 0),
+                radius="mount_bore / 2",
+            ),
+        ],
+        constraints=[],
+        dimensions=[],
+    )
+    body = _extrude_feature("gripper_body", "gripper_profile", "gripper_width")
+    mount = CoordinateSystem(
+        id="gripper_mount_csys",
+        name="wrist mount",
+        origin=(0, 0, 0),
+        x_axis=(1, 0, 0),
+        y_axis=(0, 1, 0),
+        z_axis=(0, 0, 1),
+    )
+    grip = CoordinateSystem(
+        id="gripper_grip_csys",
+        name="grip center",
+        origin=(40.0, 0.0, 0.0),
+        x_axis=(1, 0, 0),
+        y_axis=(0, 1, 0),
+        z_axis=(0, 0, 1),
+    )
+    interfaces = [
+        Interface(
+            id="mount",
+            csys=mount,
+            type="mount",
+            mate_hint="fixed",
+            mate_with=["limb_segment/pin_b", "end_effector/mount", "hub/bore"],
+        ),
+        Interface(
+            id="grip",
+            csys=grip,
+            type="face",
+            mate_hint="fixed",
+            mate_with=["end_effector/grip"],
+        ),
+    ]
+    return PartFamily(
+        name="parallel_jaw_gripper",
+        domain="humanoid",
+        display_name="Parallel-jaw gripper",
+        default_parameters=params,
+        sketches=[sketch],
+        features=[body],
+        interfaces=interfaces,
+        metadata={"end_effector_type": "gripper"},
+    )
+
+
+def _three_finger_hand() -> PartFamily:
+    """Three cylindrical fingers spaced 120 degrees around a palm disc."""
+    params = [
+        Parameter(name="palm_diameter", value=50.0, unit="mm"),
+        Parameter(name="finger_diameter", value=12.0, unit="mm"),
+        Parameter(name="finger_length", value=35.0, unit="mm"),
+        Parameter(name="palm_thickness", value=10.0, unit="mm"),
+        Parameter(name="mount_bore", value=8.0, unit="mm"),
+    ]
+    palm_sketch = _circle_sketch("palm_profile", "palm_diameter")
+    palm = _extrude_feature("palm_body", "palm_profile", "palm_thickness")
+    mount_hole = _circle_sketch("palm_mount_hole", "mount_bore")
+    mount_cut = _extrude_feature("palm_mount_cut", "palm_mount_hole", "palm_thickness", mode="subtract")
+    finger_sketches = []
+    finger_features = []
+    # Pre-computed 120° finger centers for deterministic transpilation.
+    finger_radius_mm = 50.0 / 2.0 + 35.0 / 2.0
+    finger_centers = [
+        (finger_radius_mm, 0.0),
+        (-finger_radius_mm * 0.5, finger_radius_mm * math.sqrt(3.0) / 2.0),
+        (-finger_radius_mm * 0.5, -finger_radius_mm * math.sqrt(3.0) / 2.0),
+    ]
+    for idx, center in enumerate(finger_centers):
+        finger = Sketch(
+            id=f"finger_profile_{idx}",
+            name=f"finger_profile_{idx}",
+            plane=PlaneReference(type="base", name="XY"),
+            entities=[
+                SketchEntity(
+                    type="circle",
+                    id=f"finger_{idx}",
+                    center=center,
+                    radius="finger_diameter / 2",
+                )
+            ],
+            constraints=[],
+            dimensions=[],
+        )
+        finger_sketches.append(finger)
+        finger_features.append(_extrude_feature(f"finger_body_{idx}", f"finger_profile_{idx}", "palm_thickness"))
+    mount = CoordinateSystem(
+        id="hand_mount_csys",
+        name="wrist mount",
+        origin=(0, 0, 0),
+        x_axis=(1, 0, 0),
+        y_axis=(0, 1, 0),
+        z_axis=(0, 0, 1),
+    )
+    grip = CoordinateSystem(
+        id="hand_grip_csys",
+        name="grip center",
+        origin=(0.0, 0.0, 10.0),
+        x_axis=(1, 0, 0),
+        y_axis=(0, 1, 0),
+        z_axis=(0, 0, 1),
+    )
+    interfaces = [
+        Interface(
+            id="mount",
+            csys=mount,
+            type="mount",
+            mate_hint="fixed",
+            mate_with=["limb_segment/pin_b", "end_effector/mount", "hub/bore"],
+        ),
+        Interface(
+            id="grip",
+            csys=grip,
+            type="face",
+            mate_hint="fixed",
+            mate_with=["end_effector/grip"],
+        ),
+    ]
+    return PartFamily(
+        name="three_finger_hand",
+        domain="humanoid",
+        display_name="Three-finger adaptive hand",
+        default_parameters=params,
+        sketches=[palm_sketch, mount_hole, *finger_sketches],
+        features=[palm, mount_cut, *finger_features],
+        interfaces=interfaces,
+        metadata={"end_effector_type": "hand"},
+    )
+
+
+def _vacuum_gripper() -> PartFamily:
+    """Round suction-cup end effector with a short mount stem."""
+    params = [
+        Parameter(name="pad_diameter", value=40.0, unit="mm"),
+        Parameter(name="pad_height", value=12.0, unit="mm"),
+        Parameter(name="mount_diameter", value=20.0, unit="mm"),
+        Parameter(name="mount_bore", value=8.0, unit="mm"),
+    ]
+    pad = _circle_sketch("pad_profile", "pad_diameter")
+    pad_feature = _extrude_feature("pad_body", "pad_profile", "pad_height")
+    mount = _circle_sketch("mount_profile", "mount_diameter")
+    mount_feature = _extrude_feature("mount_body", "mount_profile", "pad_height")
+    mount_hole = _circle_sketch("mount_hole", "mount_bore")
+    mount_cut = _extrude_feature("mount_cut", "mount_hole", "pad_height", mode="subtract")
+    mount_csys = CoordinateSystem(
+        id="vacuum_mount_csys",
+        name="wrist mount",
+        origin=(0, 0, 0),
+        x_axis=(1, 0, 0),
+        y_axis=(0, 1, 0),
+        z_axis=(0, 0, 1),
+    )
+    seal = CoordinateSystem(
+        id="vacuum_seal_csys",
+        name="suction seal",
+        origin=(0.0, 0.0, 12.0),
+        x_axis=(1, 0, 0),
+        y_axis=(0, 1, 0),
+        z_axis=(0, 0, 1),
+    )
+    interfaces = [
+        Interface(
+            id="mount",
+            csys=mount_csys,
+            type="mount",
+            mate_hint="fixed",
+            mate_with=["limb_segment/pin_b", "end_effector/mount", "hub/bore"],
+        ),
+        Interface(
+            id="seal",
+            csys=seal,
+            type="face",
+            mate_hint="fixed",
+            mate_with=["end_effector/seal"],
+        ),
+    ]
+    return PartFamily(
+        name="vacuum_gripper",
+        domain="humanoid",
+        display_name="Vacuum suction gripper",
+        default_parameters=params,
+        sketches=[pad, mount, mount_hole],
+        features=[pad_feature, mount_feature, mount_cut],
+        interfaces=interfaces,
+        metadata={"end_effector_type": "vacuum"},
+    )
+
+
+def _point_foot() -> PartFamily:
+    """Tapered point foot for dynamic legged robots."""
+    params = [
+        Parameter(name="toe_length", value=60.0, unit="mm"),
+        Parameter(name="toe_radius", value=8.0, unit="mm"),
+        Parameter(name="ankle_bore", value=8.0, unit="mm"),
+    ]
+    sketch = Sketch(
+        id="point_foot_profile",
+        name="point_foot_profile",
+        plane=PlaneReference(type="base", name="XY"),
+        entities=[
+            SketchEntity(
+                type="circle",
+                id="toe_tip",
+                center=("toe_length", 0),
+                radius="toe_radius / 2",
+            ),
+            SketchEntity(
+                type="circle",
+                id="ankle_hole",
+                center=(0, 0),
+                radius="ankle_bore / 2",
+            ),
+        ],
+        constraints=[],
+        dimensions=[],
+    )
+    body = _extrude_feature("point_foot_body", "point_foot_profile", "toe_radius * 2")
+    ankle = CoordinateSystem(
+        id="point_foot_ankle_csys",
+        name="ankle pivot",
+        origin=(0, 0, 0),
+        x_axis=(1, 0, 0),
+        y_axis=(0, 1, 0),
+        z_axis=(0, 0, 1),
+    )
+    contact = CoordinateSystem(
+        id="point_foot_contact_csys",
+        name="toe contact",
+        origin=(60.0, 0.0, 0.0),
+        x_axis=(1, 0, 0),
+        y_axis=(0, 1, 0),
+        z_axis=(0, 0, 1),
+    )
+    interfaces = [
+        Interface(
+            id="ankle",
+            csys=ankle,
+            type="bore",
+            mate_hint="revolute",
+            mate_with=["limb_segment/pin_b", "hub/bore"],
+        ),
+        Interface(
+            id="contact",
+            csys=contact,
+            type="face",
+            mate_hint="fixed",
+            mate_with=["foot/contact", "point_foot/contact"],
+        ),
+    ]
+    return PartFamily(
+        name="point_foot",
+        domain="humanoid",
+        display_name="Point foot",
+        default_parameters=params,
+        sketches=[sketch],
+        features=[body],
+        interfaces=interfaces,
+        metadata={"end_effector_type": "foot"},
+    )
+
+
+def _compliant_foot() -> PartFamily:
+    """Rounded rubber-like foot with a larger contact patch."""
+    params = [
+        Parameter(name="sole_radius", value=35.0, unit="mm"),
+        Parameter(name="ankle_bore", value=8.0, unit="mm"),
+        Parameter(name="compliance_height", value=20.0, unit="mm"),
+    ]
+    sole = _circle_sketch("sole_profile", "sole_radius")
+    sole_feature = _extrude_feature("sole_body", "sole_profile", "compliance_height")
+    ankle_hole = _circle_sketch("ankle_hole", "ankle_bore")
+    ankle_cut = _extrude_feature("ankle_cut", "ankle_hole", "compliance_height", mode="subtract")
+    ankle = CoordinateSystem(
+        id="compliant_foot_ankle_csys",
+        name="ankle pivot",
+        origin=(0, 0, 0),
+        x_axis=(1, 0, 0),
+        y_axis=(0, 1, 0),
+        z_axis=(0, 0, 1),
+    )
+    contact = CoordinateSystem(
+        id="compliant_foot_contact_csys",
+        name="sole contact",
+        origin=(0.0, 0.0, 20.0),
+        x_axis=(1, 0, 0),
+        y_axis=(0, 1, 0),
+        z_axis=(0, 0, 1),
+    )
+    interfaces = [
+        Interface(
+            id="ankle",
+            csys=ankle,
+            type="bore",
+            mate_hint="revolute",
+            mate_with=["limb_segment/pin_b", "hub/bore"],
+        ),
+        Interface(
+            id="contact",
+            csys=contact,
+            type="face",
+            mate_hint="fixed",
+            mate_with=["foot/contact", "compliant_foot/contact"],
+        ),
+    ]
+    return PartFamily(
+        name="compliant_foot",
+        domain="humanoid",
+        display_name="Compliant rounded foot",
+        default_parameters=params,
+        sketches=[sole, ankle_hole],
+        features=[sole_feature, ankle_cut],
+        interfaces=interfaces,
+        metadata={"end_effector_type": "foot"},
+    )
+
+
+# ---------------------------------------------------------------------------
+# Humanoid families
+# ---------------------------------------------------------------------------
+
+
 def _humanoid_end_effector() -> PartFamily:
     params = [
         Parameter(name="jaw_length", value=60.0, unit="mm"),
@@ -1652,7 +2016,12 @@ _FAMILY_BUILDERS: dict[str, Any] = {
     "event_camera_mount": _electronics_event_camera_mount,
     "limb_segment": _humanoid_limb_segment,
     "end_effector": _humanoid_end_effector,
+    "parallel_jaw_gripper": _parallel_jaw_gripper,
+    "three_finger_hand": _three_finger_hand,
+    "vacuum_gripper": _vacuum_gripper,
     "foot": _humanoid_foot,
+    "point_foot": _point_foot,
+    "compliant_foot": _compliant_foot,
     "torso_plate": _humanoid_torso_plate,
     "hip_hub": _humanoid_hip_hub,
     "shoulder_hub": _humanoid_shoulder_hub,

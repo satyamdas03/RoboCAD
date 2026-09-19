@@ -19,12 +19,13 @@ from typing import Any
 import numpy as np
 
 from ai_cad.actuator_sizing import actuator_summary, size_actuators_for_tree
-from ai_cad.feature_tree import FeatureTree
+from ai_cad.feature_tree import FeatureTree, Parameter
 from ai_cad.kinematic_tree import sample_reachable_workspace
 from ai_cad.morphology_physics import physics_score_candidate
 from ai_cad.morphology_collision import score_candidate_collision
 from ai_cad.morphology_structural import run_deep_structural_for_candidate, score_candidate_structural
 from ai_cad.morphology_workspace import workspace_proxy
+from ai_cad.part_families import get_family, instantiate_family
 from ai_cad.robot_templates import humanoid_template, manipulator_on_base_template, quadruped_template
 from ai_cad.stability import check_stability, stability_summary
 
@@ -168,14 +169,37 @@ def _scale_joint_limits(tree: FeatureTree, scale: float) -> FeatureTree:
 
 
 def _attach_end_effector(tree: FeatureTree, ee_type: str) -> FeatureTree:
-    """Apply a simple end-effector choice to the tree.
+    """Swap end-effector part families into the tree based on ``ee_type``.
 
-    Currently this is a placeholder that records the choice in the prompt and
-    tags. A future phase can swap part families for grippers, feet, etc.
+    The target default family is inferred from the new family's metadata
+    (``end_effector_type``).  Every existing part whose ``family`` matches that
+    default is replaced by an instantiation of ``ee_type`` while keeping its
+    original part id and instance references intact.
     """
     if ee_type == "default" or not ee_type:
         return tree
+    family = get_family(ee_type)
+    ee_type_meta = family.metadata.get("end_effector_type", "end_effector")
+    target_default_family = "foot" if ee_type_meta == "foot" else "end_effector"
+
     tree = copy.deepcopy(tree)
+    existing_param_names = {p.name for p in tree.parameters}
+    new_parts: list[Any] = []
+    for part in tree.parts:
+        if part.family == target_default_family:
+            new_part = instantiate_family(
+                ee_type,
+                part_id=part.id,
+                name_override=part.name or None,
+            )
+            for param in family.default_parameters:
+                if param.name not in existing_param_names:
+                    tree.parameters.append(param)
+                    existing_param_names.add(param.name)
+            new_parts.append(new_part)
+        else:
+            new_parts.append(part)
+    tree.parts = new_parts
     tree.prompt = f"{tree.prompt} with {ee_type} end-effector"
     return tree
 
@@ -185,6 +209,105 @@ def _normalize(value: float, lo: float, hi: float) -> float:
     if hi == lo:
         return 1.0 if value >= hi else 0.0
     return _clamp((value - lo) / (hi - lo), 0.0, 1.0)
+
+
+END_EFFECTOR_FAMILIES: set[str] = {
+    "parallel_jaw_gripper",
+    "three_finger_hand",
+    "vacuum_gripper",
+    "point_foot",
+    "compliant_foot",
+}
+
+
+def _resolve_numeric(value: Any, param_dict: dict[str, Any]) -> float:
+    """Return a numeric value, evaluating a string expression against parameters."""
+    if isinstance(value, (int, float)):
+        return float(value)
+    if not isinstance(value, str):
+        return 0.0
+    try:
+        return float(value)
+    except ValueError:
+        pass
+    env = {"__builtins__": {}, "pi": math.pi, "sin": math.sin, "cos": math.cos, "sqrt": math.sqrt}
+    env.update(param_dict)
+    try:
+        return float(eval(value, env))
+    except Exception:
+        return 0.0
+
+
+def _sketch_entity_area(entity: Any, param_dict: dict[str, Any]) -> float:
+    """Approximate 2D area of a sketch entity in mm²."""
+    if entity.type == "rectangle":
+        width = _resolve_numeric(getattr(entity, "width", 0.0), param_dict)
+        height = _resolve_numeric(getattr(entity, "height", 0.0), param_dict)
+        return width * height
+    if entity.type == "circle":
+        radius = _resolve_numeric(getattr(entity, "radius", 0.0), param_dict)
+        return math.pi * radius * radius
+    return 0.0
+
+
+def _estimate_part_mass_kg(part: Any) -> float:
+    """Lightweight bounding-volume mass estimate for a part family instance."""
+    family_name = getattr(part, "family", None)
+    if not family_name:
+        return 0.0
+    try:
+        family = get_family(family_name)
+    except KeyError:
+        return 0.0
+    param_dict = {p.name: p.value for p in family.default_parameters}
+
+    # Positive area comes from "add" sketches; subtractive sketches reduce it.
+    positive_sketch_ids: set[str] = set()
+    subtract_sketch_ids: set[str] = set()
+    max_thickness_mm = 5.0
+    for feature in part.features:
+        if getattr(feature, "type", None) != "extrude":
+            continue
+        sketch_id = getattr(feature, "sketch_id", None)
+        mode = feature.parameters.get("mode", "add") if hasattr(feature, "parameters") else "add"
+        amount = _resolve_numeric(
+            feature.parameters.get("amount", 0.0) if hasattr(feature, "parameters") else 0.0,
+            param_dict,
+        )
+        if not sketch_id:
+            continue
+        if mode == "subtract":
+            subtract_sketch_ids.add(sketch_id)
+        else:
+            positive_sketch_ids.add(sketch_id)
+            if amount > max_thickness_mm:
+                max_thickness_mm = amount
+
+    positive_area = 0.0
+    subtract_area = 0.0
+    for sketch in part.sketches:
+        sketch_area = sum(_sketch_entity_area(ent, param_dict) for ent in sketch.entities)
+        if sketch.id in positive_sketch_ids:
+            positive_area += sketch_area
+        if sketch.id in subtract_sketch_ids:
+            subtract_area += sketch_area
+
+    volume_mm3 = max(0.0, positive_area - subtract_area) * max_thickness_mm
+    density_kg_m3 = float(part.metadata.get("density_kg_m3", 1200.0))
+    return volume_mm3 * 1e-9 * density_kg_m3
+
+
+def _total_end_effector_mass_kg(tree: FeatureTree) -> tuple[float, list[str]]:
+    """Return total mass (kg) and list of end-effector families used in the tree."""
+    total = 0.0
+    families: list[str] = []
+    for part in tree.parts:
+        family = part.family
+        if family in END_EFFECTOR_FAMILIES:
+            mass = _estimate_part_mass_kg(part)
+            total += mass
+            families.append(family)
+    return total, families
 
 
 def score_candidate(
@@ -274,8 +397,12 @@ def score_candidate(
     # Gait score.
     gait_score = 1.0 if gait_feasible else 0.0
 
+    # End-effector mass estimate for morphology scoring.
+    end_effector_mass_kg, end_effector_families = _total_end_effector_mass_kg(tree)
+    effective_payload_kg = payload_kg + end_effector_mass_kg
+
     # Actuator feasibility: lower max torque and power are better.
-    specs = size_actuators_for_tree(tree, payload_kg=payload_kg)
+    specs = size_actuators_for_tree(tree, payload_kg=effective_payload_kg)
     summary = actuator_summary(specs)
     max_torque = summary.get("max_torque_nm", 0.0)
     total_power = summary.get("total_power_w", 0.0)
@@ -314,7 +441,11 @@ def score_candidate(
         compact_score = _normalize(2.0 - ratio, 1.0, 2.0)
 
     # Structural dynamics: penalize links that fail conservative beam checks.
-    structural_report = score_candidate_structural(tree, payload_kg=payload_kg) if use_structural else {"structural_score": 1.0}
+    structural_report = (
+        score_candidate_structural(tree, payload_kg=effective_payload_kg)
+        if use_structural
+        else {"structural_score": 1.0}
+    )
     structural_score = float(structural_report["structural_score"])
 
     # Self-collision: penalize candidates that interfere with themselves in
@@ -356,6 +487,8 @@ def score_candidate(
         "statically_stable": bool(statically_stable),
         "dynamically_stable": bool(dynamically_stable),
         "gait_feasible": bool(gait_feasible),
+        "end_effector_family": end_effector_families[0] if end_effector_families else "default",
+        "end_effector_mass_kg": round(end_effector_mass_kg, 6),
     }
     if use_physics:
         result["physics_standing_score"] = round(physics_scores["standing_score"], 4)
@@ -380,7 +513,7 @@ def default_space(template: str) -> MorphologySpace:
             ],
             limb_counts=[2],
             joint_range_scale=(0.8, 1.2),
-            end_effectors=["default"],
+            end_effectors=["default", "parallel_jaw_gripper", "three_finger_hand", "vacuum_gripper"],
             n_max=48,
             seed=0,
         )
@@ -394,7 +527,7 @@ def default_space(template: str) -> MorphologySpace:
             ],
             limb_counts=[4],
             joint_range_scale=(0.8, 1.2),
-            end_effectors=["default"],
+            end_effectors=["default", "point_foot", "compliant_foot"],
             n_max=48,
             seed=0,
         )
@@ -409,7 +542,7 @@ def default_space(template: str) -> MorphologySpace:
             ],
             limb_counts=[1],
             joint_range_scale=(0.8, 1.2),
-            end_effectors=["default"],
+            end_effectors=["default", "parallel_jaw_gripper", "three_finger_hand", "vacuum_gripper"],
             n_max=48,
             seed=0,
         )
