@@ -323,8 +323,10 @@ RoboCAD becomes extraordinary when a user can describe a multi-domain robot syst
 - **Phase 30 — Real gait synthesis and validation:** balance-aware walking controller produces >5 cm forward locomotion for default biped + quadruped templates; `walk_score` weighted into morphology composite; honest validation revised score 7.7/10.
 - **Milestone A — Adaptive gait robustness:** morphology-aware gait params/balance gains, per-candidate gait sweep, mass-aware actuator gains, quadruped trot gait; humanoid grid ≥40%, quadruped grid ≥75%, mass perturbations ≥50% walk pass rate; score 7.7 → 8.0/10.
 - **Milestone B — Structural dynamics / FEA for links:** link cross-section extraction, cantilever/simply-supported beam bending + Euler buckling, `structural_score` in morphology composite, optional deep CalculiX dispatch on top-N; score 8.0 → 8.3/10.
-- **Full test status:** 380 default + 246 heavy/slow tests passing (1 xfailed; the unrelated `test_simulate_morphology_candidate` attention-policy timeout is pre-existing), 5 benchmark/network tests deselected; frontend production build passes.
-- **Documentation refreshed:** `README.md`, `CurrentTo10.md`, `PLAN.md`, dossiers, and private memory files updated to reflect Phase 28A–F, Phase 29–30, Milestone A, and Milestone B completion.
+- **Milestone C — Workspace / self-collision / manipulability:** sagittal-plane workspace proxy, representative-pose self-collision checks, topology-aware Yoshikawa-style manipulability index; composite weights revised; score 8.3 → 8.5/10.
+- **Milestone D — Real end-effector families:** `parallel_jaw_gripper`, `three_finger_hand`, `vacuum_gripper`, `point_foot`, `compliant_foot` part families registered; `_attach_end_effector` swaps real part families into the FeatureTree; end-effector mass influences actuator/structural scoring; frontend end-effector selector; MuJoCo export/load regression for swapped families; score 8.5 → 8.7/10.
+- **Full test status:** 385 default + 255 heavy/slow tests passing (1 xfailed; the unrelated `test_simulate_morphology_candidate` attention-policy timeout is pre-existing), 5 benchmark/network tests deselected; frontend production build passes.
+- **Documentation refreshed:** `README.md`, `CurrentTo10.md`, `PLAN.md`, dossiers, and private memory files updated to reflect Phase 28A–F, Phase 29–30, Milestones A, B, C, and D completion.
 
 ## 9. Immediate next session plan
 
@@ -332,15 +334,15 @@ RoboCAD becomes extraordinary when a user can describe a multi-domain robot syst
 
 - ✅ Phase 28D (morphology co-design lab) implemented, tested, and committed.
 - ✅ Phase 28E (simulation certification) and 28F (product hardening + solver install bootstrap + marketplace archive upload) implemented, tested, and committed.
-- ✅ Phase 29 — physics-based morphology scoring; Phase 30 — real gait synthesis and validation; Milestone A — adaptive gait robustness; and Milestone B — structural dynamics / FEA for links implemented, tested, and committed.
+- ✅ Phase 29 — physics-based morphology scoring; Phase 30 — real gait synthesis and validation; Milestone A — adaptive gait robustness; Milestone B — structural dynamics / FEA for links; and Milestone C — workspace / self-collision / manipulability implemented, tested, and committed.
+- ✅ Milestone D — real end-effector families implemented, tested, and committed.
 - ✅ README, `CurrentTo10.md`, PLAN, dossiers, and memory files synchronized.
 - ✅ All new/modified files staged and pushed to `origin/master`.
 
 ### Next session
 
-1. ✅ **Phase 28D — Morphology Co-Design Lab complete.** Consider follow-on work: end-to-end voice/sketch-to-morphology pipeline, batch morphology certification, or revisit Phase 27D hardware-in-the-loop when hardware is available.
-2. ✅ **Milestone B — Structural dynamics / FEA for links complete.** Move into **Milestone C — Self-collision and manipulability** to raise the score toward 8.5/10.
-3. **Keep Phase 28A–F and Milestones A–B under maintenance** and monitor the new morphology tests for timeout creep on slower CI runners.
+1. ✅ **Milestone D — Real end-effector families complete.** Move into **Milestone E — Topology grammar beyond templates** to raise the score toward 9.0/10.
+2. **Keep Phase 28A–F and Milestones A–D under maintenance** and monitor the new morphology tests for timeout creep on slower CI runners.
 
 ---
 
@@ -1073,6 +1075,7 @@ Phase 28 was re-scoped from pure packaging into a **simulation-first product pla
 | **Milestone A (adaptive gait robustness)** | 30 | ✅ Complete — morphology-aware gait params/balance gains, per-candidate gait sweep, mass-aware position-actuator gains, quadruped trot gait; humanoid grid ≥40%, quadruped grid ≥75%, mass perturbations ≥50% walk pass rate; score 7.7 → 8.0/10 |
 | **Milestone B (structural dynamics / FEA for links)** | 31 | ✅ Complete — link cross-section extraction, cantilever/simply-supported beam bending + Euler buckling, `structural_score` in morphology composite, optional deep CalculiX dispatch on top-N; score 8.0 → 8.3/10 |
 | **Milestone C (workspace / self-collision / manipulability)** | 32 | ✅ Complete — sagittal-plane workspace proxy, representative-pose self-collision checks, topology-aware Yoshikawa-style manipulability index; composite weights revised to include collision and manipulability; score 8.3 → 8.5/10 |
+| **Milestone D (real end-effector families)** | 33 | ✅ Complete — `parallel_jaw_gripper`, `three_finger_hand`, `vacuum_gripper`, `point_foot`, `compliant_foot` part families; `_attach_end_effector` swaps real families into the tree; end-effector mass influences actuator/structural scoring; frontend selector; MuJoCo export/load regression; score 8.5 → 8.7/10 |
 
 ---
 

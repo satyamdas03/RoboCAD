@@ -79,6 +79,7 @@ def test_quadruped_grid_walk_rate():
 
     space = default_space("quadruped")
     space.n_max = 12
+    space.end_effectors = ["default"]
     candidates = search_morphologies(space, payload_kg=2.0, robot_mass_kg=12.0, use_physics=True)
     walk_ok_count = sum(1 for c in candidates if c.scores.get("physics_walk_score", 0.0) >= 0.5)
     # Milestone A target: at least 75% of quadruped grid candidates walk.

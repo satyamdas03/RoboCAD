@@ -489,6 +489,7 @@ class MorphologySearchRequest(BaseModel):
     payload_kg: float = Field(default=5.0, gt=0, description="Design payload mass used for actuator scoring.")
     robot_mass_kg: float | None = Field(default=None, description="Total mass estimate; defaults to payload * 4.")
     weights: dict[str, float] = Field(default_factory=dict, description="Optional scoring weights: stability, workspace, gait, actuator, compactness.")
+    end_effectors: list[str] = Field(default_factory=list, description="End-effector families to evaluate; defaults to the template's default space.")
     use_physics: bool = Field(default=False, description="Run real MuJoCo standing/sway rollouts for each candidate (slower but more accurate).")
 
 
@@ -3403,6 +3404,7 @@ def list_morphology_templates() -> dict[str, Any]:
                 ],
                 "n_max": space.n_max,
                 "seed": space.seed,
+                "end_effectors": space.end_effectors,
             }
         )
     return {"templates": templates}
@@ -3424,6 +3426,8 @@ def run_morphology_search(request: MorphologySearchRequest) -> dict[str, Any]:
         ]
     space.n_max = request.n_max
     space.seed = request.seed
+    if request.end_effectors:
+        space.end_effectors = request.end_effectors
 
     candidates = search_morphologies(
         space,

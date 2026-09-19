@@ -26,6 +26,8 @@ export default function MorphologyPanel() {
   const [templates, setTemplates] = useState([])
   const [selected, setSelected] = useState('humanoid')
   const [bounds, setBounds] = useState(DEFAULT_BOUNDS.humanoid)
+  const [endEffectorOptions, setEndEffectorOptions] = useState(['default'])
+  const [selectedEE, setSelectedEE] = useState('default')
   const [nMax, setNMax] = useState(32)
   const [seed, setSeed] = useState(0)
   const [payloadKg, setPayloadKg] = useState(5)
@@ -40,7 +42,10 @@ export default function MorphologyPanel() {
   useEffect(() => {
     listMorphologyTemplates()
       .then((data) => {
-        setTemplates(data.templates || [])
+        const tpls = data.templates || []
+        setTemplates(tpls)
+        const humanoid = tpls.find((t) => t.name === 'humanoid')
+        setEndEffectorOptions(humanoid?.end_effectors || ['default'])
       })
       .catch(() => setTemplates([]))
   }, [])
@@ -56,10 +61,14 @@ export default function MorphologyPanel() {
 
   useEffect(() => {
     setBounds(DEFAULT_BOUNDS[selected] || {})
+    const tpl = templates.find((t) => t.name === selected)
+    const options = tpl?.end_effectors || ['default']
+    setEndEffectorOptions(options)
+    setSelectedEE(options[0] || 'default')
     setResults(null)
     setSelectedCandidate(null)
     setSimulateReport(null)
-  }, [selected])
+  }, [selected, templates])
 
   function updateBound(name, field, value) {
     setBounds((prev) => ({
@@ -87,6 +96,7 @@ export default function MorphologyPanel() {
         nMax: Number(nMax),
         seed: Number(seed),
         payloadKg: Number(payloadKg),
+        endEffectors: selectedEE === 'default' ? [] : [selectedEE],
       })
       setSearchId(data.search_id)
       setResults(data.candidates)
@@ -135,6 +145,18 @@ export default function MorphologyPanel() {
         >
           {templates.map((t) => (
             <option key={t.name} value={t.name}>{t.name}</option>
+          ))}
+        </select>
+
+        <label className="kp-label">End-effector family</label>
+        <select
+          className="kp-input"
+          value={selectedEE}
+          onChange={(e) => setSelectedEE(e.target.value)}
+          disabled={searching || simulating}
+        >
+          {endEffectorOptions.map((ee) => (
+            <option key={ee} value={ee}>{ee}</option>
           ))}
         </select>
 

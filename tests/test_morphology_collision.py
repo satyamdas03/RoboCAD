@@ -22,6 +22,7 @@ def test_morphology_search_prefers_collision_free_humanoid():
 
     space = default_space("humanoid")
     space.n_max = 8
+    space.end_effectors = ["default"]
     candidates = search_morphologies(space, payload_kg=5.0, robot_mass_kg=20.0, use_physics=False, use_structural=False, use_collision=True)
     assert candidates
     top = max(candidates, key=lambda c: c.composite_score)

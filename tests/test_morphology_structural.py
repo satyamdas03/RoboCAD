@@ -99,6 +99,7 @@ def test_morphology_search_detects_structural_issues():
 
     space = default_space("humanoid")
     space.n_max = 8
+    space.end_effectors = ["default"]
     # Search near the upper end of the default height range where limbs are long.
     candidates = search_morphologies(
         space,
