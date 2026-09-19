@@ -1,5 +1,7 @@
 # Milestone C — Workspace, Self-Collision, and Manipulability
 
+**Status:** ✅ COMPLETE — 2026-09-17
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Make the morphology composite robust to sagittal-plane arms, self-collisions, and kinematic dexterity, raising the honest complex-design confidence score from **8.3 → 8.5 / 10**.
