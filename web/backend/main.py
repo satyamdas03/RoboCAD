@@ -71,6 +71,8 @@ from ai_cad.fea import run_static_analysis
 from ai_cad.geda_bridge import (
     AbstractAttentionEnv,
     AttentionBudget,
+    RobotMLPPolicy,
+    WorldReplayEnv,
     apply_domain_randomization,
     build_scene,
     build_world,
@@ -90,11 +92,14 @@ from ai_cad.geda_bridge import (
     run_world_replay,
     stability_check_bundle,
     train_and_evaluate,
+    train_and_evaluate_robot,
+    train_attention_policy,
     train_push_skill,
+    train_robot_policy,
     validate_bundle_with_mujoco,
     verify_bundle,
-    train_attention_policy,
     evaluate_attention_policy,
+    evaluate_robot_policy,
 )
 from ai_cad.geda_bridge.models import BundleManifest, BundleVerification
 from ai_cad.guess_parameter import guess_parameter as _guess_parameter
@@ -3599,15 +3604,71 @@ def simulate_morphology_candidate(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to build world: {exc}")
 
+    # Post-process the robot MJCF so locomotion tasks have a free-floating root.
+    robot_mjcf_path = sim_dir / world.robot_mjcf_file
+    if request.world_template in ("walker", "humanoid_stand") and robot_mjcf_path.exists():
+        try:
+            from ai_cad.morphology_physics import _scale_masses_and_add_freejoint
+
+            _scale_masses_and_add_freejoint(robot_mjcf_path, tree)
+        except Exception:
+            # If post-processing fails, continue with the original MJCF.
+            pass
+
+    world_mjcf_path = sim_dir / "world.mjcf"
     try:
-        env = AbstractAttentionEnv(world=world, seed=request.seed)
-        best_weights, train_report = train_attention_policy(
-            env=env,
-            n_iters=request.n_iters,
-            pop_size=request.pop_size,
+        export_world_to_mjcf(world, world_mjcf_path)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to export world MJCF: {exc}")
+
+    try:
+        env = WorldReplayEnv(
+            mjcf_path=str(world_mjcf_path),
+            world=world,
+            n_steps=500,
             seed=request.seed,
         )
-        eval_report = evaluate_attention_policy(env, best_weights, n_episodes=request.eval_episodes, seed=request.seed)
+        if env.is_available():
+            best_weights, train_report = train_robot_policy(
+                env=env,
+                n_iters=request.n_iters,
+                pop_size=request.pop_size,
+                seed=request.seed,
+            )
+            eval_report = evaluate_robot_policy(
+                env, best_weights, n_episodes=request.eval_episodes, seed=request.seed
+            )
+            brain_report = {
+                "success": bool(eval_report["success_rate"] >= 0.1),
+                "success_rate": eval_report["success_rate"],
+                "mean_reward": eval_report["mean_reward"],
+                "mean_final_distance": eval_report["mean_final_distance"],
+                "best_training_reward": train_report["best_training_reward"],
+                "n_params": int(RobotMLPPolicy.n_params(env.obs_dim, env.action_dim)),
+                "obs_dim": env.obs_dim,
+                "action_dim": env.action_dim,
+                "task_type": env.task_type,
+            }
+        else:
+            # Graceful fallback to the abstract attention smoke test.
+            abstract_env = AbstractAttentionEnv(world=world, seed=request.seed)
+            best_weights, train_report = train_attention_policy(
+                env=abstract_env,
+                n_iters=request.n_iters,
+                pop_size=request.pop_size,
+                seed=request.seed,
+            )
+            eval_report = evaluate_attention_policy(
+                abstract_env, best_weights, n_episodes=request.eval_episodes, seed=request.seed
+            )
+            brain_report = {
+                "success": bool(eval_report["success_rate"] >= 0.5),
+                "success_rate": eval_report["success_rate"],
+                "mean_reward": eval_report["mean_reward"],
+                "mean_final_distance": eval_report["mean_final_distance"],
+                "best_training_reward": train_report["best_training_reward"],
+                "fallback": "abstract_attention_env",
+            }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Brain training smoke test failed: {exc}")
 
@@ -3615,13 +3676,7 @@ def simulate_morphology_candidate(
         "search_id": search_id,
         "candidate_id": candidate_id,
         "world_template": request.world_template,
-        "brain_smoke_test": {
-            "success": bool(eval_report["success_rate"] >= 0.5),
-            "success_rate": eval_report["success_rate"],
-            "mean_reward": eval_report["mean_reward"],
-            "mean_final_distance": eval_report["mean_final_distance"],
-            "best_training_reward": train_report["best_training_reward"],
-        },
+        "brain_smoke_test": brain_report,
         "candidate": candidate_data,
     }
 

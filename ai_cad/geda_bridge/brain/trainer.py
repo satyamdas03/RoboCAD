@@ -1,4 +1,4 @@
-"""Cross-Entropy Method trainer for attention-aware robot-brain policies.
+"""Cross-Entropy Method trainer for attention-aware and real robot-brain policies.
 
 Keeps the same deterministic NumPy-only approach used in
 ``ai_cad.geda_bridge.skill_smoke`` so the brain layer can be tested and
@@ -10,8 +10,8 @@ from typing import Any
 
 import numpy as np
 
-from ai_cad.geda_bridge.brain.envs import AbstractAttentionEnv
-from ai_cad.geda_bridge.brain.policies import AttentionMLPPolicy
+from ai_cad.geda_bridge.brain.envs import AbstractAttentionEnv, WorldReplayEnv
+from ai_cad.geda_bridge.brain.policies import AttentionMLPPolicy, RobotMLPPolicy
 from ai_cad.geda_bridge.brain.world_model import AttentionBudget
 
 
@@ -138,4 +138,152 @@ def train_and_evaluate(
             "mean_final_distance": eval_report["mean_final_distance"],
         },
     }
+    return report
+
+
+def train_robot_policy(
+    env: WorldReplayEnv,
+    n_iters: int = 15,
+    pop_size: int = 40,
+    elite_frac: float = 0.2,
+    inner_rollouts: int = 3,
+    seed: int = 0,
+) -> tuple[np.ndarray, dict[str, Any]]:
+    """Train a ``RobotMLPPolicy`` via CEM on a real MuJoCo environment.
+
+    The policy dimensions are taken from the env instance so the same trainer
+    works across humanoids, quadrupeds, and manipulator-on-base morphologies.
+    """
+    if not env.is_available():
+        n_params = RobotMLPPolicy.n_params(env.obs_dim, env.action_dim)
+        return np.zeros(n_params, dtype=float), {
+            "best_training_reward": -float("inf"),
+            "final_mean_reward": 0.0,
+            "n_iters": n_iters,
+            "pop_size": pop_size,
+            "elite_frac": elite_frac,
+            "history": [],
+            "error": "environment is not available",
+        }
+
+    rng = np.random.default_rng(seed)
+    n_params = RobotMLPPolicy.n_params(env.obs_dim, env.action_dim)
+    mean = np.zeros(n_params)
+    std = np.ones(n_params)
+    best_weights = mean.copy()
+    best_reward = -float("inf")
+    history: list[float] = []
+
+    for it in range(n_iters):
+        samples = [rng.normal(mean, std) for _ in range(pop_size)]
+        rewards: list[float] = []
+        for s in samples:
+            policy = RobotMLPPolicy(s, env.obs_dim, env.action_dim)
+            rew = 0.0
+            for k in range(inner_rollouts):
+                result = env.rollout(policy, seed=it * pop_size + k)
+                rew += result["reward"]
+            rewards.append(rew / inner_rollouts)
+        rewards = np.asarray(rewards)
+        elite_count = max(1, int(round(pop_size * elite_frac)))
+        elite_idx = np.argsort(rewards)[::-1][:elite_count]
+        elite = np.array([samples[i] for i in elite_idx])
+        mean = elite.mean(axis=0)
+        std = elite.std(axis=0) + 1e-3
+        history.append(float(rewards[elite_idx[0]]))
+        if rewards[elite_idx[0]] > best_reward:
+            best_reward = float(rewards[elite_idx[0]])
+            best_weights = elite[0].copy()
+
+    report = {
+        "best_training_reward": best_reward,
+        "final_mean_reward": float(np.mean(history[-5:])) if history else 0.0,
+        "n_iters": n_iters,
+        "pop_size": pop_size,
+        "elite_frac": elite_frac,
+        "history": history,
+    }
+    return best_weights, report
+
+
+def evaluate_robot_policy(
+    env: WorldReplayEnv,
+    weights: np.ndarray,
+    n_episodes: int = 10,
+    seed: int = 0,
+) -> dict[str, Any]:
+    """Evaluate a trained robot policy over several episodes."""
+    if not env.is_available():
+        return {
+            "n_episodes": n_episodes,
+            "success_rate": 0.0,
+            "mean_reward": 0.0,
+            "mean_final_distance": float("inf"),
+            "rollouts": [],
+            "error": "environment is not available",
+        }
+
+    policy = RobotMLPPolicy(weights, env.obs_dim, env.action_dim)
+    results = [env.rollout(policy, seed=seed + i) for i in range(n_episodes)]
+    success_rate = (
+        float(sum(1 for r in results if r["success"]) / len(results))
+        if results
+        else 0.0
+    )
+    return {
+        "n_episodes": n_episodes,
+        "success_rate": success_rate,
+        "mean_reward": float(np.mean([r["reward"] for r in results])) if results else 0.0,
+        "mean_final_distance": float(
+            np.mean([r["final_distance"] for r in results])
+        )
+        if results
+        else 0.0,
+        "rollouts": results,
+    }
+
+
+def train_and_evaluate_robot(
+    env: WorldReplayEnv,
+    n_iters: int = 15,
+    pop_size: int = 40,
+    eval_episodes: int = 10,
+    success_rate_threshold: float = 0.3,
+    seed: int = 42,
+) -> dict[str, Any]:
+    """High-level entry point: train + evaluate a real robot brain.
+
+    Returns a JSON-serialisable report with weights and metrics.
+    """
+    best_weights, train_report = train_robot_policy(
+        env=env, n_iters=n_iters, pop_size=pop_size, seed=seed
+    )
+    eval_report = evaluate_robot_policy(
+        env, best_weights, n_episodes=eval_episodes, seed=seed
+    )
+    report = {
+        "success": bool(eval_report["success_rate"] >= success_rate_threshold),
+        "success_rate": eval_report["success_rate"],
+        "mean_reward": eval_report["mean_reward"],
+        "mean_final_distance": eval_report["mean_final_distance"],
+        "best_training_reward": train_report["best_training_reward"],
+        "weights": best_weights.tolist(),
+        "n_params": int(RobotMLPPolicy.n_params(env.obs_dim, env.action_dim)),
+        "policy_architecture": {
+            "input_dim": env.obs_dim,
+            "hidden_dim": RobotMLPPolicy.HIDDEN_DIM,
+            "output_dim": env.action_dim,
+        },
+        "train_report": train_report,
+        "eval_report": {
+            "n_episodes": eval_report["n_episodes"],
+            "success_rate": eval_report["success_rate"],
+            "mean_reward": eval_report["mean_reward"],
+            "mean_final_distance": eval_report["mean_final_distance"],
+        },
+    }
+    if "error" in train_report:
+        report["error"] = train_report["error"]
+    if "error" in eval_report:
+        report.setdefault("error", eval_report["error"])
     return report

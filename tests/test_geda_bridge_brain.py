@@ -9,11 +9,22 @@ from ai_cad.geda_bridge.brain import (
     AttentionBudget,
     AttentionMLPPolicy,
     LinearWorldModel,
+    RobotMLPPolicy,
+    WorldReplayEnv,
     compute_saliency,
     evaluate_attention_policy,
     train_and_evaluate,
     train_attention_policy,
+    train_robot_policy,
 )
+
+
+def _mujoco_available() -> bool:
+    try:
+        import mujoco  # noqa: F401
+        return True
+    except Exception:
+        return False
 
 
 def test_attention_budget_active_dimensions():
@@ -181,3 +192,118 @@ def test_attention_policy_trains_above_threshold():
     )
     assert report["success"]
     assert report["success_rate"] >= 0.6
+
+
+# ---------------------------------------------------------------------------
+# Milestone F — real MuJoCo robot-brain tests
+# ---------------------------------------------------------------------------
+
+
+def test_robot_mlp_policy_shape():
+    obs_dim, action_dim = 17, 4
+    weights = np.zeros(RobotMLPPolicy.n_params(obs_dim, action_dim))
+    policy = RobotMLPPolicy(weights, obs_dim, action_dim)
+    action = policy(np.zeros(obs_dim))
+    assert action.shape == (action_dim,)
+    assert np.all(np.abs(action) <= 1.0)
+
+
+def test_robot_mlp_policy_variable_dims():
+    for obs_dim, action_dim in [(8, 1), (20, 6), (31, 12)]:
+        weights = np.zeros(RobotMLPPolicy.n_params(obs_dim, action_dim))
+        policy = RobotMLPPolicy(weights, obs_dim, action_dim)
+        action = policy(np.zeros(obs_dim))
+        assert action.shape == (action_dim,)
+
+
+def test_world_replay_env_no_mjcf_graceful():
+    env = WorldReplayEnv(mjcf_path=None)
+    assert not env.is_available()
+    obs = env.reset()
+    assert obs.shape == (env.obs_dim,)
+    action = np.zeros(env.action_dim)
+    obs, reward, terminated, info = env.step(action)
+    assert obs.shape == (env.obs_dim,)
+    assert reward == 0.0
+    assert terminated is True
+    assert "error" in info
+
+
+@pytest.mark.skipif(
+    not _mujoco_available(),
+    reason="MuJoCo is not installed",
+)
+def test_world_replay_env_minimal_mjcf(tmp_path):
+    mjcf = tmp_path / "minimal.mjcf"
+    mjcf.write_text(
+        """<?xml version="1.0" encoding="utf-8"?>
+<mujoco model="minimal">
+  <compiler angle="radian"/>
+  <option timestep="0.002"/>
+  <worldbody>
+    <body name="torso" pos="0 0 1">
+      <freejoint/>
+      <geom type="sphere" size="0.1" mass="1"/>
+      <body name="arm" pos="0.5 0 0">
+        <joint name="hinge" type="hinge" axis="0 0 1" range="-1 1"/>
+        <geom type="capsule" size="0.05" fromto="0 0 0 0.5 0 0" mass="0.5"/>
+      </body>
+    </body>
+  </worldbody>
+  <actuator>
+    <motor name="hinge_motor" joint="hinge" ctrlrange="-2 2" gear="1"/>
+  </actuator>
+</mujoco>
+""",
+        encoding="utf-8",
+    )
+    env = WorldReplayEnv(mjcf_path=str(mjcf), n_steps=50)
+    assert env.is_available()
+    assert env.action_dim == 1
+    assert env.obs_dim == 17  # 2 joint + 12 freejoint + 3 goal delta
+    obs = env.reset(seed=0)
+    assert obs.shape == (env.obs_dim,)
+    action = np.zeros(env.action_dim)
+    obs, reward, terminated, info = env.step(action)
+    assert obs.shape == (env.obs_dim,)
+    assert isinstance(reward, float)
+    assert isinstance(terminated, bool)
+    assert "steps" in info
+
+
+@pytest.mark.skipif(
+    not _mujoco_available(),
+    reason="MuJoCo is not installed",
+)
+def test_train_robot_policy_smoke(tmp_path):
+    mjcf = tmp_path / "minimal.mjcf"
+    mjcf.write_text(
+        """<?xml version="1.0" encoding="utf-8"?>
+<mujoco model="minimal">
+  <compiler angle="radian"/>
+  <option timestep="0.002"/>
+  <worldbody>
+    <body name="torso" pos="0 0 1">
+      <freejoint/>
+      <geom type="sphere" size="0.1" mass="1"/>
+      <body name="arm" pos="0.5 0 0">
+        <joint name="hinge" type="hinge" axis="0 0 1" range="-1 1"/>
+        <geom type="capsule" size="0.05" fromto="0 0 0 0.5 0 0" mass="0.5"/>
+      </body>
+    </body>
+  </worldbody>
+  <actuator>
+    <motor name="hinge_motor" joint="hinge" ctrlrange="-2 2" gear="1"/>
+  </actuator>
+</mujoco>
+""",
+        encoding="utf-8",
+    )
+    env = WorldReplayEnv(mjcf_path=str(mjcf), n_steps=80)
+    weights, report = train_robot_policy(
+        env=env, n_iters=2, pop_size=6, elite_frac=0.3, inner_rollouts=2, seed=0
+    )
+    assert weights.shape == (RobotMLPPolicy.n_params(env.obs_dim, env.action_dim),)
+    assert "best_training_reward" in report
+    assert report["n_iters"] == 2
+
