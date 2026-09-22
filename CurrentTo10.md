@@ -10,7 +10,7 @@ and is indexed in `MEMORY.md`.
 
 ---
 
-## Why 8.7 / 10 today
+## Why 9.0 / 10 today
 
 The score reflects that the *infrastructure* is green and deterministic, the *physics reasoning* layer is real rather than heuristic, **adaptive flat-ground gait synthesis is robust enough for searched candidates and small mass perturbations**, **structural link checks filter candidates whose limbs would yield or buckle under payload + drop loads**, **kinematic reasoning now rewards reachable, collision-free, dexterous workspaces**, **end-effector choices are no longer cosmetic: the selected gripper or foot family is instantiated in the FeatureTree, exported to MuJoCo, and its estimated mass influences actuator and structural scoring**, and **topology is no longer limited to three templates: a deterministic grammar invents biped/quadruped/hexapod/wheeled/tracked/fixed robots with optional appendages and each topology is scored by the same physics/structural/collision/workspace pipeline**. The next jumps are brain training on the actual MuJoCo model and automatic simulation certification.
 
