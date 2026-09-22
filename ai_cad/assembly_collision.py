@@ -158,19 +158,22 @@ def check_assembly_collision(
     parameters = tree.parameter_dict()
     transforms = compute_instance_transforms(tree, assembly, parameters, joint_states=joint_states)
 
-    # Cache per unique part_id. FeatureTree instances may reuse parts.
+    # Cache per unique family (or part id). Topology composers often instantiate
+    # many parts from the same family with identical tree-level parameters, so
+    # family-level caching avoids repeated transpilation/execution.
     mesh_cache: dict[str, trimesh.Trimesh] = {}
     instance_meshes: dict[str, trimesh.Trimesh] = {}
     for inst in assembly.instances:
         part = tree.find_part(inst.part_id)
         if part is None:
             continue
-        if part.id not in mesh_cache:
-            mesh_cache[part.id] = _build_part_mesh(
+        cache_key = part.family if part.family else part.id
+        if cache_key not in mesh_cache:
+            mesh_cache[cache_key] = _build_part_mesh(
                 part, parameters, output_dir, tolerance=tolerance
             )
         # Apply transform to a fresh copy so the cached mesh stays unscaled.
-        mesh = mesh_cache[part.id].copy()
+        mesh = mesh_cache[cache_key].copy()
         M = transforms.get(inst.id, np.eye(4))
         mesh.apply_transform(M)
         instance_meshes[inst.id] = mesh

@@ -325,8 +325,9 @@ RoboCAD becomes extraordinary when a user can describe a multi-domain robot syst
 - **Milestone B — Structural dynamics / FEA for links:** link cross-section extraction, cantilever/simply-supported beam bending + Euler buckling, `structural_score` in morphology composite, optional deep CalculiX dispatch on top-N; score 8.0 → 8.3/10.
 - **Milestone C — Workspace / self-collision / manipulability:** sagittal-plane workspace proxy, representative-pose self-collision checks, topology-aware Yoshikawa-style manipulability index; composite weights revised; score 8.3 → 8.5/10.
 - **Milestone D — Real end-effector families:** `parallel_jaw_gripper`, `three_finger_hand`, `vacuum_gripper`, `point_foot`, `compliant_foot` part families registered; `_attach_end_effector` swaps real part families into the FeatureTree; end-effector mass influences actuator/structural scoring; frontend end-effector selector; MuJoCo export/load regression for swapped families; score 8.5 → 8.7/10.
-- **Full test status:** 385 default + 255 heavy/slow tests passing (1 xfailed; the unrelated `test_simulate_morphology_candidate` attention-policy timeout is pre-existing), 5 benchmark/network tests deselected; frontend production build passes.
-- **Documentation refreshed:** `README.md`, `CurrentTo10.md`, `PLAN.md`, dossiers, and private memory files updated to reflect Phase 28A–F, Phase 29–30, Milestones A, B, C, and D completion.
+- **Milestone E — Topology grammar beyond templates:** deterministic `Topology`/`LimbSpec`/`JointSpec` grammar, `enumerate_topologies` with physical-feasibility pruning, `topology_to_feature_tree` composer using existing part families, `TopologySpace` + topology-aware `search_morphologies`, backend `/morphology/topologies` and topology search endpoints, frontend Template/Topology mode with base-type selector and appendage chips; hexapod and wheeled topologies load in MuJoCo and score non-zero; score 8.7 → 9.0/10.
+- **Full test status:** **402 default + 261 heavy/slow/mujoco tests passing** (1 xfailed; the unrelated `test_simulate_morphology_candidate` attention-policy timeout is pre-existing); frontend production build passes.
+- **Documentation refreshed:** `README.md`, `CurrentTo10.md`, `PLAN.md`, `docs/superpowers/plans/2026-09-19-milestone-e-topology-grammar.md`, and private memory files updated to reflect Phase 28A–F, Phase 29–30, and Milestones A–E completion.
 
 ## 9. Immediate next session plan
 
@@ -334,15 +335,15 @@ RoboCAD becomes extraordinary when a user can describe a multi-domain robot syst
 
 - ✅ Phase 28D (morphology co-design lab) implemented, tested, and committed.
 - ✅ Phase 28E (simulation certification) and 28F (product hardening + solver install bootstrap + marketplace archive upload) implemented, tested, and committed.
-- ✅ Phase 29 — physics-based morphology scoring; Phase 30 — real gait synthesis and validation; Milestone A — adaptive gait robustness; Milestone B — structural dynamics / FEA for links; and Milestone C — workspace / self-collision / manipulability implemented, tested, and committed.
-- ✅ Milestone D — real end-effector families implemented, tested, and committed.
+- ✅ Phase 29 — physics-based morphology scoring; Phase 30 — real gait synthesis and validation; Milestone A — adaptive gait robustness; Milestone B — structural dynamics / FEA for links; Milestone C — workspace / self-collision / manipulability; and Milestone D — real end-effector families implemented, tested, and committed.
+- ✅ Milestone E — topology grammar beyond templates implemented, tested, and committed.
 - ✅ README, `CurrentTo10.md`, PLAN, dossiers, and memory files synchronized.
 - ✅ All new/modified files staged and pushed to `origin/master`.
 
 ### Next session
 
-1. ✅ **Milestone D — Real end-effector families complete.** Move into **Milestone E — Topology grammar beyond templates** to raise the score toward 9.0/10.
-2. **Keep Phase 28A–F and Milestones A–D under maintenance** and monitor the new morphology tests for timeout creep on slower CI runners.
+1. ✅ **Milestone E — Topology grammar beyond templates complete.** Move into **Milestone F — Real MuJoCo brain training on actual robot models** to raise the score toward 9.3/10.
+2. **Keep Phase 28A–F and Milestones A–E under maintenance** and monitor the new morphology tests for timeout creep on slower CI runners.
 
 ---
 
@@ -1076,6 +1077,7 @@ Phase 28 was re-scoped from pure packaging into a **simulation-first product pla
 | **Milestone B (structural dynamics / FEA for links)** | 31 | ✅ Complete — link cross-section extraction, cantilever/simply-supported beam bending + Euler buckling, `structural_score` in morphology composite, optional deep CalculiX dispatch on top-N; score 8.0 → 8.3/10 |
 | **Milestone C (workspace / self-collision / manipulability)** | 32 | ✅ Complete — sagittal-plane workspace proxy, representative-pose self-collision checks, topology-aware Yoshikawa-style manipulability index; composite weights revised to include collision and manipulability; score 8.3 → 8.5/10 |
 | **Milestone D (real end-effector families)** | 33 | ✅ Complete — `parallel_jaw_gripper`, `three_finger_hand`, `vacuum_gripper`, `point_foot`, `compliant_foot` part families; `_attach_end_effector` swaps real families into the tree; end-effector mass influences actuator/structural scoring; frontend selector; MuJoCo export/load regression; score 8.5 → 8.7/10 |
+| **Milestone E (topology grammar beyond templates)** | 34 | ✅ Complete — deterministic `Topology`/`LimbSpec`/`JointSpec` grammar, `enumerate_topologies` with physical pruning, `topology_to_feature_tree` composer, `TopologySpace` + topology-aware `search_morphologies`, backend `/morphology/topologies` + topology search, frontend topology mode; hexapod/wheeled topologies load in MuJoCo and score non-zero; score 8.7 → 9.0/10 |
 
 ---
 

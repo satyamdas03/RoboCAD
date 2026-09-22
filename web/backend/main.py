@@ -60,11 +60,13 @@ from ai_cad.morphology import (
     MorphologyCandidate,
     MorphologyDimension,
     MorphologySpace,
+    TopologySpace,
     default_space,
     load_search_results,
     save_search_results,
     search_morphologies,
 )
+from ai_cad.topology_grammar import all_base_types, enumerate_topologies
 from ai_cad.fea import run_static_analysis
 from ai_cad.geda_bridge import (
     AbstractAttentionEnv,
@@ -491,6 +493,7 @@ class MorphologySearchRequest(BaseModel):
     weights: dict[str, float] = Field(default_factory=dict, description="Optional scoring weights: stability, workspace, gait, actuator, compactness.")
     end_effectors: list[str] = Field(default_factory=list, description="End-effector families to evaluate; defaults to the template's default space.")
     use_physics: bool = Field(default=False, description="Run real MuJoCo standing/sway rollouts for each candidate (slower but more accurate).")
+    topology_constraints: dict[str, Any] | None = Field(default=None, description="Milestone E grammar constraints (base_type, appendages, min_limbs, max_limbs, roles).")
 
 
 class MorphologySimulateRequest(BaseModel):
@@ -3410,24 +3413,77 @@ def list_morphology_templates() -> dict[str, Any]:
     return {"templates": templates}
 
 
+@app.get("/morphology/topologies")
+def list_morphology_topologies(
+    base_type: str = Query(default="walker", description="Base type or 'walker' / 'mobile' / 'wheeled' / 'tracked' / 'fixed'."),
+    payload_kg: float = Query(default=1.0, gt=0.0, description="Payload mass in kg."),
+    mass_budget_kg: float = Query(default=10.0, gt=0.0, description="Total mass budget in kg."),
+    max_count: int = Query(default=12, ge=1, le=64, description="Maximum number of topologies to return."),
+    seed: int = Query(default=0, description="Deterministic seed."),
+) -> dict[str, Any]:
+    """Return feasible Milestone E topologies matching the constraints."""
+    constraints: dict[str, Any] = {
+        "base_type": base_type,
+        "payload_kg": payload_kg,
+        "mass_budget_kg": mass_budget_kg,
+    }
+    topologies = enumerate_topologies(constraints, max_count=max_count, seed=seed)
+    return {
+        "base_type": base_type,
+        "count": len(topologies),
+        "topologies": [
+            {
+                "base_type": topo.base_type,
+                "limb_count": len(topo.limbs),
+                "tags": list(topo.tags),
+                "hash": topo.topology_hash(),
+                "base_dimensions": topo.base_dimensions,
+                "mass_budget_kg": topo.mass_budget_kg,
+                "payload_kg": topo.payload_kg,
+            }
+            for topo in topologies
+        ],
+    }
+
+
 @app.post("/morphology/search")
 def run_morphology_search(request: MorphologySearchRequest) -> dict[str, Any]:
-    """Run a deterministic morphology search and persist the ranked results."""
-    space = default_space(request.template)
-    if request.dimensions:
-        space.dimensions = [
-            MorphologyDimension(
-                name=d.get("name", "unknown"),
-                min=float(d.get("min", 0.0)),
-                max=float(d.get("max", 0.0)),
-                step=float(d.get("step", 1.0)),
-            )
-            for d in request.dimensions
-        ]
-    space.n_max = request.n_max
-    space.seed = request.seed
-    if request.end_effectors:
-        space.end_effectors = request.end_effectors
+    """Run a deterministic morphology or topology search and persist the results."""
+    if request.topology_constraints:
+        constraints: dict[str, Any] = dict(request.topology_constraints)
+        constraints.setdefault("payload_kg", request.payload_kg)
+        constraints.setdefault("mass_budget_kg", request.robot_mass_kg or request.payload_kg * 4.0)
+        topologies = enumerate_topologies(
+            constraints,
+            max_count=request.n_max,
+            seed=request.seed,
+        )
+        space: MorphologySpace | TopologySpace = TopologySpace(
+            topologies=topologies,
+            n_max=request.n_max,
+            seed=request.seed,
+        )
+        base_type = constraints.get("base_type", "walker")
+        prompt = f"Topology search: {base_type}"
+        tags = ["topology_search", str(base_type)]
+    else:
+        space = default_space(request.template)
+        if request.dimensions:
+            space.dimensions = [
+                MorphologyDimension(
+                    name=d.get("name", "unknown"),
+                    min=float(d.get("min", 0.0)),
+                    max=float(d.get("max", 0.0)),
+                    step=float(d.get("step", 1.0)),
+                )
+                for d in request.dimensions
+            ]
+        space.n_max = request.n_max
+        space.seed = request.seed
+        if request.end_effectors:
+            space.end_effectors = request.end_effectors
+        prompt = f"Morphology search: {request.template}"
+        tags = ["morphology_search", request.template]
 
     candidates = search_morphologies(
         space,
@@ -3443,7 +3499,7 @@ def run_morphology_search(request: MorphologySearchRequest) -> dict[str, Any]:
 
     meta = {
         "id": search_id,
-        "prompt": f"Morphology search: {request.template}",
+        "prompt": prompt,
         "success": True,
         "model": "morphology-search",
         "attempts_used": 1,
@@ -3451,7 +3507,7 @@ def run_morphology_search(request: MorphologySearchRequest) -> dict[str, Any]:
         "latency_seconds": 0.0,
         "created_at": dt.datetime.now(dt.timezone.utc).isoformat(),
         "exports": {},
-        "tags": ["morphology_search", request.template],
+        "tags": tags,
         "domain": "mechanical",
     }
     _write_json(design_dir / "metadata.json", meta)

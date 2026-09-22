@@ -20,7 +20,7 @@ from ai_cad.feature_tree import (
     Parameter,
     Part,
 )
-from ai_cad.part_families import instantiate_family
+from ai_cad.part_families import get_family, instantiate_family
 from ai_cad.topology_grammar import JointSpec, LimbSpec, Topology
 
 
@@ -148,6 +148,26 @@ def _joints_for_limb(
     return joints
 
 
+def _merge_family_default_parameters(parts: list[Part]) -> list[Parameter]:
+    """Collect default parameters from each part family for global transpilation.
+
+    The single-part transpiler uses the tree-level parameter dict. When a family
+    uses generic names like segment_length, the last value wins, which is fine for
+    a first-pass topology where uniform limb dimensions are acceptable.
+    """
+    seen: set[str] = set()
+    merged: list[Parameter] = []
+    for part in parts:
+        if not part.family:
+            continue
+        family = get_family(part.family)
+        for p in family.default_parameters:
+            if p.name not in seen:
+                seen.add(p.name)
+                merged.append(p)
+    return merged
+
+
 def topology_to_feature_tree(topology: Topology, seed: int = 0) -> FeatureTree:
     """Convert a Topology into a concrete FeatureTree assembly."""
     length, width, height = topology.base_dimensions
@@ -244,13 +264,21 @@ def topology_to_feature_tree(topology: Topology, seed: int = 0) -> FeatureTree:
             )
         )
 
+    # Merge family default parameters so single-part transpilation has all names.
+    family_defaults = _merge_family_default_parameters(parts)
+    # User-provided parameters take precedence.
+    param_by_name = {p.name: p for p in family_defaults}
+    for p in parameters:
+        param_by_name[p.name] = p
+    final_parameters = list(param_by_name.values())
+
     # Build tree.
     design_id = f"topology_{topology.base_type}_{len(topology.limbs)}limbs_{seed}"
     tree = FeatureTree(
         design_id=design_id,
         domain="mechanical",
         prompt=f"{topology.base_type} robot with {len(topology.limbs)} limbs generated from topology grammar",
-        parameters=parameters,
+        parameters=final_parameters,
         parts=parts,
         assemblies=[
             Assembly(

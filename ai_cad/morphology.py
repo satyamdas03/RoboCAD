@@ -28,6 +28,7 @@ from ai_cad.morphology_workspace import workspace_proxy
 from ai_cad.part_families import get_family, instantiate_family
 from ai_cad.robot_templates import humanoid_template, manipulator_on_base_template, quadruped_template
 from ai_cad.stability import check_stability, stability_summary
+from ai_cad.topology_composer import topology_to_feature_tree
 
 
 DEFAULT_TEMPLATE_FACTORIES: dict[str, Any] = {
@@ -110,6 +111,15 @@ class MorphologySpace:
 
 
 @dataclass
+class TopologySpace:
+    """Search space over Milestone E grammar topologies."""
+
+    topologies: list[Any]
+    n_max: int = 64
+    seed: int = 0
+
+
+@dataclass
 class MorphologyCandidate:
     """One scored morphology candidate."""
 
@@ -120,10 +130,11 @@ class MorphologyCandidate:
     scores: dict[str, float] = field(default_factory=dict)
     composite_score: float = 0.0
     rank: int = 0
+    topology: Any | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize candidate without the full tree for API responses."""
-        return {
+        d = {
             "candidate_id": self.candidate_id,
             "template": self.template,
             "parameters": self.parameters,
@@ -131,6 +142,14 @@ class MorphologyCandidate:
             "composite_score": round(self.composite_score, 6),
             "rank": self.rank,
         }
+        if self.topology is not None:
+            d["topology"] = {
+                "base_type": self.topology.base_type,
+                "limb_count": len(self.topology.limbs),
+                "tags": list(self.topology.tags),
+                "hash": self.topology.topology_hash(),
+            }
+        return d
 
     def with_tree_dict(self) -> dict[str, Any]:
         """Serialize including the feature tree."""
@@ -581,38 +600,69 @@ def search_morphologies(
     if robot_mass_kg is None:
         robot_mass_kg = payload_kg * 4.0
 
-    param_sets = space.parameter_grid(rng)
     candidates: list[MorphologyCandidate] = []
     counter = 0
-    for params in param_sets:
-        for ee_type in space.end_effectors or ["default"]:
-            tree = _make_tree(space.template, params)
-            tree = _attach_end_effector(tree, ee_type)
-            # Optionally vary joint range scale deterministically.
-            if space.joint_range_scale and space.joint_range_scale[0] != space.joint_range_scale[1]:
-                scale = float(
-                    rng.uniform(space.joint_range_scale[0], space.joint_range_scale[1])
-                )
-                tree = _scale_joint_limits(tree, scale)
+
+    if isinstance(space, TopologySpace):
+        topologies = list(space.topologies)
+        rng.shuffle(topologies)
+        for topo in topologies:
+            if len(candidates) >= space.n_max:
+                break
+            tree = topology_to_feature_tree(topo)
             scores = score_candidate(
-                tree, payload_kg, robot_mass_kg, weights, use_physics=use_physics, use_structural=use_structural, use_collision=use_collision
+                tree,
+                payload_kg,
+                robot_mass_kg,
+                weights,
+                use_physics=use_physics,
+                use_structural=use_structural,
+                use_collision=use_collision,
             )
-            candidate_id = f"{space.template}_{counter:04d}"
+            candidate_id = f"topology_{topo.base_type}_{counter:04d}"
             candidates.append(
                 MorphologyCandidate(
                     candidate_id=candidate_id,
-                    template=space.template,
-                    parameters={**params, "end_effector": ee_type},
+                    template="topology",
+                    parameters={"base_type": topo.base_type, "limb_count": float(len(topo.limbs))},
                     tree=tree,
                     scores=scores,
                     composite_score=scores["composite"],
+                    topology=topo,
                 )
             )
             counter += 1
+    else:
+        param_sets = space.parameter_grid(rng)
+        for params in param_sets:
+            for ee_type in space.end_effectors or ["default"]:
+                tree = _make_tree(space.template, params)
+                tree = _attach_end_effector(tree, ee_type)
+                # Optionally vary joint range scale deterministically.
+                if space.joint_range_scale and space.joint_range_scale[0] != space.joint_range_scale[1]:
+                    scale = float(
+                        rng.uniform(space.joint_range_scale[0], space.joint_range_scale[1])
+                    )
+                    tree = _scale_joint_limits(tree, scale)
+                scores = score_candidate(
+                    tree, payload_kg, robot_mass_kg, weights, use_physics=use_physics, use_structural=use_structural, use_collision=use_collision
+                )
+                candidate_id = f"{space.template}_{counter:04d}"
+                candidates.append(
+                    MorphologyCandidate(
+                        candidate_id=candidate_id,
+                        template=space.template,
+                        parameters={**params, "end_effector": ee_type},
+                        tree=tree,
+                        scores=scores,
+                        composite_score=scores["composite"],
+                    )
+                )
+                counter += 1
+                if len(candidates) >= space.n_max:
+                    break
             if len(candidates) >= space.n_max:
                 break
-        if len(candidates) >= space.n_max:
-            break
 
     candidates.sort(key=lambda c: c.composite_score, reverse=True)
 
@@ -636,16 +686,31 @@ def search_morphologies(
 
 def save_search_results(
     search_id: str,
-    space: MorphologySpace,
+    space: MorphologySpace | TopologySpace,
     candidates: list[MorphologyCandidate],
     output_dir: Path,
 ) -> Path:
     """Persist a morphology search to disk for later retrieval."""
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    data = {
-        "search_id": search_id,
-        "space": {
+    if isinstance(space, TopologySpace):
+        space_dict: dict[str, Any] = {
+            "template": "topology",
+            "dimensions": [],
+            "n_max": space.n_max,
+            "seed": space.seed,
+            "topologies": [
+                {
+                    "base_type": topo.base_type,
+                    "limb_count": len(topo.limbs),
+                    "tags": list(topo.tags),
+                    "hash": topo.topology_hash(),
+                }
+                for topo in space.topologies
+            ],
+        }
+    else:
+        space_dict = {
             "template": space.template,
             "dimensions": [
                 {"name": d.name, "min": d.min, "max": d.max, "step": d.step}
@@ -653,7 +718,10 @@ def save_search_results(
             ],
             "n_max": space.n_max,
             "seed": space.seed,
-        },
+        }
+    data = {
+        "search_id": search_id,
+        "space": space_dict,
         "candidates": [c.with_tree_dict() for c in candidates],
     }
     path = output_dir / f"morphology_search_{search_id}.json"
