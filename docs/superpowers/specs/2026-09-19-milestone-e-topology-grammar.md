@@ -1,7 +1,7 @@
 # RoboCAD 7.7 → 10.0 — Milestone E: Topology Grammar Beyond Templates
 
 **Date:** 2026-09-19
-**Current baseline:** Milestones A, B, C, and D complete, 385 default + 256 heavy/slow tests passing (1 xfailed), frontend build passes, honest complex-design confidence **8.7 / 10**.
+**Current baseline:** Milestones A, B, C, D, and **E** complete, **402 default + 261 heavy/slow/mujoco tests passing** (1 xfailed), frontend build passes, honest complex-design confidence **9.0 / 10**.
 **Target:** **9.0 / 10** by giving RoboCAD the ability to invent robot topology, not just sweep parameters within three fixed templates.
 **Owner focus:** `ai_cad/topology_grammar.py`, `ai_cad/topology_composer.py`, `ai_cad/morphology.py`, `web/backend/main.py`, `web/frontend/src/components/MorphologyPanel.jsx`.
 **Spec precedents:** [[milestone-a-adaptive-gait]], [[milestone-b-structural-dynamics]], [[milestone-c-workspace-collision-manipulability]], [[milestone-d-end-effector-families]].
@@ -251,7 +251,7 @@ New module `ai_cad/topology_composer.py`:
 | B — Structural dynamics | 8.0 → 8.3 | ✅ Complete |
 | C — Workspace / collision / manipulability | 8.3 → 8.5 | ✅ Complete |
 | D — Real end-effector families | 8.5 → 8.7 | ✅ Complete |
-| **E — Topology grammar** | **8.7 → 9.0** | **🔄 This milestone** |
+| **E — Topology grammar** | **8.7 → 9.0** | **✅ Complete** |
 | F — Real MuJoCo brain training | 9.0 → 9.3 | Planned |
 | G — Automatic certification | 9.3 → 9.6 | Planned |
 | H — Sim-to-real | 9.6 → 9.8 | Hardware-gated |
@@ -259,7 +259,21 @@ New module `ai_cad/topology_composer.py`:
 
 ---
 
-## 7. Risks and mitigations
+## 7. Final verification
+
+- `python -m pytest -q` → **402 passed, 262 deselected, 3 warnings in 547.03s** ✅
+- `python -m pytest -m "slow or heavy or mujoco" -q` → **261 passed, 400 deselected, 1 xfailed in 1703.22s** ✅
+- `cd web/frontend && npm run build` → **production build passes** ✅
+- Commit `105cb0a` pushed to `origin/master` ✅
+- Honest complex-design confidence: **9.0 / 10** ✅
+
+Caveats found and solved end-to-end:
+- Family-default parameters were missing from the tree-level parameter dict, causing `NameError` during mesh build; fixed by `_merge_family_default_parameters`.
+- Assembly collision rebuilt identical family geometry once per unique `part.id`, causing hexapod score-test timeout; fixed by family-name mesh cache.
+
+---
+
+## 8. Risks and mitigations
 
 | Risk | Mitigation |
 |---|---|
@@ -271,11 +285,11 @@ New module `ai_cad/topology_composer.py`:
 
 ---
 
-## 8. First three concrete actions
+## 9. First three concrete actions (Milestone F)
 
-1. **Create `tests/test_topology_grammar.py`** with a failing test for deterministic hexapod enumeration.
-2. **Implement `ai_cad/topology_grammar.py`** with `Topology`, `LimbSpec`, `JointSpec`, `enumerate_topologies`, and `is_feasible`.
-3. **Implement `ai_cad/topology_composer.py::topology_to_feature_tree`** for hexapod and wheeled topologies, then make the failing tests pass.
+1. **Design `WorldReplayEnv`** — write the spec for a `gym.Env`-style MuJoCo wrapper around generated bundles.
+2. **Implement the wrapper** — observations (proprioception + sensors + task error), actions (joint targets/PD offsets), and reward functions for walk/pick-place/push.
+3. **Wire real training into `/morphology/{id}/candidates/{id}/simulate`** — replace `AbstractAttentionEnv` smoke test and prove task success on a generated robot.
 
 ---
 
