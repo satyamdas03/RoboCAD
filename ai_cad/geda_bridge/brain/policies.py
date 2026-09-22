@@ -4,6 +4,10 @@ The policy architecture stays deliberately small so it can be trained with the
 Cross-Entropy Method using only NumPy. The attention mask lets us simulate the
 paper's dynamic processing: at inference time the policy only receives the most
 salient subset of the observation vector.
+
+A new ``RobotMLPPolicy`` adapts its input/output dimensions to a real MuJoCo
+robot's observation and action space, while ``AttentionMLPPolicy`` remains
+frozen for the 2-D abstract attention test.
 """
 from __future__ import annotations
 
@@ -74,3 +78,64 @@ class AttentionMLPPolicy:
             raise ValueError(
                 f"attention_mask must have shape {(self.INPUT_DIM,)}, got {self.mask.shape}"
             )
+
+
+class RobotMLPPolicy:
+    """Variable-dimension ReLU MLP for real MuJoCo robot control.
+
+    The network adapts to the environment's observation and action dimensions,
+    but uses a fixed hidden width so the weight vector remains a single flat
+    NumPy array compatible with the CEM trainer.
+    """
+
+    HIDDEN_DIM = 32
+
+    def __init__(self, weights: np.ndarray, obs_dim: int, action_dim: int) -> None:
+        self.obs_dim = int(obs_dim)
+        self.action_dim = int(action_dim)
+        expected = self.n_params(self.obs_dim, self.action_dim)
+        if weights.shape != (expected,):
+            raise ValueError(
+                f"weights must have shape {(expected,)}, got {weights.shape}"
+            )
+        self.weights = np.asarray(weights, dtype=float)
+        self.W1, self.b1, self.W2, self.b2 = self._unpack(
+            self.weights, self.obs_dim, self.action_dim
+        )
+
+    @classmethod
+    def n_params(cls, obs_dim: int, action_dim: int) -> int:
+        obs_dim = int(obs_dim)
+        action_dim = int(action_dim)
+        return (
+            obs_dim * cls.HIDDEN_DIM
+            + cls.HIDDEN_DIM
+            + cls.HIDDEN_DIM * action_dim
+            + action_dim
+        )
+
+    @classmethod
+    def _unpack(
+        cls,
+        weights: np.ndarray,
+        obs_dim: int,
+        action_dim: int,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        idx = 0
+        W1 = weights[idx : idx + obs_dim * cls.HIDDEN_DIM].reshape(obs_dim, cls.HIDDEN_DIM)
+        idx += obs_dim * cls.HIDDEN_DIM
+        b1 = weights[idx : idx + cls.HIDDEN_DIM]
+        idx += cls.HIDDEN_DIM
+        W2 = weights[idx : idx + cls.HIDDEN_DIM * action_dim].reshape(cls.HIDDEN_DIM, action_dim)
+        idx += cls.HIDDEN_DIM * action_dim
+        b2 = weights[idx : idx + action_dim]
+        return W1, b1, W2, b2
+
+    def __call__(self, obs: np.ndarray) -> np.ndarray:
+        x = np.asarray(obs, dtype=float)[: self.obs_dim]
+        h = np.maximum(x @ self.W1 + self.b1, 0.0)
+        return np.clip(
+            np.asarray(h @ self.W2 + self.b2, dtype=float).ravel(),
+            -1.0,
+            1.0,
+        )

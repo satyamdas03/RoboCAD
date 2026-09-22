@@ -1,8 +1,8 @@
 # Current RoboCAD → 10/10
 
-**Current RoboCAD is in a solid, shippable state:** **402 default + 261 heavy/slow/mujoco tests passing**, frontend build passes, Phase 28A–F complete, Phase 29 physics-based morphology scoring complete, Phase 30 real gait synthesis complete, and **Milestones A (adaptive gait robustness), B (structural dynamics / FEA for links), C (workspace / self-collision / manipulability), D (real end-effector families), and E (topology grammar beyond templates)** complete.
+**Current RoboCAD is in a solid, shippable state:** **407 default + 263 heavy/slow/mujoco tests passing**, frontend build passes, Phase 28A–F complete, Phase 29 physics-based morphology scoring complete, Phase 30 real gait synthesis complete, and **Milestones A (adaptive gait robustness), B (structural dynamics / FEA for links), C (workspace / self-collision / manipulability), D (real end-effector families), E (topology grammar beyond templates), and F (real MuJoCo brain training on generated robots)** complete.
 
-My honest confidence score for **complex multi-domain robot designs, especially humanoids**, is **9.0 / 10**. The pipeline validates morphology with real MuJoCo standing, sway, stepping, and walking rollouts; rejects candidates whose limb segments fail lightweight beam bending / buckling checks; scores sagittal-plane workspace reach, penalizes self-collision across representative poses, rewards kinematic dexterity with a Yoshikawa-style manipulability index, **swaps real end-effector part families (parallel-jaw gripper, three-finger hand, vacuum gripper, point foot, compliant foot) into the FeatureTree**, and **now invents topology beyond the three fixed templates using a deterministic grammar that produces biped, quadruped, hexapod, wheeled, tracked, and fixed-base robots with optional tails/arms**. Default-template and near-default humanoid/quadruped candidates walk reliably; the searched grid and small mass perturbations pass at the Milestone A thresholds; structural and kinematic checks filter bad candidates before they are presented. The remaining gaps are real MuJoCo brain training on the actual robot model and automatic simulation certification. The full deep-analysis memory file lives at:
+My honest confidence score for **complex multi-domain robot designs, especially humanoids**, is **9.3 / 10**. The pipeline validates morphology with real MuJoCo standing, sway, stepping, and walking rollouts; rejects candidates whose limb segments fail lightweight beam bending / buckling checks; scores sagittal-plane workspace reach, penalizes self-collision across representative poses, rewards kinematic dexterity with a Yoshikawa-style manipulability index, **swaps real end-effector part families (parallel-jaw gripper, three-finger hand, vacuum gripper, point foot, compliant foot) into the FeatureTree**, **invents topology beyond the three fixed templates using a deterministic grammar**, and **now trains closed-loop brain policies on the actual generated MuJoCo robot model via `WorldReplayEnv` and a variable-dimension NumPy-only MLP trained with CEM**. Default-template and near-default humanoid/quadruped candidates walk reliably; the searched grid and small mass perturbations pass at the Milestone A thresholds; structural and kinematic checks filter bad candidates before they are presented. The remaining gap is automatic simulation certification. The full deep-analysis memory file lives at:
 
 `C:\Users\point\.claude\projects\C--Users-point-projects-RoboCAD\memory\robocad-confidence-10-10-roadmap.md`
 
@@ -10,9 +10,9 @@ and is indexed in `MEMORY.md`.
 
 ---
 
-## Why 9.0 / 10 today
+## Why 9.3 / 10 today
 
-The score reflects that the *infrastructure* is green and deterministic, the *physics reasoning* layer is real rather than heuristic, **adaptive flat-ground gait synthesis is robust enough for searched candidates and small mass perturbations**, **structural link checks filter candidates whose limbs would yield or buckle under payload + drop loads**, **kinematic reasoning now rewards reachable, collision-free, dexterous workspaces**, **end-effector choices are no longer cosmetic: the selected gripper or foot family is instantiated in the FeatureTree, exported to MuJoCo, and its estimated mass influences actuator and structural scoring**, and **topology is no longer limited to three templates: a deterministic grammar invents biped/quadruped/hexapod/wheeled/tracked/fixed robots with optional appendages and each topology is scored by the same physics/structural/collision/workspace pipeline**. The next jumps are brain training on the actual MuJoCo model and automatic simulation certification.
+The score reflects that the *infrastructure* is green and deterministic, the *physics reasoning* layer is real rather than heuristic, **adaptive flat-ground gait synthesis is robust enough for searched candidates and small mass perturbations**, **structural link checks filter candidates whose limbs would yield or buckle under payload + drop loads**, **kinematic reasoning now rewards reachable, collision-free, dexterous workspaces**, **end-effector choices are no longer cosmetic: the selected gripper or foot family is instantiated in the FeatureTree, exported to MuJoCo, and its estimated mass influences actuator and structural scoring**, **topology is no longer limited to three templates: a deterministic grammar invents biped/quadruped/hexapod/wheeled/tracked/fixed robots with optional appendages and each topology is scored by the same physics/structural/collision/workspace pipeline**, and **brain training is no longer a 2-D abstraction: `WorldReplayEnv` loads the generated world MJCF, discovers the robot's actuators and joints, and trains a closed-loop policy on real MuJoCo rollouts**. The next jump is automatic simulation certification.
 
 | Subsystem | Current state | Caveat |
 |---|---|---|
@@ -23,7 +23,7 @@ The score reflects that the *infrastructure* is green and deterministic, the *ph
 | Manipulability | Topology-aware geometric Jacobian + Yoshikawa product-of-singular-values score for end-effector chains | Sagittal-plane focus; full 6-DOF task manipulability is future work |
 | Actuator sizing | Payload × lever-arm static formulas; position actuators scale with total robot mass | Not inverse-dynamics based |
 | Structural dynamics | Lightweight cantilever / simply-supported bending + Euler buckling for every limb segment; optional deep CalculiX dispatch on top-N | Assumes rectangular cross-section; non-rectangular families need mesh-based properties |
-| Brain training | 2-D `AbstractAttentionEnv` abstraction | Does not control the actual MuJoCo humanoid |
+| Brain training | **Real MuJoCo `WorldReplayEnv` wrapper** with robot-specific proprioception + task-error observations, `RobotMLPPolicy` trained via NumPy-only CEM on the generated robot MJCF | Tiny CEM is a smoke test, not a production RL stack; rough terrain / multi-task generalization remain future work |
 | MuJoCo validation | 20-step load test | Catches load errors, not dynamic instability |
 | Topology set | Deterministic grammar (biped/quadruped/hexapod/wheeled/tracked/fixed + appendages) | Wheeled/tracked use fixed-contact approximations; full rolling-track dynamics are future work |
 | End-effector selection | **Real part-family swap** in FeatureTree; mass affects actuator/structural score; exported to MuJoCo | Gripper/foot geometry is still lightweight bounding-volume; full finger/contact dynamics are future work |
@@ -32,7 +32,7 @@ Concrete evidence from the current code:
 
 - `ai_cad/morphology.py::score_candidate` weights: stability 0.22, workspace 0.20, gait 0.22, actuator 0.13, compactness 0.05, structural 0.05, collision 0.05, manipulability 0.08 — physics- and geometry-grounded.
 - The top-ranked humanoid in the benchmark (composite **0.804**) still produced a MuJoCo instability warning: `Nan, Inf or huge value in QACC at DOF 8`. The score did not predict it.
-- `ai_cad/geda_bridge/brain/envs.py::AbstractAttentionEnv` is a toy 2-D navigation task, not a robot controller.
+- `ai_cad/geda_bridge/brain/envs.py::WorldReplayEnv` now loads the exported world MJCF, discovers actuators/joints/torso, and runs closed-loop rollouts; `ai_cad/geda_bridge/brain/policies.py::RobotMLPPolicy` adapts to the env's observation/action dimensions; `ai_cad/geda_bridge/brain/trainer.py::train_robot_policy` trains it with NumPy-only CEM.
 
 ---
 
@@ -167,11 +167,28 @@ Closed the topology ceiling by giving RoboCAD a deterministic grammar for invent
 
 **Effort:** ~1 session on top of the Milestone D scaffold.
 
-### Phase 35 / Milestone F — Brain training on actual MuJoCo models (~9.3/10)
+### Milestone F — Real MuJoCo brain training on generated robots (9.0 → 9.3/10) ✅ COMPLETE
 
-Replace the 2-D `AbstractAttentionEnv` brain smoke test with a real `WorldReplayEnv` that rolls out the generated MJCF and trains MLP/RNN policies with CEM/PPO/ES on walking, pick-place, and push tasks.
+Closed the brain-training abstraction gap by replacing the 2-D `AbstractAttentionEnv` smoke test with a real MuJoCo-backed `WorldReplayEnv` that trains closed-loop policies on the generated robot MJCF.
 
-**Effort:** 8–12 weeks.
+**Delivered in this session:**
+- `ai_cad/geda_bridge/brain/envs.py`: real `WorldReplayEnv` loads exported world MJCF, discovers actuators (with per-actuator `ctrlrange`), hinge/slide joints, freejoint torso, and task goal/object bodies; builds a robot-specific observation vector (joint positions/velocities, torso pose/velocity, task-error deltas); implements reward and termination for `walker`, `humanoid_stand`, `push`, and `pick_place` tasks.
+- `ai_cad/geda_bridge/brain/policies.py`: `RobotMLPPolicy` with adaptive `obs_dim`/`action_dim` and fixed hidden width, producing a deterministic flat weight vector for CEM.
+- `ai_cad/geda_bridge/brain/trainer.py`: `train_robot_policy` / `evaluate_robot_policy` / `train_and_evaluate_robot` using NumPy-only CEM with inner-rollout noise averaging.
+- `web/backend/main.py`: `/morphology/{search_id}/candidates/{candidate_id}/simulate` now exports the world MJCF, post-processes the robot with `_scale_masses_and_add_freejoint` for locomotion templates, builds a `WorldReplayEnv`, and runs real CEM training; gracefully falls back to `AbstractAttentionEnv` if MuJoCo is unavailable.
+- `tests/test_geda_bridge_brain.py`: default smoke tests for `RobotMLPPolicy`, `WorldReplayEnv` shape contracts, and tiny CEM training on a minimal MJCF.
+- `tests/test_morphology_brain.py` (slow/heavy): end-to-end training on generated humanoid and quadruped worlds.
+- Full suite verified: **407 default + 263 heavy/slow/mujoco tests passing** (1 xfailed, 2 xpassed from the new real-robot brain tests); frontend production build passes.
+
+**Score impact:** 9.0 → **9.3 / 10**.
+
+**Effort:** ~1 session.
+
+### Phase 36 / Milestone G — Automatic simulation certification (~9.6/10)
+
+Extend certification with randomized terrain, payload lift, push recovery, drop test, actuator saturation. Run automatically after every complex design.
+
+**Effort:** 4–6 weeks.
 
 ### Phase 36 / Milestone G — Automatic simulation certification (~9.6/10)
 
@@ -265,6 +282,23 @@ Score moved from **7.7 → 8.0 / 10** after adaptive gait robustness delivered t
    - Full suite verified: **385 default + 255 heavy/slow passing** (1 xfailed; the unrelated `test_simulate_morphology_candidate` attention-policy timeout is pre-existing).
    - Score moved from **8.5 → 8.7 / 10**.
 
+### 7. **Milestone E — topology grammar beyond templates (8.7 → 9.0/10)** ✅ COMPLETE
+   - `ai_cad/topology_grammar.py`: deterministic `Topology`/`LimbSpec`/`JointSpec` grammar with physical-feasibility pruning.
+   - `ai_cad/topology_composer.py`: `topology_to_feature_tree` maps grammar to `FeatureTree`; family-default merge caveats fixed.
+   - `ai_cad/morphology.py`: `TopologySpace` and topology-aware `search_morphologies`.
+   - `web/backend/main.py` + `web/frontend/src/components/MorphologyPanel.jsx`: topology endpoints and frontend selector.
+   - Full suite verified: **402 default + 261 heavy/slow/mujoco tests passing**.
+   - Score moved from **8.7 → 9.0 / 10**.
+
+### 8. **Milestone F — real MuJoCo brain training on generated robots (9.0 → 9.3/10)** ✅ COMPLETE
+   - `ai_cad/geda_bridge/brain/envs.py`: real `WorldReplayEnv` MuJoCo wrapper.
+   - `ai_cad/geda_bridge/brain/policies.py`: `RobotMLPPolicy` with adaptive dims.
+   - `ai_cad/geda_bridge/brain/trainer.py`: NumPy-only CEM `train_robot_policy`/`evaluate_robot_policy`.
+   - `web/backend/main.py`: `/morphology/{search_id}/candidates/{candidate_id}/simulate` trains on the actual generated robot MJCF.
+   - `tests/test_geda_bridge_brain.py` + `tests/test_morphology_brain.py`: default and heavy end-to-end tests.
+   - Full suite verified: **407 default + 263 heavy/slow/mujoco tests passing**.
+   - Score moved from **9.0 → 9.3 / 10**.
+
 ## First concrete next step
 
-Milestones A, B, C, and D are closed. Move into **Milestone E (Phase 34) — Topology grammar beyond templates** to raise the score toward 9.0/10.
+Milestones A, B, C, D, E, and F are closed. Move into **Milestone G (Phase 36) — Automatic simulation certification** to raise the score toward 9.6/10.

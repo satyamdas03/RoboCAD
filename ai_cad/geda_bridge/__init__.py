@@ -81,11 +81,15 @@ from ai_cad.geda_bridge.brain import (
     AttentionBudget,
     AttentionMLPPolicy,
     LinearWorldModel,
+    RobotMLPPolicy,
     WorldReplayEnv,
     compute_saliency,
     evaluate_attention_policy,
+    evaluate_robot_policy,
     train_attention_policy,
     train_and_evaluate,
+    train_and_evaluate_robot,
+    train_robot_policy,
 )
 
 __all__ = [
@@ -163,9 +167,13 @@ __all__ = [
     "AttentionBudget",
     "AttentionMLPPolicy",
     "LinearWorldModel",
+    "RobotMLPPolicy",
     "WorldReplayEnv",
     "compute_saliency",
     "evaluate_attention_policy",
+    "evaluate_robot_policy",
     "train_attention_policy",
     "train_and_evaluate",
+    "train_and_evaluate_robot",
+    "train_robot_policy",
 ]
