@@ -22,12 +22,18 @@ const DEFAULT_BOUNDS = {
   },
 }
 
+const TOPOLOGY_BASE_TYPES = ['walker', 'biped', 'quadruped', 'hexapod', 'wheeled', 'tracked', 'fixed']
+const APPENDAGE_OPTIONS = ['tail', 'arm']
+
 export default function MorphologyPanel() {
   const [templates, setTemplates] = useState([])
   const [selected, setSelected] = useState('humanoid')
   const [bounds, setBounds] = useState(DEFAULT_BOUNDS.humanoid)
   const [endEffectorOptions, setEndEffectorOptions] = useState(['default'])
   const [selectedEE, setSelectedEE] = useState('default')
+  const [mode, setMode] = useState('template')
+  const [topologyBaseType, setTopologyBaseType] = useState('walker')
+  const [topologyAppendages, setTopologyAppendages] = useState([])
   const [nMax, setNMax] = useState(32)
   const [seed, setSeed] = useState(0)
   const [payloadKg, setPayloadKg] = useState(5)
@@ -84,20 +90,36 @@ export default function MorphologyPanel() {
     setSelectedCandidate(null)
     setSimulateReport(null)
     try {
-      const dimensions = Object.entries(bounds).map(([name, b]) => ({
-        name,
-        min: Number(b.min),
-        max: Number(b.max),
-        step: Number(b.step),
-      }))
-      const data = await runMorphologySearch({
-        template: selected,
-        dimensions,
-        nMax: Number(nMax),
-        seed: Number(seed),
-        payloadKg: Number(payloadKg),
-        endEffectors: selectedEE === 'default' ? [] : [selectedEE],
-      })
+      let data
+      if (mode === 'topology') {
+        const topologyConstraints = {
+          base_type: topologyBaseType,
+          appendages: topologyAppendages,
+          payload_kg: Number(payloadKg),
+          mass_budget_kg: Number(payloadKg) * 4.0,
+        }
+        data = await runMorphologySearch({
+          nMax: Number(nMax),
+          seed: Number(seed),
+          payloadKg: Number(payloadKg),
+          topologyConstraints,
+        })
+      } else {
+        const dimensions = Object.entries(bounds).map(([name, b]) => ({
+          name,
+          min: Number(b.min),
+          max: Number(b.max),
+          step: Number(b.step),
+        }))
+        data = await runMorphologySearch({
+          template: selected,
+          dimensions,
+          nMax: Number(nMax),
+          seed: Number(seed),
+          payloadKg: Number(payloadKg),
+          endEffectors: selectedEE === 'default' ? [] : [selectedEE],
+        })
+      }
       setSearchId(data.search_id)
       setResults(data.candidates)
     } catch (err) {
@@ -136,29 +158,86 @@ export default function MorphologyPanel() {
       </div>
 
       <div className="kp-flex-col kp-gap-2">
-        <label className="kp-label">Robot template</label>
-        <select
-          className="kp-input"
-          value={selected}
-          onChange={(e) => setSelected(e.target.value)}
-          disabled={searching || simulating}
-        >
-          {templates.map((t) => (
-            <option key={t.name} value={t.name}>{t.name}</option>
-          ))}
-        </select>
+        <label className="kp-label">Search mode</label>
+        <div className="kp-flex kp-gap-2">
+          <button
+            type="button"
+            className={`kp-button ${mode === 'template' ? 'kp-button-primary' : 'kp-button-secondary'}`}
+            onClick={() => setMode('template')}
+            disabled={searching || simulating}
+          >
+            Template
+          </button>
+          <button
+            type="button"
+            className={`kp-button ${mode === 'topology' ? 'kp-button-primary' : 'kp-button-secondary'}`}
+            onClick={() => setMode('topology')}
+            disabled={searching || simulating}
+          >
+            Topology
+          </button>
+        </div>
 
-        <label className="kp-label">End-effector family</label>
-        <select
-          className="kp-input"
-          value={selectedEE}
-          onChange={(e) => setSelectedEE(e.target.value)}
-          disabled={searching || simulating}
-        >
-          {endEffectorOptions.map((ee) => (
-            <option key={ee} value={ee}>{ee}</option>
-          ))}
-        </select>
+        {mode === 'template' ? (
+          <>
+            <label className="kp-label">Robot template</label>
+            <select
+              className="kp-input"
+              value={selected}
+              onChange={(e) => setSelected(e.target.value)}
+              disabled={searching || simulating}
+            >
+              {templates.map((t) => (
+                <option key={t.name} value={t.name}>{t.name}</option>
+              ))}
+            </select>
+
+            <label className="kp-label">End-effector family</label>
+            <select
+              className="kp-input"
+              value={selectedEE}
+              onChange={(e) => setSelectedEE(e.target.value)}
+              disabled={searching || simulating}
+            >
+              {endEffectorOptions.map((ee) => (
+                <option key={ee} value={ee}>{ee}</option>
+              ))}
+            </select>
+          </>
+        ) : (
+          <>
+            <label className="kp-label">Base type</label>
+            <select
+              className="kp-input"
+              value={topologyBaseType}
+              onChange={(e) => setTopologyBaseType(e.target.value)}
+              disabled={searching || simulating}
+            >
+              {TOPOLOGY_BASE_TYPES.map((bt) => (
+                <option key={bt} value={bt}>{bt}</option>
+              ))}
+            </select>
+
+            <label className="kp-label">Appendages</label>
+            <div className="kp-flex kp-gap-2">
+              {APPENDAGE_OPTIONS.map((a) => (
+                <button
+                  key={a}
+                  type="button"
+                  className={`kp-button kp-small ${topologyAppendages.includes(a) ? 'kp-button-primary' : 'kp-button-secondary'}`}
+                  onClick={() =>
+                    setTopologyAppendages((prev) =>
+                      prev.includes(a) ? prev.filter((x) => x !== a) : [...prev, a]
+                    )
+                  }
+                  disabled={searching || simulating}
+                >
+                  {a}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
 
         <div className="kp-flex kp-gap-2">
           <div className="kp-flex-col kp-gap-1" style={{ flex: 1 }}>
@@ -197,37 +276,39 @@ export default function MorphologyPanel() {
           </div>
         </div>
 
-        <div className="kp-flex-col kp-gap-1">
-          <span className="kp-label">Search bounds</span>
-          <div className="kp-flex-col kp-gap-1" style={{ maxHeight: '160px', overflowY: 'auto' }}>
-            {Object.entries(bounds).map(([name, b]) => (
-              <div key={name} className="kp-flex kp-gap-2 kp-align-center">
-                <span className="kp-small" style={{ width: '140px' }}>{name}</span>
-                <input
-                  className="kp-input kp-small"
-                  type="number"
-                  value={b.min}
-                  onChange={(e) => updateBound(name, 'min', e.target.value)}
-                  disabled={searching || simulating}
-                />
-                <input
-                  className="kp-input kp-small"
-                  type="number"
-                  value={b.max}
-                  onChange={(e) => updateBound(name, 'max', e.target.value)}
-                  disabled={searching || simulating}
-                />
-                <input
-                  className="kp-input kp-small"
-                  type="number"
-                  value={b.step}
-                  onChange={(e) => updateBound(name, 'step', e.target.value)}
-                  disabled={searching || simulating}
-                />
-              </div>
-            ))}
+        {mode === 'template' && (
+          <div className="kp-flex-col kp-gap-1">
+            <span className="kp-label">Search bounds</span>
+            <div className="kp-flex-col kp-gap-1" style={{ maxHeight: '160px', overflowY: 'auto' }}>
+              {Object.entries(bounds).map(([name, b]) => (
+                <div key={name} className="kp-flex kp-gap-2 kp-align-center">
+                  <span className="kp-small" style={{ width: '140px' }}>{name}</span>
+                  <input
+                    className="kp-input kp-small"
+                    type="number"
+                    value={b.min}
+                    onChange={(e) => updateBound(name, 'min', e.target.value)}
+                    disabled={searching || simulating}
+                  />
+                  <input
+                    className="kp-input kp-small"
+                    type="number"
+                    value={b.max}
+                    onChange={(e) => updateBound(name, 'max', e.target.value)}
+                    disabled={searching || simulating}
+                  />
+                  <input
+                    className="kp-input kp-small"
+                    type="number"
+                    value={b.step}
+                    onChange={(e) => updateBound(name, 'step', e.target.value)}
+                    disabled={searching || simulating}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         <button
           type="button"
@@ -235,7 +316,7 @@ export default function MorphologyPanel() {
           onClick={handleSearch}
           disabled={searching || simulating}
         >
-          {searching ? 'Searching…' : 'Run morphology search'}
+          {searching ? 'Searching…' : (mode === 'topology' ? 'Run topology search' : 'Run morphology search')}
         </button>
       </div>
 
@@ -252,6 +333,7 @@ export default function MorphologyPanel() {
               <thead>
                 <tr>
                   <th>Rank</th>
+                  {mode === 'topology' && <th>Topology</th>}
                   <th>Score</th>
                   <th>Stability</th>
                   <th>Gait</th>
@@ -264,6 +346,11 @@ export default function MorphologyPanel() {
                 {results.map((c) => (
                   <tr key={c.candidate_id} className={selectedCandidate?.candidate_id === c.candidate_id ? 'selected' : ''}>
                     <td className="kp-mono">{c.rank}</td>
+                    {mode === 'topology' && (
+                      <td className="kp-small">
+                        {c.topology ? `${c.topology.base_type} (${c.topology.limb_count}) ${c.topology.tags.join(', ')}` : '—'}
+                      </td>
+                    )}
                     <td className="kp-mono">{c.composite_score.toFixed(3)}</td>
                     <td className="kp-mono">{c.scores.stability.toFixed(2)}</td>
                     <td className="kp-mono">{c.scores.gait.toFixed(2)}</td>

@@ -1,8 +1,8 @@
 # Current RoboCAD → 10/10
 
-**Current RoboCAD is in a solid, shippable state:** 385 default + 255 heavy/slow tests passing, frontend build passes, Phase 28A–F complete, Phase 29 physics-based morphology scoring complete, Phase 30 real gait synthesis complete, and **Milestones A (adaptive gait robustness), B (structural dynamics / FEA for links), C (workspace / self-collision / manipulability), and D (real end-effector families)** complete.
+**Current RoboCAD is in a solid, shippable state:** **402 default + 261 heavy/slow/mujoco tests passing**, frontend build passes, Phase 28A–F complete, Phase 29 physics-based morphology scoring complete, Phase 30 real gait synthesis complete, and **Milestones A (adaptive gait robustness), B (structural dynamics / FEA for links), C (workspace / self-collision / manipulability), D (real end-effector families), and E (topology grammar beyond templates)** complete.
 
-My honest confidence score for **complex multi-domain robot designs, especially humanoids**, is **8.7 / 10**. The pipeline validates morphology with real MuJoCo standing, sway, stepping, and walking rollouts; rejects candidates whose limb segments fail lightweight beam bending / buckling checks; scores sagittal-plane workspace reach, penalizes self-collision across representative poses, rewards kinematic dexterity with a Yoshikawa-style manipulability index, and **now swaps real end-effector part families (parallel-jaw gripper, three-finger hand, vacuum gripper, point foot, compliant foot) into the FeatureTree so the chosen gripper/foot changes mass distribution and geometry**. Default-template and near-default humanoid/quadruped candidates walk reliably; the searched grid and small mass perturbations pass at the Milestone A thresholds; structural and kinematic checks filter bad candidates before they are presented. The remaining gap is topology grammar beyond templates, real MuJoCo brain training, and automatic simulation certification. The full deep-analysis memory file lives at:
+My honest confidence score for **complex multi-domain robot designs, especially humanoids**, is **9.0 / 10**. The pipeline validates morphology with real MuJoCo standing, sway, stepping, and walking rollouts; rejects candidates whose limb segments fail lightweight beam bending / buckling checks; scores sagittal-plane workspace reach, penalizes self-collision across representative poses, rewards kinematic dexterity with a Yoshikawa-style manipulability index, **swaps real end-effector part families (parallel-jaw gripper, three-finger hand, vacuum gripper, point foot, compliant foot) into the FeatureTree**, and **now invents topology beyond the three fixed templates using a deterministic grammar that produces biped, quadruped, hexapod, wheeled, tracked, and fixed-base robots with optional tails/arms**. Default-template and near-default humanoid/quadruped candidates walk reliably; the searched grid and small mass perturbations pass at the Milestone A thresholds; structural and kinematic checks filter bad candidates before they are presented. The remaining gaps are real MuJoCo brain training on the actual robot model and automatic simulation certification. The full deep-analysis memory file lives at:
 
 `C:\Users\point\.claude\projects\C--Users-point-projects-RoboCAD\memory\robocad-confidence-10-10-roadmap.md`
 
@@ -12,7 +12,7 @@ and is indexed in `MEMORY.md`.
 
 ## Why 8.7 / 10 today
 
-The score reflects that the *infrastructure* is green and deterministic, the *physics reasoning* layer is real rather than heuristic, **adaptive flat-ground gait synthesis is robust enough for searched candidates and small mass perturbations**, **structural link checks filter candidates whose limbs would yield or buckle under payload + drop loads**, **kinematic reasoning now rewards reachable, collision-free, dexterous workspaces**, and **end-effector choices are no longer cosmetic: the selected gripper or foot family is instantiated in the FeatureTree, exported to MuJoCo, and its estimated mass influences actuator and structural scoring**. The next jump requires topology grammar beyond the three fixed templates, brain training on the actual MuJoCo model, and automatic certification.
+The score reflects that the *infrastructure* is green and deterministic, the *physics reasoning* layer is real rather than heuristic, **adaptive flat-ground gait synthesis is robust enough for searched candidates and small mass perturbations**, **structural link checks filter candidates whose limbs would yield or buckle under payload + drop loads**, **kinematic reasoning now rewards reachable, collision-free, dexterous workspaces**, **end-effector choices are no longer cosmetic: the selected gripper or foot family is instantiated in the FeatureTree, exported to MuJoCo, and its estimated mass influences actuator and structural scoring**, and **topology is no longer limited to three templates: a deterministic grammar invents biped/quadruped/hexapod/wheeled/tracked/fixed robots with optional appendages and each topology is scored by the same physics/structural/collision/workspace pipeline**. The next jumps are brain training on the actual MuJoCo model and automatic simulation certification.
 
 | Subsystem | Current state | Caveat |
 |---|---|---|
@@ -25,7 +25,7 @@ The score reflects that the *infrastructure* is green and deterministic, the *ph
 | Structural dynamics | Lightweight cantilever / simply-supported bending + Euler buckling for every limb segment; optional deep CalculiX dispatch on top-N | Assumes rectangular cross-section; non-rectangular families need mesh-based properties |
 | Brain training | 2-D `AbstractAttentionEnv` abstraction | Does not control the actual MuJoCo humanoid |
 | MuJoCo validation | 20-step load test | Catches load errors, not dynamic instability |
-| Topology set | 3 templates | Anything outside biped/quadruped/manipulator falls back to LLM |
+| Topology set | Deterministic grammar (biped/quadruped/hexapod/wheeled/tracked/fixed + appendages) | Wheeled/tracked use fixed-contact approximations; full rolling-track dynamics are future work |
 | End-effector selection | **Real part-family swap** in FeatureTree; mass affects actuator/structural score; exported to MuJoCo | Gripper/foot geometry is still lightweight bounding-volume; full finger/contact dynamics are future work |
 
 Concrete evidence from the current code:
@@ -149,15 +149,27 @@ Closed the end-effector gap by adding real part families for hands and feet, mak
 
 **Effort:** ~1 session on top of the Milestone C scaffold.
 
-### Phase 34 / Milestone E — Topology search beyond templates (~9.0/10)
+### Milestone E — Topology grammar beyond templates (8.7 → 9.0/10) ✅ COMPLETE
 
-Implement a grammar for robot topologies: base type, limb count, attachment points, joint sequences. Search the grammar and validate each with Phases 29–32.
+Closed the topology ceiling by giving RoboCAD a deterministic grammar for inventing robot topologies and scoring each with the existing physics/structural/collision/workspace pipeline.
 
-**Effort:** 8–10 weeks. This is the hardest layer.
+**Delivered in this session:**
+- `ai_cad/topology_grammar.py`: `Topology`, `LimbSpec`, `JointSpec`, `BaseType`/`LimbRole` literals; `default_topology` for `biped`, `quadruped`, `hexapod`, `wheeled`, `tracked`, `fixed`; `enumerate_topologies` with constraints/appendages/pruning; `is_feasible`; `topology_hash`.
+- `ai_cad/topology_composer.py`: `topology_to_feature_tree` maps grammar productions to `FeatureTree` assemblies using `torso_plate`, `hip_hub`, `limb_segment`, and end-effector families; `_merge_family_default_parameters` injects family defaults into the tree-level parameter dict to fix single-part transpilation.
+- `ai_cad/morphology.py`: `TopologySpace` dataclass; `MorphologyCandidate` carries optional `topology`; `search_morphologies` enumerates and scores topologies; `save_search_results` handles both template and topology spaces.
+- `ai_cad/assembly_collision.py`: mesh cache keyed by family name, sharing geometry across repeated family instances in topology trees.
+- `web/backend/main.py`: `GET /morphology/topologies` and `POST /morphology/search` with `topology_constraints`.
+- `web/frontend/src/components/MorphologyPanel.jsx` + `api.js`: Template/Topology mode toggle, base-type selector, appendage chips, topology column in results.
+- `tests/test_topology_grammar.py` (9 tests), `tests/test_topology_composer.py` (6 tests), `tests/test_topology_morphology.py` (5 slow/heavy/mujoco end-to-end tests), `tests/test_morphology_api.py` topology endpoint tests.
+- Full suite verified: **402 default + 261 heavy/slow/mujoco tests passing** (1 xfailed; the unrelated `test_simulate_morphology_candidate` attention-policy timeout is pre-existing); frontend production build passes.
+
+**Score impact:** 8.7 → **9.0 / 10**.
+
+**Effort:** ~1 session on top of the Milestone D scaffold.
 
 ### Phase 35 / Milestone F — Brain training on actual MuJoCo models (~9.3/10)
 
-Replace `AbstractAttentionEnv` with a `WorldReplayEnv` that rolls out the real MJCF. Train MLP/RNN policies with CEM/PPO/ES on actual robot tasks (walk, pick-place, push).
+Replace the 2-D `AbstractAttentionEnv` brain smoke test with a real `WorldReplayEnv` that rolls out the generated MJCF and trains MLP/RNN policies with CEM/PPO/ES on walking, pick-place, and push tasks.
 
 **Effort:** 8–12 weeks.
 

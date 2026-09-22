@@ -403,7 +403,18 @@ export async function listMorphologyTemplates() {
   return apiFetch('/morphology/templates')
 }
 
-export async function runMorphologySearch({ template = 'humanoid', dimensions = [], nMax = 48, seed = 0, payloadKg = 5.0, robotMassKg = null, weights = {}, endEffectors = [] } = {}) {
+export async function listMorphologyTopologies({ baseType = 'walker', payloadKg = 1.0, massBudgetKg = 10.0, maxCount = 12, seed = 0 } = {}) {
+  const params = new URLSearchParams({
+    base_type: baseType,
+    payload_kg: String(payloadKg),
+    mass_budget_kg: String(massBudgetKg),
+    max_count: String(maxCount),
+    seed: String(seed),
+  })
+  return apiFetch(`/morphology/topologies?${params.toString()}`)
+}
+
+export async function runMorphologySearch({ template = 'humanoid', dimensions = [], nMax = 48, seed = 0, payloadKg = 5.0, robotMassKg = null, weights = {}, endEffectors = [], topologyConstraints = null } = {}) {
   return apiFetch('/morphology/search', {
     method: 'POST',
     body: JSON.stringify({
@@ -415,6 +426,7 @@ export async function runMorphologySearch({ template = 'humanoid', dimensions = 
       robot_mass_kg: robotMassKg,
       weights,
       end_effectors: endEffectors,
+      topology_constraints: topologyConstraints,
     }),
   })
 }

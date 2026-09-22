@@ -73,6 +73,42 @@ def test_get_missing_morphology_search(search_dir):
     assert resp.status_code == 404
 
 
+def test_list_morphology_topologies():
+    resp = client.get("/morphology/topologies?base_type=walker&payload_kg=1.0&mass_budget_kg=10.0&max_count=12")
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["count"] >= 3
+    base_types = {t["base_type"] for t in data["topologies"]}
+    assert "biped" in base_types
+    assert "quadruped" in base_types
+    assert "hexapod" in base_types
+    for t in data["topologies"]:
+        assert "hash" in t
+        assert "limb_count" in t
+
+
+@pytest.mark.timeout(180)
+def test_run_topology_search(search_dir):
+    resp = client.post(
+        "/morphology/search",
+        json={
+            "topology_constraints": {"base_type": "walker", "payload_kg": 1.0, "mass_budget_kg": 10.0},
+            "n_max": 4,
+            "seed": 0,
+            "payload_kg": 1.0,
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert "search_id" in data
+    assert data["n_candidates"] > 0
+    assert len(data["candidates"]) > 0
+    top = data["candidates"][0]
+    assert "topology" in top
+    assert top["topology"]["base_type"] in {"biped", "quadruped", "hexapod"}
+    assert top["composite_score"] > 0.0
+
+
 @pytest.mark.slow
 def test_simulate_morphology_candidate(search_dir):
     search_resp = client.post(
