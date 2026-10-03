@@ -9,6 +9,7 @@ __pycache__/
 # Generated artifacts
 output/
 designs/
+demo_output/
 training/
 models/
 backups/
@@ -48,6 +49,9 @@ Thumbs.db
 
 # MuJoCo runtime logs
 MUJOCO_LOG.TXT
+
+# Local run logs
+*.log
 
 # Solver job store artifacts
 verification_jobs.db

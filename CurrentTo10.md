@@ -10,7 +10,7 @@ and is indexed in `MEMORY.md`.
 
 ---
 
-## Why 9.3 / 10 today
+## Why 9.6 / 10 today
 
 The score reflects that the *infrastructure* is green and deterministic, the *physics reasoning* layer is real rather than heuristic, **adaptive flat-ground gait synthesis is robust enough for searched candidates and small mass perturbations**, **structural link checks filter candidates whose limbs would yield or buckle under payload + drop loads**, **kinematic reasoning now rewards reachable, collision-free, dexterous workspaces**, **end-effector choices are no longer cosmetic: the selected gripper or foot family is instantiated in the FeatureTree, exported to MuJoCo, and its estimated mass influences actuator and structural scoring**, **topology is no longer limited to three templates: a deterministic grammar invents biped/quadruped/hexapod/wheeled/tracked/fixed robots with optional appendages and each topology is scored by the same physics/structural/collision/workspace pipeline**, **brain training is no longer a 2-D abstraction: `WorldReplayEnv` loads the generated world MJCF, discovers the robot's actuators and joints, and trains a closed-loop policy on real MuJoCo rollouts**, and **automatic simulation certification exercises every generated robot on uneven terrain, push recovery, drop tests, actuator saturation, and payload torque margins**. The next jump is a full sim-to-real bridge.
 
@@ -201,7 +201,15 @@ Closed the randomized-world certification gap by adding deterministic MuJoCo str
 - `web/frontend/src/components/CertificationPanel.jsx` + `api.js` helpers (`runSimulationCertification`, `listSimulationCertificates`): badge, score, per-check list, and sub-case status.
 - `web/frontend/src/components/MorphologyPanel.jsx`: displays the top-candidate certificate after a morphology search.
 - `tests/test_robot_certification.py` (6 slow tests) and `tests/test_sim_certification_robot.py` (1 slow test).
-- Full suite verified: **407 default + TBD heavy/slow/mujoco tests passing**; frontend production build passes.
+- Full suite verified: **407 default + 263 heavy/slow/mujoco tests passing** (1 xfailed, 2 xpassed from the new real-robot brain tests); frontend production build passes.
+
+**Post-ship walking demo:** `scripts/demo_morphology_walk.py` makes the certification behavior visible end-to-end. It runs a fast heuristic morphology search, scores top candidates via the same `physics_score_candidate` path used internally, and captures MuJoCo frames through a safe `step_callback` hook on `physics_score_candidate`, `_sweep_gait_for_candidate`, `run_step_test`, and `run_walk_test`. The renderer callback intentionally does **not** call `mujoco.mj_forward()` after `mujoco.mj_step()` because that overwrites the solver warm-start and destabilizes walking. Run it with:
+
+```bash
+python -u scripts/demo_morphology_walk.py
+```
+
+Outputs land in `demo_output/morphology_walk/`.
 
 **Score impact:** 9.3 → **9.6 / 10**.
 
@@ -312,4 +320,4 @@ Score moved from **7.7 → 8.0 / 10** after adaptive gait robustness delivered t
 
 ## First concrete next step
 
-Milestones A, B, C, D, E, and F are closed. Move into **Milestone G (Phase 36) — Automatic simulation certification** to raise the score toward 9.6/10.
+Milestones A, B, C, D, E, F, and **G** are closed. The honest score is **9.6 / 10**. Move into **Milestone H (Phase 37) — Sim-to-real bridge** once physical hardware access is available. Until then, product hardening, onboarding polish, and deterministic demo reliability are the highest-value follow-ups.

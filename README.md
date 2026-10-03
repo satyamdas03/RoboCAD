@@ -4,7 +4,7 @@
 >
 > **Core bet:** The AI writes **parametric CAD code** (build123d / FeatureScript), not throwaway meshes. The model you get is editable, versionable, and exportable for 3D printing, machining, Onshape, or physics simulation.
 >
-> **Latest milestone:** Phases 0–**28A/B/C/D/E/F** are complete, **Phase 29–30** are delivered, and **Milestones A–D** are closed. RoboCAD now has a **one-command launcher and health CLI** (28A), an **asset marketplace** (28B), a **deep multi-physics engine** (28C), a **morphology co-design lab** (28D), **simulation certification** (28E), **product hardening** (28F), **physics-based morphology scoring** (29), **real gait synthesis** (30), **adaptive gait robustness** (Milestone A), **structural dynamics / FEA for links** (Milestone B), **workspace / self-collision / manipulability scoring** (Milestone C), and **real end-effector families** (Milestone D). The full pytest suite: **385 default + 255 heavy/slow tests passing** (1 expected failure, 5 benchmark/network tests deselected); frontend production build passes. Phase 27D (hardware-in-the-loop sim-to-real) remains future work blocked on hardware access.
+> **Latest milestone:** Phases 0–**28A/B/C/D/E/F** are complete, **Phase 29–30** are delivered, and **Milestones A–G** are closed. RoboCAD now has a **one-command launcher and health CLI** (28A), an **asset marketplace** (28B), a **deep multi-physics engine** (28C), a **morphology co-design lab** (28D), **simulation certification** (28E), **product hardening** (28F), **physics-based morphology scoring** (29), **real gait synthesis** (30), **adaptive gait robustness** (Milestone A), **structural dynamics / FEA for links** (Milestone B), **workspace / self-collision / manipulability scoring** (Milestone C), **real end-effector families** (Milestone D), **topology grammar beyond templates** (Milestone E), **real MuJoCo brain training on generated robots** (Milestone F), and **automatic randomized-world simulation certification** (Milestone G). The full pytest suite: **407 default + 263 heavy/slow/mujoco tests passing** (1 expected failure, 2 xpassed); frontend production build passes. Phase 27D (hardware-in-the-loop sim-to-real) remains future work blocked on hardware access.
 
 ---
 
@@ -175,7 +175,7 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **Milestone D** | Real end-effector families | ✅ **Complete — `parallel_jaw_gripper`, `three_finger_hand`, `vacuum_gripper`, `point_foot`, `compliant_foot` part families; `_attach_end_effector` swaps real families into the tree; end-effector mass influences actuator/structural scoring; frontend selector; MuJoCo export/load regression; score 8.5 → 8.7/10** |
 | **Milestone E** | Topology grammar beyond templates | ✅ **Complete — deterministic `Topology`/`LimbSpec`/`JointSpec` grammar, `enumerate_topologies` with physical pruning, `topology_to_feature_tree` composer, `TopologySpace` + topology-aware `search_morphologies`, backend `/morphology/topologies` + topology search, frontend topology mode; hexapod/wheeled topologies load in MuJoCo and score non-zero; score 8.7 → 9.0/10** |
 | **Milestone F** | Real MuJoCo brain training on generated robots | ✅ **Complete — `WorldReplayEnv` MuJoCo wrapper with robot-specific observation/action spaces, `RobotMLPPolicy` with variable dims, NumPy-only CEM `train_robot_policy`, reward functions for walker/humanoid/push tasks; `/morphology/{id}/candidates/{id}/simulate` trains on the actual generated MJCF; score 9.0 → 9.3/10** |
-| **Milestone G** | Automatic simulation certification | ✅ **Complete — `ai_cad/robot_certification.py` with deterministic randomized-world cases (terrain walking, push recovery, drop test, actuator saturation, payload lift); integrated into `ai_cad/sim_certification.py`; auto-cert on `/morphology/search` top candidate and optional `/generate` for robots; `CertificationPanel.jsx` + API helpers; score 9.3 → 9.6/10** |
+| **Milestone G** | Automatic simulation certification | ✅ **Complete — `ai_cad/robot_certification.py` with deterministic randomized-world cases (terrain walking, push recovery, drop test, actuator saturation, payload lift); integrated into `ai_cad/sim_certification.py`; auto-cert on `/morphology/search` top candidate and optional `/generate` for robots; `CertificationPanel.jsx` + API helpers; score 9.3 → 9.6/10. Post-ship demo `scripts/demo_morphology_walk.py` runs the real physics scorer path and captures MuJoCo walking frames for humanoid and quadruped designs.** |
 
 Phases 0–7 proved the **AI → parametric-code loop** for single-part robotics hardware. Phases 8–13 turned that loop into an **engineer-grade CAD system** with feature trees, constraints, assemblies, verification, and model specialization. Phases 14A–15B shipped the **GEDA Bridge** so LearningRobotics can consume verified simulation-ready assets. Phases 16–27C expanded RoboCAD into a **multi-domain generative engineering platform** with a real-time voice supervisor, NVIDIA-powered intelligence, and professional rendering. Phases 28A–F and 29–30 turned it into a **simulation-first product platform** with a physics-validated morphology co-design lab that scores robots by whether they can actually walk.
 
@@ -407,6 +407,41 @@ Residual caveats: real external solvers are optional; missing solvers produce va
 
 ---
 
+## 🏆 Milestones A–G: from walking robots to certified robots
+
+RoboCAD's post-Phase-30 work is organized into a series of **honest-score milestones** that each close a measurable gap in generative robot design.
+
+### Milestone A — Adaptive gait robustness
+Morphology-aware gait scaling, per-candidate gait sweep, mass-aware actuator gains, and quadruped trot gait. The default humanoid grid reaches ≥40% walk pass rate, the quadruped grid reaches ≥75%, and mass perturbations stay ≥50%. Score: **7.7 → 8.0/10**.
+
+### Milestone B — Structural dynamics / FEA for links
+Link cross-section extraction, cantilever and simply-supported beam bending, Euler buckling, and `structural_score` integrated into the morphology composite. Optional deep CalculiX dispatch on top-N candidates. Score: **8.0 → 8.3/10**.
+
+### Milestone C — Workspace / self-collision / manipulability
+Sagittal-plane workspace proxy, representative-pose self-collision checks, and a topology-aware Yoshikawa-style manipulability index. Composite scoring weights revised. Score: **8.3 → 8.5/10**.
+
+### Milestone D — Real end-effector families
+`parallel_jaw_gripper`, `three_finger_hand`, `vacuum_gripper`, `point_foot`, and `compliant_foot` part families. `_attach_end_effector` swaps real families into the FeatureTree; end-effector mass influences actuator and structural scoring. Frontend selector + MuJoCo export/load regression. Score: **8.5 → 8.7/10**.
+
+### Milestone E — Topology grammar beyond templates
+Deterministic `Topology` / `LimbSpec` / `JointSpec` grammar, `enumerate_topologies` with physical pruning, `topology_to_feature_tree` composer, `TopologySpace` + topology-aware `search_morphologies`, backend `/morphology/topologies`, and frontend topology mode. Hexapod and wheeled topologies load in MuJoCo and score non-zero. Score: **8.7 → 9.0/10**.
+
+### Milestone F — Real MuJoCo brain training on generated robots
+`WorldReplayEnv` MuJoCo wrapper with robot-specific observation/action spaces, `RobotMLPPolicy` with adaptive dims, NumPy-only CEM `train_robot_policy`, reward functions for walker/humanoid/push tasks. Backend `/morphology/{search_id}/candidates/{candidate_id}/simulate` trains on the actual generated MJCF. Score: **9.0 → 9.3/10**.
+
+### Milestone G — Automatic simulation certification with randomized worlds
+`ai_cad/robot_certification.py` runs deterministic MuJoCo stress cases (terrain walking, push recovery, drop test, actuator saturation, payload lift) on every generated robot. Integrated into `ai_cad/sim_certification.py` as a weighted check; auto-cert on `/morphology/search` top candidate and optional `/generate` for robots; surfaced in `CertificationPanel.jsx`. Score: **9.3 → 9.6/10**.
+
+**Post-ship demo:** `scripts/demo_morphology_walk.py` makes the walking behavior visible end-to-end. It runs a fast heuristic morphology search, scores top candidates with the same `physics_score_candidate` path used internally, and captures MuJoCo frames through a safe `step_callback` hook. Key lesson: frame-capture callbacks must **not** call `mujoco.mj_forward()` after `mujoco.mj_step()` because it overwrites the solver warm-start and destabilizes the walk. Run it with:
+
+```bash
+python -u scripts/demo_morphology_walk.py
+```
+
+Outputs land in `demo_output/morphology_walk/`.
+
+---
+
 ## ⚠️ Security / secrets
 
 All API keys live in the repo-root `.env` file, which is gitignored. Never commit keys. The voice and NVIDIA integration requires:
@@ -424,4 +459,4 @@ MIT — see [`LICENSE`](LICENSE) if present, otherwise treat as open-source core
 
 ---
 
-*Built with care by Satyam Das and Claude Code. Test counts verified 2026-09-08 (Phase 28A/B/C complete).*
+*Built with care by Satyam Das and Claude Code. Test counts verified 2026-10-03 (Milestone G complete).*
