@@ -634,6 +634,7 @@ def run_walk_test(
     n_steps: int = 600,
     params: GaitParams | None = None,
     balance_gains: BalanceGains | None = None,
+    step_callback: Any = None,
 ) -> dict[str, Any]:
     """Run an open-loop walking attempt and return locomotion metrics.
 
@@ -654,6 +655,7 @@ def run_walk_test(
         params=params,
         balance_gains=gains,
         ramp_steps=120,
+        step_callback=step_callback,
     )
 
     # Phase 30 interim success: moved forward at least 5 cm without collapse.
@@ -783,6 +785,7 @@ def run_step_test(
     use_balance_feedback: bool = True,
     balance_gains: BalanceGains | None = None,
     ramp_steps: int = 0,
+    step_callback: Any = None,
 ) -> dict[str, Any]:
     """Run an open-loop stepping test in MuJoCo and return step metrics.
 
@@ -895,6 +898,9 @@ def run_step_test(
         if _has_nan_or_inf(model, data):
             nan_inf = True
             break
+
+        if step_callback is not None:
+            step_callback(step, model, data)
 
         if torso_id is not None:
             z = float(data.xpos[torso_id, 2])

@@ -247,10 +247,13 @@ def _sweep_gait_for_candidate(
     tree: FeatureTree,
     template: str,
     n_steps: int,
+    step_callback: Any = None,
 ) -> dict[str, Any]:
     """Try several gait variants and return the best walk result.
 
     The sweep is deterministic: same candidate, same best config.
+    An optional ``step_callback(step, model, data)`` is invoked during the
+    final (best) rollout so demos can capture frames without re-running.
     """
     features = extract_morphology_features(model, data, tree)
     base_params = morphology_aware_walk_params(features)
@@ -311,6 +314,25 @@ def _sweep_gait_for_candidate(
             best = walk
             best["_params"] = params
             best["_gains"] = gains
+
+    if step_callback is not None and best is not None:
+        # Re-run the best configuration once with the callback so demos can capture
+        # frames without paying for an additional full sweep.
+        best_params = best["_params"]
+        best_gains = best["_gains"]
+        mujoco.mj_resetData(model, data)
+        best = run_walk_test(
+            model,
+            data,
+            template=template,
+            n_steps=n_steps,
+            params=best_params,
+            balance_gains=best_gains,
+            step_callback=step_callback,
+        )
+        best["_params"] = best_params
+        best["_gains"] = best_gains
+
     return best or {"walk_ok": False, "forward_distance_m": 0.0, "torso_z_drop_m": 1.0, "max_pitch_roll_deg": 90.0}
 
 
@@ -514,6 +536,7 @@ def physics_score_candidate(
     n_steps: int = 200,
     tmp_dir: Path | None = None,
     cleanup: bool = True,
+    step_callback: Any = None,
 ) -> dict[str, Any]:
     """Score a morphology candidate by running it in MuJoCo.
 
@@ -617,7 +640,7 @@ def physics_score_candidate(
         # result so searched morphologies are not stuck with a single fixed gait.
         if is_legged:
             walk_steps = max(n_steps + 200, 600)
-            walk = _sweep_gait_for_candidate(model, data, tree, template, walk_steps)
+            walk = _sweep_gait_for_candidate(model, data, tree, template, walk_steps, step_callback=step_callback)
             result["walk"] = walk
             result["walk_ok"] = walk.get("walk_ok", False)
             result["walk_score"] = 1.0 if result["walk_ok"] else 0.0
