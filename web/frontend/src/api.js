@@ -17,10 +17,10 @@ export async function checkHealth() {
   return apiFetch('/health')
 }
 
-export async function generateDesign({ prompt, max_retries = 2, model = null, detectDomain = false, decompose = true }) {
+export async function generateDesign({ prompt, max_retries = 2, model = null, detectDomain = false, decompose = true, autoCert = false }) {
   return apiFetch('/generate', {
     method: 'POST',
-    body: JSON.stringify({ prompt, max_retries, model, detect_domain: detectDomain, decompose }),
+    body: JSON.stringify({ prompt, max_retries, model, detect_domain: detectDomain, decompose, auto_cert: autoCert }),
   })
 }
 
@@ -339,6 +339,14 @@ export async function checkMeshQuality(id) {
   return apiFetch(`/designs/${id}/mesh-quality-check`, { method: 'POST' })
 }
 
+export async function runSimulationCertification(id) {
+  return apiFetch(`/designs/${id}/sim-cert`, { method: 'POST' })
+}
+
+export async function listSimulationCertificates(id) {
+  return apiFetch(`/designs/${id}/sim-certs`)
+}
+
 export async function getSolverAvailability(id = 'system') {
   return apiFetch(`/designs/${id}/solver-availability`)
 }
@@ -414,7 +422,7 @@ export async function listMorphologyTopologies({ baseType = 'walker', payloadKg 
   return apiFetch(`/morphology/topologies?${params.toString()}`)
 }
 
-export async function runMorphologySearch({ template = 'humanoid', dimensions = [], nMax = 48, seed = 0, payloadKg = 5.0, robotMassKg = null, weights = {}, endEffectors = [], topologyConstraints = null } = {}) {
+export async function runMorphologySearch({ template = 'humanoid', dimensions = [], nMax = 48, seed = 0, payloadKg = 5.0, robotMassKg = null, weights = {}, endEffectors = [], topologyConstraints = null, autoCert = true } = {}) {
   return apiFetch('/morphology/search', {
     method: 'POST',
     body: JSON.stringify({
@@ -427,6 +435,7 @@ export async function runMorphologySearch({ template = 'humanoid', dimensions = 
       weights,
       end_effectors: endEffectors,
       topology_constraints: topologyConstraints,
+      auto_cert: autoCert,
     }),
   })
 }

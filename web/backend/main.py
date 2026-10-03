@@ -226,6 +226,7 @@ class GenerateRequest(BaseModel):
     use_assembly: bool = Field(default=False, description="Generate as a multi-part assembly if the model returns one.")
     detect_domain: bool = Field(default=False, description="Classify the prompt domain and extract a domain intent.")
     decompose: bool = Field(default=True, description="Automatically decompose multi-domain system prompts into part families.")
+    auto_cert: bool = Field(default=False, description="Automatically run simulation certification if the design is a robot (may slow the response).")
 
 
 class ClassifyDomainRequest(BaseModel):
@@ -240,6 +241,7 @@ class GenerateResponse(GenerationResult):
     domain: str | None = None
     domain_intent: dict[str, Any] | None = None
     decomposition: dict[str, Any] | None = None
+    certificate: dict[str, Any] | None = None
 
 
 class DecomposeRequest(BaseModel):
@@ -499,6 +501,7 @@ class MorphologySearchRequest(BaseModel):
     end_effectors: list[str] = Field(default_factory=list, description="End-effector families to evaluate; defaults to the template's default space.")
     use_physics: bool = Field(default=False, description="Run real MuJoCo standing/sway rollouts for each candidate (slower but more accurate).")
     topology_constraints: dict[str, Any] | None = Field(default=None, description="Milestone E grammar constraints (base_type, appendages, min_limbs, max_limbs, roles).")
+    auto_cert: bool = Field(default=True, description="Automatically run simulation certification on the top candidate and include the certificate in the response.")
 
 
 class MorphologySimulateRequest(BaseModel):
@@ -594,6 +597,20 @@ def generate(request: GenerateRequest) -> GenerateResponse:
     if decomposition_data:
         _write_json(DESIGNS_DIR / design_id / "decomposition.json", decomposition_data)
 
+    certificate: dict[str, Any] | None = None
+    if request.auto_cert and JobStore is not None:
+        try:
+            store = _deep_job_store()
+            cert = run_certification(
+                design_id=design_id,
+                design_dir=DESIGNS_DIR / design_id,
+                job_store=store,
+            )
+            certificate = cert.model_dump()
+        except Exception:
+            # Certification must never block a successful generation response.
+            certificate = None
+
     return GenerateResponse(
         **result.model_dump(),
         design_id=design_id,
@@ -603,6 +620,7 @@ def generate(request: GenerateRequest) -> GenerateResponse:
         domain=domain,
         domain_intent=domain_intent_data,
         decomposition=decomposition_data,
+        certificate=certificate,
     )
 
 
@@ -3519,11 +3537,27 @@ def run_morphology_search(request: MorphologySearchRequest) -> dict[str, Any]:
 
     save_search_results(search_id, space, candidates, design_dir)
 
+    certificate: dict[str, Any] | None = None
+    if request.auto_cert and candidates and JobStore is not None:
+        try:
+            top_candidate = candidates[0]
+            _write_json(design_dir / "feature_tree.json", top_candidate.tree.model_dump(mode="json"))
+            store = _deep_job_store()
+            cert = run_certification(
+                design_id=search_id,
+                design_dir=design_dir,
+                job_store=store,
+            )
+            certificate = cert.model_dump()
+        except Exception:
+            certificate = None
+
     return {
         "search_id": search_id,
         "template": request.template,
         "n_candidates": len(candidates),
         "candidates": [c.to_dict() for c in candidates],
+        "certificate": certificate,
     }
 
 

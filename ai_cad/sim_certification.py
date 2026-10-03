@@ -16,6 +16,8 @@ from typing import Any
 
 import numpy as np
 
+from ai_cad.feature_tree import FeatureTree
+from ai_cad.robot_certification import DEFAULT_ROBOT_CERT_CASES, RobotCertCase, run_robot_certification
 from ai_cad.solvers.job_store import JobStore
 from ai_cad.solvers.verification_deep import run_deep_verification, solver_availability
 from ai_cad.verification import run_verification
@@ -29,6 +31,50 @@ CERTIFICATION_LOAD_CASES: list[LoadCase] = [
     LoadCase.HEAT_SINK_THERMAL_RESISTANCE,
     LoadCase.WIND_TUNNEL_DRAG,
 ]
+
+
+def _load_feature_tree(design_dir: Path) -> FeatureTree | None:
+    """Load a persisted FeatureTree for robot-cert detection."""
+    path = design_dir / "feature_tree.json"
+    if not path.exists():
+        return None
+    try:
+        return FeatureTree(**json.loads(path.read_text(encoding="utf-8")))
+    except Exception:
+        return None
+
+
+def _is_robot_design(tree: FeatureTree | None) -> bool:
+    """Heuristic: is this design a robot that should pass randomized-world cert?"""
+    if tree is None:
+        return False
+    params = tree.parameter_dict()
+    if any(
+        k in params
+        for k in (
+            "robot_mass_kg",
+            "total_leg_length_m",
+            "foot_length",
+            "foot_width",
+            "hip_axis",
+            "gripper_width",
+            "actuator_force_limit_n",
+        )
+    ):
+        return True
+    meta = tree.metadata or {}
+    domain = meta.get("domain", "")
+    if isinstance(domain, str) and "robot" in domain.lower():
+        return True
+    for part in tree.parts:
+        part_name = (part.name or "").lower()
+        if any(h in part_name for h in ("humanoid", "quadruped", "biped", "robot", "walker", "leg", "foot", "gripper")):
+            return True
+    for asm in tree.assemblies:
+        asm_name = (asm.name or "").lower()
+        if any(h in asm_name for h in ("humanoid", "quadruped", "biped", "robot", "arm", "walker", "gripper")):
+            return True
+    return False
 
 
 @dataclass
@@ -191,7 +237,7 @@ def run_certification(
             name="real_solver_availability",
             passed=availability_score >= 0.5,
             score=availability_score,
-            weight=0.15,
+            weight=0.10,
             details={"available_solvers": real_names},
         )
     )
@@ -231,7 +277,7 @@ def run_certification(
             name="load_case_pass_rate",
             passed=pass_rate >= 0.75,
             score=pass_rate,
-            weight=0.50,
+            weight=0.40,
             details={"passed": case_passed, "total": case_total},
         )
     )
@@ -246,7 +292,7 @@ def run_certification(
                 name="mesh_quality",
                 passed=mesh_ok,
                 score=1.0 if mesh_ok else 0.0,
-                weight=0.15,
+                weight=0.10,
                 details={
                     "watertight": mesh_report.get("watertight"),
                     "triangle_count": mesh_report.get("triangle_count"),
@@ -260,7 +306,7 @@ def run_certification(
                 name="mesh_quality",
                 passed=True,
                 score=1.0,
-                weight=0.15,
+                weight=0.10,
                 details={"note": "mesh_quality load case not included in this run"},
             )
         )
@@ -281,8 +327,41 @@ def run_certification(
             name="safety_factor_margin",
             passed=margin_score >= 0.8,
             score=margin_score,
-            weight=0.20,
+            weight=0.15,
             details={"min_safety_factor": min(sf_values) if sf_values else None},
+        )
+    )
+
+    # Robot-specific randomized-world certification.
+    tree = _load_feature_tree(design_dir)
+    robot_cert_score = 1.0
+    robot_cert_passed = True
+    robot_cert_details: dict[str, Any] = {"skipped": True, "reason": "not a robot design"}
+    if _is_robot_design(tree):
+        robot_cert_details = {"skipped": False}
+        try:
+            robot_result = run_robot_certification(
+                tree,
+                cases=DEFAULT_ROBOT_CERT_CASES,
+                seed=42,
+                output_dir=design_dir / "robot_cert_bundle",
+                cleanup=False,
+                design_id=design_id,
+            )
+            robot_cert_score = robot_result.score
+            robot_cert_passed = robot_result.passed
+            robot_cert_details = robot_result.model_dump()
+        except Exception as exc:
+            robot_cert_score = 0.0
+            robot_cert_passed = False
+            robot_cert_details = {"error": str(exc)}
+    checks.append(
+        CheckResult(
+            name="robot_randomized_world_certification",
+            passed=robot_cert_passed,
+            score=robot_cert_score,
+            weight=0.25,
+            details=robot_cert_details,
         )
     )
 

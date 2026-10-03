@@ -43,6 +43,7 @@ export default function MorphologyPanel() {
   const [selectedCandidate, setSelectedCandidate] = useState(null)
   const [simulating, setSimulating] = useState(false)
   const [simulateReport, setSimulateReport] = useState(null)
+  const [certificate, setCertificate] = useState(null)
   const [error, setError] = useState(null)
 
   useEffect(() => {
@@ -89,6 +90,7 @@ export default function MorphologyPanel() {
     setResults(null)
     setSelectedCandidate(null)
     setSimulateReport(null)
+    setCertificate(null)
     try {
       let data
       if (mode === 'topology') {
@@ -122,6 +124,7 @@ export default function MorphologyPanel() {
       }
       setSearchId(data.search_id)
       setResults(data.candidates)
+      setCertificate(data.certificate || null)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -321,6 +324,23 @@ export default function MorphologyPanel() {
       </div>
 
       {error && <div className="kp-alert kp-alert-error kp-mt-2">{error}</div>}
+
+      {certificate && (
+        <div className="kp-section kp-mt-3">
+          <div className="kp-panel-header">
+            <span className="kp-panel-title">Top Candidate Certificate</span>
+            <span className={`kp-badge ${certificate.passed ? 'kp-badge-success' : 'kp-badge-warning'}`}>
+              {certificate.passed ? 'CERTIFIED' : 'NOT CERTIFIED'}
+            </span>
+          </div>
+          <div className="kp-metric-row">
+            <div className="kp-metric">
+              <span className="kp-metric-value">{certificate.score?.toFixed(1)}</span>
+              <span className="kp-metric-label">score / 100</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {results && (
         <div className="kp-flex-col kp-gap-2 kp-mt-3">

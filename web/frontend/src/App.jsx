@@ -27,6 +27,7 @@ import AeroPanel from './components/AeroPanel.jsx'
 import ThermalPanel from './components/ThermalPanel.jsx'
 import ElectronicsPanel from './components/ElectronicsPanel.jsx'
 import VerificationPanel from './components/VerificationPanel.jsx'
+import CertificationPanel from './components/CertificationPanel.jsx'
 import HumanoidPanel from './components/HumanoidPanel.jsx'
 import BrainTrainingPanel from './components/BrainTrainingPanel.jsx'
 import HermesPanel from './components/HermesPanel.jsx'
@@ -344,6 +345,7 @@ export default function App() {
                 <ElectronicsPanel designId={selectedId} />
               )}
               <VerificationPanel designId={selectedId} onFieldLoaded={setVerificationField} />
+              <CertificationPanel designId={selectedId} />
               <HumanoidPanel designId={selectedId} onDesignCreated={handleSelect} />
               <BrainTrainingPanel designId={selectedId} />
               <HermesPanel designId={selectedId} />

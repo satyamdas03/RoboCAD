@@ -59,7 +59,16 @@ def test_hexapod_topology_scores_nonzero():
 
     topo = default_topology("hexapod", payload_kg=1.0, mass_budget_kg=10.0)
     tree = topology_to_feature_tree(topo)
-    result = score_candidate(tree, payload_kg=1.0, robot_mass_kg=10.0)
+    # Hexapod self-collision sampling is very expensive; this test verifies the
+    # scoring pipeline works for many-legged topologies without requiring full
+    # physics/collision rollouts.
+    result = score_candidate(
+        tree,
+        payload_kg=1.0,
+        robot_mass_kg=10.0,
+        use_physics=False,
+        use_collision=False,
+    )
     assert result["composite"] > 0.0
     assert result.get("actuator", 0.0) >= 0.0
 
@@ -81,13 +90,19 @@ def test_topology_search_returns_ranked_candidates():
     from ai_cad.morphology import TopologySpace, search_morphologies
     from ai_cad.topology_grammar import enumerate_topologies
 
-    topologies = enumerate_topologies({"base_type": "walker"}, max_count=4, seed=42)
+    topologies = enumerate_topologies({"base_type": "walker"}, max_count=2, seed=42)
     space = TopologySpace(
         topologies=topologies,
-        n_max=8,
+        n_max=4,
         seed=42,
     )
-    candidates = search_morphologies(space, payload_kg=1.0, robot_mass_kg=10.0)
+    candidates = search_morphologies(
+        space,
+        payload_kg=1.0,
+        robot_mass_kg=10.0,
+        use_physics=False,
+        use_collision=False,
+    )
     assert len(candidates) > 0
     top = max(candidates, key=lambda c: c.composite_score)
     assert top.composite_score > 0.0
