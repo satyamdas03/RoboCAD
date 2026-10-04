@@ -29,6 +29,7 @@ def test_list_morphology_templates():
 
 
 
+@pytest.mark.slow
 @pytest.mark.timeout(180)
 def test_run_morphology_search(search_dir):
     # Quadruped workspace sampling can exceed the default 120 s timeout on
@@ -53,6 +54,7 @@ def test_run_morphology_search(search_dir):
     assert (search_dir / data["search_id"] / f"morphology_search_{data['search_id']}.json").exists()
 
 
+@pytest.mark.slow
 def test_get_morphology_search(search_dir):
     search_resp = client.post(
         "/morphology/search",
@@ -87,6 +89,7 @@ def test_list_morphology_topologies():
         assert "limb_count" in t
 
 
+@pytest.mark.slow
 @pytest.mark.timeout(180)
 def test_run_topology_search(search_dir):
     resp = client.post(

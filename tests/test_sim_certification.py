@@ -12,10 +12,12 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from ai_cad.feature_tree import FeatureTree
 from ai_cad.sim_certification import (
     CERTIFICATION_LOAD_CASES,
     CheckResult,
     CertificationResult,
+    _is_robot_design,
     list_certificates,
     load_certificate,
     run_certification,
@@ -104,6 +106,24 @@ def test_check_result_model_dump():
     check = CheckResult(name="test", passed=True, score=0.9, weight=0.5, details={"x": 1})
     data = check.details
     assert data == {"x": 1}
+
+
+def test_is_robot_design_uses_getattr_for_metadata():
+    """Regression: FeatureTree without top-level metadata should not crash _is_robot_design."""
+    tree = FeatureTree(design_id="ft1", prompt="bracket", parts=[])
+    # FeatureTree does not expose a top-level metadata field, so this must not raise.
+    assert _is_robot_design(tree) is False
+
+
+def test_is_robot_design_detects_robot_parts():
+    from ai_cad.feature_tree import Part
+
+    tree = FeatureTree(
+        design_id="ft2",
+        prompt="humanoid",
+        parts=[Part(id="p1", name="left_leg")],
+    )
+    assert _is_robot_design(tree) is True
 
 
 def test_certification_load_case_results_present(

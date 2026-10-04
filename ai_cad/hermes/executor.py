@@ -16,12 +16,13 @@ def _get_context(ctx: dict[str, Any] | None) -> dict[str, Any]:
     return ctx or {}
 
 
-def _require(name: str, ctx: dict[str, Any]) -> Any:
+def _require(name: str, ctx: dict[str, Any], tool_name: str | None = None) -> Any:
     fn = ctx.get(name)
     if fn is None:
+        tool = tool_name or name
         return {
             "status": "error",
-            "message": f"Backend callable {name!r} is not bound in HERMES context",
+            "message": f"Tool {tool!r} is missing backend callable {name!r} in HERMES context",
         }
     return fn
 
@@ -32,7 +33,7 @@ def exec_classify_domain(
     **kwargs: Any,
 ) -> Any:
     """Classify the domain of a user prompt."""
-    fn = _require("classify_domain", _get_context(_context))
+    fn = _require("classify_domain", _get_context(_context), tool_name="classify_domain")
     if not callable(fn):
         return fn
     return fn(prompt)
@@ -44,7 +45,7 @@ def exec_decompose_prompt(
     **kwargs: Any,
 ) -> Any:
     """Decompose a multi-domain system prompt."""
-    fn = _require("decompose_prompt", _get_context(_context))
+    fn = _require("decompose_prompt", _get_context(_context), tool_name="decompose_prompt")
     if not callable(fn):
         return fn
     return fn(prompt)
@@ -55,7 +56,7 @@ def exec_get_design_summary(
     **kwargs: Any,
 ) -> Any:
     """Return a compact summary of the current design."""
-    fn = _require("get_design_summary", _get_context(_context))
+    fn = _require("get_design_summary", _get_context(_context), tool_name="get_design_summary")
     if not callable(fn):
         return fn
     return fn()
@@ -66,7 +67,7 @@ def exec_get_capabilities(
     **kwargs: Any,
 ) -> Any:
     """List RoboCAD capabilities."""
-    fn = _require("get_capabilities", _get_context(_context))
+    fn = _require("get_capabilities", _get_context(_context), tool_name="get_capabilities")
     if not callable(fn):
         return fn
     return fn()
@@ -111,7 +112,7 @@ def exec_generate_design(
     **kwargs: Any,
 ) -> Any:
     """Generate a new design from a natural-language prompt."""
-    fn = _require("generate_design", _get_context(_context))
+    fn = _require("generate_design", _get_context(_context), tool_name="generate_design")
     if not callable(fn):
         return fn
     return fn(
@@ -128,7 +129,7 @@ def exec_regenerate_parameters(
     **kwargs: Any,
 ) -> Any:
     """Update parameters and regenerate the current design."""
-    fn = _require("regenerate_parameters", _get_context(_context))
+    fn = _require("regenerate_parameters", _get_context(_context), tool_name="regenerate_parameters")
     if not callable(fn):
         return fn
     return fn(parameter_updates=parameter_updates)
@@ -139,7 +140,7 @@ def exec_synthesize_assembly(
     **kwargs: Any,
 ) -> Any:
     """Re-run assembly mate inference."""
-    fn = _require("synthesize_assembly", _get_context(_context))
+    fn = _require("synthesize_assembly", _get_context(_context), tool_name="synthesize_assembly")
     if not callable(fn):
         return fn
     return fn()
@@ -150,7 +151,7 @@ def exec_run_dfm_report(
     **kwargs: Any,
 ) -> Any:
     """Run a DFM report on the current design."""
-    fn = _require("run_dfm_report", _get_context(_context))
+    fn = _require("run_dfm_report", _get_context(_context), tool_name="run_dfm_report")
     if not callable(fn):
         return fn
     return fn()
@@ -164,7 +165,7 @@ def exec_run_verification(
     **kwargs: Any,
 ) -> Any:
     """Run a multi-physics verification load case."""
-    fn = _require("run_verification", _get_context(_context))
+    fn = _require("run_verification", _get_context(_context), tool_name="run_verification")
     if not callable(fn):
         return fn
     return fn(
@@ -185,7 +186,7 @@ def exec_build_world(
     **kwargs: Any,
 ) -> Any:
     """Build a simulation world for the current design."""
-    fn = _require("build_world", _get_context(_context))
+    fn = _require("build_world", _get_context(_context), tool_name="build_world")
     if not callable(fn):
         return fn
     return fn(
@@ -206,7 +207,7 @@ def exec_replay_world(
     **kwargs: Any,
 ) -> Any:
     """Replay the most recently built world."""
-    fn = _require("replay_world", _get_context(_context))
+    fn = _require("replay_world", _get_context(_context), tool_name="replay_world")
     if not callable(fn):
         return fn
     return fn(
@@ -226,7 +227,7 @@ def exec_train_brain(
     **kwargs: Any,
 ) -> Any:
     """Train an attention-aware robot brain policy."""
-    fn = _require("train_brain", _get_context(_context))
+    fn = _require("train_brain", _get_context(_context), tool_name="train_brain")
     if not callable(fn):
         return fn
     return fn(
@@ -247,7 +248,7 @@ def exec_train_skill(
     **kwargs: Any,
 ) -> Any:
     """Train a simple push skill using the RoboCompiler CEM pipeline."""
-    fn = _require("train_skill", _get_context(_context))
+    fn = _require("train_skill", _get_context(_context), tool_name="train_skill")
     if not callable(fn):
         return fn
     return fn(
@@ -283,6 +284,75 @@ def exec_propose_redesign(
     )
 
 
+def exec_run_morphology_search(
+    prompt: str | None = None,
+    template: str = "walker",
+    n_max: int = 8,
+    payload_kg: float = 1.0,
+    robot_mass_kg: float | None = None,
+    use_physics: bool = True,
+    auto_cert: bool = False,
+    topology_constraints: dict[str, Any] | None = None,
+    end_effectors: list[str] | None = None,
+    _context: dict[str, Any] | None = None,
+    **kwargs: Any,
+) -> Any:
+    """Run morphology/topology search through the backend callable."""
+    fn = _require("run_morphology_search", _get_context(_context), tool_name="run_morphology_search")
+    if not callable(fn):
+        return fn
+    return fn(
+        prompt=prompt,
+        template=template,
+        n_max=n_max,
+        payload_kg=payload_kg,
+        robot_mass_kg=robot_mass_kg,
+        use_physics=use_physics,
+        auto_cert=auto_cert,
+        topology_constraints=topology_constraints or {},
+        end_effectors=end_effectors or [],
+    )
+
+
+def exec_run_simulation_certification(
+    design_id: str | None = None,
+    auto_randomize: bool = True,
+    _context: dict[str, Any] | None = None,
+    **kwargs: Any,
+) -> Any:
+    """Run randomized-world simulation certification through the backend callable."""
+    fn = _require("run_simulation_certification", _get_context(_context), tool_name="run_simulation_certification")
+    if not callable(fn):
+        return fn
+    return fn(design_id=design_id, auto_randomize=auto_randomize)
+
+
+def exec_train_robot_brain_on_candidate(
+    search_id: str,
+    candidate_id: str,
+    world_template: str = "walker",
+    n_iters: int = 5,
+    pop_size: int = 20,
+    eval_episodes: int = 5,
+    seed: int = 42,
+    _context: dict[str, Any] | None = None,
+    **kwargs: Any,
+) -> Any:
+    """Export a candidate to a world and run a light brain-training smoke test."""
+    fn = _require("train_robot_brain_on_candidate", _get_context(_context), tool_name="train_robot_brain_on_candidate")
+    if not callable(fn):
+        return fn
+    return fn(
+        search_id=search_id,
+        candidate_id=candidate_id,
+        world_template=world_template,
+        n_iters=n_iters,
+        pop_size=pop_size,
+        eval_episodes=eval_episodes,
+        seed=seed,
+    )
+
+
 TOOL_EXECUTORS: dict[str, Any] = {
     "classify_domain": exec_classify_domain,
     "decompose_prompt": exec_decompose_prompt,
@@ -299,6 +369,9 @@ TOOL_EXECUTORS: dict[str, Any] = {
     "replay_world": exec_replay_world,
     "train_brain": exec_train_brain,
     "train_skill": exec_train_skill,
+    "run_morphology_search": exec_run_morphology_search,
+    "run_simulation_certification": exec_run_simulation_certification,
+    "train_robot_brain_on_candidate": exec_train_robot_brain_on_candidate,
 }
 
 

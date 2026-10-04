@@ -68,7 +68,7 @@ def execute_plan_step(
     if step.tool is None:
         step.status = StepStatus.completed
         step.updated_at = datetime.now(timezone.utc).isoformat()
-        return ToolResult(call_id="", tool="", status="success", result=None, message="No-op step")
+        return ToolResult(call_id="", tool="", status="success", result=None, message="No-op step", duration_seconds=0.0)
 
     if step.requires_approval and not step.metadata.get("approved"):
         step.status = StepStatus.awaiting_approval
@@ -78,10 +78,12 @@ def execute_plan_step(
             tool=step.tool,
             status="pending_approval",
             message=f"Step {step.id} requires approval before executing {step.tool}",
+            duration_seconds=0.0,
         )
 
     step.status = StepStatus.running
     step.updated_at = datetime.now(timezone.utc).isoformat()
+    start_time = datetime.now(timezone.utc)
     try:
         result = registry.execute(step.tool, step.parameters, context=context)
         step.result = result
@@ -89,16 +91,19 @@ def execute_plan_step(
     except Exception as exc:  # pragma: no cover - general catch
         step.error = str(exc)
         step.status = StepStatus.failed
-        return ToolResult(call_id="", tool=step.tool, status="error", message=str(exc))
+        duration = (datetime.now(timezone.utc) - start_time).total_seconds()
+        return ToolResult(call_id="", tool=step.tool, status="error", message=str(exc), duration_seconds=duration)
     finally:
         step.updated_at = datetime.now(timezone.utc).isoformat()
 
+    duration = (datetime.now(timezone.utc) - start_time).total_seconds()
     return ToolResult(
         call_id="",
         tool=step.tool,
         status="success",
         result=result,
         message=f"Executed {step.tool}",
+        duration_seconds=duration,
     )
 
 

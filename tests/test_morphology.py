@@ -68,6 +68,7 @@ def test_parameter_grid_deterministic_with_seed():
     assert len(grid_a) <= space.n_max
 
 
+@pytest.mark.slow
 def test_search_morphologies_ranked_and_seeded():
     space = default_space("manipulator_on_base")
     space.n_max = 3
@@ -84,6 +85,7 @@ def test_search_morphologies_ranked_and_seeded():
     assert candidates_a == sorted(candidates_a, key=lambda c: c.composite_score, reverse=True)
 
 
+@pytest.mark.slow
 def test_score_candidate_returns_expected_keys():
     space = default_space("manipulator_on_base")
     space.n_max = 2
@@ -96,6 +98,7 @@ def test_score_candidate_returns_expected_keys():
     assert all(0.0 <= scores[k] <= 1.0 for k in expected if k != "composite")
 
 
+@pytest.mark.slow
 def test_save_and_load_search_results(tmp_path):
     space = default_space("manipulator_on_base")
     space.n_max = 3
@@ -110,6 +113,7 @@ def test_save_and_load_search_results(tmp_path):
     assert data["candidates"][0]["rank"] == 1
 
 
+@pytest.mark.slow
 def test_custom_weights_change_composite():
     space = default_space("manipulator_on_base")
     space.n_max = 3
@@ -119,6 +123,7 @@ def test_custom_weights_change_composite():
     assert c1.composite_score != pytest.approx(c2.composite_score) or c1.candidate_id != c2.candidate_id
 
 
+@pytest.mark.slow
 def test_candidate_to_dict_and_with_tree():
     space = default_space("manipulator_on_base")
     space.n_max = 2

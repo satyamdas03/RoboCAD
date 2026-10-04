@@ -170,6 +170,26 @@ class HermesSession:
         self.save()
         return result.model_dump()
 
+    def get_audit(self) -> dict[str, Any]:
+        """Return a serializable snapshot of session context for audit/debugging."""
+        plans_summary: list[dict[str, Any]] = []
+        for plan in self.session.plans:
+            plans_summary.append({
+                "id": plan.id,
+                "goal": plan.goal,
+                "status": plan.status.value,
+                "step_count": len(plan.steps),
+                "completed_steps": sum(1 for s in plan.steps if s.status.value == "completed"),
+            })
+        return {
+            "session_id": self.session.id,
+            "design_id": self.session.design_id,
+            "status": self.session.status,
+            "auto_audit": list(self.session.context.get("auto_audit", [])),
+            "plans_summary": plans_summary,
+            "updated_at": self.session.updated_at,
+        }
+
     def _update_session_status(self) -> None:
         plan = self.session.active_plan()
         if plan is None:

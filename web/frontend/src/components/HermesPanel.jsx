@@ -3,10 +3,12 @@ import {
   approveHermesStep,
   createHermesSession,
   explainWithHermes,
+  getHermesAudit,
   getHermesSession,
   getHermesStatus,
   rejectHermesStep,
   sendHermesMessage,
+  startHermesAuto,
 } from '../api.js'
 import VoiceControls from './VoiceControls.jsx'
 
@@ -26,7 +28,7 @@ const STATUS_LABELS = {
   done: 'Done',
 }
 
-export default function HermesPanel({ designId }) {
+export default function HermesPanel({ designId, onDesignCreated, focus, onFocusAck }) {
   const [sessionId, setSessionId] = useState(null)
   const [messages, setMessages] = useState([])
   const [activePlan, setActivePlan] = useState(null)
@@ -37,7 +39,17 @@ export default function HermesPanel({ designId }) {
   const [error, setError] = useState(null)
   const [expanded, setExpanded] = useState(true)
   const [voiceStatus, setVoiceStatus] = useState('disconnected')
+  const [autoOpen, setAutoOpen] = useState(false)
+  const [autoPrompt, setAutoPrompt] = useState('')
+  const [autoMaxRetries, setAutoMaxRetries] = useState(3)
+  const [autoCertThreshold, setAutoCertThreshold] = useState(0.7)
+  const [autoTimeoutSeconds, setAutoTimeoutSeconds] = useState(600)
+  const [autoLoading, setAutoLoading] = useState(false)
+  const [autoStatus, setAutoStatus] = useState('idle')
+  const [auditAttempts, setAuditAttempts] = useState([])
+  const [autoResult, setAutoResult] = useState(null)
   const messagesEndRef = useRef(null)
+  const autoSectionRef = useRef(null)
 
   // Create or load a session for this design.
   useEffect(() => {
@@ -96,9 +108,39 @@ export default function HermesPanel({ designId }) {
     return () => clearInterval(interval)
   }, [sessionId, status])
 
+  // Poll auto-design audit while running or awaiting approval.
+  useEffect(() => {
+    if (!sessionId) return
+    if (autoStatus !== 'running' && autoStatus !== 'awaiting_approval' && autoStatus !== 'certified' && autoStatus !== 'failed') return
+    const interval = setInterval(async () => {
+      try {
+        const data = await getHermesAudit(sessionId)
+        setAuditAttempts(data.audit || [])
+        setAutoStatus(data.status || 'idle')
+        if (data.result) {
+          setAutoResult(data.result)
+        }
+      } catch {
+        // Ignore polling errors.
+      }
+    }, 2000)
+    return () => clearInterval(interval)
+  }, [sessionId, autoStatus])
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  // When App routes focus to HERMES, expand the panel and surface the auto-design form.
+  useEffect(() => {
+    if (!focus) return
+    setExpanded(true)
+    setAutoOpen(true)
+    setTimeout(() => {
+      autoSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 100)
+    if (onFocusAck) onFocusAck()
+  }, [focus, onFocusAck])
 
   async function handleSend() {
     if (!sessionId || !input.trim()) return
@@ -167,6 +209,42 @@ export default function HermesPanel({ designId }) {
     }
   }
 
+  async function handleStartAuto() {
+    if (!sessionId || !autoPrompt.trim()) return
+    setAutoLoading(true)
+    setError(null)
+    setAuditAttempts([])
+    setAutoResult(null)
+    try {
+      const data = await startHermesAuto(sessionId, autoPrompt.trim(), {
+        maxRetries: Number(autoMaxRetries),
+        certThreshold: Number(autoCertThreshold),
+        timeoutSeconds: Number(autoTimeoutSeconds),
+      })
+      setAutoStatus(data.status || 'running')
+      setAuditAttempts(data.audit || [])
+      setAutoResult({
+        design_id: data.design_id,
+        search_id: data.search_id,
+        candidate_id: data.candidate_id,
+        success: data.success,
+        message: data.message,
+      })
+    } catch (err) {
+      setError(err.message)
+      setAutoStatus('error')
+    } finally {
+      setAutoLoading(false)
+    }
+  }
+
+  function handleOpenAutoResult() {
+    const id = autoResult?.design_id || autoResult?.search_id
+    if (id && onDesignCreated) {
+      onDesignCreated(id)
+    }
+  }
+
   async function handleExplain(target) {
     if (!sessionId) return
     setLoading(true)
@@ -211,6 +289,14 @@ export default function HermesPanel({ designId }) {
           </span>
           <button
             type="button"
+            className={`kp-button kp-button-small ${autoOpen ? 'kp-button-primary' : 'kp-button-secondary'}`}
+            onClick={() => setAutoOpen(!autoOpen)}
+            disabled={loading || autoLoading}
+          >
+            Auto-design
+          </button>
+          <button
+            type="button"
             className="kp-button kp-button-icon kp-button-ghost"
             onClick={() => setExpanded(!expanded)}
             aria-label={expanded ? 'Collapse HERMES panel' : 'Expand HERMES panel'}
@@ -226,6 +312,151 @@ export default function HermesPanel({ designId }) {
             Conversational supervisor across design, simulation, and training.
             Expensive actions require your approval.
           </p>
+
+          <div ref={autoSectionRef} className="kp-flex-col kp-gap-2">
+            <div className="kp-flex kp-gap-2 kp-align-center kp-flex-wrap">
+              <button
+                type="button"
+                className={`kp-button kp-button-small ${autoOpen ? 'kp-button-primary' : 'kp-button-secondary'}`}
+                onClick={() => setAutoOpen(!autoOpen)}
+                disabled={loading || autoLoading}
+              >
+                {autoOpen ? 'Close auto-design' : 'Auto-design'}
+              </button>
+              {autoStatus !== 'idle' && (
+                <span className={`kp-badge ${autoStatus === 'done' || autoStatus === 'certified' ? 'kp-badge-success' : autoStatus === 'error' || autoStatus === 'failed' ? 'kp-badge-error' : 'kp-badge-warning'}`}>
+                  {autoStatus}
+                </span>
+              )}
+            </div>
+
+            {autoOpen && (
+              <div
+                className="kp-flex-col kp-gap-2"
+                style={{
+                  padding: '0.5rem',
+                  border: '1px solid var(--kp-outline-variant)',
+                  borderRadius: '4px',
+                  background: 'var(--kp-surface-container-lowest)',
+                }}
+              >
+                <div className="kp-field">
+                  <label htmlFor="auto-prompt" className="kp-label">Auto-design prompt</label>
+                  <input
+                    id="auto-prompt"
+                    type="text"
+                    className="kp-input"
+                    placeholder="e.g. robot arm with gripper"
+                    value={autoPrompt}
+                    onChange={(e) => setAutoPrompt(e.target.value)}
+                    disabled={autoLoading}
+                  />
+                </div>
+
+                <div className="kp-flex kp-gap-2 kp-flex-wrap">
+                  <div className="kp-field" style={{ flex: 1, minWidth: '100px' }}>
+                    <label htmlFor="auto-retries" className="kp-label">Max retries</label>
+                    <input
+                      id="auto-retries"
+                      type="number"
+                      className="kp-input"
+                      min={1}
+                      max={10}
+                      value={autoMaxRetries}
+                      onChange={(e) => setAutoMaxRetries(e.target.value)}
+                      disabled={autoLoading}
+                    />
+                  </div>
+                  <div className="kp-field" style={{ flex: 1, minWidth: '100px' }}>
+                    <label htmlFor="auto-cert" className="kp-label">Cert threshold</label>
+                    <input
+                      id="auto-cert"
+                      type="number"
+                      className="kp-input"
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      value={autoCertThreshold}
+                      onChange={(e) => setAutoCertThreshold(e.target.value)}
+                      disabled={autoLoading}
+                    />
+                  </div>
+                  <div className="kp-field" style={{ flex: 1, minWidth: '100px' }}>
+                    <label htmlFor="auto-timeout" className="kp-label">Timeout (s)</label>
+                    <input
+                      id="auto-timeout"
+                      type="number"
+                      className="kp-input"
+                      min={30}
+                      step={30}
+                      value={autoTimeoutSeconds}
+                      onChange={(e) => setAutoTimeoutSeconds(e.target.value)}
+                      disabled={autoLoading}
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className="kp-button kp-button-primary"
+                  onClick={handleStartAuto}
+                  disabled={autoLoading || !autoPrompt.trim()}
+                >
+                  {autoLoading ? 'Starting pipeline…' : 'Run full pipeline'}
+                </button>
+
+                {auditAttempts.length > 0 && (
+                  <div className="kp-flex-col kp-gap-1">
+                    <span className="kp-label">Pipeline audit</span>
+                    {auditAttempts.map((attempt) => (
+                      <div
+                        key={attempt.attempt_number || attempt.attempt || attempt.id || attempt.action}
+                        className="kp-flex kp-gap-2 kp-align-center kp-small"
+                        style={{
+                          padding: '0.35rem 0.5rem',
+                          borderRadius: '4px',
+                          background: 'var(--kp-surface-container)',
+                          border: '1px solid var(--kp-border)',
+                        }}
+                      >
+                        <span className="kp-mono">Attempt {attempt.attempt_number ?? attempt.attempt ?? '?'}</span>
+                        <span className="kp-text-subtle">·</span>
+                        <span>{attempt.action || '—'}</span>
+                        <span className="kp-text-subtle">·</span>
+                        <span className="kp-mono">{attempt.duration_seconds != null ? `${attempt.duration_seconds.toFixed(1)}s` : '—'}</span>
+                        <span className={`kp-badge ${attempt.passed ? 'kp-badge-success' : 'kp-badge-error'}`}>
+                          {attempt.passed ? 'PASS' : 'FAIL'}
+                        </span>
+                        {!attempt.passed && attempt.retry_reason && (
+                          <span className="kp-small" style={{ color: 'var(--kp-error)' }}>{attempt.retry_reason}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {autoResult && (
+                  <div className="kp-flex-col kp-gap-1">
+                    <span className="kp-label">Result</span>
+                    <div className="kp-flex kp-gap-2 kp-align-center kp-small">
+                      <span className="kp-mono">
+                        {autoResult.design_id ? `Design #${autoResult.design_id.slice(0, 8)}` : autoResult.search_id ? `Search #${autoResult.search_id.slice(0, 8)}` : 'Done'}
+                      </span>
+                      {(autoResult.design_id || autoResult.search_id) && onDesignCreated && (
+                        <button
+                          type="button"
+                          className="kp-button kp-button-small kp-button-primary"
+                          onClick={handleOpenAutoResult}
+                        >
+                          Open result
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           {contextSummary && (
             <div

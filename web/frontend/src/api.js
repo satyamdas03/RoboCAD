@@ -542,6 +542,27 @@ export async function getHermesLiveKitToken(sessionId, identity = null) {
   })
 }
 
+export async function startHermesAuto(sessionId, prompt, options = {}) {
+  const {
+    maxRetries = 3,
+    certThreshold = 0.7,
+    timeoutSeconds = 600,
+  } = options
+  return apiFetch(`/hermes/session/${sessionId}/auto`, {
+    method: 'POST',
+    body: JSON.stringify({
+      prompt,
+      max_retries: maxRetries,
+      cert_threshold: certThreshold,
+      timeout_seconds: timeoutSeconds,
+    }),
+  })
+}
+
+export async function getHermesAudit(sessionId) {
+  return apiFetch(`/hermes/session/${sessionId}/audit`)
+}
+
 export async function critiqueRender(designId, imageBlob, prompt = null) {
   const formData = new FormData()
   formData.append('file', imageBlob, 'render.png')

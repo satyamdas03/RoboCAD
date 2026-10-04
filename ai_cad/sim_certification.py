@@ -62,7 +62,7 @@ def _is_robot_design(tree: FeatureTree | None) -> bool:
         )
     ):
         return True
-    meta = tree.metadata or {}
+    meta = getattr(tree, "metadata", None) or {}
     domain = meta.get("domain", "")
     if isinstance(domain, str) and "robot" in domain.lower():
         return True

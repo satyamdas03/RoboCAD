@@ -84,6 +84,33 @@ class TrainSkillParams(BaseModel):
     eval_episodes: int = Field(default=10, ge=1, le=50)
 
 
+class RunMorphologySearchParams(BaseModel):
+    prompt: str | None = Field(default=None, min_length=1)
+    template: str = Field(default="walker", min_length=1)
+    n_max: int = Field(default=8, ge=1, le=128)
+    payload_kg: float = Field(default=1.0, gt=0.0)
+    robot_mass_kg: float | None = Field(default=None, gt=0.0)
+    use_physics: bool = Field(default=True)
+    auto_cert: bool = Field(default=False)
+    topology_constraints: dict[str, Any] = Field(default_factory=dict)
+    end_effectors: list[str] = Field(default_factory=list)
+
+
+class RunSimulationCertificationParams(BaseModel):
+    design_id: str | None = Field(default=None, min_length=1)
+    auto_randomize: bool = Field(default=True)
+
+
+class TrainRobotBrainOnCandidateParams(BaseModel):
+    search_id: str = Field(..., min_length=1)
+    candidate_id: str = Field(..., min_length=1)
+    world_template: str = Field(default="walker", min_length=1)
+    n_iters: int = Field(default=5, ge=1, le=100)
+    pop_size: int = Field(default=20, ge=1, le=200)
+    eval_episodes: int = Field(default=5, ge=1, le=50)
+    seed: int = Field(default=42)
+
+
 TOOL_PARAMETER_SCHEMAS: dict[str, type[BaseModel]] = {
     "classify_domain": ClassifyDomainParams,
     "decompose_prompt": DecomposePromptParams,
@@ -96,6 +123,9 @@ TOOL_PARAMETER_SCHEMAS: dict[str, type[BaseModel]] = {
     "replay_world": ReplayWorldParams,
     "train_brain": TrainBrainParams,
     "train_skill": TrainSkillParams,
+    "run_morphology_search": RunMorphologySearchParams,
+    "run_simulation_certification": RunSimulationCertificationParams,
+    "train_robot_brain_on_candidate": TrainRobotBrainOnCandidateParams,
 }
 
 

@@ -267,3 +267,57 @@ class HermesToolRegistry:
                 },
             )
         )
+        self.register(
+            HermesTool(
+                name="run_morphology_search",
+                description="Run morphology/topology search and return ranked candidates.",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "prompt": {"type": "string", "description": "Optional user prompt for context"},
+                        "template": {"type": "string", "default": "walker", "description": "Robot template: walker, humanoid, quadruped"},
+                        "n_max": {"type": "integer", "default": 8, "description": "Maximum candidates to evaluate"},
+                        "payload_kg": {"type": "number", "default": 1.0, "description": "Design payload mass in kg"},
+                        "robot_mass_kg": {"type": "number", "description": "Total robot mass estimate in kg"},
+                        "use_physics": {"type": "boolean", "default": True, "description": "Run real MuJoCo rollouts for scoring"},
+                        "auto_cert": {"type": "boolean", "default": False, "description": "Auto-run simulation certification"},
+                        "topology_constraints": {"type": "object", "description": "Optional Milestone E topology constraints"},
+                        "end_effectors": {"type": "array", "items": {"type": "string"}, "description": "End-effector families to evaluate"},
+                    },
+                    "required": [],
+                },
+            )
+        )
+        self.register(
+            HermesTool(
+                name="run_simulation_certification",
+                description="Run randomized-world simulation certification on a design.",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "design_id": {"type": "string", "description": "Design or search id to certify; uses current context if omitted"},
+                        "auto_randomize": {"type": "boolean", "default": True, "description": "Apply domain randomization"},
+                    },
+                    "required": [],
+                },
+            )
+        )
+        self.register(
+            HermesTool(
+                name="train_robot_brain_on_candidate",
+                description="Export a morphology candidate to a world and run a light brain-training smoke test.",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "search_id": {"type": "string", "description": "Morphology search id"},
+                        "candidate_id": {"type": "string", "description": "Candidate id within the search"},
+                        "world_template": {"type": "string", "default": "walker", "description": "World template for training"},
+                        "n_iters": {"type": "integer", "default": 5, "description": "CEM iterations"},
+                        "pop_size": {"type": "integer", "default": 20, "description": "CEM population size"},
+                        "eval_episodes": {"type": "integer", "default": 5, "description": "Evaluation episodes"},
+                        "seed": {"type": "integer", "default": 42},
+                    },
+                    "required": ["search_id", "candidate_id"],
+                },
+            )
+        )

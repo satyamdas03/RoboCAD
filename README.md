@@ -176,6 +176,7 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 | **Milestone E** | Topology grammar beyond templates | ✅ **Complete — deterministic `Topology`/`LimbSpec`/`JointSpec` grammar, `enumerate_topologies` with physical pruning, `topology_to_feature_tree` composer, `TopologySpace` + topology-aware `search_morphologies`, backend `/morphology/topologies` + topology search, frontend topology mode; hexapod/wheeled topologies load in MuJoCo and score non-zero; score 8.7 → 9.0/10** |
 | **Milestone F** | Real MuJoCo brain training on generated robots | ✅ **Complete — `WorldReplayEnv` MuJoCo wrapper with robot-specific observation/action spaces, `RobotMLPPolicy` with variable dims, NumPy-only CEM `train_robot_policy`, reward functions for walker/humanoid/push tasks; `/morphology/{id}/candidates/{id}/simulate` trains on the actual generated MJCF; score 9.0 → 9.3/10** |
 | **Milestone G** | Automatic simulation certification | ✅ **Complete — `ai_cad/robot_certification.py` with deterministic randomized-world cases (terrain walking, push recovery, drop test, actuator saturation, payload lift); integrated into `ai_cad/sim_certification.py`; auto-cert on `/morphology/search` top candidate and optional `/generate` for robots; `CertificationPanel.jsx` + API helpers; score 9.3 → 9.6/10. Post-ship demo `scripts/demo_morphology_walk.py` runs the real physics scorer path and captures MuJoCo walking frames for humanoid and quadruped designs.** |
+| **Milestone I** | Voice/text-to-certified-design orchestration | ✅ **Complete — HERMES `AutoOrchestrator` from a single prompt through domain classification → morphology search → MuJoCo brain smoke test → randomized-world simulation certification, with retry/mutation on failure; onboarding `WelcomePanel`; `POST /hermes/session/{id}/auto` + `/audit`; default suite 410 passing; heavy/slow/mujoco suite 279 selected (result pending); score 9.6 → 9.7/10. Milestone H (sim-to-real) remains blocked on hardware access.** |
 
 Phases 0–7 proved the **AI → parametric-code loop** for single-part robotics hardware. Phases 8–13 turned that loop into an **engineer-grade CAD system** with feature trees, constraints, assemblies, verification, and model specialization. Phases 14A–15B shipped the **GEDA Bridge** so LearningRobotics can consume verified simulation-ready assets. Phases 16–27C expanded RoboCAD into a **multi-domain generative engineering platform** with a real-time voice supervisor, NVIDIA-powered intelligence, and professional rendering. Phases 28A–F and 29–30 turned it into a **simulation-first product platform** with a physics-validated morphology co-design lab that scores robots by whether they can actually walk.
 
@@ -440,6 +441,11 @@ python -u scripts/demo_morphology_walk.py
 
 Outputs land in `demo_output/morphology_walk/`.
 
+### Milestone I — Voice/text-to-certified-design orchestration
+HERMES `AutoOrchestrator` (`ai_cad/hermes/orchestrator.py`) turns one voice or text prompt into a certified robot design without manual supervision. It classifies the domain, runs a physics-aware morphology search for robot/walker/humanoid/quadruped/manipulator prompts, trains a lightweight MuJoCo brain smoke test on the top candidate, runs randomized-world simulation certification, and retries with template/end-effector mutations on failure. Non-robot prompts flow through the conventional generate/verify/cert path. The onboarding hero (`WelcomePanel.jsx`) and HERMES auto-design form surface the pipeline end-to-end. Score: **9.6 → 9.7/10**.
+
+**Note:** Milestone H (sim-to-real hardware-in-the-loop) remains future work blocked on hardware access.
+
 ---
 
 ## ⚠️ Security / secrets
@@ -459,4 +465,4 @@ MIT — see [`LICENSE`](LICENSE) if present, otherwise treat as open-source core
 
 ---
 
-*Built with care by Satyam Das and Claude Code. Test counts verified 2026-10-03 (Milestone G complete).*
+*Built with care by Satyam Das and Claude Code. Test counts verified 2026-10-04 (Milestone I complete).*

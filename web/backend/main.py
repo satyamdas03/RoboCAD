@@ -112,6 +112,7 @@ from ai_cad.hermes import (
     build_llm_caller,
     explain_report,
 )
+from ai_cad.hermes.orchestrator import run_auto_orchestration
 from ai_cad.hermes.livekit_token import create_token
 from ai_cad.hermes.planner import build_plan
 from ai_cad.nvidia_client import NvidiaClient
@@ -456,6 +457,13 @@ class HermesApprovalRequest(BaseModel):
 class HermesExplainRequest(BaseModel):
     session_id: str = Field(..., description="HERMES session id.")
     target: str = Field(..., description="Report type to explain: dfm, verification, brain, world_replay, generic.")
+
+
+class HermesAutoRequest(BaseModel):
+    prompt: str = Field(..., min_length=1, description="Natural-language design request.")
+    max_retries: int = Field(default=3, ge=0, le=5, description="Redesign attempts after certification failure.")
+    cert_threshold: float = Field(default=0.7, ge=0.0, le=1.0, description="Minimum certificate score to accept.")
+    timeout_seconds: float = Field(default=1800.0, gt=0.0, description="Wall-clock budget for the pipeline.")
 
 
 class HermesVoiceTokenRequest(BaseModel):
@@ -2469,6 +2477,23 @@ def _build_hermes_context(design_id: str | None) -> dict[str, Any]:
             design_id, goal, failure_report, target
         )
 
+    # Morphology / certification callables are available even without a bound design.
+    def _wrap_morphology_search(**kw: Any) -> dict[str, Any]:
+        # The orchestrator passes a descriptive prompt that is not part of MorphologySearchRequest.
+        search_kwargs = {k: v for k, v in kw.items() if k != "prompt"}
+        return run_morphology_search(MorphologySearchRequest(**search_kwargs))
+
+    ctx["run_morphology_search"] = _wrap_morphology_search
+    ctx["run_simulation_certification"] = lambda design_id=None, **kw: sim_cert_run(design_id or ctx.get("design_id") or "")
+    ctx["train_robot_brain_on_candidate"] = lambda search_id, candidate_id, **kw: simulate_morphology_candidate(
+        search_id,
+        candidate_id,
+        MorphologySimulateRequest(**kw),
+    )
+    ctx["generate_design"] = lambda prompt, max_retries=1, **kw: generate(
+        GenerateRequest(prompt=prompt, max_retries=max_retries)
+    ).model_dump()
+
     return ctx
 
 
@@ -2714,6 +2739,71 @@ def hermes_status(session_id: str) -> dict[str, Any]:
         "active_plan_id": plan.id if plan else None,
         "pending_approvals": pending,
         "updated_at": session.session.updated_at,
+    }
+
+
+@app.post("/hermes/session/{session_id}/auto")
+def hermes_auto(session_id: str, request: HermesAutoRequest) -> dict[str, Any]:
+    """Run the fully automated voice-to-certified-design orchestration pipeline."""
+    try:
+        session = HermesSession.load(session_id, base_dir=DESIGNS_DIR)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="HERMES session not found.")
+
+    context = _build_hermes_context(session.session.design_id)
+    # Persist only the serializable summary in the session sidecar.
+    session.session.context["design_id"] = context["design_id"]
+    session.session.context["design_summary"] = context.get("design_summary")
+
+    result = run_auto_orchestration(
+        session=session,
+        prompt=request.prompt,
+        registry=HermesToolRegistry(),
+        context=context,
+        max_retries=request.max_retries,
+        cert_threshold=request.cert_threshold,
+        timeout_seconds=request.timeout_seconds,
+    )
+
+    status = "certified" if result["success"] else "failed"
+    session.session.status = status
+    session.session.context["auto_result"] = {
+        "design_id": result.get("design_id"),
+        "search_id": result.get("search_id"),
+        "candidate_id": result.get("candidate_id"),
+        "success": result["success"],
+        "message": result.get("message", ""),
+    }
+    session.save()
+    return {
+        "session_id": session_id,
+        "success": result["success"],
+        "design_id": result.get("design_id"),
+        "search_id": result.get("search_id"),
+        "candidate_id": result.get("candidate_id"),
+        "status": status,
+        "audit": result.get("audit", []),
+        "certificate": result.get("certificate"),
+        "message": result.get("message", ""),
+    }
+
+
+@app.get("/hermes/session/{session_id}/audit")
+def hermes_audit(session_id: str) -> dict[str, Any]:
+    """Return the persisted auto-orchestration audit trail for a HERMES session."""
+    try:
+        session = HermesSession.load(session_id, base_dir=DESIGNS_DIR)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="HERMES session not found.")
+
+    audit = session.get_audit()
+    return {
+        "session_id": session_id,
+        "status": audit.get("status"),
+        "audit": audit.get("auto_audit", []),
+        "result": session.session.context.get("auto_result"),
+        "plans_summary": audit.get("plans_summary", []),
+        "updated_at": audit.get("updated_at"),
     }
 
 

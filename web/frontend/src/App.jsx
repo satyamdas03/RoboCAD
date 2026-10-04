@@ -33,6 +33,7 @@ import BrainTrainingPanel from './components/BrainTrainingPanel.jsx'
 import HermesPanel from './components/HermesPanel.jsx'
 import MarketplacePanel from './components/MarketplacePanel.jsx'
 import MorphologyPanel from './components/MorphologyPanel.jsx'
+import WelcomePanel from './components/WelcomePanel.jsx'
 import {
   checkHealth,
   generateDesign,
@@ -63,6 +64,7 @@ export default function App() {
   const [inspectorOpen, setInspectorOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [verificationField, setVerificationField] = useState(null)
+  const [hermesFocus, setHermesFocus] = useState(false)
 
   useEffect(() => {
     checkHealth()
@@ -169,6 +171,18 @@ export default function App() {
 
   function handleLoadComponentPrompt(prompt) {
     setSeedPrompt(prompt)
+  }
+
+  function handleOpenHermes() {
+    setHermesFocus(true)
+    // If a design is selected, the HERMES panel is rendered in the panels grid.
+    // Scroll it into view on the next tick.
+    setTimeout(() => {
+      const el = document.getElementById('hermes-heading')
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
+    }, 50)
   }
 
   async function handleRemix({ prompt, max_retries, model }) {
@@ -294,67 +308,71 @@ export default function App() {
 
           <StatusPanel result={result} error={error} loading={loading} />
 
-          <STLViewer
-            url={result?.export_urls?.stl}
-            onFaceClick={handleFaceClick}
-            selectedFace={selectedFace}
-            guessResult={guessResult}
-            designId={result?.design_id}
-            scalarField={verificationField}
-          />
+          {selectedId ? (
+            <>
+              <STLViewer
+                url={result?.export_urls?.stl}
+                onFaceClick={handleFaceClick}
+                selectedFace={selectedFace}
+                guessResult={guessResult}
+                designId={result?.design_id}
+                scalarField={verificationField}
+              />
 
-          <div className="kp-flex kp-justify-between kp-align-center">
-            <DownloadLinks exportUrls={result?.export_urls} />
-          </div>
+              <div className="kp-flex kp-justify-between kp-align-center">
+                <DownloadLinks exportUrls={result?.export_urls} />
+              </div>
 
-          <ParameterList
-            parameters={result?.parameters}
-            selectedParameter={selectedParameter}
-            onRegenerate={handleRegenerate}
-            loading={loading}
-            nudge={nudge}
-          />
-
-          {selectedId && (
-            <div className="kp-panels-grid">
-              <DecomposePanel prompt={result?.prompt} decomposition={decomposition} />
-              <AssemblyPanel designId={selectedId} />
-              <AssemblyReplayPanel designId={selectedId} />
-              <AssemblyCollisionPanel designId={selectedId} />
-              <SimulatePanel designId={selectedId} />
-              <SceneTemplatePanel designId={selectedId} />
-              <WorldBuilderPanel designId={selectedId} />
-              <CapabilitiesPanel designId={selectedId} />
-              <FeatureTreePanel
-                designId={selectedId}
+              <ParameterList
                 parameters={result?.parameters}
+                selectedParameter={selectedParameter}
                 onRegenerate={handleRegenerate}
                 loading={loading}
+                nudge={nudge}
               />
-              <ManufacturingReport designId={selectedId} />
-              <DFMReport designId={selectedId} />
-              <ToleranceReport designId={selectedId} designs={designs} />
-              <FEAPanel designId={selectedId} />
-              {(result?.domain === 'aero' || result?.domain === 'multi') && (
-                <AeroPanel designId={selectedId} />
-              )}
-              {(result?.domain === 'thermal' || result?.domain === 'multi') && (
-                <ThermalPanel designId={selectedId} />
-              )}
-              {(result?.domain === 'electronics' || result?.domain === 'multi') && (
-                <ElectronicsPanel designId={selectedId} />
-              )}
-              <VerificationPanel designId={selectedId} onFieldLoaded={setVerificationField} />
-              <CertificationPanel designId={selectedId} />
-              <HumanoidPanel designId={selectedId} onDesignCreated={handleSelect} />
-              <BrainTrainingPanel designId={selectedId} />
-              <HermesPanel designId={selectedId} />
-              <MarketplacePanel designId={selectedId} onDesignCreated={handleSelect} />
-              <MorphologyPanel />
-              <OnshapeUpload designId={selectedId} prompt={result?.prompt} />
-              <TagEditor tags={result?.tags || []} onUpdate={handleUpdateTags} />
-              <RemixPanel designId={selectedId} onRemix={handleRemix} loading={loading} />
-            </div>
+
+              <div className="kp-panels-grid">
+                <DecomposePanel prompt={result?.prompt} decomposition={decomposition} />
+                <AssemblyPanel designId={selectedId} />
+                <AssemblyReplayPanel designId={selectedId} />
+                <AssemblyCollisionPanel designId={selectedId} />
+                <SimulatePanel designId={selectedId} />
+                <SceneTemplatePanel designId={selectedId} />
+                <WorldBuilderPanel designId={selectedId} />
+                <CapabilitiesPanel designId={selectedId} />
+                <FeatureTreePanel
+                  designId={selectedId}
+                  parameters={result?.parameters}
+                  onRegenerate={handleRegenerate}
+                  loading={loading}
+                />
+                <ManufacturingReport designId={selectedId} />
+                <DFMReport designId={selectedId} />
+                <ToleranceReport designId={selectedId} designs={designs} />
+                <FEAPanel designId={selectedId} />
+                {(result?.domain === 'aero' || result?.domain === 'multi') && (
+                  <AeroPanel designId={selectedId} />
+                )}
+                {(result?.domain === 'thermal' || result?.domain === 'multi') && (
+                  <ThermalPanel designId={selectedId} />
+                )}
+                {(result?.domain === 'electronics' || result?.domain === 'multi') && (
+                  <ElectronicsPanel designId={selectedId} />
+                )}
+                <VerificationPanel designId={selectedId} onFieldLoaded={setVerificationField} />
+                <CertificationPanel designId={selectedId} />
+                <HumanoidPanel designId={selectedId} onDesignCreated={handleSelect} />
+                <BrainTrainingPanel designId={selectedId} />
+                <HermesPanel designId={selectedId} onDesignCreated={handleSelect} focus={hermesFocus} onFocusAck={() => setHermesFocus(false)} />
+                <MarketplacePanel designId={selectedId} onDesignCreated={handleSelect} />
+                <MorphologyPanel />
+                <OnshapeUpload designId={selectedId} prompt={result?.prompt} />
+                <TagEditor tags={result?.tags || []} onUpdate={handleUpdateTags} />
+                <RemixPanel designId={selectedId} onRemix={handleRemix} loading={loading} />
+              </div>
+            </>
+          ) : (
+            <WelcomePanel onGenerate={handleGenerate} onOpenHermes={handleOpenHermes} loading={loading} />
           )}
         </main>
 

@@ -36,6 +36,7 @@ class ToolResult(BaseModel):
     status: str  # "success" | "error" | "pending_approval"
     result: Any = None
     message: str = ""
+    duration_seconds: float = 0.0
 
 
 class StepStatus(str, Enum):

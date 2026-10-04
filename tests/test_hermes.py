@@ -357,3 +357,20 @@ def test_end_to_end_explain_dfm_plan(tmp_designs):
     assert results[0]["status"] == "success"
     assert "Hole too small" in results[0]["result"]["explanation"]
     assert wrapper.session.status == "done"
+
+
+def test_execute_plan_step_records_duration(tmp_designs):
+    import time
+
+    wrapper = HermesSession.create(base_dir=tmp_designs)
+    plan = wrapper.create_plan(
+        "measure duration",
+        [
+            {"description": "classify", "tool": "classify_domain", "parameters": {"prompt": "a cube"}},
+        ],
+    )
+    ctx = {"classify_domain": lambda prompt: (time.sleep(0.05) or {"domain": "mechanical", "prompt": prompt})}
+    results = wrapper.advance(context=ctx)
+    assert len(results) == 1
+    assert results[0]["status"] == "success"
+    assert results[0]["duration_seconds"] >= 0.05
