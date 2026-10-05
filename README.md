@@ -4,7 +4,7 @@
 >
 > **Core bet:** The AI writes **parametric CAD code** (build123d / FeatureScript), not throwaway meshes. The model you get is editable, versionable, and exportable for 3D printing, machining, Onshape, or physics simulation.
 >
-> **Latest milestone:** Phases 0–**28A/B/C/D/E/F** are complete, **Phase 29–30** are delivered, and **Milestones A–G and I** are closed (Milestone H remains hardware-blocked). RoboCAD now has a **one-command launcher and health CLI** (28A), an **asset marketplace** (28B), a **deep multi-physics engine** (28C), a **morphology co-design lab** (28D), **simulation certification** (28E), **product hardening** (28F), **physics-based morphology scoring** (29), **real gait synthesis** (30), **adaptive gait robustness** (Milestone A), **structural dynamics / FEA for links** (Milestone B), **workspace / self-collision / manipulability scoring** (Milestone C), **real end-effector families** (Milestone D), **topology grammar beyond templates** (Milestone E), **real MuJoCo brain training on generated robots** (Milestone F), **automatic randomized-world simulation certification** (Milestone G), and **voice/text-to-certified-design orchestration** (Milestone I). The full pytest suite: **410 default + 279 heavy/slow/mujoco tests passing** (1 expected failure, 2 xpassed); frontend production build passes. Phase 27D (hardware-in-the-loop sim-to-real) remains future work blocked on hardware access.
+> **Latest milestone:** Phases 0–**28A/B/C/D/E/F** are complete, **Phase 29–30** are delivered, and **Milestones A–G and I** are closed (Milestone H remains hardware-blocked). RoboCAD now has a **one-command launcher and health CLI** (28A), an **asset marketplace** (28B), a **deep multi-physics engine** (28C), a **morphology co-design lab** (28D), **simulation certification** (28E), **product hardening** (28F), **physics-based morphology scoring** (29), **real gait synthesis** (30), **adaptive gait robustness** (Milestone A), **structural dynamics / FEA for links** (Milestone B), **workspace / self-collision / manipulability scoring** (Milestone C), **real end-effector families** (Milestone D), **topology grammar beyond templates** (Milestone E), **real MuJoCo brain training on generated robots** (Milestone F), **automatic randomized-world simulation certification** (Milestone G), and **voice/text-to-certified-design orchestration** (Milestone I). **Launch readiness Options A–D is in progress:** emilkowalski design/animation skills are installed, Windows `.env`/launcher reliability is fixed, backend security hardening (path validation, safe archive extraction, CORS, subprocess env scrubbing) and frontend mobile/UX hardening (valid HTML, reduced motion, pointer-aware hover, API timeouts) are applied. The default pytest suite: **412 passing**; heavy/slow/mujoco suite is being re-verified. Phase 27D (hardware-in-the-loop sim-to-real) remains future work blocked on hardware access.
 
 ---
 
@@ -444,6 +444,13 @@ Outputs land in `demo_output/morphology_walk/`.
 ### Milestone I — Voice/text-to-certified-design orchestration
 HERMES `AutoOrchestrator` (`ai_cad/hermes/orchestrator.py`) turns one voice or text prompt into a certified robot design without manual supervision. It classifies the domain, runs a physics-aware morphology search for robot/walker/humanoid/quadruped/manipulator prompts, trains a lightweight MuJoCo brain smoke test on the top candidate, runs randomized-world simulation certification, and retries with template/end-effector mutations on failure. Non-robot prompts flow through the conventional generate/verify/cert path. The onboarding hero (`WelcomePanel.jsx`) and HERMES auto-design form surface the pipeline end-to-end. Score: **9.6 → 9.7/10**.
 
+### Launch readiness — Options A-D (in progress)
+Post-Milestone I, the product is being hardened for launch across four axes:
+- **A. Security:** path/ID validation middleware in `web/backend/main.py`, export containment, safe marketplace archive extraction, CORS tightening, and subprocess env scrubbing in `ai_cad/executor.py`.
+- **B. Reliability / resilience:** Windows `.env` loading fixed for `python start.py` and `python -m robocad.health`; backend defaults to `127.0.0.1` with reload disabled; frontend API requests get a 30 s timeout and JSON error parsing.
+- **C. Honest-score verification:** default pytest suite re-run after all hardening changes — **412 passed, 279 deselected, 3 warnings**; heavy/slow/mujoco suite re-run in progress.
+- **D. Frontend / UX:** emilkowalski design/animation skills installed and applied; valid HTML, `100dvh`, pointer-aware hover, `prefers-reduced-motion`, message overflow wrapping, SVG icons, stable React keys, missing Vite proxies, and mobile input font-size fixes.
+
 **Note:** Milestone H (sim-to-real hardware-in-the-loop) remains future work blocked on hardware access.
 
 ---
@@ -465,4 +472,4 @@ MIT — see [`LICENSE`](LICENSE) if present, otherwise treat as open-source core
 
 ---
 
-*Built with care by Satyam Das and Claude Code. Test counts verified 2026-10-04 (Milestone I complete).*
+*Built with care by Satyam Das and Claude Code. Test counts verified 2026-10-05 (Milestone I complete, launch readiness Options A–D in progress).*

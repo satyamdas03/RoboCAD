@@ -15,7 +15,7 @@
 | **Mission** | AI-powered parametric CAD for robotics hardware: describe parts/assemblies in language, get editable manufacturable models and simulation-ready bundles. |
 | **Owner** | Satyam Das (@satyamdas03, satyamdas03@gmail.com) |
 | **Start date** | 2026-08-21 |
-| **Current date** | 2026-09-01 |
+| **Current date** | 2026-10-05 |
 
 ---
 
@@ -146,8 +146,22 @@ LearningRobotics → world model → policy training → sim-to-real
 | **24** | World-model simulation builder | ✅ **Complete — `ai_cad/geda_bridge/world_builder.py`, MuJoCo/Isaac Sim export, domain randomization, body-name alias resolver, procedural terrain variants (stairs/ramp/uneven), Isaac JSON schema validation, rich replay capture (contacts/actuators/sensors), `WorldBuilderPanel.jsx`; 376/376 tests passing** |
 | **25** | Robot brain training loop | ✅ **Foundation complete — attention/compute-budget world-model extensions (`ComputeBudget`, `attention_regions`, `event_camera`, sensor dropout, actuator noise, saliency replay), `ai_cad/geda_bridge/brain/` NumPy-only CEM trainer (`AttentionMLPPolicy`, `AbstractAttentionEnv`, `LinearWorldModel`, `AttentionBudget`), `BrainTrainingPanel.jsx`, `/train-brain` endpoints, `compute_module` + `event_camera_mount` part families; 414/414 tests passing across default, heavy/slow, and mujoco tiers** |
 | **26** | HERMES conversational supervisor | ✅ **Complete end-to-end — `ai_cad/hermes/` package with real tool executors (`executor.py`), Pydantic parameter validation (`validation.py`), design-context builder (`context.py`), Anthropic/Ollama LLM caller (`llm.py`), session/planner/agent/tool registry/approval gate/explanation engine, FastAPI `/hermes/session*` endpoints, frontend `HermesPanel.jsx` with chat, plan viewer, approval cards, design-context summary, tool-result/redesign cards, and quick actions; 450/451 tests passing across default, heavy/slow, and mujoco tiers (1 expected failure, 5 benchmark/network tests deselected)** |
-| **27** | Sim-to-real feedback loop | ⏳ Planned |
-| **28** | Distribution + commercialization + advanced co-design plugins | ⏳ Planned |
+| **27A/B/C** | Voice + NVIDIA + rendering | ✅ **Complete — LiveKit real-time voice for HERMES, NVIDIA NIM chat/vision/Cosmos, AI render critique, professional Three.js viewer; 263 default + 222 heavy/slow tests passing, frontend build passes** |
+| **28A** | Launcher + health CLI + installer skeleton | ✅ **Complete — `python start.py`/`start.bat`/`start.sh`, `python -m robocad.health`, PyInstaller skeleton; 13/13 launcher/installer tests passing** |
+| **28B** | Asset marketplace | ✅ **Complete — backend + frontend CRUD, verified badge, starter packs, `MarketplacePanel.jsx`; 5/5 marketplace tests passing** |
+| **28C** | Deep multi-physics solver integration | ✅ **Complete — CalculiX/ElmerFEM/OpenFOAM adapters, NVIDIA surrogate, SQLite job store, deep-verify endpoints + frontend "Deep Analysis" tab; 64/64 solver + marketplace tests passing, full default suite 340 passing** |
+| **28D** | Morphology co-design lab | ✅ **Complete — parametric morphology search with stability/workspace/gait/actuator scoring, world-model integration, brain smoke test, backend endpoints, frontend panel, tests; default suite 380 passing** |
+| **28E/F** | Simulation certification + product hardening | ✅ **Complete — real-solver dispatch, certification scoring + reports, viewer heatmaps, marketplace archive upload, solver install bootstrap, onboarding tests; 366 default + 222 heavy/slow tests passing** |
+| **Milestone A** | Real gait synthesis + adaptive gait robustness | ✅ **Complete — morphology-aware gait scaling, per-candidate gait sweep, mass-aware actuator gains, quadruped trot; 380 default + 241 heavy/slow passing; honest score 7.7 → 8.0/10** |
+| **Milestone B** | Structural dynamics / FEA for robot links | ✅ **Complete — link cross-section extraction, cantilever/simply-supported beam bending + Euler buckling, `structural_score` in composite; 380 default + 246 heavy/slow passing; score 8.0 → 8.3/10** |
+| **Milestone C** | Workspace / self-collision / manipulability | ✅ **Complete — sagittal-plane workspace proxy, representative-pose self-collision, topology-aware manipulability; 380 default + 250 heavy/slow passing; score 8.3 → 8.5/10** |
+| **Milestone D** | Real end-effector families | ✅ **Complete — parallel_jaw_gripper, three_finger_hand, vacuum_gripper, point_foot, compliant_foot; mass-aware scoring, frontend selector, MuJoCo export; 385 default + 255 heavy/slow passing; score 8.5 → 8.7/10** |
+| **Milestone E** | Topology grammar beyond templates | ✅ **Complete — deterministic `Topology`/`LimbSpec`/`JointSpec`, physical pruning, topology search, backend + frontend; score 8.7 → 9.0/10** |
+| **Milestone F** | Real MuJoCo brain training on generated robots | ✅ **Complete — `WorldReplayEnv`, `RobotMLPPolicy`, NumPy-only CEM trainer, reward functions, backend training endpoint; 407 default + 263 heavy/slow/mujoco passing; score 9.0 → 9.3/10** |
+| **Milestone G** | Automatic simulation certification | ✅ **Complete — randomized-world robot certification (terrain, push, drop, saturation, payload), auto-cert on search/generate, `CertificationPanel.jsx`; 407 default + 263 heavy/slow/mujoco passing; score 9.3 → 9.6/10** |
+| **Milestone I** | Voice/text-to-certified-design orchestration | ✅ **Complete — HERMES auto-orchestrator from single prompt to certified robot design (morphology search → brain smoke test → simulation certification → retry/mutation/audit) plus onboarding `WelcomePanel`; score 9.6 → 9.7/10** |
+| **Milestone H** | Sim-to-real hardware-in-the-loop | ⏳ **Blocked on hardware access** |
+| **Next** | Launch readiness review (Options A-D) + product hardening | 🚧 **In progress — security, reliability, honest-score verification, frontend/UX hardening** |
 
 See `PLAN.md` for full details. See `.claude/memory/robocad-path-analysis.md` and `.claude/memory/robocad-end-to-end-roadmap.md` for the PATH1/PATH2 strategic analysis.
 
@@ -244,12 +258,12 @@ RoboCAD/
 - Live end-to-end verified: `/decompose`, `/classify-domain`, `/generate?decompose=True`, `/designs/{id}/assembly-collision`, `/designs/{id}/assembly-poses`, `/designs/{id}/aero-report`, `/designs/{id}/thermal-report`, `/designs/{id}/cfd-mesh`, `/designs/{id}/electronics-report`, `/designs/{id}/idf-export`, `/robot-templates`, `/designs/{id}/robot-analysis`, `/designs/{id}/simulate` for humanoid/quadruped/manipulator-on-base, `/designs/{id}/world`, `/designs/{id}/world/randomize`, `/designs/{id}/world/replay`, `/designs/{id}/train-brain`, `/designs/{id}/brain-replay-attention`, `/designs/{id}/brain`, and `/hermes/session*` endpoints all work.
 - Strategic decision maintained: PATH1 (GEDA Bridge) shipped first; PATH2 (voice/world-model-to-robot) is the long-term North Star.
 
-**Next work:**
-1. **Robot arm cosmetic/mechanical refinement (queued by user):** add deterministic fillets/chamfers, joint bosses/flanges, tapered links, and shaped gripper jaws to the rule-based `limb_segment`/`end_effector` families so the default "robot arm with gripper" looks like an engineer-grade starting point, not a first-pass block model.
-2. Complete remaining Phase 25/26 closed-loop work: real MuJoCo closed-loop policy rollout harness (`WorldReplayEnv`), synthetic dataset generator (RGB/depth/segmentation), and design-feedback redesign loop under HERMES supervision.
-3. Harden HERMES against real LLM tool-call parsing: migrate from JSON-in-text to native Anthropic tool use, add parameter validation, and add end-to-end tests with a mocked LLM generator.
-4. Keep Phases 14A–26 under maintenance and the 450/451-test suite green.
-5. Continue local-model fine-tuning (`robocad-ft:latest`) as a background experiment.
+**Next work (2026-10-05):**
+1. **Close Options A-D launch readiness:** finish the `/workflows` multi-agent review (security, reliability, honest-score, frontend-UX), apply any remaining verified fixes, re-run the full default + heavy/slow/mujoco test suite, and validate the product with a local `python start.py` end-to-end run.
+2. **Robot arm cosmetic/mechanical refinement (queued by user):** add deterministic fillets/chamfers, joint bosses/flanges, tapered links, and shaped gripper jaws to the rule-based `limb_segment`/`end_effector` families so the default "robot arm with gripper" looks like an engineer-grade starting point.
+3. Keep the full test suite green (currently 412 default passing; heavy/slow/mujoco in progress).
+4. Continue local-model fine-tuning (`robocad-ft:latest`) as a background experiment.
+5. **Milestone H (sim-to-real)** remains blocked on hardware access.
 
 ## 9a. Latest live-session notes (2026-09-01)
 
@@ -265,6 +279,25 @@ RoboCAD/
 - Full pytest suite verified at **414/414 passing** (170 default + 222 heavy/slow + 22 mujoco). Frontend production build passes.
 - Remaining Phase 24 caveat: full NVIDIA Isaac Sim runtime import/load/render cannot be validated on this machine because the Omniverse / Isaac Sim packages are not installed.
 - **Phase 26 hardened end-to-end:** `ai_cad/hermes/` package now has real tool executors (`executor.py`), Pydantic parameter validation (`validation.py`), design-context builder (`context.py`), Anthropic/Ollama LLM caller (`llm.py`), and backend callable wiring. FastAPI endpoints: `POST /hermes/session`, `GET /hermes/session/{id}`, `POST /hermes/session/{id}/message`, `POST /hermes/session/{id}/approve`, `POST /hermes/session/{id}/explain`, `GET /hermes/session/{id}/status`. Frontend `HermesPanel.jsx` includes chat thread, plan viewer, approval cards, quick explain buttons, live status badge, design-context summary, tool-result/redesign cards, and quick actions. Design-feedback loop (`propose_redesign` → auto-queued `regenerate_parameters`) implemented. Full pytest suite now **450/451 passing** across default, heavy/slow, and mujoco tiers (1 expected failure, 5 benchmark/network tests deselected); frontend production build passes.
+
+## 9b. Milestones A–I + launch readiness hardening (2026-10-05)
+
+- **Milestone A** delivered morphology-aware gait scaling, per-candidate gait sweep, mass-aware actuator gains, and a quadruped trot gait. Grid/mass regression tests pass (humanoid ≥40%, quadruped ≥75%, mass perturbations ≥50%). Full suite: 380 default + 241 heavy/slow passing. Honest score revised **7.7 → 8.0/10**.
+- **Milestone B** added link cross-section extraction, cantilever/simply-supported beam bending + Euler buckling, and `structural_score` in the morphology composite with optional deep CalculiX dispatch on top-N. Full suite: 380 default + 246 heavy/slow passing. Score revised **8.0 → 8.3/10**.
+- **Milestone C** added sagittal-plane workspace proxy, representative-pose self-collision checks, and topology-aware Yoshikawa-style manipulability. Composite weights revised. Full suite: 380 default + 250 heavy/slow passing. Score revised **8.3 → 8.5/10**.
+- **Milestone D** added real end-effector families (`parallel_jaw_gripper`, `three_finger_hand`, `_vacuum_gripper`, `point_foot`, `compliant_foot`), `_attach_end_effector` swapping into the FeatureTree, mass-aware actuator/structural scoring, frontend selector, and MuJoCo export/load regression. Full suite: 385 default + 255 heavy/slow passing. Score revised **8.5 → 8.7/10**.
+- **Milestone E** delivered deterministic topology grammar (`Topology`, `LimbSpec`, `JointSpec`), physical pruning, `topology_to_feature_tree` composer, `TopologySpace`, topology-aware `search_morphologies`, backend `/morphology/topologies` + topology search, and frontend topology mode. Fixed family-default merge and collision mesh-family caching. Score revised **8.7 → 9.0/10**.
+- **Milestone F** shipped `WorldReplayEnv` MuJoCo wrapper, `RobotMLPPolicy` with adaptive dims, NumPy-only CEM trainer, reward functions for walker/humanoid/push tasks, and wired backend `/morphology/{search_id}/candidates/{candidate_id}/simulate` to real robot training. Full suite: **407 default + 263 heavy/slow/mujoco passing**. Score revised **9.0 → 9.3/10**.
+- **Milestone G** integrated randomized-world robot certification (terrain walking, push recovery, drop test, actuator saturation, payload lift) into simulation certification, auto-cert on `/morphology/search` top candidate and optional `/generate`, `CertificationPanel.jsx`, post-ship demo `scripts/demo_morphology_walk.py` with `step_callback` MuJoCo frame capture. Full suite: **407 default + 263 heavy/slow/mujoco passing**. Score revised **9.3 → 9.6/10**.
+- **Milestone I** built the HERMES auto-orchestrator from a single voice/text prompt to a certified robot design: domain classification → morphology search → brain smoke test → simulation certification, with retry/template/end-effector mutation and a full audit trail. Added onboarding `WelcomePanel` and backend `/hermes/session/{id}/auto` + `/hermes/session/{id}/audit`. Score revised **9.6 → 9.7/10**.
+- **Launch readiness Options A-D** now in progress:
+  - Installed `emilkowalski/skills` (14 design/animation/engineering-taste skills) and made them repo-tracked under `.claude/skills/`.
+  - Fixed Windows `.env` loading for `python start.py` and `python -m robocad.health`; added regression tests.
+  - Applied backend security hardening: path/ID validation middleware, export containment, safe marketplace archive extraction, CORS tightening, subprocess env scrubbing.
+  - Applied frontend mobile/UX hardening: valid HTML, `100dvh`, hover/pointer media gating, `prefers-reduced-motion`, message overflow wrapping, SVG icons, stable React keys, API timeout/JSON error parsing, missing Vite proxies.
+  - Default pytest suite after hardening: **412 passed, 279 deselected, 3 warnings**; frontend build passes.
+  - Full heavy/slow/mujoco suite and `/workflows` multi-agent launch review are running.
+- **Milestone H (sim-to-real hardware-in-the-loop)** remains intentionally blocked on hardware access.
 
 ---
 
@@ -367,8 +400,8 @@ To force a full sync at any time, type:
 
 If you are resuming this session with no other context:
 
-> We are building **RoboCAD**, an AI-powered parametric CAD tool for robotics hardware. The repo is at `https://github.com/satyamdas03/RoboCAD`. **Phases 0–26 are committed and pushed** (prompt → build123d → STL/STEP → Onshape → manufacturing report → component library → dark Kinetic Precision UI → feature tree → sketch constraints → assemblies → DFM/tolerances/FEA → model specialization → Claude 5 integration → GEDA Bridge → scene templates → LearningRobotics handshake → RoboCompiler pipeline → cross-domain input → domain-aware representation → automatic decomposition + part families → mechanical assembly synthesis → aero/thermal/propulsion geometry → electronics/mechatronics co-design → multi-physics verification engine → humanoid/full-robot system synthesis → hardened world-model simulation builder → attention-based robot brain training layer → HERMES conversational supervisor, **450/451 tests passing**). Latest changes hardened HERMES end-to-end with `ai_cad/hermes/executor.py`, `validation.py`, `context.py`, `llm.py`, real backend callable wiring, and the `propose_redesign` → `regenerate_parameters` design-feedback loop. **Queued next:** robot arm cosmetic/mechanical refinement and Phase 27 real-world feedback loop / sim-to-real. Strategic decision: ship PATH1 (GEDA Bridge) before PATH2 (voice-to-CAD-to-world-model). Say `:POINTBREAK` to force a full dossier sync.
+> We are building **RoboCAD**, an AI-powered parametric CAD tool for robotics hardware. The repo is at `https://github.com/satyamdas03/RoboCAD`. **Phases 0–28 and Milestones A–I are complete** (everything above plus LiveKit/NVIDIA voice+rendering, launcher/health CLI, asset marketplace, deep multi-physics solvers, morphology co-design lab, simulation certification, real MuJoCo brain training on generated robots, topology grammar, real end-effector families, workspace/collision/manipulability, structural dynamics, adaptive gait, and HERMES single-prompt-to-certified-design orchestration). Current honest score: **9.7/10**. **Launch readiness Options A–D is in progress:** emilkowalski skills installed, Windows `.env`/launcher fixes, backend security hardening (path/ID validation, safe archive extraction, CORS tightening, subprocess env scrubbing), and frontend mobile/UX hardening (valid HTML, reduced motion, pointer-aware hover, message overflow, API timeouts). Default suite **412 passing**; heavy/slow/mujoco suite and `/workflows` launch review are running. **Milestone H (sim-to-real)** remains blocked on hardware. Say `:POINTBREAK` to force a full dossier sync.
 
 ---
 
-*Last updated: 2026-09-06 (Phases 0–26 complete; HERMES conversational supervisor hardened end-to-end with `ai_cad/hermes/executor.py`, `validation.py`, `context.py`, `llm.py`, `/hermes/session*` endpoints, and `HermesPanel.jsx`; 450/451 tests passing across default, heavy/slow, and mujoco tiers with 1 expected failure and 5 benchmark/network tests deselected; frontend build passes; Phase 27 — real-world feedback loop / sim-to-real — is next; robot arm cosmetic refinement remains queued)*
+*Last updated: 2026-10-05 (Phases 0–28 and Milestones A–I complete; launch readiness Options A–D in progress; emilkowalski skills installed; default suite 412 passing; heavy/slow/mujoco suite and `/workflows` launch review running; honest score 9.7/10; Milestone H blocked on hardware)*

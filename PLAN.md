@@ -330,8 +330,13 @@ RoboCAD becomes extraordinary when a user can describe a multi-domain robot syst
 - **Milestone G — Automatic simulation certification with randomized worlds:** `ai_cad/robot_certification.py` runs deterministic closed-loop robot stress tests (terrain walking, push recovery, drop test, actuator saturation, payload lift) on exported MJCF with procedural terrain and domain randomization; integrated into `ai_cad/sim_certification.py` as the `robot_randomized_world_certification` check; backend returns certificates automatically from `/morphology/search` (top candidate) and optionally from `/generate`; frontend `CertificationPanel.jsx` + `MorphologyPanel.jsx` badge and per-check status; score 9.3 → 9.6/10.
 - **Milestone G post-ship demo:** `scripts/demo_morphology_walk.py` runs a fast heuristic morphology search, scores top humanoid and quadruped candidates via the same `physics_score_candidate` path used internally, and captures MuJoCo frames through a safe `step_callback` hook on `physics_score_candidate`, `_sweep_gait_for_candidate`, `run_step_test`, and `run_walk_test`. Renderer callbacks intentionally do **not** call `mujoco.mj_forward()` after `mujoco.mj_step()` to avoid clobbering the solver warm-start.
 - **Milestone I — Voice/text-to-certified-design orchestration:** HERMES `AutoOrchestrator` (`ai_cad/hermes/orchestrator.py`) plus new tools/executor/validation/session audit support turns one prompt into a certified robot design: domain classification → morphology search → MuJoCo brain smoke test → randomized-world simulation certification, with template/end-effector mutation retries on failure. Backend `POST /hermes/session/{id}/auto` and `GET /hermes/session/{id}/audit`; frontend onboarding `WelcomePanel.jsx` and HERMES auto-design form. Non-robot prompts continue through the conventional generate/verify/cert path. Score: **9.6 → 9.7/10**.
-- **Full test status:** **410 default tests passing**; heavy/slow/mujoco suite **276 passed + 1 xfailed + 2 xpassed = 279 selected, all verified** (completed in 1058.23s / 17m 38s). Default suite was hardened by moving genuinely slow morphology tests (`tests/test_morphology.py`, `tests/test_morphology_api.py`) behind the `slow` marker so the default run stays fast enough for launch CI. Frontend production build passes.
-- **Documentation refreshed:** `README.md`, `CurrentTo10.md`, `PLAN.md`, private memory files, and this dossier updated to reflect Phase 28A–F, Phase 29–30, and Milestones A–I completion.
+- **Launch readiness hardening (Options A–D) in progress:**
+  - **A. Security:** backend path/ID validation middleware, export containment, safe marketplace archive extraction, CORS tightening, subprocess env scrubbing.
+  - **B. Reliability/resilience:** Windows `.env` loading fixed for `python start.py` and `python -m robocad.health`; backend defaults to `127.0.0.1` with reload disabled; frontend API timeout + JSON error parsing.
+  - **C. Honest-score verification:** default suite re-run after hardening — **412 passed, 279 deselected, 3 warnings**; heavy/slow/mujoco suite re-run in progress.
+  - **D. Frontend/UX:** emilkowalski design/animation skills installed; valid HTML, `100dvh`, pointer-aware hover, `prefers-reduced-motion`, message overflow wrapping, SVG icons, stable React keys, missing Vite proxies, mobile input font-size fixes.
+- **Full test status:** **412 default tests passing**; heavy/slow/mujoco suite being re-verified after hardening. Frontend production build passes.
+- **Documentation refreshed:** `README.md`, `CurrentTo10.md`, `PLAN.md`, `dossiers/launch-readiness-hardening.md`, private memory files, and this dossier updated to reflect Phase 28A–F, Phase 29–30, Milestones A–I, and launch readiness progress.
 
 ## 9. Immediate next session plan
 
@@ -350,8 +355,10 @@ RoboCAD becomes extraordinary when a user can describe a multi-domain robot syst
 
 ### Next session
 
-1. ✅ **Milestone I — Voice/text-to-certified-design orchestration complete.** The single-prompt-to-certified-robot pipeline is live. Remaining work is **product-launch hardening** (docs, onboarding polish, CI timeout monitoring, installer smoke tests) and **Milestone H — Sim-to-real bridge / Phase 37** when hardware access is available.
-2. **Maintain Phase 28A–F and Milestones A–I** and monitor the new morphology brain tests and auto-orchestrator for timeout creep on slower CI runners.
+1. **Finish launch readiness Options A–D:** complete the `/workflows` multi-agent review, apply verified reliability/honest-score/frontend-UX fixes, re-run the full default + heavy/slow/mujoco test suite, and validate the product locally with `python start.py`.
+2. **Robot arm cosmetic/mechanical refinement (queued):** add deterministic fillets/chamfers, joint bosses/flanges, tapered links, and shaped gripper jaws to the rule-based `limb_segment`/`end_effector` families so the default "robot arm with gripper" looks engineer-grade.
+3. **Maintain Phase 28A–F and Milestones A–I** and keep the full test suite green.
+4. **Milestone H — Sim-to-real bridge / Phase 37** remains future work blocked on hardware access.
 
 ---
 
