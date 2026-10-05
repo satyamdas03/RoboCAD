@@ -16,8 +16,13 @@ import webbrowser
 from pathlib import Path
 from typing import Any
 
+from dotenv import load_dotenv
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+
+# Load local environment variables from the gitignored .env file at the repo root
+# so that `python start.py` sees the same secrets the backend loads internally.
+load_dotenv(REPO_ROOT / ".env", override=True)
 REQUIREMENTS = REPO_ROOT / "requirements.txt"
 FRONTEND_DIR = REPO_ROOT / "web" / "frontend"
 BACKEND_MODULE = "web.backend.main:app"

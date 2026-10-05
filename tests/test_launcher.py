@@ -1,6 +1,7 @@
 """Tests for the RoboCAD launcher and health CLI."""
 from __future__ import annotations
 
+import importlib
 import sys
 from pathlib import Path
 
@@ -79,3 +80,17 @@ def test_main_argparse_help_does_not_crash():
     with pytest.raises(SystemExit) as exc_info:
         launcher.main(["--help"])
     assert exc_info.value.code == 0
+
+
+def test_launcher_loads_repo_dotenv_at_import(monkeypatch):
+    """Regression: start.py must load .env before checking API keys."""
+    import dotenv
+
+    captured: list[tuple[Path, bool]] = []
+
+    def _fake_load_dotenv(path, override=False):
+        captured.append((Path(path), override))
+
+    monkeypatch.setattr(dotenv, "load_dotenv", _fake_load_dotenv)
+    importlib.reload(launcher)
+    assert any(path == REPO_ROOT / ".env" and override is True for path, override in captured)

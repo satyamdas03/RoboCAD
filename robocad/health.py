@@ -12,7 +12,13 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from dotenv import load_dotenv
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
+
+# Load local environment variables from the gitignored .env file at the repo root
+# so that `python -m robocad.health` reports the same key status as the backend.
+load_dotenv(REPO_ROOT / ".env", override=True)
 
 REQUIRED_ENV = ["ANTHROPIC_API_KEY"]
 OPTIONAL_ENV = [
