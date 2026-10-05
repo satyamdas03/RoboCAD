@@ -25,6 +25,33 @@ def _cleanup_stale_artifacts(output_dir: Path, max_age_seconds: float = 86400.0)
             pass
 
 
+def _scrubbed_env() -> dict[str, str]:
+    """Return an environment dict safe for running untrusted generated code.
+
+    Keeps only harmless system paths and removes secrets/API keys.
+    """
+    keep_prefixes = (
+        "PATH", "PATHEXT", "PYTHONPATH", "SYSTEMROOT", "TEMP", "TMP", "HOME",
+        "USERPROFILE", "USERNAME", "LANG", "LC_", "PYTHONNOUSERSITE",
+        "PYTHONDONTWRITEBYTECODE", "ROBOCAD_EXECUTION_MODE",
+    )
+    keep_exact = {"COMPUTERNAME", "HOSTNAME", "OS"}
+    scrubbed: dict[str, str] = {}
+    for key, value in os.environ.items():
+        upper = key.upper()
+        if upper in keep_exact or any(upper.startswith(p) for p in keep_prefixes):
+            scrubbed[key] = value
+            continue
+        # Drop anything that looks like a credential.
+        if any(s in upper for s in ("KEY", "SECRET", "TOKEN", "PASSWORD", "CREDENTIAL", "AUTH")):
+            continue
+        if any(s in upper for s in ("ANTHROPIC", "ONSHAPE", "LIVEKIT", "NVIDIA", "OPENAI", "MISTRAL", "GEMINI")):
+            continue
+        scrubbed[key] = value
+    scrubbed["ROBOCAD_EXECUTION_MODE"] = "1"
+    return scrubbed
+
+
 def execute_code(
     code: str,
     timeout: int = 60,
@@ -110,6 +137,7 @@ except Exception as _exc:
             capture_output=True,
             text=True,
             timeout=timeout,
+            env=_scrubbed_env(),
         )
     except subprocess.TimeoutExpired:
         error_path.write_text(f"Execution timed out after {timeout}s.", encoding="utf-8")

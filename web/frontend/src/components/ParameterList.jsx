@@ -18,7 +18,8 @@ export default function ParameterList({ parameters, selectedParameter, onRegener
   useEffect(() => {
     if (!selectedParameter || !inputRefs.current[selectedParameter]) return
     const input = inputRefs.current[selectedParameter]
-    input.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const reduced = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    input.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'center' })
     input.focus()
     input.select()
   }, [selectedParameter])

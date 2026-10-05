@@ -1,5 +1,3 @@
-import { useState } from 'react'
-
 const EXAMPLE_PROMPTS = [
   'robot arm with gripper',
   'biped humanoid robot',
@@ -15,8 +13,6 @@ const STEPS = [
 ]
 
 export default function WelcomePanel({ onGenerate, onOpenHermes, loading }) {
-  const [hoveredChip, setHoveredChip] = useState(null)
-
   async function handleChipClick(prompt) {
     if (loading) return
     await onGenerate({ prompt, max_retries: 2, model: null, detectDomain: true, decompose: true })
@@ -52,15 +48,9 @@ export default function WelcomePanel({ onGenerate, onOpenHermes, loading }) {
             <button
               key={prompt}
               type="button"
-              className="kp-button kp-button-small"
+              className="kp-button kp-button-small kp-welcome-chip"
               onClick={() => handleChipClick(prompt)}
-              onMouseEnter={() => setHoveredChip(prompt)}
-              onMouseLeave={() => setHoveredChip(null)}
               disabled={loading}
-              style={{
-                borderColor: hoveredChip === prompt ? 'var(--kp-primary-container)' : undefined,
-                boxShadow: hoveredChip === prompt ? 'var(--kp-glow)' : undefined,
-              }}
             >
               {prompt}
             </button>

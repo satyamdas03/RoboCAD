@@ -85,7 +85,7 @@ export default function App() {
   async function handleGenerate({ prompt, max_retries, model, detectDomain = false, decompose = true }) {
     setLoading(true)
     setError(null)
-    setResult(null)
+    // Keep the previous model visible while the new one loads to avoid a jarring layout teleport.
     setDomainIntent(null)
     setDecomposition(null)
     clearFaceSelection()
@@ -180,7 +180,8 @@ export default function App() {
     setTimeout(() => {
       const el = document.getElementById('hermes-heading')
       if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        el.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' })
       }
     }, 50)
   }
@@ -189,7 +190,6 @@ export default function App() {
     if (!selectedId) return
     setLoading(true)
     setError(null)
-    setResult(null)
     setDomainIntent(null)
     clearFaceSelection()
     try {

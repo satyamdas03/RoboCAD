@@ -93,6 +93,9 @@
 html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;
 }
 
 body {
@@ -137,7 +140,7 @@ small, .kp-small {
 
 /* Layout primitives */
 .kp-app {
-  height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   background: var(--kp-background);
@@ -260,7 +263,7 @@ small, .kp-small {
 
 .kp-panels-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
   gap: var(--kp-space-4);
 }
 
@@ -334,9 +337,11 @@ small, .kp-small {
   transition: background var(--kp-transition-fast), border-color var(--kp-transition-fast), transform var(--kp-transition-fast);
 }
 
-.kp-button:hover:not(:disabled) {
-  background: var(--kp-surface-container-high);
-  border-color: var(--kp-primary-fixed-dim);
+@media (hover: hover) and (pointer: fine) {
+  .kp-button:hover:not(:disabled) {
+    background: var(--kp-surface-container-high);
+    border-color: var(--kp-primary-fixed-dim);
+  }
 }
 
 .kp-button:active:not(:disabled) {
@@ -381,6 +386,17 @@ small, .kp-small {
   font-size: 0.75rem;
 }
 
+.kp-welcome-chip {
+  transition: border-color var(--kp-transition-fast), box-shadow var(--kp-transition-fast);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .kp-welcome-chip:hover:not(:disabled) {
+    border-color: var(--kp-primary-container);
+    box-shadow: var(--kp-glow);
+  }
+}
+
 .kp-button-icon {
   width: 32px;
   height: 32px;
@@ -398,10 +414,18 @@ small, .kp-small {
   background: var(--kp-surface-container);
   color: var(--kp-on-surface);
   font-family: var(--kp-font-body);
-  font-size: 0.85rem;
+  font-size: 16px;
   line-height: 1.4;
   transition: border-color var(--kp-transition-fast), box-shadow var(--kp-transition-fast);
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+@media (pointer: fine) {
+  .kp-input,
+  .kp-textarea,
+  .kp-select {
+    font-size: 0.85rem;
+  }
 }
 
 .kp-input::placeholder,
@@ -531,9 +555,11 @@ small, .kp-small {
   transition: background var(--kp-transition-fast), border-color var(--kp-transition-fast);
 }
 
-.kp-list-item:hover {
-  background: var(--kp-surface-container-high);
-  border-color: var(--kp-primary-fixed-dim);
+@media (hover: hover) and (pointer: fine) {
+  .kp-list-item:hover {
+    background: var(--kp-surface-container-high);
+    border-color: var(--kp-primary-fixed-dim);
+  }
 }
 
 .kp-list-item-active {
@@ -976,5 +1002,20 @@ small, .kp-small {
   }
   .kp-panels-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Reduced motion: drop slide/transform animations, keep opacity transitions where useful */
+@media (prefers-reduced-motion: reduce) {
+  .kp-inspector,
+  .kp-sidebar {
+    transition: none !important;
+    transform: none !important;
+  }
+
+  .kp-button,
+  .kp-list-item,
+  .kp-chip {
+    transition: none !important;
   }
 }

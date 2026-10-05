@@ -1,16 +1,34 @@
 const API_BASE = import.meta.env.VITE_API_BASE || ''
+const DEFAULT_TIMEOUT_MS = 30000
 
 async function apiFetch(path, options = {}) {
   const url = `${API_BASE}${path}`
-  const response = await fetch(url, {
-    headers: { 'Content-Type': 'application/json', ...options.headers },
-    ...options,
-  })
-  if (!response.ok) {
-    const text = await response.text()
-    throw new Error(text || `HTTP ${response.status}`)
+  const { timeout, ...fetchOptions } = options
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeout ?? DEFAULT_TIMEOUT_MS)
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: { 'Content-Type': 'application/json', ...fetchOptions.headers },
+      ...fetchOptions,
+    })
+    if (!response.ok) {
+      const text = await response.text()
+      let message = text
+      try {
+        const parsed = JSON.parse(text)
+        if (parsed.message || parsed.detail) {
+          message = parsed.message || parsed.detail
+        }
+      } catch {
+        // Keep the raw text if it isn't JSON.
+      }
+      throw new Error(message || `HTTP ${response.status}`)
+    }
+    return response.json()
+  } finally {
+    clearTimeout(timeoutId)
   }
-  return response.json()
 }
 
 export async function checkHealth() {

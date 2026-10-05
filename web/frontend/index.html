@@ -2,7 +2,13 @@
 <html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
+    />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121315" />
     <title>RoboCAD — AI CAD for Robotics</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -19,11 +25,9 @@
       FORM: Precision engineering workstation / desktop industrial tool, dark-first, dense information display.
       FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and every shipping decision recorded.
     -->
-    <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

@@ -188,7 +188,7 @@ def install_frontend_deps(frontend_dir: Path = FRONTEND_DIR, offline: bool = Fal
         return {"name": "npm-install", "ok": False, "message": f"npm install failed: {exc}"}
 
 
-def start_backend(host: str = "0.0.0.0", port: int = 8000, reload: bool = True) -> subprocess.Popen[Any]:
+def start_backend(host: str = "127.0.0.1", port: int = 8000, reload: bool = False) -> subprocess.Popen[Any]:
     """Start the FastAPI backend as a subprocess."""
     cmd = [
         sys.executable,

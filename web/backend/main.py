@@ -16,6 +16,7 @@ import base64
 import datetime as dt
 import json
 import os
+import re
 import shutil
 import sys
 import tarfile
@@ -38,7 +39,7 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
@@ -205,17 +206,118 @@ _default_origins = [
     "http://localhost:3000",
 ]
 _cors_env = os.environ.get("ROBOCAD_CORS_ORIGINS")
-_allow_origins = _cors_env.split(",") if _cors_env else _default_origins
+_allow_origins = [o.strip() for o in _cors_env.split(",") if o.strip()] if _cors_env else _default_origins
+# Wildcard origins are unsafe when credentials are allowed.
+if "*" in _allow_origins:
+    _allow_origins.remove("*")
+    if not _allow_origins:
+        _allow_origins = _default_origins
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_allow_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
+
+@app.middleware("http")
+async def _validate_path_ids(request: Request, call_next):
+    """Central guard: reject path traversal ids before they reach endpoint code."""
+    checks = {
+        "design_id": _ID_RE,
+        "search_id": _ID_RE,
+        "candidate_id": _ID_RE,
+        "version_id": _SHORT_ID_RE,
+        "session_id": _HERMES_ID_RE,
+    }
+    for name, pattern in checks.items():
+        value = request.path_params.get(name)
+        if value is not None and not pattern.match(value):
+            return JSONResponse(status_code=400, content={"detail": f"Invalid {name}."})
+    return await call_next(request)
+
+
 DESIGNS_DIR = Path(os.environ.get("ROBOCAD_DESIGNS_DIR", "designs"))
+
+# ---------------------------------------------------------------------------
+# Path-safety helpers (defense against path traversal from user-supplied ids)
+# ---------------------------------------------------------------------------
+_ID_RE = re.compile(r"^[a-f0-9]{32}$")
+_SHORT_ID_RE = re.compile(r"^[a-f0-9]{8}$")
+_HERMES_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
+
+
+def _validate_uuid_id(value: str, name: str = "id") -> str:
+    """Reject any id that is not a 32-char hex UUID."""
+    if not _ID_RE.match(value):
+        raise HTTPException(status_code=400, detail=f"Invalid {name}.")
+    return value
+
+
+def _validate_design_id(design_id: str) -> str:
+    return _validate_uuid_id(design_id, "design_id")
+
+
+def _validate_version_id(version_id: str) -> str:
+    if not _SHORT_ID_RE.match(version_id):
+        raise HTTPException(status_code=400, detail="Invalid version_id.")
+    return version_id
+
+
+def _resolve_design_dir(design_id: str) -> Path:
+    """Return the design directory after validating the id."""
+    _validate_design_id(design_id)
+    return DESIGNS_DIR / design_id
+
+
+def _resolve_export_path(design_id: str, filename: str) -> Path:
+    """Resolve an export file and ensure it stays inside the design directory."""
+    design_dir = _resolve_design_dir(design_id).resolve()
+    safe_name = Path(filename).as_posix().lstrip("/")
+    if safe_name.startswith("..") or "/../" in f"/{safe_name}/":
+        raise HTTPException(status_code=400, detail="Invalid filename.")
+    file_path = (design_dir / safe_name).resolve()
+    # Backwards-compatible fallback for top-level exports stored in exports/.
+    if not file_path.exists() and "/" not in safe_name:
+        fallback = (design_dir / "exports" / safe_name).resolve()
+        if fallback.is_relative_to(design_dir):
+            file_path = fallback
+    if not file_path.is_relative_to(design_dir):
+        raise HTTPException(status_code=400, detail="Invalid filename.")
+    return file_path
+
+
+def _validate_hermes_session_id(session_id: str) -> str:
+    if not _HERMES_ID_RE.match(session_id):
+        raise HTTPException(status_code=400, detail="Invalid session_id.")
+    return session_id
+
+
+def _safe_extract_zip(archive: Path, dest: Path) -> None:
+    """Extract a zip archive, rejecting paths that escape the destination."""
+    with zipfile.ZipFile(archive, "r") as zf:
+        for member in zf.infolist():
+            target = (dest / member.filename).resolve()
+            if not target.is_relative_to(dest.resolve()):
+                raise HTTPException(status_code=400, detail="Archive contains unsafe path.")
+        # Python 3.12+ filter prevents common extraction traps.
+        try:
+            zf.extractall(dest, members=[m.filename for m in zf.infolist()])
+        except TypeError:
+            zf.extractall(dest)
+
+
+def _safe_extract_tar(archive: Path, dest: Path) -> None:
+    """Extract a tar archive, rejecting paths that escape the destination."""
+    with tarfile.open(archive, "r:gz") as tf:
+        for member in tf.getmembers():
+            target = (dest / member.name).resolve()
+            if member.issym() or member.islnk() or not target.is_relative_to(dest.resolve()):
+                raise HTTPException(status_code=400, detail="Archive contains unsafe path.")
+        tf.extractall(dest)
+
 
 backend = RoboCADBackend()
 
@@ -2016,17 +2118,19 @@ def marketplace_upload_item(
         extract_dir.mkdir(parents=True, exist_ok=True)
         try:
             if file.filename.endswith(".zip"):
-                with zipfile.ZipFile(archive_path, "r") as zf:
-                    zf.extractall(extract_dir)
+                _safe_extract_zip(archive_path, extract_dir)
             else:
-                with tarfile.open(archive_path, "r:gz") as tf:
-                    tf.extractall(extract_dir)
+                _safe_extract_tar(archive_path, extract_dir)
+        except HTTPException:
+            raise
         except Exception as exc:
             raise HTTPException(status_code=400, detail=f"Failed to extract archive: {exc}") from exc
 
         # If the archive has a single top-level directory, use it as the source.
         contents = [p for p in extract_dir.iterdir() if p.name != "__MACOSX"]
         source_dir = contents[0] if len(contents) == 1 and contents[0].is_dir() else extract_dir
+        if not source_dir.resolve().is_relative_to(extract_dir.resolve()):
+            raise HTTPException(status_code=400, detail="Unsafe archive layout.")
 
         tag_list = [t.strip() for t in tags.split(",") if t.strip()]
         try:
@@ -3018,13 +3122,7 @@ def regenerate(design_id: str, request: RegenerateRequest) -> GenerateResponse:
 
 @app.get("/exports/{design_id}/{filename:path}")
 def get_export(design_id: str, filename: str) -> FileResponse:
-    safe_filename = Path(filename).as_posix().lstrip("/")
-    file_path = DESIGNS_DIR / design_id / safe_filename
-    # Backwards-compatible fallback: top-level export names are stored under
-    # the design's `exports/` directory, while regenerated versions use a
-    # `versions/{id}/` prefix.
-    if not file_path.exists() and "/" not in safe_filename:
-        file_path = DESIGNS_DIR / design_id / "exports" / safe_filename
+    file_path = _resolve_export_path(design_id, filename)
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="File not found.")
 

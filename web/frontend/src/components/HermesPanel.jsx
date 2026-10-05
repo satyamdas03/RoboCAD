@@ -28,6 +28,11 @@ const STATUS_LABELS = {
   done: 'Done',
 }
 
+function prefersReducedMotion() {
+  if (typeof window === 'undefined') return false
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
 export default function HermesPanel({ designId, onDesignCreated, focus, onFocusAck }) {
   const [sessionId, setSessionId] = useState(null)
   const [messages, setMessages] = useState([])
@@ -128,7 +133,7 @@ export default function HermesPanel({ designId, onDesignCreated, focus, onFocusA
   }, [sessionId, autoStatus])
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    messagesEndRef.current?.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth' })
   }, [messages])
 
   // When App routes focus to HERMES, expand the panel and surface the auto-design form.
@@ -137,7 +142,7 @@ export default function HermesPanel({ designId, onDesignCreated, focus, onFocusA
     setExpanded(true)
     setAutoOpen(true)
     setTimeout(() => {
-      autoSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      autoSectionRef.current?.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' })
     }, 100)
     if (onFocusAck) onFocusAck()
   }, [focus, onFocusAck])
@@ -282,7 +287,13 @@ export default function HermesPanel({ designId, onDesignCreated, focus, onFocusA
   return (
     <section className="kp-panel" aria-labelledby="hermes-heading">
       <div className="kp-panel-header">
-        <h3 id="hermes-heading" className="kp-panel-title">🧿 HERMES supervisor</h3>
+        <h3 id="hermes-heading" className="kp-panel-title kp-flex kp-gap-2 kp-align-center">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+            <circle cx="12" cy="12" r="4" fill="currentColor" />
+          </svg>
+          HERMES supervisor
+        </h3>
         <div className="kp-flex kp-gap-2 kp-align-center">
           <span className={`kp-badge ${STATUS_COLORS[status] || 'kp-badge-secondary'}`}>
             {STATUS_LABELS[status] || status}
@@ -410,7 +421,7 @@ export default function HermesPanel({ designId, onDesignCreated, focus, onFocusA
                     <span className="kp-label">Pipeline audit</span>
                     {auditAttempts.map((attempt) => (
                       <div
-                        key={attempt.attempt_number || attempt.attempt || attempt.id || attempt.action}
+                        key={`${attempt.attempt_number ?? attempt.attempt ?? attempt.id ?? 'x'}-${attempt.action ?? 'none'}`}
                         className="kp-flex kp-gap-2 kp-align-center kp-small"
                         style={{
                           padding: '0.35rem 0.5rem',
@@ -539,6 +550,9 @@ export default function HermesPanel({ designId, onDesignCreated, focus, onFocusA
                       background: 'var(--kp-surface-container)',
                       color: 'var(--kp-on-surface-variant)',
                       fontStyle: 'italic',
+                      whiteSpace: 'pre-wrap',
+                      overflowWrap: 'anywhere',
+                      wordBreak: 'break-word',
                     }}
                   >
                     {msg.content}
@@ -559,6 +573,8 @@ export default function HermesPanel({ designId, onDesignCreated, focus, onFocusA
                           ? 'var(--kp-on-primary-container)'
                           : 'var(--kp-on-surface)',
                       whiteSpace: 'pre-wrap',
+                      overflowWrap: 'anywhere',
+                      wordBreak: 'break-word',
                     }}
                   >
                     {msg.content}
