@@ -1,8 +1,8 @@
 # Current RoboCAD → 10/10
 
-**Current RoboCAD is in a solid, shippable state:** **407 default + 268 heavy/slow/mujoco tests passing**, frontend build passes, Phase 28A–F complete, Phase 29 physics-based morphology scoring complete, Phase 30 real gait synthesis complete, and **Milestones A–F and G (automatic simulation certification)** complete.
+**Current RoboCAD is in a solid, shippable state:** **412 default tests passing**, frontend build passes, Phase 28A–F complete, Phase 29 physics-based morphology scoring complete, Phase 30 real gait synthesis complete, **Milestones A–G closed**, and **Milestone I (voice/text-to-certified-design orchestration)** complete. Launch readiness Options A–D is in progress.
 
-My honest confidence score for **complex multi-domain robot designs, especially humanoids**, is **9.6 / 10**. The pipeline validates morphology with real MuJoCo standing, sway, stepping, and walking rollouts; rejects candidates whose limb segments fail lightweight beam bending / buckling checks; scores sagittal-plane workspace reach, penalizes self-collision across representative poses, rewards kinematic dexterity with a Yoshikawa-style manipulability index, **swaps real end-effector part families (parallel-jaw gripper, three-finger hand, vacuum gripper, point foot, compliant foot) into the FeatureTree**, **invents topology beyond the three fixed templates using a deterministic grammar**, **trains closed-loop brain policies on the actual generated MuJoCo robot model via `WorldReplayEnv` and a variable-dimension NumPy-only MLP trained with CEM**, and **automatically runs randomized-world simulation certification (terrain walking, push recovery, drop test, actuator saturation, payload lift) on robot designs**. Default-template and near-default humanoid/quadruped candidates walk reliably; the searched grid and small mass perturbations pass at the Milestone A thresholds; structural and kinematic checks filter bad candidates before they are presented; certification gives a pass/fail badge and per-case report. The remaining gap is a full sim-to-real bridge. The full deep-analysis memory file lives at:
+My honest confidence score for **complex multi-domain robot designs, especially humanoids**, is **9.7 / 10**. The pipeline validates morphology with real MuJoCo standing, sway, stepping, and walking rollouts; rejects candidates whose limb segments fail lightweight beam bending / buckling checks; scores sagittal-plane workspace reach, penalizes self-collision across representative poses, rewards kinematic dexterity with a Yoshikawa-style manipulability index, **swaps real end-effector part families (parallel-jaw gripper, three-finger hand, vacuum gripper, point foot, compliant foot) into the FeatureTree**, **invents topology beyond the three fixed templates using a deterministic grammar**, **trains closed-loop brain policies on the actual generated MuJoCo robot model via `WorldReplayEnv` and a variable-dimension NumPy-only MLP trained with CEM**, and **automatically runs randomized-world simulation certification (terrain walking, push recovery, drop test, actuator saturation, payload lift) on robot designs**. Default-template and near-default humanoid/quadruped candidates walk reliably; the searched grid and small mass perturbations pass at the Milestone A thresholds; structural and kinematic checks filter bad candidates before they are presented; certification gives a pass/fail badge and per-case report. The remaining gap is a full sim-to-real bridge. The full deep-analysis memory file lives at:
 
 `C:\Users\point\.claude\projects\C--Users-point-projects-RoboCAD\memory\robocad-confidence-10-10-roadmap.md`
 
@@ -10,9 +10,9 @@ and is indexed in `MEMORY.md`.
 
 ---
 
-## Why 9.6 / 10 today
+## Why 9.7 / 10 today
 
-The score reflects that the *infrastructure* is green and deterministic, the *physics reasoning* layer is real rather than heuristic, **adaptive flat-ground gait synthesis is robust enough for searched candidates and small mass perturbations**, **structural link checks filter candidates whose limbs would yield or buckle under payload + drop loads**, **kinematic reasoning now rewards reachable, collision-free, dexterous workspaces**, **end-effector choices are no longer cosmetic: the selected gripper or foot family is instantiated in the FeatureTree, exported to MuJoCo, and its estimated mass influences actuator and structural scoring**, **topology is no longer limited to three templates: a deterministic grammar invents biped/quadruped/hexapod/wheeled/tracked/fixed robots with optional appendages and each topology is scored by the same physics/structural/collision/workspace pipeline**, **brain training is no longer a 2-D abstraction: `WorldReplayEnv` loads the generated world MJCF, discovers the robot's actuators and joints, and trains a closed-loop policy on real MuJoCo rollouts**, and **automatic simulation certification exercises every generated robot on uneven terrain, push recovery, drop tests, actuator saturation, and payload torque margins**. The next jump is a full sim-to-real bridge.
+The score reflects that the *infrastructure* is green and deterministic, the *physics reasoning* layer is real rather than heuristic, **adaptive flat-ground gait synthesis is robust enough for searched candidates and small mass perturbations**, **structural link checks filter candidates whose limbs would yield or buckle under payload + drop loads**, **kinematic reasoning now rewards reachable, collision-free, dexterous workspaces**, **end-effector choices are no longer cosmetic: the selected gripper or foot family is instantiated in the FeatureTree, exported to MuJoCo, and its estimated mass influences actuator and structural scoring**, **topology is no longer limited to three templates: a deterministic grammar invents biped/quadruped/hexapod/wheeled/tracked/fixed robots with optional appendages and each topology is scored by the same physics/structural/collision/workspace pipeline**, **brain training is no longer a 2-D abstraction: `WorldReplayEnv` loads the generated world MJCF, discovers the robot's actuators and joints, and trains a closed-loop policy on real MuJoCo rollouts**, **automatic simulation certification exercises every generated robot on uneven terrain, push recovery, drop tests, actuator saturation, and payload torque margins**, and **HERMES can turn a single voice/text prompt into a certified robot design with retry, audit trail, and onboarding UI**. The remaining gap is a full sim-to-real bridge; launch readiness hardening is closing the last software polish and safety gaps.
 
 | Subsystem | Current state | Caveat |
 |---|---|---|
@@ -221,11 +221,37 @@ System identification from real telemetry, calibrated domain randomization, safe
 
 **Effort:** 6–12 months, gated on physical hardware.
 
-### Phase 38 / Milestone I — Fully automated voice-to-certified-design (~10/10)
+### Milestone I — Voice/text-to-certified-design orchestration (9.6 → 9.7/10) ✅ COMPLETE
 
-HERMES orchestrates decomposition, topology search, physics validation, brain training, and certification. Automatic retry-on-failure. Complete audit trail.
+Closed the one-prompt-to-certified-robot gap by wiring the HERMES supervisor to real morphology, brain-training, and simulation-certification executors with automatic retry and a full audit trail.
 
-**Effort:** 3–6 months after Phase 37.
+**Delivered:**
+- `ai_cad/hermes/orchestrator.py`: `AutoOrchestrator` / `run_auto_orchestration`; domain classification, robot path (morphology search → brain smoke test → simulation certification), non-robot generate/verify/cert path, retry with template/end-effector mutation, and `AutoResult`/`AuditStep` recording.
+- `ai_cad/hermes/executor.py` + `validation.py`: new tools `run_morphology_search`, `train_robot_brain_on_candidate`, `run_simulation_certification` with Pydantic validation and `ToolResult.duration_seconds`.
+- `ai_cad/hermes/session.py`: `HermesSession.get_audit()` returning the full audit trail.
+- `web/backend/main.py`: `POST /hermes/session/{id}/auto` and `GET /hermes/session/{id}/audit` wired to real callables; `auto_result` persisted in session context.
+- `web/frontend/src/components/WelcomePanel.jsx` + `HermesPanel.jsx`: onboarding hero with example prompt chips and auto-design form with audit polling.
+- `tests/test_hermes_orchestrator.py`, `tests/test_hermes_auto_endpoint.py`, and extended `tests/test_hermes.py`/`tests/test_sim_certification.py`.
+- Full suite verified: **410 default tests passing**; heavy/slow/mujoco suite **276 passed + 1 xfailed + 2 xpassed = 279 selected**; frontend build passes.
+
+**Score impact:** 9.6 → **9.7 / 10**.
+
+**Effort:** ~1 session on top of the Milestone G scaffold.
+
+### Launch readiness — Options A-D (in progress)
+
+Post-Milestone I hardening to make the product safe and polished for external users.
+
+- **A. Security:** backend path/ID validation, export containment, safe archive extraction, CORS tightening, subprocess env scrubbing.
+- **B. Reliability/resilience:** Windows `.env` loading for `python start.py` / `python -m robocad.health`; backend defaults to `127.0.0.1` with reload disabled; frontend API timeout + JSON error parsing.
+- **C. Honest-score verification:** default suite re-run after hardening — **412 passed, 279 deselected, 3 warnings**; heavy/slow/mujoco suite re-run in progress.
+- **D. Frontend/UX:** `emilkowalski/skills` installed and applied; valid HTML, `100dvh`, pointer-aware hover, `prefers-reduced-motion`, message overflow wrapping, SVG icons, stable React keys, missing Vite proxies, mobile input font-size fixes.
+
+### Phase 37 / Milestone H — Sim-to-real bridge (~9.8/10)
+
+System identification from real telemetry, calibrated domain randomization, safety-guarded deployment. This is Phase 27D, currently hardware-blocked.
+
+**Effort:** 6–12 months, gated on physical hardware.
 
 ---
 
