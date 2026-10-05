@@ -31,6 +31,14 @@ backups/
 .envrc
 secrets/
 
+# External skill install cache (lock file is tracked)
+.agents/
+
+# Claude Code local session state
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+.claude/worktrees/
+
 # Frontend
 node_modules/
 dist/
