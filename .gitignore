@@ -38,6 +38,7 @@ secrets/
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
 .claude/worktrees/
+.claude/plans/
 
 # Frontend
 node_modules/
