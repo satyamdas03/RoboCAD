@@ -2,11 +2,14 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from ai_cad.hermes.models import Message, Plan, Session
+
+_HERMES_ID_RE = re.compile(r"^hermes_[a-f0-9]{8}$")
 from ai_cad.hermes.planner import (
     approve_step,
     reject_step,
@@ -40,6 +43,8 @@ class HermesSessionStore:
         # Always store HERMES sessions in a global namespace so endpoints that only
         # know the session id can load them without also knowing the design id.
         # The design_id is persisted inside the session model.
+        if not _HERMES_ID_RE.match(session_id):
+            raise ValueError(f"Invalid HERMES session id: {session_id!r}")
         global_dir = self.base_dir / "_hermes"
         global_dir.mkdir(parents=True, exist_ok=True)
         return global_dir / f"{session_id}.json"

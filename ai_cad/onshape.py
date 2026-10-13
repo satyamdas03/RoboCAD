@@ -138,13 +138,22 @@ class OnshapeClient:
         response.raise_for_status()
         return response.json()
 
-    def create_document(self, name: str, description: str = "") -> dict[str, Any]:
-        """Create a new Onshape document and return its metadata."""
+    def create_document(
+        self,
+        name: str,
+        description: str = "",
+        is_public: bool = False,
+    ) -> dict[str, Any]:
+        """Create a new Onshape document and return its metadata.
+
+        Creating a public document can expose design data. The default is private
+        (``is_public=False``); only pass ``True`` after confirming the document
+        may be public.
+        """
         body = {
             "name": name,
             "description": description,
-            # Free Onshape accounts can only create public documents.
-            "isPublic": True,
+            "isPublic": is_public,
             "ownerType": 0,
         }
         response = self.session.post(

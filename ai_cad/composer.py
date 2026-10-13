@@ -9,6 +9,8 @@ from __future__ import annotations
 import math
 from typing import Any
 
+import numpy as np
+
 from ai_cad.decomposition import DecomposedPart, DecompositionResult
 from ai_cad.feature_tree import (
     Assembly,
@@ -21,6 +23,7 @@ from ai_cad.feature_tree import (
     Parameter,
     Part,
 )
+from ai_cad.assembly import _matrix_to_pos_rot
 from ai_cad.intent_parser import parse_domain_intent
 from ai_cad.mate_inference import infer_mates
 from ai_cad.part_families import get_family, instantiate_family
@@ -784,6 +787,14 @@ def compose_feature_tree(
                 )
             )
 
+    # Articulated layouts (humanoid / legged robots) describe their joints on
+    # the layout mates; turn them into kinematic joints for MJCF/URDF export.
+    known_joint_ids = {j.id for j in inferred_joints}
+    for joint in _joints_from_layout_mates(mates):
+        if joint.id not in known_joint_ids:
+            inferred_joints.append(joint)
+            known_joint_ids.add(joint.id)
+
     # Deduplicate instance IDs (safety) and ensure every part_id exists.
     seen_ids: set[str] = set()
     valid_instances: list[Instance] = []
@@ -809,7 +820,11 @@ def compose_feature_tree(
         domain=result.primary_domain,
         instances=valid_instances,
         mates=valid_mates,
-        joints=inferred_joints,
+        joints=[
+            j for j in inferred_joints
+            if j.child_link in valid_instance_ids
+            and (j.parent_link in valid_instance_ids or j.parent_link == "world")
+        ],
     )
 
     tree = FeatureTree(
@@ -838,242 +853,338 @@ def compose_feature_tree(
 # ---------------------------------------------------------------------------
 
 
+def _layout_param(result: DecompositionResult, part_id: str, name: str, default: float) -> float:
+    """Return the effective numeric value of a part parameter used for layout."""
+    for dp in result.parts:
+        if dp.id != part_id:
+            continue
+        for p in _effective_parameters(dp):
+            if p.name == name:
+                try:
+                    return float(p.value)
+                except (TypeError, ValueError):
+                    return default
+    return default
+
+
+# Orientation of a flat limb bar / joint hub in the robot frame (X forward,
+# Y left, Z up): the bar's long axis (local +X) hangs down along -Z and its
+# bore / thickness axis (local +Z) lies along the lateral +Y joint axis.
+_LIMB_ROTATION = np.array(
+    [
+        [0.0, -1.0, 0.0],
+        [0.0, 0.0, 1.0],
+        [-1.0, 0.0, 0.0],
+    ]
+)
+_YAW_90_ROTATION = np.array(
+    [
+        [0.0, -1.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [0.0, 0.0, 1.0],
+    ]
+)
+
+
+def _placed(translation: tuple[float, float, float], rotation: np.ndarray | None = None) -> dict[str, Any]:
+    """Build an Instance.transform dict from a translation and rotation matrix."""
+    M = np.eye(4)
+    if rotation is not None:
+        M[:3, :3] = rotation
+    M[:3, 3] = translation
+    (tx, ty, tz), (rx, ry, rz) = _matrix_to_pos_rot(M)
+    return {
+        "translation": (round(tx, 6), round(ty, 6), round(tz, 6)),
+        "rotation": (round(rx, 6), round(ry, 6), round(rz, 6)),
+    }
+
+
+def _layout_mate(
+    mate_id: str,
+    mate_type: str,
+    parent_id: str,
+    child_id: str,
+    *,
+    joint_parent: str | None = None,
+    joint_id: str | None = None,
+    origin: tuple[float, float, float] | None = None,
+    limits: tuple[float, float] | None = None,
+) -> Mate:
+    """Mate whose placement is already solved by the layout.
+
+    ``locked`` tells the assembly solver to keep the explicit instance
+    transforms. The joint fields let ``compose_feature_tree`` emit a matching
+    ``KinematicJoint`` so the exported MJCF/URDF is articulated.
+    """
+    parameters: dict[str, Any] = {
+        "locked": True,
+        "joint_parent": joint_parent or parent_id,
+        "joint_child": child_id,
+    }
+    if joint_id:
+        parameters["joint_id"] = joint_id
+    if origin is not None:
+        parameters["origin"] = [float(v) for v in origin]
+    if mate_type == "revolute":
+        parameters["axis"] = [0.0, 1.0, 0.0]
+        if limits is not None:
+            parameters["limits"] = [float(limits[0]), float(limits[1])]
+    return Mate(
+        id=mate_id,
+        type=mate_type,  # type: ignore[arg-type]
+        entities=[MateEntity(instance_id=parent_id), MateEntity(instance_id=child_id)],
+        parameters=parameters,
+    )
+
+
+def _joints_from_layout_mates(mates: list[Mate]) -> list[KinematicJoint]:
+    """Create kinematic joints for mates produced by an articulated layout."""
+    joints: list[KinematicJoint] = []
+    for mate in mates:
+        params = mate.parameters or {}
+        if not params.get("locked") or mate.type not in ("revolute", "prismatic", "fixed"):
+            continue
+        parent = params.get("joint_parent")
+        child = params.get("joint_child")
+        if not parent or not child:
+            continue
+        origin = params.get("origin") or (0.0, 0.0, 0.0)
+        axis = params.get("axis")
+        limits = params.get("limits")
+        joints.append(
+            KinematicJoint(
+                id=str(params.get("joint_id") or f"j_{parent}_{child}"),
+                type=mate.type,  # type: ignore[arg-type]
+                parent_link=str(parent),
+                child_link=str(child),
+                origin=tuple(float(v) for v in origin),
+                axis=tuple(float(v) for v in axis) if axis and mate.type != "fixed" else None,
+                limits=tuple(float(v) for v in limits) if limits and mate.type != "fixed" else None,
+            )
+        )
+    return joints
+
+
 def _place_humanoid(result: DecompositionResult) -> tuple[list[Instance], list[Mate]] | None:
-    """If the result matches a humanoid/biped/quadruped layout, build an articulated chain."""
+    """If the result matches a humanoid/biped/quadruped layout, build an articulated chain.
+
+    The robot frame is X forward, Y left, Z up, with the soles on Z = 0. Every
+    limb bar hangs vertically with its bores on the lateral joint axis, so the
+    hip, knee and ankle pivots of each leg line up and can be exported as real
+    revolute joints. Placement is computed from the actual part dimensions.
+    """
     text = result.prompt.lower()
     if not any(w in text for w in {"humanoid", "biped", "quadruped", "leg", "torso", "manipulator on base", "robot on base"}):
+        return None
+
+    part_ids = {dp.id for dp in result.parts}
+    if not {"torso_plate", "thigh", "shin"} <= part_ids:
         return None
 
     instances: list[Instance] = []
     mates: list[Mate] = []
 
-    # Default scaling from prompt keywords.
-    robot_height = 1000.0
-    found = _find_number_near(text, "mm", "tall") or _find_number_near(text, "mm", "height")
-    if found:
-        robot_height = found
-    elif "small" in text or "mini" in text:
-        robot_height = 400.0
-    elif "large" in text:
-        robot_height = 1500.0
+    seg_length = _layout_param(result, "thigh", "segment_length", 150.0)
+    seg_thickness = _layout_param(result, "thigh", "segment_thickness", 8.0)
+    end_offset = _layout_param(result, "thigh", "end_offset", 15.0)
+    # The limb bar spans local x = 0 .. segment_length - 2 * end_offset, with its
+    # driven bore one end_offset in from the top. Consecutive bars form a lap
+    # joint: they overlap by two end offsets and sit in neighbouring planes, so
+    # the lower bar can swing through its full range without interference.
+    bar_span = max(seg_length - 2.0 * end_offset, 1.0)
+    hub_length = _layout_param(result, "hip_hub", "hip_hub_length", 16.0)
+    foot_length = _layout_param(result, "foot", "foot_length", 80.0)
+    foot_thickness = _layout_param(result, "foot", "foot_thickness", 8.0)
+    torso_width = _layout_param(result, "torso_plate", "torso_width", 120.0)
+    torso_depth = _layout_param(result, "torso_plate", "torso_depth", 80.0)
+    torso_thickness = _layout_param(result, "torso_plate", "torso_thickness", 12.0)
 
-    thigh_length = robot_height * 0.22
-    shin_length = robot_height * 0.24
-    foot_length = robot_height * 0.10
-    torso_width = robot_height * 0.12
-    torso_z = thigh_length + shin_length
+    has_foot = "foot" in part_ids
+    has_hub = "hip_hub" in part_ids
+    ankle_z = foot_thickness if has_foot else 0.0  # shin bottom rests on the foot
+    shin_top = ankle_z + bar_span
+    thigh_top = shin_top + bar_span - 2.0 * end_offset
+    knee_z = shin_top - end_offset
+    hip_z = thigh_top - end_offset
+    torso_z = thigh_top
 
-    # Torso plate at top of legs.
+    biped = "biped" in text or "humanoid" in text or "manipulator on base" in text or "robot on base" in text
+    if biped:
+        # Torso plate is yawed so its long side spans the hips.
+        legs = [("left", "l", 0.0, torso_width / 4), ("right", "r", 0.0, -torso_width / 4)]
+        torso_rotation: np.ndarray | None = _YAW_90_ROTATION
+    else:
+        hx, hy = torso_width * 0.35, torso_depth * 0.3
+        legs = [
+            ("front_left", "fl", hx, hy),
+            ("front_right", "fr", hx, -hy),
+            ("back_left", "rl", -hx, hy),
+            ("back_right", "rr", -hx, -hy),
+        ]
+        torso_rotation = None
+
     instances.append(
         Instance(
             id="i_torso",
             part_id="torso_plate",
             name="Torso",
-            transform={"translation": (0.0, 0.0, torso_z)},
+            transform=_placed((0.0, 0.0, torso_z), torso_rotation),
         )
     )
 
-    leg_count = 2 if "biped" in text or "humanoid" in text or "manipulator on base" in text or "robot on base" in text else 4
-    leg_names = ["left", "right"] if leg_count == 2 else ["front_left", "front_right", "back_left", "back_right"]
-    side_signs = [(-1, 1), (1, 1)] if leg_count == 2 else [(-1, 1), (1, 1), (-1, -1), (1, -1)]
+    def _bar(center_y: float, x: float, top_z: float) -> dict[str, Any]:
+        return _placed((x, center_y - seg_thickness / 2, top_z), _LIMB_ROTATION)
 
-    for i, (name, (sx, sy)) in enumerate(zip(leg_names, side_signs)):
-        hip_x = sx * torso_width / 2
-        hip_y = sy * torso_width / 3
+    def _hub(side: float, bar_center_y: float, x: float, z: float, length: float) -> dict[str, Any]:
+        # Hub sits flush against the outer face of the bar it is fixed to.
+        y0 = bar_center_y + seg_thickness / 2 if side > 0 else bar_center_y - seg_thickness / 2 - length
+        return _placed((x, y0, z), _LIMB_ROTATION)
+
+    for name, suffix, jx, jy in legs:
+        side = 1.0 if jy >= 0 else -1.0
+        shin_y = jy - side * seg_thickness  # shin runs on the inner face of the thigh
 
         hip_id = f"i_hip_{name}"
-        instances.append(
-            Instance(
-                id=hip_id,
-                part_id="hip_hub",
-                name=f"Hip {name}",
-                transform={"translation": (hip_x, hip_y, torso_z)},
-            )
-        )
-        mates.append(
-            Mate(
-                id=f"m_torso_hip_{name}",
-                type="fixed",
-                entities=[MateEntity(instance_id="i_torso"), MateEntity(instance_id=hip_id)],
-            )
-        )
-
         thigh_id = f"i_thigh_{name}"
-        # Thigh hangs downward from hip.
-        instances.append(
-            Instance(
-                id=thigh_id,
-                part_id="thigh",
-                name=f"Thigh {name}",
-                transform={
-                    "translation": (hip_x, hip_y, torso_z - thigh_length / 2),
-                    "rotation": (0.0, 0.0, 0.0),
-                },
-            )
-        )
-        mates.append(
-            Mate(
-                id=f"m_hip_thigh_{name}",
-                type="revolute",
-                entities=[MateEntity(instance_id=hip_id), MateEntity(instance_id=thigh_id)],
-            )
-        )
-
         knee_id = f"i_knee_{name}"
-        knee_z = torso_z - thigh_length
-        instances.append(
-            Instance(
-                id=knee_id,
-                part_id="hip_hub",
-                name=f"Knee {name}",
-                transform={"translation": (hip_x, hip_y, knee_z)},
-            )
-        )
-        mates.append(
-            Mate(
-                id=f"m_thigh_knee_{name}",
-                type="revolute",
-                entities=[MateEntity(instance_id=thigh_id), MateEntity(instance_id=knee_id)],
-            )
-        )
-
         shin_id = f"i_shin_{name}"
-        instances.append(
-            Instance(
-                id=shin_id,
-                part_id="shin",
-                name=f"Shin {name}",
-                transform={
-                    "translation": (hip_x, hip_y, knee_z - shin_length / 2),
-                    "rotation": (0.0, 0.0, 0.0),
-                },
-            )
-        )
-        mates.append(
-            Mate(
-                id=f"m_knee_shin_{name}",
-                type="revolute",
-                entities=[MateEntity(instance_id=knee_id), MateEntity(instance_id=shin_id)],
-            )
-        )
-
         foot_id = f"i_foot_{name}"
-        instances.append(
-            Instance(
-                id=foot_id,
-                part_id="foot",
-                name=f"Foot {name}",
-                transform={
-                    "translation": (hip_x + foot_length / 4, hip_y, torso_z - thigh_length - shin_length),
-                    "rotation": (0.0, 0.0, 0.0),
-                },
+
+        if has_hub:
+            instances.append(
+                Instance(id=hip_id, part_id="hip_hub", name=f"Hip {name}", transform=_hub(side, jy, jx, hip_z, hub_length))
             )
-        )
+            mates.append(_layout_mate(f"m_torso_hip_{name}", "fixed", "i_torso", hip_id, origin=(jx, jy, hip_z)))
+
+        instances.append(Instance(id=thigh_id, part_id="thigh", name=f"Thigh {name}", transform=_bar(jy, jx, thigh_top)))
         mates.append(
-            Mate(
-                id=f"m_shin_foot_{name}",
-                type="revolute",
-                entities=[MateEntity(instance_id=shin_id), MateEntity(instance_id=foot_id)],
+            _layout_mate(
+                f"m_hip_thigh_{name}",
+                "revolute",
+                hip_id if has_hub else "i_torso",
+                thigh_id,
+                joint_parent="i_torso",
+                joint_id=f"hip_pitch_{suffix}",
+                origin=(jx, jy, hip_z),
+                limits=(-90.0, 90.0),
             )
         )
 
-    # Optional arms for biped/humanoid.
-    arm_parts = {"shoulder_hub", "upper_arm", "forearm", "hand"}
-    has_arms = any(dp.id in arm_parts for dp in result.parts)
-    if has_arms:
-        for side, sx in [("left", -1), ("right", 1)]:
-            shoulder_x = sx * torso_width / 2
-            shoulder_z = torso_z + 20.0
-            shoulder_id = f"i_shoulder_{side}"
+        if has_hub:
+            instances.append(
+                Instance(id=knee_id, part_id="hip_hub", name=f"Knee {name}", transform=_hub(side, jy, jx, knee_z, hub_length))
+            )
+            mates.append(_layout_mate(f"m_thigh_knee_{name}", "fixed", thigh_id, knee_id, origin=(jx, jy, knee_z)))
+
+        instances.append(Instance(id=shin_id, part_id="shin", name=f"Shin {name}", transform=_bar(shin_y, jx, shin_top)))
+        mates.append(
+            _layout_mate(
+                f"m_knee_shin_{name}",
+                "revolute",
+                knee_id if has_hub else thigh_id,
+                shin_id,
+                joint_parent=thigh_id,
+                joint_id=f"knee_{suffix}",
+                origin=(jx, jy, knee_z),
+                limits=(0.0, 135.0),
+            )
+        )
+
+        if has_foot:
+            # Foot lies flat with the ankle one third of the way from the heel.
+            instances.append(
+                Instance(
+                    id=foot_id,
+                    part_id="foot",
+                    name=f"Foot {name}",
+                    transform=_placed((jx - foot_length / 6, shin_y, 0.0)),
+                )
+            )
+            mates.append(
+                _layout_mate(
+                    f"m_shin_foot_{name}",
+                    "revolute",
+                    shin_id,
+                    foot_id,
+                    joint_id=f"ankle_{suffix}",
+                    origin=(jx, shin_y, ankle_z),
+                    limits=(-45.0, 45.0),
+                )
+            )
+
+    # Optional arms for biped/humanoid: same bar-and-hub chain hung from the torso edges.
+    if biped and {"shoulder_hub", "upper_arm", "forearm"} <= part_ids:
+        shoulder_length = _layout_param(result, "shoulder_hub", "shoulder_hub_length", 14.0)
+        shoulder_z = torso_z + torso_thickness / 2
+        upper_top = shoulder_z + end_offset
+        forearm_top = upper_top - bar_span + 2.0 * end_offset
+        elbow_z = forearm_top - end_offset
+        wrist_z = forearm_top - bar_span
+        for name, suffix, side in [("left", "l", 1.0), ("right", "r", -1.0)]:
+            arm_y = side * (torso_width / 2 + shoulder_length + seg_thickness / 2)
+            forearm_y = arm_y + side * seg_thickness  # forearm runs on the outer face
+            shoulder_id = f"i_shoulder_{name}"
+            upper_id = f"i_upper_arm_{name}"
+            elbow_id = f"i_elbow_{name}"
+            forearm_id = f"i_forearm_{name}"
+            hand_id = f"i_hand_{name}"
+
+            # Shoulder hub bridges the torso edge and the upper arm.
             instances.append(
                 Instance(
                     id=shoulder_id,
                     part_id="shoulder_hub",
-                    name=f"Shoulder {side}",
-                    transform={"translation": (shoulder_x, 0.0, shoulder_z)},
+                    name=f"Shoulder {name}",
+                    transform=_hub(-side, arm_y, 0.0, shoulder_z, shoulder_length),
                 )
             )
+            mates.append(_layout_mate(f"m_torso_shoulder_{name}", "fixed", "i_torso", shoulder_id, origin=(0.0, arm_y, shoulder_z)))
+
+            instances.append(Instance(id=upper_id, part_id="upper_arm", name=f"Upper arm {name}", transform=_bar(arm_y, 0.0, upper_top)))
             mates.append(
-                Mate(
-                    id=f"m_torso_shoulder_{side}",
-                    type="fixed",
-                    entities=[MateEntity(instance_id="i_torso"), MateEntity(instance_id=shoulder_id)],
+                _layout_mate(
+                    f"m_shoulder_upper_{name}",
+                    "revolute",
+                    shoulder_id,
+                    upper_id,
+                    joint_parent="i_torso",
+                    joint_id=f"shoulder_{suffix}",
+                    origin=(0.0, arm_y, shoulder_z),
+                    limits=(-180.0, 180.0),
                 )
             )
-            upper_id = f"i_upper_arm_{side}"
-            instances.append(
-                Instance(
-                    id=upper_id,
-                    part_id="upper_arm",
-                    name=f"Upper arm {side}",
-                    transform={
-                        "translation": (shoulder_x, 0.0, shoulder_z - thigh_length * 0.6),
-                        "rotation": (0.0, 0.0, 0.0),
-                    },
+
+            if has_hub:
+                instances.append(
+                    Instance(id=elbow_id, part_id="hip_hub", name=f"Elbow {name}", transform=_hub(-side, arm_y, 0.0, elbow_z, hub_length))
                 )
-            )
+                mates.append(_layout_mate(f"m_upper_elbow_{name}", "fixed", upper_id, elbow_id, origin=(0.0, arm_y, elbow_z)))
+
+            instances.append(Instance(id=forearm_id, part_id="forearm", name=f"Forearm {name}", transform=_bar(forearm_y, 0.0, forearm_top)))
             mates.append(
-                Mate(
-                    id=f"m_shoulder_upper_{side}",
-                    type="revolute",
-                    entities=[MateEntity(instance_id=shoulder_id), MateEntity(instance_id=upper_id)],
+                _layout_mate(
+                    f"m_elbow_forearm_{name}",
+                    "revolute",
+                    elbow_id if has_hub else upper_id,
+                    forearm_id,
+                    joint_parent=upper_id,
+                    joint_id=f"elbow_{suffix}",
+                    origin=(0.0, arm_y, elbow_z),
+                    limits=(-135.0, 0.0),
                 )
             )
-            elbow_id = f"i_elbow_{side}"
-            instances.append(
-                Instance(
-                    id=elbow_id,
-                    part_id="hip_hub",
-                    name=f"Elbow {side}",
-                    transform={"translation": (shoulder_x, 0.0, shoulder_z - thigh_length * 0.6)},
-                )
-            )
-            mates.append(
-                Mate(
-                    id=f"m_upper_elbow_{side}",
-                    type="revolute",
-                    entities=[MateEntity(instance_id=upper_id), MateEntity(instance_id=elbow_id)],
-                )
-            )
-            forearm_id = f"i_forearm_{side}"
-            instances.append(
-                Instance(
-                    id=forearm_id,
-                    part_id="forearm",
-                    name=f"Forearm {side}",
-                    transform={
-                        "translation": (shoulder_x, 0.0, shoulder_z - thigh_length * 1.1),
-                        "rotation": (0.0, 0.0, 0.0),
-                    },
-                )
-            )
-            mates.append(
-                Mate(
-                    id=f"m_elbow_forearm_{side}",
-                    type="revolute",
-                    entities=[MateEntity(instance_id=elbow_id), MateEntity(instance_id=forearm_id)],
-                )
-            )
-            if any(dp.id == "hand" for dp in result.parts):
-                hand_id = f"i_hand_{side}"
+
+            if "hand" in part_ids:
+                # Gripper jaws point down from the wrist bore.
                 instances.append(
                     Instance(
                         id=hand_id,
                         part_id="hand",
-                        name=f"Hand {side}",
-                        transform={
-                            "translation": (shoulder_x, 0.0, shoulder_z - thigh_length * 1.4),
-                            "rotation": (0.0, 90.0, 0.0),
-                        },
+                        name=f"Hand {name}",
+                        transform=_placed((0.0, forearm_y - seg_thickness / 2, wrist_z), _LIMB_ROTATION),
                     )
                 )
-                mates.append(
-                    Mate(
-                        id=f"m_forearm_hand_{side}",
-                        type="revolute",
-                        entities=[MateEntity(instance_id=forearm_id), MateEntity(instance_id=hand_id)],
-                    )
-                )
+                mates.append(_layout_mate(f"m_forearm_hand_{name}", "fixed", forearm_id, hand_id, origin=(0.0, forearm_y, wrist_z)))
 
     return instances, mates
 

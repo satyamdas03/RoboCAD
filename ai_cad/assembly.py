@@ -20,7 +20,7 @@ import numpy as np
 
 from ai_cad.feature_tree import Assembly, CoordinateSystem, FeatureTree, Instance, Mate, MateEntity
 from ai_cad.part_families import get_family
-from ai_cad.transpiler import _transpile_part
+from ai_cad.transpiler import _emit_parameter, _transpile_part
 
 
 def _resolve_value(value: Any, parameters: dict[str, float]) -> float:
@@ -29,10 +29,11 @@ def _resolve_value(value: Any, parameters: dict[str, float]) -> float:
     if isinstance(value, str):
         if value in parameters:
             return float(parameters[value])
+        from ai_cad.safe_eval import safe_eval_float
         try:
-            return float(eval(value, {"__builtins__": {}}, parameters))  # noqa: S307
-        except Exception:
-            raise ValueError(f"Could not resolve value: {value!r}")
+            return safe_eval_float(value, parameters)
+        except ValueError as exc:
+            raise ValueError(f"Could not resolve value: {value!r}: {exc}") from exc
     raise TypeError(f"Unsupported value type: {type(value)}")
 
 
@@ -125,6 +126,24 @@ def _matrix_to_pos_rot(M: np.ndarray) -> tuple[tuple[float, float, float], tuple
     return (tx, ty, tz), tuple(math.degrees(a) for a in (rx, ry, rz))
 
 
+def _matrix_to_intrinsic_xyz(M: np.ndarray) -> tuple[float, float, float]:
+    """Return angles (degrees) such that R = Rx(a) @ Ry(b) @ Rz(c).
+
+    This is the ordering build123d's ``Rotation(a, b, c)`` uses, so generated
+    assembly scripts reproduce the solved instance orientation exactly.
+    """
+    R = M[:3, :3]
+    sb = max(-1.0, min(1.0, float(R[0, 2])))
+    b = math.asin(sb)
+    if abs(sb) < 0.99999:
+        a = math.atan2(-R[1, 2], R[2, 2])
+        c = math.atan2(-R[0, 1], R[0, 0])
+    else:
+        a = math.atan2(R[2, 1], R[1, 1])
+        c = 0.0
+    return tuple(round(math.degrees(v), 9) for v in (a, b, c))
+
+
 def _explicit_transform(instance: Instance) -> np.ndarray:
     """Return the explicit transform for an instance, or identity."""
     if not instance.transform:
@@ -190,6 +209,9 @@ def compute_instance_transforms(
         deltas: dict[str, list[np.ndarray]] = {inst.id: [] for inst in assembly.instances}
         for mate in assembly.mates:
             if len(mate.entities) < 2:
+                continue
+            if (mate.parameters or {}).get("locked"):
+                # Layout already placed both instances; keep explicit transforms.
                 continue
             e1, e2 = mate.entities[0], mate.entities[1]
             if e1.instance_id not in transforms or e2.instance_id not in transforms:
@@ -284,6 +306,9 @@ def solve_assembly(
         deltas: dict[str, list[np.ndarray]] = {inst.id: [] for inst in assembly.instances}
         for mate in assembly.mates:
             if len(mate.entities) < 2:
+                continue
+            if (mate.parameters or {}).get("locked"):
+                # Layout already placed both instances; keep explicit transforms.
                 continue
             e1, e2 = mate.entities[0], mate.entities[1]
             if e1.instance_id not in transforms or e2.instance_id not in transforms:
@@ -423,7 +448,7 @@ def transpile_assembly(tree: FeatureTree, assembly: Assembly | None = None) -> s
     lines.append("")
 
     for param in tree.parameters:
-        lines.append(f"{param.name} = {param.value}")
+        lines.append(_emit_parameter(param))
     lines.append("")
 
     # Emit each unique part as a BuildPart variable.
@@ -443,7 +468,8 @@ def transpile_assembly(tree: FeatureTree, assembly: Assembly | None = None) -> s
             continue
         var_name = part_var_names[inst.part_id]
         M = transforms.get(inst.id, np.eye(4))
-        (tx, ty, tz), (rx, ry, rz) = _matrix_to_pos_rot(M)
+        tx, ty, tz = (float(v) for v in M[:3, 3])
+        rx, ry, rz = _matrix_to_intrinsic_xyz(M)
         placed.append(
             f"{var_name}.part.moved(Location(({tx}, {ty}, {tz})) * Rotation({rx}, {ry}, {rz}))"
         )

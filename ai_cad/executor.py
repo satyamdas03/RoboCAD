@@ -1,6 +1,7 @@
 """Safely execute generated build123d code and capture the resulting shape."""
 from __future__ import annotations
 
+import ast
 import json
 import os
 import subprocess
@@ -10,6 +11,77 @@ import time
 import uuid
 from pathlib import Path
 from typing import Any, Optional
+
+
+class GeneratedCodeSecurityError(ValueError):
+    """Raised when generated code contains disallowed imports or calls."""
+
+
+# Whitelist of top-level modules generated build123d scripts may import.
+_ALLOWED_IMPORT_ROOTS = {
+    "build123d",
+    "ocp",
+    "math",
+    "random",
+    "statistics",
+    "numpy",
+    "json",
+    "collections",
+    "itertools",
+    "functools",
+    "decimal",
+    "fractions",
+    "typing",
+    "enum",
+    "dataclasses",
+    "abc",
+    "sys",  # safe read-only introspection (e.g. verifying isolated execution)
+}
+
+# Built-ins that must never be reachable from untrusted generated code.
+_DISALLOWED_BUILTINS = {
+    "eval",
+    "exec",
+    "compile",
+    "__import__",
+    "open",
+    "input",
+    "breakpoint",
+    "exit",
+    "quit",
+    "help",
+}
+
+
+def validate_generated_code(code: str) -> None:
+    """Reject generated code that imports or calls unsafe constructs.
+
+    This is a first line of defense; the subprocess still runs with a scrubbed
+    environment and no network access. Defense in depth means we fail closed here
+    before writing the script to disk.
+    """
+    try:
+        tree = ast.parse(code)
+    except SyntaxError as exc:
+        raise GeneratedCodeSecurityError(f"Generated code is not valid Python: {exc}") from exc
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                root = alias.name.split(".")[0]
+                if root not in _ALLOWED_IMPORT_ROOTS:
+                    raise GeneratedCodeSecurityError(f"Disallowed import: {alias.name}")
+        elif isinstance(node, ast.ImportFrom):
+            module = node.module or ""
+            root = module.split(".")[0]
+            if root not in _ALLOWED_IMPORT_ROOTS:
+                raise GeneratedCodeSecurityError(f"Disallowed import from: {module}")
+        elif isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Name) and node.func.id in _DISALLOWED_BUILTINS:
+                raise GeneratedCodeSecurityError(f"Disallowed builtin call: {node.func.id}")
+        elif isinstance(node, ast.Name) and node.id in _DISALLOWED_BUILTINS:
+            # Catches rebinding dangerous builtins, e.g., evil = eval.
+            raise GeneratedCodeSecurityError(f"Disallowed builtin reference: {node.id}")
 
 
 def _cleanup_stale_artifacts(output_dir: Path, max_age_seconds: float = 86400.0) -> None:
@@ -28,17 +100,22 @@ def _cleanup_stale_artifacts(output_dir: Path, max_age_seconds: float = 86400.0)
 def _scrubbed_env() -> dict[str, str]:
     """Return an environment dict safe for running untrusted generated code.
 
-    Keeps only harmless system paths and removes secrets/API keys.
+    Keeps only harmless system paths and removes secrets/API keys. Python-specific
+    environment variables are dropped so the subprocess cannot inherit a custom
+    ``PYTHONPATH`` or site configuration that could bypass the import whitelist.
     """
     keep_prefixes = (
-        "PATH", "PATHEXT", "PYTHONPATH", "SYSTEMROOT", "TEMP", "TMP", "HOME",
-        "USERPROFILE", "USERNAME", "LANG", "LC_", "PYTHONNOUSERSITE",
-        "PYTHONDONTWRITEBYTECODE", "ROBOCAD_EXECUTION_MODE",
+        "PATH", "PATHEXT", "SYSTEMROOT", "TEMP", "TMP", "HOME",
+        "USERPROFILE", "USERNAME", "LANG", "LC_", "ROBOCAD_EXECUTION_MODE",
     )
     keep_exact = {"COMPUTERNAME", "HOSTNAME", "OS"}
     scrubbed: dict[str, str] = {}
     for key, value in os.environ.items():
         upper = key.upper()
+        # Drop all Python-specific environment variables; isolated mode handles
+        # the settings we care about (no user site, no bytecode, safe path).
+        if upper.startswith("PYTHON"):
+            continue
         if upper in keep_exact or any(upper.startswith(p) for p in keep_prefixes):
             scrubbed[key] = value
             continue
@@ -88,6 +165,18 @@ def execute_code(
     metadata_path = output_dir / f"metadata_{run_id}.json"
     error_path = output_dir / f"error_{run_id}.txt"
 
+    # First line of defense: reject unsafe imports/calls before writing the script.
+    try:
+        validate_generated_code(code)
+    except GeneratedCodeSecurityError as exc:
+        detail = f"Generated code failed security validation: {exc}"
+        error_path.write_text(detail, encoding="utf-8")
+        return _failure(
+            detail,
+            traceback=detail,
+            script_path=None,
+        )
+
     # Wrap user code so we can export and inspect the result.
     # We use JSON for metadata to avoid stdout parsing pitfalls.
     wrapper = f"""
@@ -133,7 +222,12 @@ except Exception as _exc:
 
     try:
         proc = subprocess.run(
-            [sys.executable, str(script_path)],
+            [
+                sys.executable,
+                "-P",  # safe path: do not prepend script directory to sys.path
+                "-B",  # do not write .pyc files
+                str(script_path),
+            ],
             capture_output=True,
             text=True,
             timeout=timeout,

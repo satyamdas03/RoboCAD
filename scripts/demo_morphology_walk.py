@@ -63,7 +63,14 @@ def _test_walk(tree, label: str, n_steps: int = N_STEPS) -> dict[str, Any]:
         # Do NOT call mj_forward here: mj_step has already left `data` in a
         # consistent state, and calling mj_forward would overwrite the solver
         # warm-start (qacc_warmstart) and destabilize the walking rollout.
-        renderer.update_scene(data)
+        # Frame the robot: the default free camera sits too far away to show it.
+        camera = mujoco.MjvCamera()
+        root_pos = data.xpos[1] if model.nbody > 1 else np.zeros(3)
+        camera.lookat[:] = (root_pos[0], root_pos[1], root_pos[2] * 0.55)
+        camera.distance = 1.4
+        camera.azimuth = 128
+        camera.elevation = -14
+        renderer.update_scene(data, camera)
         frames.append(renderer.render().copy())
         frame_times.append(float(data.time))
 

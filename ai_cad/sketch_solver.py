@@ -62,10 +62,11 @@ def _resolve_value(value: NumericOrString, parameters: dict[str, float]) -> floa
         if value in parameters:
             return float(parameters[value])
         # Try simple arithmetic literals like "hole_diameter / 2".
+        from ai_cad.safe_eval import safe_eval_float
         try:
-            return float(eval(value, {"__builtins__": {}}, parameters))  # noqa: S307
-        except Exception:
-            raise ValueError(f"Could not resolve value: {value!r}")
+            return safe_eval_float(value, parameters)
+        except ValueError as exc:
+            raise ValueError(f"Could not resolve value: {value!r}: {exc}") from exc
     raise TypeError(f"Unsupported value type: {type(value)}")
 
 

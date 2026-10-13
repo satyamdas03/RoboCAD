@@ -353,6 +353,35 @@ def exec_train_robot_brain_on_candidate(
     )
 
 
+def exec_run_auto_orchestration(
+    prompt: str,
+    max_retries: int = 3,
+    cert_threshold: float = 0.7,
+    timeout_seconds: float = 1800.0,
+    _context: dict[str, Any] | None = None,
+    **kwargs: Any,
+) -> Any:
+    """Execute the full prompt-to-certified-design pipeline after user approval."""
+    ctx = _get_context(_context)
+    session = ctx.get("auto_orchestration_session")
+    if session is None:
+        return {"status": "error", "message": "Missing auto-orchestration session in context"}
+    registry = ctx.get("auto_orchestration_registry")
+    if registry is None:
+        return {"status": "error", "message": "Missing auto-orchestration registry in context"}
+    from ai_cad.hermes.orchestrator import run_auto_orchestration
+
+    return run_auto_orchestration(
+        session=session,
+        prompt=prompt,
+        registry=registry,
+        context=ctx,
+        max_retries=max_retries,
+        cert_threshold=cert_threshold,
+        timeout_seconds=timeout_seconds,
+    )
+
+
 TOOL_EXECUTORS: dict[str, Any] = {
     "classify_domain": exec_classify_domain,
     "decompose_prompt": exec_decompose_prompt,
@@ -372,6 +401,7 @@ TOOL_EXECUTORS: dict[str, Any] = {
     "run_morphology_search": exec_run_morphology_search,
     "run_simulation_certification": exec_run_simulation_certification,
     "train_robot_brain_on_candidate": exec_train_robot_brain_on_candidate,
+    "run_auto_orchestration": exec_run_auto_orchestration,
 }
 
 

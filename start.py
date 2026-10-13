@@ -16,6 +16,14 @@ REPO_ROOT = Path(__file__).resolve().parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+# Load the repo-root .env before any imports that check environment variables.
+# ``robocad.launcher`` also loads it, but loading here guarantees the key is
+# available regardless of import order or entry point.
+# encoding="utf-8-sig" handles UTF-8 BOM that some Windows editors add to .env.
+from dotenv import load_dotenv
+
+load_dotenv(REPO_ROOT / ".env", override=True, encoding="utf-8-sig")
+
 from robocad.launcher import main
 
 if __name__ == "__main__":

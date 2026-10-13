@@ -1,7 +1,9 @@
 """Tests for the RoboCAD Phase 2 FastAPI backend."""
 from __future__ import annotations
 
+import asyncio
 import json
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -33,7 +35,20 @@ if str(REPO_ROOT) not in sys.path:
 from web.backend import main as main_module
 from web.backend.main import app
 
-client = TestClient(app)
+# Auth middleware requires a bearer token when the client is not on a loopback
+# address. TestClient presents itself as "testclient", so every test must both
+# configure the key in the environment and send it as a header.
+TEST_API_KEY = "test-api-key"
+os.environ["ROBOCAD_API_KEY"] = TEST_API_KEY
+client = TestClient(app, headers={"Authorization": f"Bearer {TEST_API_KEY}"})
+
+
+def _hex_id(label: str = "a") -> str:
+    """Return a valid 32-character hex design_id derived from *label*."""
+    h = "".join(f"{ord(c):02x}" for c in label)
+    if len(h) < 32:
+        h = (h * ((32 // len(h)) + 1))[:32]
+    return h[:32]
 
 
 @pytest.fixture(autouse=True)
@@ -49,16 +64,79 @@ def clean_designs(tmp_path: Path):
 
 
 def test_health():
-    response = client.get("/health")
+    response = client.get("/health?verbose=1")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    data = response.json()
+    assert data["status"] == "ok"
+    assert "checks" in data
 
 
-def test_generate_missing_api_key():
+def test_generate_missing_anthropic_key():
+    """Authenticated requests still fail with 503 if the backend has no ANTHROPIC_API_KEY."""
     with mock.patch("web.backend.main.backend", RoboCADBackendStub(api_key=None)):
         response = client.post("/generate", json={"prompt": "a cube"})
     assert response.status_code == 503
     assert "ANTHROPIC_API_KEY" in response.text
+
+
+def test_public_auth_enforcement():
+    """Public auth is on by default; non-loopback requests without a valid token are rejected."""
+    async def call_generate_as_public(host: str, headers: list[list[bytes]] | None = None) -> tuple[int, bytes]:
+        status: int | None = None
+        body = b""
+
+        async def receive():
+            return {"type": "http.request", "body": b'{"prompt":"a cube"}'}
+
+        async def send(message):
+            nonlocal status, body
+            if message["type"] == "http.response.start":
+                status = message["status"]
+            elif message["type"] == "http.response.body":
+                body += message.get("body", b"")
+
+        request_headers: list[list[bytes]] = [
+            [b"host", b"example.com"],
+            [b"content-type", b"application/json"],
+        ]
+        if headers:
+            request_headers.extend(headers)
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/generate",
+            "raw_path": b"/generate",
+            "query_string": b"",
+            "headers": request_headers,
+            "scheme": "http",
+            "server": ("example.com", 8000),
+            "client": (host, 12345),
+            "root_path": "",
+        }
+        await app(scope, receive, send)
+        return status, body
+
+    # By default, non-loopback requests without a bearer token are rejected.
+    status, body = asyncio.run(call_generate_as_public("192.168.1.100"))
+    assert status == 401
+    assert b"API key" in body or b"Public access" in body or b"Invalid or missing API key" in body
+
+    # A valid bearer token allows the request through (it may still fail on missing API key).
+    status, _ = asyncio.run(
+        call_generate_as_public("192.168.1.100", headers=[[b"authorization", f"Bearer {TEST_API_KEY}".encode()]])
+    )
+    assert status in (200, 503)
+
+    # Loopback/TestClient requests remain exempt.
+    response = client.post("/generate", json={"prompt": "a cube"})
+    assert response.status_code in (200, 503)
+
+    # Public auth can be explicitly disabled.
+    with mock.patch.dict(os.environ, {"ROBOCAD_ENABLE_PUBLIC_AUTH": "0"}):
+        status, _ = asyncio.run(call_generate_as_public("192.168.1.100"))
+        assert status in (200, 503)
+
+
 
 
 def test_generate_success_persists_design(tmp_path: Path):
@@ -101,12 +179,13 @@ def test_generate_success_persists_design(tmp_path: Path):
 
 def test_list_designs(tmp_path: Path):
     # Seed one design directory manually.
-    design_dir = tmp_path / "designs" / "abc123"
+    design_id = _hex_id("1")
+    design_dir = tmp_path / "designs" / design_id
     design_dir.mkdir(parents=True)
     (design_dir / "metadata.json").write_text(
         json.dumps(
             {
-                "id": "abc123",
+                "id": design_id,
                 "prompt": "a bracket",
                 "success": True,
                 "model": "fake",
@@ -123,63 +202,130 @@ def test_list_designs(tmp_path: Path):
     assert response.status_code == 200
     designs = response.json()
     assert len(designs) == 1
-    assert designs[0]["id"] == "abc123"
+    assert designs[0]["id"] == design_id
 
 
 def test_get_design_not_found():
-    response = client.get("/designs/does-not-exist")
+    design_id = _hex_id("f")
+    response = client.get(f"/designs/{design_id}")
     assert response.status_code == 404
 
 
 def test_get_export_file(tmp_path: Path):
-    design_dir = tmp_path / "designs" / "exp456"
+    design_id = _hex_id("e")
+    design_dir = tmp_path / "designs" / design_id
     exports_dir = design_dir / "exports"
     exports_dir.mkdir(parents=True)
     (exports_dir / "model.stl").write_text("fake binary stl")
 
-    response = client.get("/exports/exp456/model.stl")
+    response = client.get(f"/exports/{design_id}/model.stl")
     assert response.status_code == 200
     assert response.content == b"fake binary stl"
 
 
 def test_get_export_file_not_found():
-    response = client.get("/exports/no-such/file.stl")
+    design_id = _hex_id("f")
+    response = client.get(f"/exports/{design_id}/file.stl")
     assert response.status_code == 404
 
 
+def test_get_export_file_rejects_traversal(tmp_path: Path):
+    """Raw dot-segment paths must be rejected before leaving the design directory."""
+    design_id = _hex_id("d")
+    design_dir = tmp_path / "designs" / design_id
+    exports_dir = design_dir / "exports"
+    exports_dir.mkdir(parents=True)
+    (exports_dir / "model.stl").write_text("ok", encoding="utf-8")
+    probe = tmp_path / "outside.txt"
+    probe.write_text("exploit-ok", encoding="utf-8")
+    main_module.DESIGNS_DIR = tmp_path / "designs"
+
+    async def call_raw(path: str) -> tuple[int, bytes]:
+        status: int | None = None
+        body = b""
+
+        async def receive():
+            return {"type": "http.request", "body": b""}
+
+        async def send(message):
+            nonlocal status, body
+            if message["type"] == "http.response.start":
+                status = message["status"]
+            elif message["type"] == "http.response.body":
+                body += message.get("body", b"")
+
+        scope = {
+            "type": "http",
+            "method": "GET",
+            "path": path,
+            "raw_path": path.encode(),
+            "query_string": b"",
+            "headers": [[b"host", b"localhost"]],
+            "scheme": "http",
+            "server": ("localhost", 8000),
+            "client": ("127.0.0.1", 0),
+            "root_path": "",
+        }
+        await app(scope, receive, send)
+        return status, body
+
+    status, body = asyncio.run(call_raw(f"/exports/{design_id}/../../outside.txt"))
+    assert status == 400
+    assert b"exploit-ok" not in body
+
+
+def test_resolve_export_path_rejects_traversal_in_metadata(tmp_path: Path):
+    """Filenames read from persisted metadata must also stay inside the design dir."""
+    design_id = _hex_id("g")
+    main_module.DESIGNS_DIR = tmp_path / "designs"
+    design_dir = tmp_path / "designs" / design_id
+    design_dir.mkdir(parents=True)
+    (tmp_path / "outside.txt").write_text("exploit", encoding="utf-8")
+
+    with pytest.raises(Exception):
+        main_module._resolve_export_path(design_id, "../../outside.txt")
+
+
 def test_dfm_report_endpoint(tmp_path: Path):
-    design_dir, stl_path = _seed_cube_design(tmp_path, "cube1", size=10.0)
-    response = client.get("/designs/cube1/dfm-report")
+    design_id = _hex_id("c")
+    design_dir, stl_path = _seed_cube_design(tmp_path, design_id, size=10.0)
+    response = client.get(f"/designs/{design_id}/dfm-report")
     assert response.status_code == 200
     data = response.json()
-    assert data["design_id"] == "cube1"
+    assert data["design_id"] == design_id
     report = data["report"]
     assert isinstance(report["valid"], bool)
     assert report["min_wall_thickness_mm"] is not None
 
 
 def test_fea_report_endpoint(tmp_path: Path):
-    design_dir, stl_path = _seed_cube_design(tmp_path, "cube2", size=10.0)
-    response = client.post("/designs/cube2/fea-report", json={"fixed_face": "-x", "load_magnitude_n": 50, "material": "PLA"})
+    design_id = _hex_id("b")
+    design_dir, stl_path = _seed_cube_design(tmp_path, design_id, size=10.0)
+    response = client.post(
+        f"/designs/{design_id}/fea-report",
+        json={"fixed_face": "-x", "load_magnitude_n": 50, "material": "PLA"},
+    )
     assert response.status_code == 200
     data = response.json()
-    assert data["design_id"] == "cube2"
+    assert data["design_id"] == design_id
     report = data["report"]
     assert report["success"] is True
     assert report["max_stress_mpa"] is not None
 
 
 def test_fit_check_endpoint(tmp_path: Path):
-    _seed_cube_design(tmp_path, "shaft", size=6.0)
-    _seed_cube_design(tmp_path, "hole", size=8.0)
+    shaft_id = _hex_id("s")
+    hole_id = _hex_id("h")
+    _seed_cube_design(tmp_path, shaft_id, size=6.0)
+    _seed_cube_design(tmp_path, hole_id, size=8.0)
     response = client.post(
-        "/designs/shaft/fit-check",
-        json={"other_design_id": "hole", "name": "shaft_hole", "samples": 500},
+        f"/designs/{shaft_id}/fit-check",
+        json={"other_design_id": hole_id, "name": "shaft_hole", "samples": 500},
     )
     assert response.status_code == 200
     data = response.json()
-    assert data["design_id"] == "shaft"
-    assert data["other_design_id"] == "hole"
+    assert data["design_id"] == shaft_id
+    assert data["other_design_id"] == hole_id
     report = data["report"]
     assert report["classification"] in ("clearance", "transition", "interference")
 
@@ -309,7 +455,7 @@ def test_generate_with_decompose_false_uses_backend(tmp_path: Path, monkeypatch)
 
 def test_assembly_poses_endpoint(tmp_path: Path):
     """GET /designs/{id}/assembly-poses returns sampled poses."""
-    design_id = "pose_test"
+    design_id = _hex_id("p")
     design_dir = tmp_path / "designs" / design_id
     design_dir.mkdir(parents=True)
     tree = {
@@ -348,13 +494,279 @@ def test_assembly_poses_endpoint(tmp_path: Path):
 
 def test_assembly_collision_endpoint(tmp_path: Path):
     """POST /designs/{id}/assembly-collision returns pairwise clearance report."""
-    design_id = "collision_test"
+    design_id = _hex_id("x")
     design_dir, _ = _seed_feature_tree_design(tmp_path, design_id)
     response = client.post(f"/designs/{design_id}/assembly-collision")
     assert response.status_code == 200
     data = response.json()
     assert data["pair_count"] == 1
     assert data["worst"]["classification"] == "clearance"
+
+
+def test_simulate_endpoint_stl_fallback(tmp_path: Path):
+    design_id = _hex_id("m")
+    design_dir, stl_path = _seed_cube_design(tmp_path, design_id, size=10.0)
+    response = client.post(f"/designs/{design_id}/simulate", json={"material": "PLA", "tolerance": 0.1})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["design_id"] == design_id
+    assert data["valid"] is True
+    assert data["bundle_url"].startswith(f"/exports/{design_id}/simulation/bundle.zip")
+
+
+def test_get_simulation_report_endpoint(tmp_path: Path):
+    design_id = _hex_id("n")
+    _seed_cube_design(tmp_path, design_id, size=10.0)
+    response = client.post(f"/designs/{design_id}/simulate", json={"material": "PLA"})
+    assert response.status_code == 200
+
+    response = client.get(f"/designs/{design_id}/simulation")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["design_id"] == design_id
+    assert "manifest" in data
+    assert "verification" in data
+
+
+def test_download_bundle_endpoint(tmp_path: Path):
+    design_id = _hex_id("o")
+    _seed_cube_design(tmp_path, design_id, size=10.0)
+    response = client.post(f"/designs/{design_id}/simulate", json={"material": "PLA"})
+    assert response.status_code == 200
+
+    response = client.get(f"/designs/{design_id}/bundle")
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/zip"
+    assert len(response.content) > 0
+
+
+def test_compose_scene_endpoint(tmp_path: Path):
+    pytest.importorskip("mujoco")
+    design_id = _hex_id("q")
+    _seed_cube_design(tmp_path, design_id, size=10.0)
+    response = client.post(
+        f"/designs/{design_id}/scene",
+        json={"template": "gripper_cube_grasp", "material": "PLA", "tolerance": 0.1},
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["design_id"] == design_id
+    assert data["template"] == "gripper_cube_grasp"
+    assert data["runtime_ok"] is True
+    assert data["scene_url"].startswith(f"/exports/{design_id}/simulation/scene_gripper_cube_grasp.mjcf")
+
+
+def test_get_scene_report_endpoint(tmp_path: Path):
+    pytest.importorskip("mujoco")
+    design_id = _hex_id("r")
+    _seed_cube_design(tmp_path, design_id, size=10.0)
+    response = client.post(f"/designs/{design_id}/scene", json={"template": "wedge_push_block"})
+    assert response.status_code == 200
+
+    response = client.get(f"/designs/{design_id}/scene?template=wedge_push_block")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["design_id"] == design_id
+    assert data["template"] == "wedge_push_block"
+    assert "scene" in data
+
+
+def test_capabilities_endpoint():
+    response = client.get("/capabilities")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["bundle_schema_version"] == "2.0.0"
+    assert "wedge_push_block" in data["supported_scene_templates"]
+    assert "GET /capabilities" in data["endpoints"].values()
+
+
+def test_handshake_endpoint(tmp_path: Path):
+    pytest.importorskip("mujoco")
+    design_id = _hex_id("w")
+    _seed_wedge_design(tmp_path, design_id)
+    response = client.post(f"/designs/{design_id}/handshake", params={"template": "wedge_push_block"})
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["design_id"] == design_id
+    assert data["template"] == "wedge_push_block"
+    assert data["success"] is True, data
+    assert "rollout" in data
+    assert data["rollout"]["steps"] == 5000
+    assert data["nbody"] >= 3
+
+
+def test_get_handshake_report_endpoint(tmp_path: Path):
+    pytest.importorskip("mujoco")
+    design_id = _hex_id("v")
+    _seed_wedge_design(tmp_path, design_id)
+    response = client.post(f"/designs/{design_id}/handshake", params={"template": "wedge_push_block"})
+    assert response.status_code == 200
+
+    response = client.get(f"/designs/{design_id}/handshake?template=wedge_push_block")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["design_id"] == design_id
+    assert data["template"] == "wedge_push_block"
+    assert "handshake" in data
+    assert data["handshake"]["success"] is True, data["handshake"]
+    assert "rollout" in data["handshake"]
+
+
+def test_recommend_skill_endpoint(tmp_path: Path):
+    design_id = _hex_id("u")
+    _seed_wedge_design(tmp_path, design_id)
+    response = client.post(f"/designs/{design_id}/recommend-skill", json={"skill_description": "push the block to the goal"})
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["design_id"] == design_id
+    assert data["template"] == "wedge_push_block"
+    assert data["confidence"] > 0.0
+
+
+def test_train_skill_endpoint(tmp_path: Path):
+    pytest.importorskip("mujoco")
+    design_id = _hex_id("t")
+    _seed_wedge_design(tmp_path, design_id)
+    response = client.post(
+        f"/designs/{design_id}/train-skill",
+        json={"skill_description": "push the block", "n_iters": 5, "pop_size": 10, "eval_episodes": 3},
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["design_id"] == design_id
+    assert "success_rate" in data
+    assert "weights" in data
+    assert "policy_file" in data
+
+
+def test_list_skills_endpoint(tmp_path: Path):
+    design_id = _hex_id("l")
+    _seed_wedge_design(tmp_path, design_id)
+    client.post(f"/designs/{design_id}/recommend-skill", json={"skill_description": "push the block"})
+    response = client.get(f"/designs/{design_id}/skills")
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["design_id"] == design_id
+    assert "recommended_skills" in data
+
+
+def test_variant_sweep_endpoint(tmp_path: Path):
+    design_id = _hex_id("g")
+    design_dir = tmp_path / "designs" / design_id
+    exports_dir = design_dir / "exports"
+    exports_dir.mkdir(parents=True)
+    stl_path = exports_dir / "model.stl"
+    stl_path.write_text(_ascii_cube_stl(10.0))
+
+    feature_tree = {
+        "schema_version": "1.0.0",
+        "design_id": design_id,
+        "prompt": "a cube",
+        "created_at": "2026-08-25T00:00:00Z",
+        "units": "mm",
+        "parameters": [
+            {"name": "size", "value": 10.0, "default_value": 10.0, "unit": "mm", "description": "side length"}
+        ],
+        "parts": [
+            {
+                "id": "cube",
+                "material": "PLA",
+                "sketches": [
+                    {
+                        "id": "profile",
+                        "plane": {"type": "base", "name": "XY"},
+                        "entities": [
+                            {"type": "rectangle", "id": "base", "center": [0, 0], "width": 10, "height": 10}
+                        ],
+                    }
+                ],
+                "features": [
+                    {"id": "extrude1", "type": "extrude", "sketch_id": "profile", "parameters": {"amount": 10, "mode": "add"}}
+                ],
+            }
+        ],
+    }
+    (design_dir / "feature_tree.json").write_text(json.dumps(feature_tree))
+    metadata = {
+        "id": design_id,
+        "prompt": "a cube",
+        "success": True,
+        "model": "fake",
+        "attempts_used": 1,
+        "max_retries": 0,
+        "latency_seconds": 0.0,
+        "created_at": "2026-08-25T00:00:00Z",
+        "exports": {"stl": "model.stl", "step": None, "script": None},
+    }
+    (design_dir / "metadata.json").write_text(json.dumps(metadata))
+
+    response = client.post(
+        f"/designs/{design_id}/variant-sweep",
+        json={"parameter_ranges": {"size": {"relative_min": -0.1, "relative_max": 0.1}}, "n_variants": 3, "run_stability": False},
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["success"] is True, data
+    assert len(data["variants"]) == 3
+    assert data["aggregate"]["n_variants"] == 3
+
+
+def test_simulate_endpoint_with_feature_tree(tmp_path: Path):
+    design_id = _hex_id("i")
+    design_dir = tmp_path / "designs" / design_id
+    exports_dir = design_dir / "exports"
+    exports_dir.mkdir(parents=True)
+    stl_path = exports_dir / "model.stl"
+    stl_path.write_text(_ascii_cube_stl(10.0))
+
+    feature_tree = {
+        "schema_version": "1.0.0",
+        "design_id": design_id,
+        "prompt": "a 10 mm cube",
+        "created_at": "2026-08-25T00:00:00Z",
+        "units": "mm",
+        "parameters": [],
+        "parts": [
+            {
+                "id": "cube",
+                "material": "PLA",
+                "sketches": [
+                    {
+                        "id": "profile",
+                        "plane": {"type": "base", "name": "XY"},
+                        "entities": [
+                            {"type": "rectangle", "id": "base", "center": [0, 0], "width": 10, "height": 10}
+                        ],
+                    }
+                ],
+                "features": [
+                    {"id": "extrude1", "type": "extrude", "sketch_id": "profile", "parameters": {"amount": 10, "mode": "add"}}
+                ],
+            }
+        ],
+    }
+    (design_dir / "feature_tree.json").write_text(json.dumps(feature_tree))
+    metadata = {
+        "id": design_id,
+        "prompt": "a 10 mm cube",
+        "success": True,
+        "model": "fake",
+        "attempts_used": 1,
+        "max_retries": 0,
+        "latency_seconds": 0.0,
+        "created_at": "2026-08-25T00:00:00Z",
+        "exports": {"stl": "model.stl", "step": None, "script": None},
+    }
+    (design_dir / "metadata.json").write_text(json.dumps(metadata))
+
+    response = client.post(f"/designs/{design_id}/simulate", json={"material": "PLA", "tolerance": 0.1})
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["design_id"] == design_id
+    assert data["valid"] is True
+    manifest = data["manifest"]
+    assert len(manifest["parts"]) == 1
+    assert manifest["parts"][0]["material"] == "PLA"
 
 
 # Helpers
@@ -519,294 +931,105 @@ def _seed_feature_tree_design(tmp_path: Path, design_id: str):
     return design_dir, None
 
 
-def test_simulate_endpoint_stl_fallback(tmp_path: Path):
-    design_dir, stl_path = _seed_cube_design(tmp_path, "simcube", size=10.0)
-    response = client.post("/designs/simcube/simulate", json={"material": "PLA", "tolerance": 0.1})
-    assert response.status_code == 200
-    data = response.json()
-    assert data["design_id"] == "simcube"
-    assert data["valid"] is True
-    assert data["bundle_url"].startswith("/exports/simcube/simulation/bundle.zip")
-
-
-def test_get_simulation_report_endpoint(tmp_path: Path):
-    _seed_cube_design(tmp_path, "simcube2", size=10.0)
-    response = client.post("/designs/simcube2/simulate", json={"material": "PLA"})
-    assert response.status_code == 200
-
-    response = client.get("/designs/simcube2/simulation")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["design_id"] == "simcube2"
-    assert "manifest" in data
-    assert "verification" in data
-
-
-def test_download_bundle_endpoint(tmp_path: Path):
-    _seed_cube_design(tmp_path, "simcube3", size=10.0)
-    response = client.post("/designs/simcube3/simulate", json={"material": "PLA"})
-    assert response.status_code == 200
-
-    response = client.get("/designs/simcube3/bundle")
-    assert response.status_code == 200
-    assert response.headers["content-type"] == "application/zip"
-    assert len(response.content) > 0
-
-
-def test_compose_scene_endpoint(tmp_path: Path):
-    pytest.importorskip("mujoco")
-    _seed_cube_design(tmp_path, "scenecube", size=10.0)
-    response = client.post("/designs/scenecube/scene", json={"template": "gripper_cube_grasp", "material": "PLA", "tolerance": 0.1})
-    assert response.status_code == 200, response.text
-    data = response.json()
-    assert data["design_id"] == "scenecube"
-    assert data["template"] == "gripper_cube_grasp"
-    assert data["runtime_ok"] is True
-    assert data["scene_url"].startswith("/exports/scenecube/simulation/scene_gripper_cube_grasp.mjcf")
-
-
-def test_get_scene_report_endpoint(tmp_path: Path):
-    pytest.importorskip("mujoco")
-    _seed_cube_design(tmp_path, "scenecube2", size=10.0)
-    response = client.post("/designs/scenecube2/scene", json={"template": "wedge_push_block"})
-    assert response.status_code == 200
-
-    response = client.get("/designs/scenecube2/scene?template=wedge_push_block")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["design_id"] == "scenecube2"
-    assert data["template"] == "wedge_push_block"
-    assert "scene" in data
-
-
-def test_capabilities_endpoint():
-    response = client.get("/capabilities")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["bundle_schema_version"] == "2.0.0"
-    assert "wedge_push_block" in data["supported_scene_templates"]
-    assert "GET /capabilities" in data["endpoints"].values()
-
-
-def test_handshake_endpoint(tmp_path: Path):
-    pytest.importorskip("mujoco")
-    _seed_wedge_design(tmp_path, "handshake_wedge")
-    response = client.post("/designs/handshake_wedge/handshake", params={"template": "wedge_push_block"})
-    assert response.status_code == 200, response.text
-    data = response.json()
-    assert data["design_id"] == "handshake_wedge"
-    assert data["template"] == "wedge_push_block"
-    assert data["success"] is True, data
-    assert "rollout" in data
-    assert data["rollout"]["steps"] == 5000
-    assert data["nbody"] >= 3
-
-
-def test_get_handshake_report_endpoint(tmp_path: Path):
-    pytest.importorskip("mujoco")
-    _seed_wedge_design(tmp_path, "handshake_wedge2")
-    response = client.post("/designs/handshake_wedge2/handshake", params={"template": "wedge_push_block"})
-    assert response.status_code == 200
-
-    response = client.get("/designs/handshake_wedge2/handshake?template=wedge_push_block")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["design_id"] == "handshake_wedge2"
-    assert data["template"] == "wedge_push_block"
-    assert "handshake" in data
-    assert data["handshake"]["success"] is True, data["handshake"]
-    assert "rollout" in data["handshake"]
-
-
-def test_recommend_skill_endpoint(tmp_path: Path):
-    _seed_wedge_design(tmp_path, "rec_wedge")
-    response = client.post("/designs/rec_wedge/recommend-skill", json={"skill_description": "push the block to the goal"})
-    assert response.status_code == 200, response.text
-    data = response.json()
-    assert data["design_id"] == "rec_wedge"
-    assert data["template"] == "wedge_push_block"
-    assert data["confidence"] > 0.0
-
-
-def test_train_skill_endpoint(tmp_path: Path):
-    pytest.importorskip("mujoco")
-    _seed_wedge_design(tmp_path, "skill_wedge")
-    response = client.post(
-        "/designs/skill_wedge/train-skill",
-        json={"skill_description": "push the block", "n_iters": 5, "pop_size": 10, "eval_episodes": 3},
-    )
-    assert response.status_code == 200, response.text
-    data = response.json()
-    assert data["design_id"] == "skill_wedge"
-    assert "success_rate" in data
-    assert "weights" in data
-    assert "policy_file" in data
-
-
-def test_list_skills_endpoint(tmp_path: Path):
-    _seed_wedge_design(tmp_path, "skills_wedge")
-    client.post("/designs/skills_wedge/recommend-skill", json={"skill_description": "push the block"})
-    response = client.get("/designs/skills_wedge/skills")
-    assert response.status_code == 200, response.text
-    data = response.json()
-    assert data["design_id"] == "skills_wedge"
-    assert "recommended_skills" in data
-
-
-def test_variant_sweep_endpoint(tmp_path: Path):
-    design_dir = tmp_path / "designs" / "sweepcube"
-    exports_dir = design_dir / "exports"
-    exports_dir.mkdir(parents=True)
-    stl_path = exports_dir / "model.stl"
-    stl_path.write_text(_ascii_cube_stl(10.0))
-
-    feature_tree = {
-        "schema_version": "1.0.0",
-        "design_id": "sweepcube",
-        "prompt": "a cube",
-        "created_at": "2026-08-25T00:00:00Z",
-        "units": "mm",
-        "parameters": [
-            {"name": "size", "value": 10.0, "default_value": 10.0, "unit": "mm", "description": "side length"}
-        ],
-        "parts": [
-            {
-                "id": "cube",
-                "material": "PLA",
-                "sketches": [
-                    {
-                        "id": "profile",
-                        "plane": {"type": "base", "name": "XY"},
-                        "entities": [
-                            {"type": "rectangle", "id": "base", "center": [0, 0], "width": 10, "height": 10}
-                        ],
-                    }
-                ],
-                "features": [
-                    {"id": "extrude1", "type": "extrude", "sketch_id": "profile", "parameters": {"amount": 10, "mode": "add"}}
-                ],
-            }
-        ],
-    }
-    (design_dir / "feature_tree.json").write_text(json.dumps(feature_tree))
-    metadata = {
-        "id": "sweepcube",
-        "prompt": "a cube",
-        "success": True,
-        "model": "fake",
-        "attempts_used": 1,
-        "max_retries": 0,
-        "latency_seconds": 0.0,
-        "created_at": "2026-08-25T00:00:00Z",
-        "exports": {"stl": "model.stl", "step": None, "script": None},
-    }
-    (design_dir / "metadata.json").write_text(json.dumps(metadata))
-
-    response = client.post(
-        "/designs/sweepcube/variant-sweep",
-        json={"parameter_ranges": {"size": {"relative_min": -0.1, "relative_max": 0.1}}, "n_variants": 3, "run_stability": False},
-    )
-    assert response.status_code == 200, response.text
-    data = response.json()
-    assert data["success"] is True, data
-    assert len(data["variants"]) == 3
-    assert data["aggregate"]["n_variants"] == 3
-
-
-def test_simulate_endpoint_with_feature_tree(tmp_path: Path):
-    design_dir = tmp_path / "designs" / "ftcube"
-    exports_dir = design_dir / "exports"
-    exports_dir.mkdir(parents=True)
-    stl_path = exports_dir / "model.stl"
-    stl_path.write_text(_ascii_cube_stl(10.0))
-
-    feature_tree = {
-        "schema_version": "1.0.0",
-        "design_id": "ftcube",
-        "prompt": "a 10 mm cube",
-        "created_at": "2026-08-25T00:00:00Z",
-        "units": "mm",
-        "parameters": [],
-        "parts": [
-            {
-                "id": "cube",
-                "material": "PLA",
-                "sketches": [
-                    {
-                        "id": "profile",
-                        "plane": {"type": "base", "name": "XY"},
-                        "entities": [
-                            {"type": "rectangle", "id": "base", "center": [0, 0], "width": 10, "height": 10}
-                        ],
-                    }
-                ],
-                "features": [
-                    {"id": "extrude1", "type": "extrude", "sketch_id": "profile", "parameters": {"amount": 10, "mode": "add"}}
-                ],
-            }
-        ],
-    }
-    (design_dir / "feature_tree.json").write_text(json.dumps(feature_tree))
-    metadata = {
-        "id": "ftcube",
-        "prompt": "a 10 mm cube",
-        "success": True,
-        "model": "fake",
-        "attempts_used": 1,
-        "max_retries": 0,
-        "latency_seconds": 0.0,
-        "created_at": "2026-08-25T00:00:00Z",
-        "exports": {"stl": "model.stl", "step": None, "script": None},
-    }
-    (design_dir / "metadata.json").write_text(json.dumps(metadata))
-
-    response = client.post("/designs/ftcube/simulate", json={"material": "PLA", "tolerance": 0.1})
-    assert response.status_code == 200, response.text
-    data = response.json()
-    assert data["design_id"] == "ftcube"
-    assert data["valid"] is True
-    manifest = data["manifest"]
-    assert len(manifest["parts"]) == 1
-    assert manifest["parts"][0]["material"] == "PLA"
-
-
-def _ascii_cube_stl(size: float = 10.0) -> str:
+def _ascii_cube_stl(size: float) -> str:
     """Return a minimal valid ASCII STL for a centered cube."""
-    h = size / 2.0
-    v = [
-        (-h, -h, -h),
-        (h, -h, -h),
-        (h, h, -h),
-        (-h, h, -h),
-        (-h, -h, h),
-        (h, -h, h),
-        (h, h, h),
-        (-h, h, h),
+    half = size / 2
+    vertices = [
+        (-half, -half, -half),
+        (half, -half, -half),
+        (half, half, -half),
+        (-half, half, -half),
+        (-half, -half, half),
+        (half, -half, half),
+        (half, half, half),
+        (-half, half, half),
     ]
-    # 12 triangles (two per face).
     faces = [
         (0, 2, 1),
-        (0, 3, 2),  # front/back
+        (0, 3, 2),
         (4, 5, 6),
         (4, 6, 7),
         (0, 1, 5),
-        (0, 5, 4),  # bottom
-        (3, 6, 2),
-        (3, 7, 6),  # top
-        (0, 4, 7),
-        (0, 7, 3),  # left
+        (0, 5, 4),
         (1, 2, 6),
-        (1, 6, 5),  # right
+        (1, 6, 5),
+        (2, 3, 7),
+        (2, 7, 6),
+        (3, 0, 4),
+        (3, 4, 7),
     ]
     lines = ["solid cube"]
-    for a, b, c in faces:
-        p1, p2, p3 = v[a], v[b], v[c]
+    for face in faces:
         lines.append("  facet normal 0 0 0")
         lines.append("    outer loop")
-        lines.append(f"      vertex {p1[0]} {p1[1]} {p1[2]}")
-        lines.append(f"      vertex {p2[0]} {p2[1]} {p2[2]}")
-        lines.append(f"      vertex {p3[0]} {p3[1]} {p3[2]}")
+        for vi in face:
+            v = vertices[vi]
+            lines.append(f"      vertex {v[0]} {v[1]} {v[2]}")
         lines.append("    endloop")
         lines.append("  endfacet")
     lines.append("endsolid cube")
-    return "\n".join(lines) + "\n"
+    return "\n".join(lines)
+
+
+def _seed_step_design(design_id: str) -> Path:
+    """Create a persisted design with a dummy STEP export file."""
+    design_dir = main_module.DESIGNS_DIR / design_id
+    exports_dir = design_dir / "exports"
+    exports_dir.mkdir(parents=True)
+    step_path = exports_dir / "model.step"
+    step_path.write_text("ISO-10303-21; dummy STEP content", encoding="utf-8")
+    metadata = {
+        "id": design_id,
+        "prompt": "a cube",
+        "success": True,
+        "model": "fake",
+        "attempts_used": 1,
+        "max_retries": 0,
+        "latency_seconds": 0.0,
+        "created_at": "2026-08-25T00:00:00Z",
+        "exports": {"step": "model.step", "stl": None, "script": None},
+    }
+    (design_dir / "metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
+    return step_path
+
+
+def test_onshape_upload_requires_existing_document(monkeypatch):
+    """RoboCAD refuses to auto-create Onshape documents; an existing doc/workspace is required."""
+    from ai_cad.onshape import OnshapeClient
+
+    design_id = _hex_id("on")
+    _seed_step_design(design_id)
+
+    uploaded: list[tuple[Path, str, str]] = []
+
+    class FakeClient:
+        def __init__(self, **kwargs: Any) -> None:
+            pass
+
+        def upload_step(self, step_path: Path, document_id: str, workspace_id: str) -> dict[str, Any]:
+            uploaded.append((step_path, document_id, workspace_id))
+            return {"document_id": document_id, "workspace_id": workspace_id}
+
+    monkeypatch.setattr(main_module, "OnshapeClient", FakeClient)
+
+    # Missing document_id/workspace_id should be rejected before any network call.
+    missing_resp = client.post(
+        f"/designs/{design_id}/onshape",
+        json={},
+    )
+    assert missing_resp.status_code == 422
+    detail = str(missing_resp.json())
+    assert "document_id" in detail.lower() and "workspace_id" in detail.lower()
+
+    # Supplying both ids succeeds.
+    success_resp = client.post(
+        f"/designs/{design_id}/onshape",
+        json={"document_id": "doc_123", "workspace_id": "ws_456"},
+    )
+    assert success_resp.status_code == 200
+    data = success_resp.json()
+    assert data["design_id"] == design_id
+    assert data["onshape"]["document_id"] == "doc_123"
+    assert len(uploaded) == 1
+    assert uploaded[0][1] == "doc_123"
+    assert uploaded[0][2] == "ws_456"

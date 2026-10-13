@@ -22,6 +22,14 @@ from web.backend.main import app
 client = TestClient(app)
 
 
+def _hex_id(label: str = "a") -> str:
+    """Return a valid 32-character hex id derived from *label*."""
+    h = "".join(f"{ord(c):02x}" for c in label)
+    if len(h) < 32:
+        h = (h * ((32 // len(h)) + 1))[:32]
+    return h[:32]
+
+
 @pytest.fixture(autouse=True)
 def clean_marketplace(tmp_path: Path):
     """Use a temporary marketplace index directory for every test."""
@@ -216,7 +224,7 @@ def test_marketplace_download(bracket_source: Path):
 
 def test_marketplace_import_into_design(bracket_source: Path):
     """Import a marketplace asset into an existing persisted design."""
-    design_id = "import_test_design"
+    design_id = _hex_id("i")
     design_dir = _seed_design(design_id)
 
     create_response = client.post(
@@ -245,3 +253,49 @@ def test_marketplace_import_into_design(bracket_source: Path):
     assert meta["imports"][0]["item_id"] == item_id
 
 
+def test_marketplace_rejects_unsafe_source_path():
+    """Manual catalog entries must not reference files outside allowed roots."""
+    response = client.post(
+        "/marketplace/items",
+        json={
+            "name": "Evil",
+            "asset_type": "part",
+            "source_path": "../../outside.txt",
+        },
+    )
+    assert response.status_code == 422
+    detail = str(response.json())
+    assert "source_path" in detail.lower() or "escapes" in detail.lower()
+
+
+def test_marketplace_update_rejects_unsafe_source_path(bracket_source: Path):
+    """Updating an item's source_path must also pass containment checks."""
+    create_response = client.post(
+        "/marketplace/items",
+        json={
+            "name": "L-bracket",
+            "asset_type": "part",
+            "source_path": str(bracket_source),
+        },
+    )
+    item_id = create_response.json()["id"]
+    update_response = client.post(
+        f"/marketplace/items/{item_id}",
+        json={"source_path": "../../outside.txt"},
+    )
+    assert update_response.status_code == 422
+
+
+def test_marketplace_rejects_absolute_path_outside_allowed_roots():
+    """Absolute paths are accepted only when they lie within allowed marketplace roots."""
+    response = client.post(
+        "/marketplace/items",
+        json={
+            "name": "Evil absolute",
+            "asset_type": "part",
+            "source_path": "C:/Windows/System32/evil.dll",
+        },
+    )
+    assert response.status_code == 422
+    detail = str(response.json())
+    assert "source_path" in detail.lower() or "escapes" in detail.lower()

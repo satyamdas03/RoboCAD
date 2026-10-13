@@ -824,7 +824,7 @@ def run_step_test(
     mujoco.mj_resetData(model, data)
     mujoco.mj_forward(model, data)
 
-    torso_id = _body_id(model, "torso_torso_plate", "torso", "body_body", "body")
+    torso_id = _body_id(model, "torso_torso_plate", "torso", "body_body", "body", "i_torso_torso_plate")
     foot_ids = _foot_body_ids(model, template)
 
     # Phase 1: settle into a passive standing pose.

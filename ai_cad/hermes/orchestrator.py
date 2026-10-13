@@ -317,6 +317,7 @@ class AutoOrchestrator:
         success = passed if "passed" in vars() else False
         return {
             "success": success,
+            "status": "certified" if success else "failed",
             "design_id": design_id,
             "search_id": search_id,
             "candidate_id": candidate_id,

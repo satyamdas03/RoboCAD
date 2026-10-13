@@ -59,8 +59,15 @@ def test_get_hermes_session():
 
 
 def test_get_hermes_session_not_found():
-    response = client.get("/hermes/session/hermes_nonexistent")
+    """A well-formed but missing session id returns 404."""
+    response = client.get("/hermes/session/hermes_deadbeef")
     assert response.status_code == 404
+
+
+def test_get_hermes_session_rejects_invalid_id():
+    """Malformed session ids must be rejected before touching the filesystem."""
+    response = client.get("/hermes/session/hermes_nonexistent")
+    assert response.status_code == 400
 
 
 # -----------------------------------------------------------------------------

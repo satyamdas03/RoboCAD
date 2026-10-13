@@ -92,20 +92,38 @@ def test_hermes_auto_endpoint_happy_path(patch_auto_callables):
     )
     assert response.status_code == 200
     data = response.json()
-    assert data["success"] is True
-    assert data["status"] == "certified"
-    assert data["search_id"] == "search_auto_001"
-    assert data["candidate_id"] == "cand_auto_001"
-    assert data["certificate"]["passed"] is True
-    assert data["certificate"]["score"] >= 75.0
-    assert len(data["audit"]) == 1
-    assert data["audit"][0]["passed"] is True
+    assert data["message"].lower().startswith("auto-orchestration queued")
+    assert len(data["pending_approvals"]) == 1
+    assert data["pending_approvals"][0]["tool"] == "run_auto_orchestration"
+
+    step_id = data["pending_approvals"][0]["step_id"]
+    approve_resp = client.post(
+        f"/hermes/session/{session_id}/approve",
+        json={
+            "session_id": session_id,
+            "step_id": step_id,
+            "approved": True,
+        },
+    )
+    assert approve_resp.status_code == 200
+    result = approve_resp.json()
+    assert result["status"] == "done"
+    assert len(result["results"]) == 1
+    auto_result = result["results"][0]["result"]
+    assert auto_result["success"] is True
+    assert auto_result["status"] == "certified"
+    assert auto_result["search_id"] == "search_auto_001"
+    assert auto_result["candidate_id"] == "cand_auto_001"
+    assert auto_result["certificate"]["passed"] is True
+    assert auto_result["certificate"]["score"] >= 75.0
+    assert len(auto_result["audit"]) == 1
+    assert auto_result["audit"][0]["passed"] is True
 
     # Audit endpoint should return the same trail.
     audit_resp = client.get(f"/hermes/session/{session_id}/audit")
     assert audit_resp.status_code == 200
     audit_data = audit_resp.json()
-    assert audit_data["status"] == "certified"
+    assert audit_data["status"] == "done"
     assert len(audit_data["audit"]) == 1
     assert audit_data["audit"][0]["search_id"] == "search_auto_001"
 
@@ -142,11 +160,26 @@ def test_hermes_auto_endpoint_retry_then_certify(patch_auto_callables, monkeypat
     )
     assert response.status_code == 200
     data = response.json()
-    assert data["success"] is True
-    assert data["status"] == "certified"
-    assert len(data["audit"]) == 2
-    assert data["audit"][0]["passed"] is False
-    assert data["audit"][1]["passed"] is True
+    assert len(data["pending_approvals"]) == 1
+
+    step_id = data["pending_approvals"][0]["step_id"]
+    approve_resp = client.post(
+        f"/hermes/session/{session_id}/approve",
+        json={
+            "session_id": session_id,
+            "step_id": step_id,
+            "approved": True,
+        },
+    )
+    assert approve_resp.status_code == 200
+    result = approve_resp.json()
+    assert result["status"] == "done"
+    auto_result = result["results"][0]["result"]
+    assert auto_result["success"] is True
+    assert auto_result["status"] == "certified"
+    assert len(auto_result["audit"]) == 2
+    assert auto_result["audit"][0]["passed"] is False
+    assert auto_result["audit"][1]["passed"] is True
 
 
 def test_hermes_auto_endpoint_non_robot_uses_generate(patch_auto_callables, monkeypatch):
@@ -172,10 +205,24 @@ def test_hermes_auto_endpoint_non_robot_uses_generate(patch_auto_callables, monk
     )
     assert response.status_code == 200
     data = response.json()
-    assert data["success"] is True
-    assert data["status"] == "certified"
-    assert data["design_id"] == "cube_auto_001"
-    assert data["search_id"] is None
-    assert data["candidate_id"] is None
+    assert len(data["pending_approvals"]) == 1
+
+    step_id = data["pending_approvals"][0]["step_id"]
+    approve_resp = client.post(
+        f"/hermes/session/{session_id}/approve",
+        json={
+            "session_id": session_id,
+            "step_id": step_id,
+            "approved": True,
+        },
+    )
+    assert approve_resp.status_code == 200
+    result = approve_resp.json()
+    auto_result = result["results"][0]["result"]
+    assert auto_result["success"] is True
+    assert auto_result["status"] == "certified"
+    assert auto_result["design_id"] == "cube_auto_001"
+    assert auto_result["search_id"] is None
+    assert auto_result["candidate_id"] is None
     assert generated == ["a cube"]
-    assert len(data["audit"]) == 1
+    assert len(auto_result["audit"]) == 1

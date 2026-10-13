@@ -80,6 +80,40 @@ def _body_name(model, body_id: int) -> str:
     return mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, body_id)
 
 
+def _foot_sole_box(root: ET.Element, body: ET.Element, mjcf_path: Path) -> tuple[list[float], list[float]] | None:
+    """Return (center, half_size) of the foot mesh bounding box in the body frame.
+
+    Generated robots carry real foot geometry, so the sole itself is the best
+    contact patch. Skeleton templates only have a tiny placeholder cube; for
+    those this returns ``None`` and the caller falls back to a contact sphere.
+    """
+    geom = next((g for g in body.findall("geom") if g.get("type") == "mesh" and g.get("mesh")), None)
+    if geom is None:
+        return None
+    mesh_file = None
+    for mesh in root.iter("mesh"):
+        if mesh.get("name") == geom.get("mesh"):
+            mesh_file = mesh.get("file")
+            break
+    if not mesh_file:
+        return None
+    compiler = root.find("compiler")
+    mesh_dir = compiler.get("meshdir", "") if compiler is not None else ""
+    mesh_path = Path(mjcf_path).parent / mesh_dir / mesh_file
+    try:
+        import trimesh
+
+        mesh = trimesh.load_mesh(mesh_path)
+        lo, hi = (np.asarray(v, dtype=float) for v in mesh.bounds)
+    except Exception:
+        return None
+    extents = hi - lo
+    # Placeholder cubes are 10 mm; a usable sole is clearly larger in plan.
+    if float(np.sort(extents)[-2]) < 0.02:
+        return None
+    return [float(v) for v in (lo + hi) / 2], [float(max(v / 2, 1e-4)) for v in extents]
+
+
 def _scale_masses_and_add_freejoint(mjcf_path: Path, tree: FeatureTree) -> None:
     """Post-process an exported MJCF so the model can be physically tested.
 
@@ -87,7 +121,11 @@ def _scale_masses_and_add_freejoint(mjcf_path: Path, tree: FeatureTree) -> None:
     - Adds a ``freejoint`` to the first body under ``worldbody`` so the robot is
       dynamically free instead of welded to the world.
     """
-    total_budget = float(tree.parameter_dict().get("robot_mass_kg", 20.0))
+    tree_params = tree.parameter_dict()
+    # Templates carry an explicit mass budget. Robots generated from real part
+    # geometry do not, so their computed link masses are kept as they are.
+    has_mass_budget = "robot_mass_kg" in tree_params
+    total_budget = float(tree_params.get("robot_mass_kg", 20.0))
     tree_xml = ET.parse(mjcf_path)
     root = tree_xml.getroot()
 
@@ -103,6 +141,8 @@ def _scale_masses_and_add_freejoint(mjcf_path: Path, tree: FeatureTree) -> None:
                 pass
 
     current_total = sum(masses)
+    if current_total > 0 and not has_mass_budget:
+        total_budget = current_total
     if current_total > 0:
         scale = total_budget / current_total
         for inertial, mass in zip(inertial_elems, masses):
@@ -144,6 +184,14 @@ def _scale_masses_and_add_freejoint(mjcf_path: Path, tree: FeatureTree) -> None:
 
     # Add freejoint to the first body under worldbody so the robot is free-floating.
     first_body = worldbody.find("body")
+    # Template end links joined by fixed joints (e.g. hands) are exported as
+    # separate static bodies. They carry no collision and would be left
+    # hanging in mid-air once the robot moves, so keep them out of the default
+    # render groups.
+    for stray in worldbody.findall("body")[1:]:
+        for geom in stray.findall("geom"):
+            if geom.get("group") is None:
+                geom.set("group", "4")
     if first_body is not None and first_body.find("freejoint") is None:
         # Insert freejoint before inertial/geom/joint so MuJoCo is happy.
         ET.SubElement(first_body, "freejoint")
@@ -153,6 +201,7 @@ def _scale_masses_and_add_freejoint(mjcf_path: Path, tree: FeatureTree) -> None:
     # dedicated contact geom sized from template parameters so walking rollouts
     # get a stable, realistic sole.
     params = tree.parameter_dict()
+    uses_flat_soles = False
     foot_length_m = float(params.get("foot_length", 160.0)) * 0.001
     foot_width_m = float(params.get("foot_width", 80.0)) * 0.001
     for body in root.iter("body"):
@@ -161,6 +210,27 @@ def _scale_masses_and_add_freejoint(mjcf_path: Path, tree: FeatureTree) -> None:
             continue
         already = any((geom.get("name") or "").endswith("_contact") for geom in body.findall("geom"))
         if already:
+            continue
+        # Templates keep their tuned point contact; only robots built from real
+        # part geometry (no mass budget) stand on their actual soles.
+        sole = None if has_mass_budget else _foot_sole_box(root, body, mjcf_path)
+        if sole is not None:
+            uses_flat_soles = True
+            # Real foot geometry: use its bounding box as a flat sole contact.
+            center, half = sole
+            ET.SubElement(
+                body,
+                "geom",
+                {
+                    "name": f"{body.get('name')}_contact",
+                    "type": "box",
+                    "size": f"{half[0]:.6f} {half[1]:.6f} {half[2]:.6f}",
+                    "pos": f"{center[0]:.6f} {center[1]:.6f} {center[2]:.6f}",
+                    "friction": "1.0 0.005 0.0001",
+                    "rgba": "1.0 0.2 0.2 0.4",
+                    "group": "3",
+                },
+            )
             continue
         is_humanoid = "foot_length" in params and "foot_width" in params
         # Point foot: small sphere placed below the ankle so the ground plane lifts
@@ -192,11 +262,21 @@ def _scale_masses_and_add_freejoint(mjcf_path: Path, tree: FeatureTree) -> None:
                 geom.set("contype", "0")
                 geom.set("conaffinity", "0")
 
+    # Flat soles pin the foot to the ground, so the stiff position servos need
+    # an implicit integrator to stay stable on light links.
+    if uses_flat_soles and root.find("option") is None:
+        option = ET.Element("option", {"integrator": "implicitfast"})
+        root.insert(0, option)
+
     # Add light joint damping to all non-free joints to suppress violent
     # oscillations during contact transitions.
     for joint in root.iter("joint"):
         if joint.get("type") in ("hinge", "slide") and joint.get("damping") is None:
             joint.set("damping", "0.5")
+        # Light real-geometry links have almost no rotational inertia; a small
+        # reflected rotor inertia keeps the position servos from chattering.
+        if uses_flat_soles and joint.get("type") in ("hinge", "slide") and joint.get("armature") is None:
+            joint.set("armature", "0.005")
 
     # Convert motors to position actuators for morphology tests. Position
     # actuators let MuJoCo's implicit solver track target joint angles, which
@@ -421,7 +501,7 @@ def _run_pd_standing(
 
     # Make sure kinematics are evaluated before measuring the initial torso height.
     mujoco.mj_forward(model, data)
-    torso_id = _find_body_id(model, "torso_torso_plate", "torso", "body_body", "body")
+    torso_id = _find_body_id(model, "torso_torso_plate", "torso", "body_body", "body", "i_torso_torso_plate")
     initial_torso_z = float(data.xpos[torso_id, 2]) if torso_id is not None else 0.0
 
     max_qacc = 0.0
@@ -476,9 +556,15 @@ def _run_sway_test(
     kd: float = 20.0,
 ) -> dict[str, Any]:
     """Apply a lateral push to the torso and observe recovery."""
-    torso_id = _find_body_id(model, "torso_torso_plate", "torso", "body_body", "body")
+    torso_id = _find_body_id(model, "torso_torso_plate", "torso", "body_body", "body", "i_torso_torso_plate")
     if torso_id is None:
         return {"sway_ok": False, "error": "no torso body found"}
+
+    # The default push is sized for the 20 kg reference robot (1 N per kg).
+    # Lighter robots get a proportionally lighter push so the test stays a
+    # disturbance rather than a knock-out blow.
+    total_mass = float(sum(model.body_mass))
+    push_force_n = push_force_n * min(1.0, total_mass / 20.0)
 
     mujoco.mj_forward(model, data)
     template = "humanoid" if mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, "hip_pitch_r") >= 0 else "quadruped"
@@ -578,7 +664,7 @@ def physics_score_candidate(
         result["load_ok"] = True
 
         template = _detect_template(model)
-        torso_id = _find_body_id(model, "torso_torso_plate", "torso", "body_body", "body")
+        torso_id = _find_body_id(model, "torso_torso_plate", "torso", "body_body", "body", "i_torso_torso_plate")
         foot_ids = _foot_body_ids(model, template)
         is_legged = torso_id is not None and len(foot_ids) > 0
 

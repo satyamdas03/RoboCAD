@@ -37,7 +37,7 @@ def livekit_url() -> str:
 def create_token(
     session_id: str,
     identity: str | None = None,
-    ttl_minutes: int = 60,
+    ttl_minutes: int = 10,
 ) -> dict[str, str]:
     """Create a LiveKit access token for the HERMES voice room.
 
@@ -82,7 +82,7 @@ def create_token(
 def create_agent_token(
     session_id: str,
     identity: str = "hermes-agent",
-    ttl_minutes: int = 120,
+    ttl_minutes: int = 10,
 ) -> dict[str, str]:
     """Create a LiveKit access token for the HERMES voice agent worker.
 

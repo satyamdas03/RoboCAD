@@ -22,7 +22,8 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 # Load local environment variables from the gitignored .env file at the repo root
 # so that `python start.py` sees the same secrets the backend loads internally.
-load_dotenv(REPO_ROOT / ".env", override=True)
+# encoding="utf-8-sig" handles UTF-8 BOM that some Windows editors add to .env.
+load_dotenv(REPO_ROOT / ".env", override=True, encoding="utf-8-sig")
 REQUIREMENTS = REPO_ROOT / "requirements.txt"
 FRONTEND_DIR = REPO_ROOT / "web" / "frontend"
 BACKEND_MODULE = "web.backend.main:app"
@@ -111,18 +112,28 @@ def check_virtualenv() -> dict[str, Any]:
     }
 
 
+def _is_local_model(model: str | None) -> bool:
+    """Return True if the configured model looks like a local Ollama model."""
+    if not model:
+        return False
+    return ":" in model and not model.startswith(("claude-", "gpt-", "openai-"))
+
+
 def check_env_keys() -> list[dict[str, Any]]:
     """Return status rows for required and optional API keys."""
+    model = os.environ.get("ROBOCAD_MODEL")
+    anthropic_optional = _is_local_model(model)
     rows: list[dict[str, Any]] = []
     for key in REQUIRED_ENV:
         value = os.environ.get(key)
+        required = not (key == "ANTHROPIC_API_KEY" and anthropic_optional)
         rows.append(
             {
                 "name": key,
-                "required": True,
-                "ok": bool(value),
+                "required": required,
+                "ok": bool(value) or not required,
                 "installed": bool(value),
-                "message": "OK" if value else f"Missing required env var {key} in .env",
+                "message": "OK" if (value or not required) else f"Missing required env var {key} in .env",
             }
         )
     for key in OPTIONAL_ENV:
@@ -259,10 +270,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--offline", action="store_true", help="Try offline dependency installs (may fail).")
     parser.add_argument("--backend-port", type=int, default=8000, help="Port for the FastAPI backend.")
     parser.add_argument("--frontend-port", type=int, default=5173, help="Port for the Vite frontend dev server.")
-    parser.add_argument("--host", default="0.0.0.0", help="Host to bind the backend.")
+    parser.add_argument("--host", default="127.0.0.1", help="Host to bind the backend (default 127.0.0.1 for local use).")
+    parser.add_argument("--bind-all", action="store_true", help="Bind to 0.0.0.0; use only on trusted networks.")
     parser.add_argument("--no-browser", action="store_true", help="Do not open the browser automatically.")
-    parser.add_argument("--no-reload", action="store_true", help="Disable backend auto-reload.")
+    parser.add_argument("--reload", action="store_true", help="Enable backend auto-reload (default off).")
     args = parser.parse_args(argv)
+
+    env_file = REPO_ROOT / ".env"
+    if not env_file.exists():
+        _log(f"No .env file found at {env_file}. Copy .env.example and set at least ANTHROPIC_API_KEY.")
 
     _log("Checking environment...")
     env_rows = environment_report()
@@ -288,13 +304,14 @@ def main(argv: list[str] | None = None) -> int:
         else:
             _log("Node not found; skipping frontend dependency install.")
 
-    backend = start_backend(host=args.host, port=args.backend_port, reload=not args.no_reload)
+    bind_host = "0.0.0.0" if args.bind_all else args.host
+    backend = start_backend(host=bind_host, port=args.backend_port, reload=args.reload)
     frontend: subprocess.Popen[Any] | None = None
 
     try:
         backend_ready = wait_for_service(f"http://127.0.0.1:{args.backend_port}/health", timeout=30.0)
-        if not backend_ready:
-            _log("Backend did not become ready in time.")
+        if not backend_ready or backend.poll() is not None:
+            _log("Backend did not become ready in time (or another process already owns the port).")
             return 1
 
         node_present = find_command("node") is not None

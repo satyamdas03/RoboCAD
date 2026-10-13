@@ -72,3 +72,37 @@ def test_execute_code_keeps_artifacts_on_failure(tmp_path: Path):
     assert result["script_path"] is not None
     assert result["script_path"].exists()
     assert any(tmp_path.glob("error_*.txt"))
+
+
+def test_execute_code_rejects_disallowed_imports(tmp_path: Path):
+    """The executor must reject generated code that imports unsafe modules."""
+    code = "import os\nfrom subprocess import run\nfrom build123d import *\nresult = Box(1,1,1)"
+    result = execute_code(code, output_dir=tmp_path)
+    assert result["success"] is False
+    assert "security validation" in result["error"].lower()
+    assert "Disallowed import" in (result["traceback"] or "")
+
+
+def test_execute_code_rejects_disallowed_builtins(tmp_path: Path):
+    """The executor must reject generated code that calls dangerous builtins."""
+    code = "from build123d import *\neval('1+1')\nresult = Box(1,1,1)"
+    result = execute_code(code, output_dir=tmp_path)
+    assert result["success"] is False
+    assert "security validation" in result["error"].lower()
+    assert "Disallowed builtin" in (result["traceback"] or "")
+
+
+def test_execute_code_runs_in_sandboxed_mode(tmp_path: Path):
+    """The subprocess must run with safe path and no bytecode so generated code
+    cannot tamper with sys.path or leave compiled artifacts behind."""
+    code = """
+from build123d import *
+import sys
+
+assert sys.flags.safe_path, "expected safe path (-P)"
+assert sys.flags.dont_write_bytecode, "expected no bytecode (-B)"
+
+result = Box(1, 1, 1)
+"""
+    result = execute_code(code, output_dir=tmp_path)
+    assert result["success"] is True, result.get("traceback")

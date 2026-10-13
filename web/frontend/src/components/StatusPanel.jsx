@@ -1,19 +1,22 @@
+import { geometryFlagStatus } from './validationStatus'
 function ValidationGrid({ validation }) {
   if (!validation) return null
-  const { manifold, watertight, bounds_mm, volume_mm3, errors, warnings } = validation
+  const { bounds_mm, volume_mm3, errors, warnings } = validation
+  const manifold = geometryFlagStatus(validation, 'manifold')
+  const watertight = geometryFlagStatus(validation, 'watertight')
 
   return (
     <div className="kp-strip">
       <span className="kp-flex kp-align-center kp-gap-1">
         <strong>Manifold:</strong>
-        <span className={`kp-badge ${manifold ? 'kp-badge-success' : 'kp-badge-error'}`}>
-          {manifold ? 'OK' : 'FAIL'}
+        <span className={`kp-badge ${manifold.ok ? 'kp-badge-success' : 'kp-badge-error'}`}>
+          {manifold.label}
         </span>
       </span>
       <span className="kp-flex kp-align-center kp-gap-1">
         <strong>Watertight:</strong>
-        <span className={`kp-badge ${watertight ? 'kp-badge-success' : 'kp-badge-error'}`}>
-          {watertight ? 'OK' : 'FAIL'}
+        <span className={`kp-badge ${watertight.ok ? 'kp-badge-success' : 'kp-badge-error'}`}>
+          {watertight.label}
         </span>
       </span>
       {bounds_mm && (

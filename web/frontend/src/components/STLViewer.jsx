@@ -117,6 +117,89 @@ function heatmapColor(t) {
   ]
 }
 
+function buildSpatialGrid(nodes, scalars, fallbackMin) {
+  const entries = []
+  let minX = Infinity, minY = Infinity, minZ = Infinity
+  let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity
+  for (let i = 0; i < nodes.length; i++) {
+    const n = nodes[i]
+    const s = scalars[i] ?? fallbackMin
+    entries.push({ x: n[0], y: n[1], z: n[2], s })
+    if (n[0] < minX) minX = n[0]
+    if (n[1] < minY) minY = n[1]
+    if (n[2] < minZ) minZ = n[2]
+    if (n[0] > maxX) maxX = n[0]
+    if (n[1] > maxY) maxY = n[1]
+    if (n[2] > maxZ) maxZ = n[2]
+  }
+  const spanX = maxX - minX || 1
+  const spanY = maxY - minY || 1
+  const spanZ = maxZ - minZ || 1
+  // Choose a cell size that gives roughly one node per cell on average.
+  const volume = spanX * spanY * spanZ
+  const cellSize = Math.max(1e-6, Math.pow(volume / Math.max(1, entries.length), 1 / 3))
+  const invCellSize = 1 / cellSize
+  const cells = new Map()
+  for (const e of entries) {
+    const cx = Math.floor((e.x - minX) * invCellSize)
+    const cy = Math.floor((e.y - minY) * invCellSize)
+    const cz = Math.floor((e.z - minZ) * invCellSize)
+    const key = `${cx},${cy},${cz}`
+    let list = cells.get(key)
+    if (!list) {
+      list = []
+      cells.set(key, list)
+    }
+    list.push(e)
+  }
+  return { cells, cellSize, invCellSize, minX, minY, minZ, fallbackMin, entries }
+}
+
+function nearestScalar(grid, x, y, z) {
+  if (grid.entries.length === 0) return grid.fallbackMin
+  const cx = Math.floor((x - grid.minX) * grid.invCellSize)
+  const cy = Math.floor((y - grid.minY) * grid.invCellSize)
+  const cz = Math.floor((z - grid.minZ) * grid.invCellSize)
+  let bestDist = Infinity
+  let bestS = grid.fallbackMin
+  // Search the 3x3x3 neighborhood of cells; this is sufficient because the
+  // chosen cell size guarantees the nearest neighbor lies in an adjacent cell.
+  for (let dx = -1; dx <= 1; dx++) {
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dz = -1; dz <= 1; dz++) {
+        const key = `${cx + dx},${cy + dy},${cz + dz}`
+        const list = grid.cells.get(key)
+        if (!list) continue
+        for (const n of list) {
+          const ddx = x - n.x
+          const ddy = y - n.y
+          const ddz = z - n.z
+          const d = ddx * ddx + ddy * ddy + ddz * ddz
+          if (d < bestDist) {
+            bestDist = d
+            bestS = n.s
+          }
+        }
+      }
+    }
+  }
+  // Defensive fallback: if the query point sits outside the grid's bounding
+  // box, the nearest node may be in a non-adjacent cell; scan all entries.
+  if (bestDist === Infinity) {
+    for (const n of grid.entries) {
+      const ddx = x - n.x
+      const ddy = y - n.y
+      const ddz = z - n.z
+      const d = ddx * ddx + ddy * ddy + ddz * ddz
+      if (d < bestDist) {
+        bestDist = d
+        bestS = n.s
+      }
+    }
+  }
+  return bestS
+}
+
 function applyScalarField(geometry, scalarField, materialRef) {
   if (!geometry || !scalarField || !scalarField.nodes?.length || !scalarField.scalars?.length) {
     clearScalarField(geometry, materialRef)
@@ -131,31 +214,10 @@ function applyScalarField(geometry, scalarField, materialRef) {
   const posAttr = geometry.getAttribute('position')
   const count = posAttr.count
   const colors = new Float32Array(count * 3)
-
-  // Build a tiny lookup cache to avoid O(N*M) cost on large meshes.
-  const nodeTree = []
-  for (let i = 0; i < nodes.length; i++) {
-    const n = nodes[i]
-    nodeTree.push({ x: n[0], y: n[1], z: n[2], s: scalars[i] ?? min })
-  }
+  const grid = buildSpatialGrid(nodes, scalars, min)
 
   for (let i = 0; i < count; i++) {
-    const vx = posAttr.getX(i)
-    const vy = posAttr.getY(i)
-    const vz = posAttr.getZ(i)
-    let bestDist = Infinity
-    let bestS = min
-    for (let j = 0; j < nodeTree.length; j++) {
-      const n = nodeTree[j]
-      const dx = vx - n.x
-      const dy = vy - n.y
-      const dz = vz - n.z
-      const d = dx * dx + dy * dy + dz * dz
-      if (d < bestDist) {
-        bestDist = d
-        bestS = n.s
-      }
-    }
+    const bestS = nearestScalar(grid, posAttr.getX(i), posAttr.getY(i), posAttr.getZ(i))
     const t = Math.max(0, Math.min(1, (bestS - min) / range))
     const [r, g, b] = heatmapColor(t)
     colors[i * 3] = r
@@ -222,8 +284,10 @@ function Model({ url, onFaceClick, selectedFace, showGrid, wireframe, scalarFiel
 
     const hit = intersects[0]
     const faceIndex = hit.faceIndex ?? 0
-    const faceNormal = hit.face?.normal?.clone()?.transformDirection(meshRef.current.matrixWorld)?.toArray() ?? [0, 0, 1]
-    const point = hit.point?.toArray() ?? [0, 0, 0]
+    // Report the face in CAD (mesh-local, Z-up) coordinates: the model group is
+    // rotated for display, but the backend reasons about the part as modelled.
+    const faceNormal = hit.face?.normal?.clone()?.toArray() ?? [0, 0, 1]
+    const point = hit.point ? meshRef.current.worldToLocal(hit.point.clone()).toArray() : [0, 0, 0]
 
     const posAttr = geometry.getAttribute('position')
     const indices = geometry.index?.array
@@ -235,9 +299,6 @@ function Model({ url, onFaceClick, selectedFace, showGrid, wireframe, scalarFiel
       const v0 = new THREE.Vector3(posAttr.getX(i0), posAttr.getY(i0), posAttr.getZ(i0))
       const v1 = new THREE.Vector3(posAttr.getX(i1), posAttr.getY(i1), posAttr.getZ(i1))
       const v2 = new THREE.Vector3(posAttr.getX(i2), posAttr.getY(i2), posAttr.getZ(i2))
-      v0.applyMatrix4(meshRef.current.matrixWorld)
-      v1.applyMatrix4(meshRef.current.matrixWorld)
-      v2.applyMatrix4(meshRef.current.matrixWorld)
       centroid = [
         (v0.x + v1.x + v2.x) / 3,
         (v0.y + v1.y + v2.y) / 3,
@@ -251,6 +312,8 @@ function Model({ url, onFaceClick, selectedFace, showGrid, wireframe, scalarFiel
   return (
     <group>
       <SceneGrid visible={showGrid} />
+      {/* CAD models are Z-up; three.js is Y-up. Rotate so parts stand on the grid. */}
+      <group rotation={[-Math.PI / 2, 0, 0]}>
       <mesh
         ref={meshRef}
         geometry={geometry}
@@ -271,6 +334,7 @@ function Model({ url, onFaceClick, selectedFace, showGrid, wireframe, scalarFiel
         </mesh>
       )}
       <HighlightedFace geometry={geometry} faceIndex={selectedFace} />
+      </group>
     </group>
   )
 }
@@ -392,7 +456,7 @@ export default function STLViewer({ url, onFaceClick, selectedFace, guessResult,
       </div>
 
       {hint && <div className="kp-viewer-hint">{hint}</div>}
-      {critiqueError && <div className="kp-viewer-hint kp-error">{critiqueError}</div>}
+      {critiqueError && <div className="kp-viewer-hint kp-alert kp-alert-error">{critiqueError}</div>}
       {critique && (
         <div className="kp-viewer-hint" style={{ maxWidth: '24rem' }}>
           <div className="kp-flex kp-gap-2 kp-align-center" style={{ marginBottom: '0.25rem' }}>
@@ -419,7 +483,7 @@ export default function STLViewer({ url, onFaceClick, selectedFace, guessResult,
           )}
           <button
             type="button"
-            className="kp-button kp-button-sm kp-button-ghost"
+            className="kp-button kp-button-small kp-button-ghost"
             style={{ marginTop: '0.25rem' }}
             onClick={() => setCritique(null)}
           >

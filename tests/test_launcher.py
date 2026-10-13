@@ -88,9 +88,82 @@ def test_launcher_loads_repo_dotenv_at_import(monkeypatch):
 
     captured: list[tuple[Path, bool]] = []
 
-    def _fake_load_dotenv(path, override=False):
+    def _fake_load_dotenv(path, override=False, encoding=None):
         captured.append((Path(path), override))
 
     monkeypatch.setattr(dotenv, "load_dotenv", _fake_load_dotenv)
     importlib.reload(launcher)
     assert any(path == REPO_ROOT / ".env" and override is True for path, override in captured)
+
+
+def test_start_entry_point_loads_repo_dotenv(monkeypatch):
+    """Regression: ``python start.py`` loads .env before importing launcher."""
+    import dotenv
+
+    captured: list[tuple[Path, bool]] = []
+
+    def _fake_load_dotenv(path, override=False, encoding=None):
+        captured.append((Path(path), override))
+
+    monkeypatch.setattr(dotenv, "load_dotenv", _fake_load_dotenv)
+    # start.py imports launcher, which would also call load_dotenv; we only care
+    # that the first call happens from start.py and points at the repo-root .env.
+    import runpy
+    runpy.run_path(str(REPO_ROOT / "start.py"), run_name="__test_start__")
+    assert any(path == REPO_ROOT / ".env" and override is True for path, override in captured)
+
+
+def test_start_entry_point_loads_env_value(tmp_path: Path, monkeypatch):
+    """Regression: ``python start.py`` actually exports ANTHROPIC_API_KEY from .env."""
+    import runpy
+    import os
+
+    # Write a temporary .env in the repo root. start.py resolves the repo root
+    # from __file__, so we must place the file at REPO_ROOT.
+    original_key = os.environ.get("ANTHROPIC_API_KEY")
+    test_key = "robocad-test-key-from-start-py"
+    env_path = REPO_ROOT / ".env"
+    backup = None
+    if env_path.exists():
+        backup = env_path.read_text(encoding="utf-8")
+    env_path.write_text(f"ANTHROPIC_API_KEY={test_key}\n", encoding="utf-8")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    try:
+        runpy.run_path(str(REPO_ROOT / "start.py"), run_name="__test_start__")
+        assert os.environ.get("ANTHROPIC_API_KEY") == test_key
+    finally:
+        if backup is not None:
+            env_path.write_text(backup, encoding="utf-8")
+        else:
+            env_path.unlink(missing_ok=True)
+        if original_key is not None:
+            os.environ["ANTHROPIC_API_KEY"] = original_key
+        else:
+            os.environ.pop("ANTHROPIC_API_KEY", None)
+
+
+def test_start_entry_point_loads_bom_encoded_env_value(tmp_path: Path, monkeypatch):
+    """Regression: ``python start.py`` handles UTF-8 BOM encoded .env files."""
+    import runpy
+    import os
+
+    original_key = os.environ.get("ANTHROPIC_API_KEY")
+    test_key = "robocad-test-key-from-bom-env"
+    env_path = REPO_ROOT / ".env"
+    backup = None
+    if env_path.exists():
+        backup = env_path.read_bytes()
+    env_path.write_bytes(b"\xef\xbb\xbfANTHROPIC_API_KEY=" + test_key.encode("utf-8") + b"\n")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    try:
+        runpy.run_path(str(REPO_ROOT / "start.py"), run_name="__test_start__")
+        assert os.environ.get("ANTHROPIC_API_KEY") == test_key
+    finally:
+        if backup is not None:
+            env_path.write_bytes(backup)
+        else:
+            env_path.unlink(missing_ok=True)
+        if original_key is not None:
+            os.environ["ANTHROPIC_API_KEY"] = original_key
+        else:
+            os.environ.pop("ANTHROPIC_API_KEY", None)

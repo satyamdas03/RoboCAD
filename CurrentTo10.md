@@ -242,9 +242,9 @@ Closed the one-prompt-to-certified-robot gap by wiring the HERMES supervisor to 
 
 Post-Milestone I hardening to make the product safe and polished for external users.
 
-- **A. Security:** backend path/ID validation, export containment, safe archive extraction, CORS tightening, subprocess env scrubbing.
-- **B. Reliability/resilience:** Windows `.env` loading for `python start.py` / `python -m robocad.health`; backend defaults to `127.0.0.1` with reload disabled; frontend API timeout + JSON error parsing.
-- **C. Honest-score verification:** default suite re-run after hardening — **412 passed, 279 deselected, 3 warnings**; heavy/slow/mujoco suite re-run in progress.
+- **A. Security:** backend path/ID validation, export containment, safe archive extraction, CORS tightening, subprocess env scrubbing, safe-eval AST replacement for `eval()` in `ai_cad/assembly.py`/`sketch_solver.py`/`morphology.py`, AST-based generated-code validation in `ai_cad/executor.py`, opt-in public-auth middleware, Onshape public-document opt-in, HERMES auto-orchestration gating.
+- **B. Reliability/resilience:** Windows `.env` loading for `python start.py` / `python -m robocad.health`; backend defaults to `127.0.0.1` with reload disabled; frontend API timeout + JSON error parsing; `/health` returns minimal JSON by default with `?verbose=1` for the full launcher check list.
+- **C. Honest-score verification:** default suite re-run after hardening — **412 passed, 280 deselected, 3 warnings**; heavy/slow/mujoco suite re-run in progress. Local backend smoke test (`/health`, `/marketplace/items`, `/morphology/templates`) passed on `127.0.0.1:8000`.
 - **D. Frontend/UX:** `emilkowalski/skills` installed and applied; valid HTML, `100dvh`, pointer-aware hover, `prefers-reduced-motion`, message overflow wrapping, SVG icons, stable React keys, missing Vite proxies, mobile input font-size fixes.
 
 ### Phase 37 / Milestone H — Sim-to-real bridge (~9.8/10)

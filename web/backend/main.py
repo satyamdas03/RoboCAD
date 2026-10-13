@@ -12,6 +12,7 @@ Endpoints:
 """
 from __future__ import annotations
 
+import asyncio
 import base64
 import datetime as dt
 import json
@@ -24,7 +25,9 @@ import tempfile
 import uuid
 import zipfile
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional, TypeVar
+
+T = TypeVar("T")
 
 import requests
 from dotenv import load_dotenv
@@ -35,14 +38,17 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env", override=True)
 
 # Add repo root so we can import the ai_cad package.
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-if str(_REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT))
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+MAX_PROMPT_LENGTH = 4000
+MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB cap for uploaded archives/images
 
 from ai_cad.api import RoboCADBackend
 from ai_cad.code_ops import update_parameters
@@ -113,9 +119,9 @@ from ai_cad.hermes import (
     build_llm_caller,
     explain_report,
 )
-from ai_cad.hermes.orchestrator import run_auto_orchestration
-from ai_cad.hermes.livekit_token import create_token
-from ai_cad.hermes.planner import build_plan
+from ai_cad.hermes.livekit_token import create_agent_token, create_token
+from ai_cad.hermes.models import ToolCall
+from ai_cad.hermes.planner import build_plan, tool_call_to_step
 from ai_cad.nvidia_client import NvidiaClient
 from ai_cad.render_critique import critique_render
 from ai_cad.manufacturing import analyze_model as _analyze_manufacturing
@@ -132,6 +138,7 @@ from ai_cad.marketplace import (
     record_download,
     update_item,
     verify_asset,
+    _resolve_source_path as _resolve_marketplace_source_path,
 )
 from ai_cad.models import CADParameter, ExportPaths, GenerationResult, ManufacturingReport, ValidationReport
 from ai_cad.onshape import OnshapeClient
@@ -213,29 +220,55 @@ if "*" in _allow_origins:
     if not _allow_origins:
         _allow_origins = _default_origins
 
+_cors_credentials = os.environ.get("ROBOCAD_CORS_CREDENTIALS", "").lower() in ("1", "true", "yes")
+if _cors_credentials and any(o.startswith("http://localhost") or o == "*" for o in _allow_origins):
+    _cors_credentials = False
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_allow_origins,
-    allow_credentials=True,
+    allow_credentials=_cors_credentials,
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["Content-Type", "Authorization"],
 )
 
 
 @app.middleware("http")
-async def _validate_path_ids(request: Request, call_next):
-    """Central guard: reject path traversal ids before they reach endpoint code."""
-    checks = {
-        "design_id": _ID_RE,
-        "search_id": _ID_RE,
-        "candidate_id": _ID_RE,
-        "version_id": _SHORT_ID_RE,
-        "session_id": _HERMES_ID_RE,
-    }
-    for name, pattern in checks.items():
-        value = request.path_params.get(name)
-        if value is not None and not pattern.match(value):
-            return JSONResponse(status_code=400, content={"detail": f"Invalid {name}."})
+async def _require_auth_if_public(request: Request, call_next):
+    """Public-access API key gate (enabled by default).
+
+    RoboCAD is local-first. Loopback/TestClient requests are exempt so the
+    launcher, local dev, and unit tests work without friction. When the backend
+    is exposed to a non-loopback address, callers must send the
+    ``ROBOCAD_API_KEY`` as ``Authorization: Bearer <key>``.
+
+    Set ``ROBOCAD_ENABLE_PUBLIC_AUTH=0`` to disable this gate (not recommended
+    for shared networks). ``/health``, ``/docs``, and ``/openapi.json`` are
+    always exempt.
+    """
+    if os.environ.get("ROBOCAD_ENABLE_PUBLIC_AUTH", "1").lower() in ("0", "false", "no", "off"):
+        return await call_next(request)
+
+    exempt_paths = {"/health", "/docs", "/openapi.json"}
+    if request.url.path in exempt_paths or request.url.path.startswith("/static/"):
+        return await call_next(request)
+
+    host = request.client.host if request.client else None
+    is_loopback = host in ("127.0.0.1", "::1", "localhost", "testclient") or (host or "").startswith("127.")
+    if is_loopback:
+        return await call_next(request)
+
+    api_key = os.environ.get("ROBOCAD_API_KEY")
+    if not api_key:
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "Public access requires ROBOCAD_API_KEY to be configured and sent as Authorization: Bearer <key>."},
+        )
+
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer ") or auth.removeprefix("Bearer ").strip() != api_key:
+        return JSONResponse(status_code=401, content={"detail": "Invalid or missing API key."})
+
     return await call_next(request)
 
 
@@ -246,7 +279,7 @@ DESIGNS_DIR = Path(os.environ.get("ROBOCAD_DESIGNS_DIR", "designs"))
 # ---------------------------------------------------------------------------
 _ID_RE = re.compile(r"^[a-f0-9]{32}$")
 _SHORT_ID_RE = re.compile(r"^[a-f0-9]{8}$")
-_HERMES_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
+_HERMES_ID_RE = re.compile(r"^hermes_[a-f0-9]{8}$")
 
 
 def _validate_uuid_id(value: str, name: str = "id") -> str:
@@ -272,8 +305,8 @@ def _resolve_design_dir(design_id: str) -> Path:
     return DESIGNS_DIR / design_id
 
 
-def _resolve_export_path(design_id: str, filename: str) -> Path:
-    """Resolve an export file and ensure it stays inside the design directory."""
+def _resolve_export_download_path(design_id: str, filename: str) -> Path:
+    """Resolve a user-supplied download path and ensure it stays inside the design directory."""
     design_dir = _resolve_design_dir(design_id).resolve()
     safe_name = Path(filename).as_posix().lstrip("/")
     if safe_name.startswith("..") or "/../" in f"/{safe_name}/":
@@ -293,6 +326,20 @@ def _validate_hermes_session_id(session_id: str) -> str:
     if not _HERMES_ID_RE.match(session_id):
         raise HTTPException(status_code=400, detail="Invalid session_id.")
     return session_id
+
+
+def _load_hermes_session(session_id: str, design_id: str | None = None) -> HermesSession:
+    """Load a HERMES session, translating storage errors into HTTP exceptions.
+
+    The store layer validates the session id format, so malformed ids raise
+    ``ValueError`` and missing sessions raise ``FileNotFoundError``.
+    """
+    try:
+        return HermesSession.load(session_id, design_id=design_id, base_dir=DESIGNS_DIR)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid session_id: {exc}") from exc
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="HERMES session not found.")
 
 
 def _safe_extract_zip(archive: Path, dest: Path) -> None:
@@ -319,11 +366,33 @@ def _safe_extract_tar(archive: Path, dest: Path) -> None:
         tf.extractall(dest)
 
 
+async def _run_sync_with_timeout(
+    func: Callable[..., T],
+    *args: Any,
+    timeout: float | None = None,
+    **kwargs: Any,
+) -> T:
+    """Run a synchronous function in a thread with an optional hard timeout.
+
+    Long-running CPU/MuJoCo work is moved off the event loop so the server stays
+    responsive. If *timeout* is exceeded, a 504 is raised for the caller.
+    """
+    if timeout is None:
+        return await asyncio.to_thread(func, *args, **kwargs)
+    try:
+        return await asyncio.wait_for(asyncio.to_thread(func, *args, **kwargs), timeout=timeout)
+    except asyncio.TimeoutError as exc:
+        raise HTTPException(
+            status_code=504,
+            detail=f"Operation timed out after {timeout}s. Consider running via the async job queue.",
+        ) from exc
+
+
 backend = RoboCADBackend()
 
 
 class GenerateRequest(BaseModel):
-    prompt: str = Field(..., min_length=1, description="Natural-language part description.")
+    prompt: str = Field(..., min_length=1, max_length=MAX_PROMPT_LENGTH, description="Natural-language part description.")
     max_retries: int = Field(default=2, ge=0, le=5, description="Self-correction attempts.")
     model: str | None = Field(default=None, description="Optional LLM model override.")
     use_assembly: bool = Field(default=False, description="Generate as a multi-part assembly if the model returns one.")
@@ -333,7 +402,7 @@ class GenerateRequest(BaseModel):
 
 
 class ClassifyDomainRequest(BaseModel):
-    prompt: str = Field(..., min_length=1, description="Natural-language part description.")
+    prompt: str = Field(..., min_length=1, max_length=MAX_PROMPT_LENGTH, description="Natural-language part description.")
 
 
 class GenerateResponse(GenerationResult):
@@ -348,7 +417,7 @@ class GenerateResponse(GenerationResult):
 
 
 class DecomposeRequest(BaseModel):
-    prompt: str = Field(..., min_length=1, description="Natural-language system description.")
+    prompt: str = Field(..., min_length=1, max_length=MAX_PROMPT_LENGTH, description="Natural-language system description.")
 
 
 class DecomposedPartModel(BaseModel):
@@ -424,6 +493,27 @@ class OnshapeUploadRequest(BaseModel):
     document_id: str | None = Field(default=None, description="Existing Onshape document id; if omitted, a new document is created.")
     workspace_id: str | None = Field(default=None, description="Workspace id within the document (required with document_id).")
     document_name: str | None = Field(default=None, description="Name for a newly created Onshape document.")
+    is_public: bool | None = Field(
+        default=None,
+        description="Explicit acknowledgement that a new Onshape document will be public. Must be True when creating a new document.",
+    )
+
+    @field_validator("workspace_id")
+    @classmethod
+    def workspace_requires_document(cls, v: str | None, info: Any) -> str | None:
+        if v is not None and info.data.get("document_id") is None:
+            raise ValueError("workspace_id requires document_id")
+        return v
+
+    @field_validator("is_public")
+    @classmethod
+    def public_requires_acknowledgement(cls, v: bool | None, info: Any) -> bool | None:
+        if info.data.get("document_id") is None and v is not True:
+            raise ValueError(
+                "Creating a new Onshape document may produce a public document. "
+                "Pass is_public=true to acknowledge this explicitly, or supply an existing document_id/workspace_id."
+            )
+        return v
 
 
 class FitCheckRequest(BaseModel):
@@ -523,7 +613,7 @@ class WorldReplayRequest(BaseModel):
 
 
 class TrainSkillRequest(BaseModel):
-    skill_description: str = Field(default="push the block to the goal", description="Natural-language skill/task to train.")
+    skill_description: str = Field(default="push the block to the goal", max_length=MAX_PROMPT_LENGTH, description="Natural-language skill/task to train.")
     n_iters: int = Field(default=20, ge=5, le=100, description="CEM training iterations.")
     pop_size: int = Field(default=50, ge=10, le=200, description="CEM population size.")
     eval_episodes: int = Field(default=10, ge=1, le=50, description="Evaluation episodes for success rate.")
@@ -545,7 +635,7 @@ class HermesCreateSessionRequest(BaseModel):
 
 class HermesMessageRequest(BaseModel):
     session_id: str = Field(..., description="HERMES session id.")
-    message: str = Field(..., min_length=1, description="User message.")
+    message: str = Field(..., min_length=1, max_length=MAX_PROMPT_LENGTH, description="User message.")
 
 
 class HermesApprovalRequest(BaseModel):
@@ -562,7 +652,7 @@ class HermesExplainRequest(BaseModel):
 
 
 class HermesAutoRequest(BaseModel):
-    prompt: str = Field(..., min_length=1, description="Natural-language design request.")
+    prompt: str = Field(..., min_length=1, max_length=MAX_PROMPT_LENGTH, description="Natural-language design request.")
     max_retries: int = Field(default=3, ge=0, le=5, description="Redesign attempts after certification failure.")
     cert_threshold: float = Field(default=0.7, ge=0.0, le=1.0, description="Minimum certificate score to accept.")
     timeout_seconds: float = Field(default=1800.0, gt=0.0, description="Wall-clock budget for the pipeline.")
@@ -574,7 +664,7 @@ class HermesVoiceTokenRequest(BaseModel):
 
 
 class CosmosScenarioRequest(BaseModel):
-    prompt: str = Field(..., min_length=1, description="Natural-language scenario prompt for Cosmos.")
+    prompt: str = Field(..., min_length=1, max_length=MAX_PROMPT_LENGTH, description="Natural-language scenario prompt for Cosmos.")
     model: str | None = Field(default=None, description="Optional Cosmos model override.")
     image_b64: str | None = Field(default=None, description="Optional base64 image prompt.")
 
@@ -624,14 +714,24 @@ class MorphologySimulateRequest(BaseModel):
 
 class MarketplaceCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, description="Display name for the asset.")
-    description: str = Field(default="", description="Short description of the asset.")
-    author: str = Field(default="", description="Author or publisher name.")
-    version: str = Field(default="1.0.0", description="Semantic version string.")
+    description: str = Field(default="", max_length=2000, description="Short description of the asset.")
+    author: str = Field(default="", max_length=500, description="Author or publisher name.")
+    version: str = Field(default="1.0.0", max_length=100, description="Semantic version string.")
     tags: list[str] = Field(default_factory=list, description="Searchable tags.")
     asset_type: str = Field(..., description="One of: part, scene_template, robot_template, world_template, electronics_template, aero_template.")
-    source_path: str = Field(..., min_length=1, description="Relative path under the repo root to the asset directory.")
-    thumbnail_url: str | None = Field(default=None, description="Optional thumbnail image URL.")
+    source_path: str = Field(..., min_length=1, max_length=1000, description="Relative path under the repo root, or absolute path under an allowed marketplace directory.")
+    thumbnail_url: str | None = Field(default=None, max_length=2000, description="Optional thumbnail image URL.")
     metadata: dict[str, Any] = Field(default_factory=dict, description="Extra asset metadata.")
+
+    @field_validator("source_path")
+    @classmethod
+    def _validate_source_path(cls, value: str) -> str:
+        from ai_cad.marketplace import _resolve_source_path
+        try:
+            _resolve_source_path(value)
+        except ValueError as exc:
+            raise ValueError(str(exc)) from exc
+        return value
 
 
 class MarketplaceUpdateRequest(BaseModel):
@@ -640,8 +740,21 @@ class MarketplaceUpdateRequest(BaseModel):
     author: str | None = None
     version: str | None = None
     tags: list[str] | None = None
+    source_path: str | None = Field(default=None, max_length=1000, description="Relative path under the repo root, or absolute path under an allowed marketplace directory.")
     thumbnail_url: str | None = None
     metadata: dict[str, Any] | None = None
+
+    @field_validator("source_path")
+    @classmethod
+    def _validate_source_path(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        from ai_cad.marketplace import _resolve_source_path
+        try:
+            _resolve_source_path(value)
+        except ValueError as exc:
+            raise ValueError(str(exc)) from exc
+        return value
 
 
 class MarketplaceVerifyResponse(MarketplaceItem):
@@ -651,8 +764,50 @@ class MarketplaceVerifyResponse(MarketplaceItem):
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+def health(verbose: bool = False) -> dict[str, Any]:
+    """Liveness plus shallow readiness checks used by the launcher.
+
+    By default returns a minimal response for load-balancer compatibility.
+    Pass ?verbose=1 to receive the full check list.
+    """
+    import importlib
+    import os
+
+    required_env = ["ANTHROPIC_API_KEY"]
+    optional_env = ["NVIDIA_API_KEY", "LIVEKIT_URL", "LIVEKIT_API_KEY", "LIVEKIT_API_SECRET", "ONSHAPE_ACCESS_KEY", "ONSHAPE_SECRET_KEY"]
+    core_modules = ["fastapi", "uvicorn", "pydantic", "build123d", "trimesh", "numpy", "anthropic"]
+    checks: list[dict[str, Any]] = []
+
+    for mod in core_modules:
+        try:
+            importlib.import_module(mod)
+            checks.append({"name": mod, "group": "core_imports", "ok": True})
+        except Exception as exc:
+            checks.append({"name": mod, "group": "core_imports", "ok": False, "message": str(exc)})
+
+    for key in required_env:
+        ok = bool(os.environ.get(key))
+        checks.append({"name": key, "group": "api_keys", "ok": ok, "required": True, "message": "OK" if ok else f"missing {key}"})
+
+    for key in optional_env:
+        ok = bool(os.environ.get(key))
+        checks.append({"name": key, "group": "api_keys", "ok": True, "required": False, "message": "OK" if ok else f"optional {key} not set"})
+
+    try:
+        designs_dir = WORK_DIR / "designs"
+        designs_dir.mkdir(parents=True, exist_ok=True)
+        test_file = designs_dir / ".write_test"
+        test_file.write_text("ok")
+        test_file.unlink()
+        checks.append({"name": "designs_dir_writable", "group": "filesystem", "ok": True})
+    except Exception as exc:
+        checks.append({"name": "designs_dir_writable", "group": "filesystem", "ok": False, "message": str(exc)})
+
+    all_ok = all(c["ok"] for c in checks if c.get("required"))
+    status = "ok" if all_ok else "degraded"
+    if not verbose:
+        return {"status": status}
+    return {"status": status, "service": "robocad", "checks": checks}
 
 
 @app.post("/classify-domain")
@@ -997,6 +1152,15 @@ def regenerate_from_feature_tree(
             raise HTTPException(status_code=400, detail=f"Unknown parameter: {name}")
         tree = tree.update_parameter(name, value)
 
+    if tree.parts and all(not part.sketches and not part.features for part in tree.parts):
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "This design is a kinematic skeleton template with no CAD features to rebuild. "
+                "Create a new robot template with the parameters you want instead."
+            ),
+        )
+
     try:
         if tree.assemblies:
             code = transpile_assembly(tree)
@@ -1168,11 +1332,12 @@ def onshape_documents(
 
 @app.post("/designs/{design_id}/onshape")
 def upload_to_onshape(design_id: str, request: OnshapeUploadRequest) -> dict[str, Any]:
-    """Upload a design's STEP file to Onshape.
+    """Upload a design's STEP file to an existing Onshape document/workspace.
 
-    If document_id/workspace_id are provided, the STEP is imported into that
-    document. Otherwise a new Onshape document is created (public documents are
-    required for free Onshape plans).
+    RoboCAD never creates new Onshape documents automatically, because the default
+    visibility for documents created by free Onshape plans is public. Supply an
+    existing document_id and workspace_id to import the STEP privately into your
+    own workspace.
     """
     design_dir = DESIGNS_DIR / design_id
     meta_path = design_dir / "metadata.json"
@@ -1193,20 +1358,18 @@ def upload_to_onshape(design_id: str, request: OnshapeUploadRequest) -> dict[str
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
 
+    if not request.document_id or not request.workspace_id:
+        raise HTTPException(
+            status_code=422,
+            detail="Onshape upload requires an existing document_id and workspace_id; RoboCAD will not create public documents automatically.",
+        )
+
     try:
-        if request.document_id and request.workspace_id:
-            result = client.upload_step(
-                step_path,
-                request.document_id,
-                request.workspace_id,
-            )
-        else:
-            document_name = request.document_name or f"RoboCAD {meta.get('prompt', '')[:40]}"
-            result = client.upload_step_to_new_document(
-                step_path,
-                document_name,
-                "Uploaded by RoboCAD",
-            )
+        result = client.upload_step(
+            step_path,
+            request.document_id,
+            request.workspace_id,
+        )
         return {
             "design_id": design_id,
             "onshape": result,
@@ -2063,6 +2226,12 @@ def marketplace_create_item(request: MarketplaceCreateRequest) -> MarketplaceIte
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=f"Invalid asset_type: {exc}")
 
+    if request.source_path:
+        try:
+            _resolve_marketplace_source_path(request.source_path)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid source_path: {exc}")
+
     item = MarketplaceItem(
         name=request.name,
         description=request.description,
@@ -2104,11 +2273,26 @@ def marketplace_upload_item(
     ):
         raise HTTPException(status_code=400, detail="Only .zip or .tar.gz archives are supported.")
 
+    def _read_limited() -> bytes:
+        chunks: list[bytes] = []
+        total = 0
+        while True:
+            chunk = file.file.read(65536)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > MAX_UPLOAD_BYTES:
+                raise HTTPException(status_code=413, detail=f"Upload exceeds {MAX_UPLOAD_BYTES // (1024 * 1024)} MB limit.")
+            chunks.append(chunk)
+        return b"".join(chunks)
+
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         archive_path = tmp_path / "archive"
         try:
-            archive_path.write_bytes(file.file.read())
+            archive_path.write_bytes(_read_limited())
+        except HTTPException:
+            raise
         except Exception as exc:
             raise HTTPException(status_code=400, detail=f"Failed to read upload: {exc}") from exc
         finally:
@@ -2154,6 +2338,12 @@ def marketplace_upload_item(
 def marketplace_update_item(item_id: str, request: MarketplaceUpdateRequest) -> MarketplaceItem:
     """Update a marketplace catalog entry."""
     updates = request.model_dump(exclude_unset=True)
+    new_source_path = updates.get("source_path")
+    if new_source_path:
+        try:
+            _resolve_marketplace_source_path(new_source_path)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid source_path: {exc}")
     try:
         return update_item(item_id, updates)
     except KeyError as exc:
@@ -2186,10 +2376,10 @@ def marketplace_download_item(item_id: str) -> dict[str, Any]:
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
 
-    source_dir = Path(item.source_path)
-    if not source_dir.is_absolute():
-        source_dir = Path(__file__).resolve().parent.parent.parent / source_dir
-    source_dir = source_dir.resolve()
+    try:
+        source_dir = _resolve_marketplace_source_path(item.source_path)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid source_path: {exc}")
 
     files: list[str] = []
     if source_dir.exists():
@@ -2432,7 +2622,7 @@ def list_skills_endpoint(design_id: str) -> dict[str, Any]:
 
 
 @app.post("/designs/{design_id}/train-brain")
-def train_brain_endpoint(design_id: str, request: TrainBrainRequest) -> dict[str, Any]:
+async def train_brain_endpoint(design_id: str, request: TrainBrainRequest) -> dict[str, Any]:
     """Train an attention-aware robot brain policy (Phase 25)."""
     design_dir = DESIGNS_DIR / design_id
     meta_path = design_dir / "metadata.json"
@@ -2440,13 +2630,17 @@ def train_brain_endpoint(design_id: str, request: TrainBrainRequest) -> dict[str
         raise HTTPException(status_code=404, detail="Design not found.")
 
     try:
-        report = train_and_evaluate(
+        report = await _run_sync_with_timeout(
+            train_and_evaluate,
             n_iters=request.n_iters,
             pop_size=request.pop_size,
             eval_episodes=request.eval_episodes,
             success_rate_threshold=request.success_rate_threshold,
             seed=request.seed,
+            timeout=600.0,  # 10 min hard ceiling for brain training
         )
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Brain training failed: {exc}")
 
@@ -2551,6 +2745,21 @@ def _maybe_convert_propose_redesign_to_regenerate(session: HermesSession) -> Non
     session.save()
 
 
+def _enrich_context_for_auto_orchestration(
+    context: dict[str, Any],
+    session: HermesSession,
+) -> dict[str, Any]:
+    """Add the in-memory objects the ``run_auto_orchestration`` tool needs.
+
+    These objects are intentionally not persisted in the session sidecar; only
+    serializable design summary/context keys are saved.
+    """
+    enriched = context.copy()
+    enriched["auto_orchestration_session"] = session
+    enriched["auto_orchestration_registry"] = HermesToolRegistry()
+    return enriched
+
+
 def _build_hermes_context(design_id: str | None) -> dict[str, Any]:
     """Build a HERMES context dict bound to backend callables for a design."""
     ctx: dict[str, Any] = {
@@ -2651,9 +2860,9 @@ def create_hermes_session(request: HermesCreateSessionRequest) -> dict[str, Any]
 def get_hermes_session(session_id: str, design_id: str | None = None) -> dict[str, Any]:
     """Load a HERMES session and its active plan."""
     try:
-        session = HermesSession.load(session_id, design_id=design_id, base_dir=DESIGNS_DIR)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="HERMES session not found.")
+        session = _load_hermes_session(session_id, design_id=design_id)
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to load HERMES session: {exc}")
     plan = session.session.active_plan()
@@ -2675,15 +2884,17 @@ def hermes_message(session_id: str, request: HermesMessageRequest) -> dict[str, 
     if request.session_id != session_id:
         raise HTTPException(status_code=400, detail="Session id mismatch.")
     try:
-        session = HermesSession.load(session_id, base_dir=DESIGNS_DIR)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="HERMES session not found.")
+        session = _load_hermes_session(session_id)
+    except HTTPException:
+        raise
 
     session.add_message("user", request.message)
     context = _build_hermes_context(session.session.design_id)
     # Persist only the serializable design summary in the session sidecar.
     session.session.context["design_id"] = context["design_id"]
     session.session.context["design_summary"] = context.get("design_summary")
+    # Provide the in-memory objects required by the auto-orchestration tool.
+    context = _enrich_context_for_auto_orchestration(context, session)
     agent = HermesAgent(registry=HermesToolRegistry())
     response = agent.run(
         request.message,
@@ -2738,13 +2949,15 @@ def hermes_approve(session_id: str, request: HermesApprovalRequest) -> dict[str,
     if request.session_id != session_id:
         raise HTTPException(status_code=400, detail="Session id mismatch.")
     try:
-        session = HermesSession.load(session_id, base_dir=DESIGNS_DIR)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="HERMES session not found.")
+        session = _load_hermes_session(session_id)
+    except HTTPException:
+        raise
 
     context = _build_hermes_context(session.session.design_id)
     session.session.context["design_id"] = context["design_id"]
     session.session.context["design_summary"] = context.get("design_summary")
+    # Provide the in-memory objects required by the auto-orchestration tool.
+    context = _enrich_context_for_auto_orchestration(context, session)
     if request.approved:
         step = session.approve(request.step_id, request.parameter_overrides)
         results = session.advance(context=context)
@@ -2768,9 +2981,9 @@ def hermes_explain(session_id: str, request: HermesExplainRequest) -> dict[str, 
     if request.session_id != session_id:
         raise HTTPException(status_code=400, detail="Session id mismatch.")
     try:
-        session = HermesSession.load(session_id, base_dir=DESIGNS_DIR)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="HERMES session not found.")
+        session = _load_hermes_session(session_id)
+    except HTTPException:
+        raise
 
     report: dict[str, Any] | None = None
     if session.session.design_id:
@@ -2805,9 +3018,9 @@ def hermes_livekit_token(session_id: str, request: HermesVoiceTokenRequest) -> d
     if request.session_id != session_id:
         raise HTTPException(status_code=400, detail="Session id mismatch.")
     try:
-        HermesSession.load(session_id, base_dir=DESIGNS_DIR)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="HERMES session not found.")
+        _load_hermes_session(session_id)
+    except HTTPException:
+        raise
 
     try:
         token_info = create_token(session_id, identity=request.identity)
@@ -2823,9 +3036,9 @@ def hermes_livekit_token(session_id: str, request: HermesVoiceTokenRequest) -> d
 def hermes_status(session_id: str) -> dict[str, Any]:
     """Return the current HERMES session status and any pending approvals."""
     try:
-        session = HermesSession.load(session_id, base_dir=DESIGNS_DIR)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="HERMES session not found.")
+        session = _load_hermes_session(session_id)
+    except HTTPException:
+        raise
     plan = session.session.active_plan()
     pending: list[dict[str, Any]] = []
     if plan:
@@ -2846,49 +3059,74 @@ def hermes_status(session_id: str) -> dict[str, Any]:
     }
 
 
+
+
 @app.post("/hermes/session/{session_id}/auto")
-def hermes_auto(session_id: str, request: HermesAutoRequest) -> dict[str, Any]:
-    """Run the fully automated voice-to-certified-design orchestration pipeline."""
+def hermes_auto(session_id: str, request: HermesAutoRequest, raw_request: Request) -> dict[str, Any]:
+    """Queue the fully automated voice-to-certified-design orchestration pipeline.
+
+    Auto-orchestration invokes expensive, modifying tools, so it is represented as
+    a single HERMES plan step that requires explicit user approval. Approving the
+    step via POST /hermes/session/{session_id}/approve executes the pipeline.
+
+    Public access requires ROBOCAD_ENABLE_AUTO_ORCHESTRATION=1 in addition to the
+    standard API-key gate; loopback/TestClient requests may use the endpoint by
+    default.
+    """
+    host = raw_request.client.host if raw_request.client else None
+    is_loopback = host in ("127.0.0.1", "::1", "localhost", "testclient") or (host or "").startswith("127.")
+    if not is_loopback and os.environ.get("ROBOCAD_ENABLE_AUTO_ORCHESTRATION", "").lower() not in ("1", "true", "yes"):
+        raise HTTPException(
+            status_code=403,
+            detail="Auto-orchestration is disabled for public access by default. Set ROBOCAD_ENABLE_AUTO_ORCHESTRATION=1 to enable.",
+        )
     try:
-        session = HermesSession.load(session_id, base_dir=DESIGNS_DIR)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="HERMES session not found.")
+        session = _load_hermes_session(session_id)
+    except HTTPException:
+        raise
 
     context = _build_hermes_context(session.session.design_id)
     # Persist only the serializable summary in the session sidecar.
     session.session.context["design_id"] = context["design_id"]
     session.session.context["design_summary"] = context.get("design_summary")
+    context = _enrich_context_for_auto_orchestration(context, session)
 
-    result = run_auto_orchestration(
-        session=session,
-        prompt=request.prompt,
-        registry=HermesToolRegistry(),
-        context=context,
-        max_retries=request.max_retries,
-        cert_threshold=request.cert_threshold,
-        timeout_seconds=request.timeout_seconds,
+    step = tool_call_to_step(
+        ToolCall(
+            tool="run_auto_orchestration",
+            parameters={
+                "prompt": request.prompt,
+                "max_retries": request.max_retries,
+                "cert_threshold": request.cert_threshold,
+                "timeout_seconds": request.timeout_seconds,
+            },
+        )
     )
-
-    status = "certified" if result["success"] else "failed"
-    session.session.status = status
-    session.session.context["auto_result"] = {
-        "design_id": result.get("design_id"),
-        "search_id": result.get("search_id"),
-        "candidate_id": result.get("candidate_id"),
-        "success": result["success"],
-        "message": result.get("message", ""),
-    }
+    plan = build_plan(
+        goal=f"Auto-orchestrate: {request.prompt[:60]}",
+        steps_data=[step.model_dump()],
+    )
+    session.session.plans.append(plan)
+    session.advance(context=context)
     session.save()
+
+    active_plan = session.session.active_plan()
+    pending: list[dict[str, Any]] = []
+    if active_plan:
+        for s in active_plan.steps:
+            if s.status.value == "awaiting_approval":
+                pending.append({
+                    "step_id": s.id,
+                    "description": s.description,
+                    "tool": s.tool,
+                    "parameters": s.parameters,
+                })
+
     return {
         "session_id": session_id,
-        "success": result["success"],
-        "design_id": result.get("design_id"),
-        "search_id": result.get("search_id"),
-        "candidate_id": result.get("candidate_id"),
-        "status": status,
-        "audit": result.get("audit", []),
-        "certificate": result.get("certificate"),
-        "message": result.get("message", ""),
+        "status": session.session.status,
+        "message": "Auto-orchestration queued; approve the pending step to run the pipeline.",
+        "pending_approvals": pending,
     }
 
 
@@ -2896,9 +3134,9 @@ def hermes_auto(session_id: str, request: HermesAutoRequest) -> dict[str, Any]:
 def hermes_audit(session_id: str) -> dict[str, Any]:
     """Return the persisted auto-orchestration audit trail for a HERMES session."""
     try:
-        session = HermesSession.load(session_id, base_dir=DESIGNS_DIR)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="HERMES session not found.")
+        session = _load_hermes_session(session_id)
+    except HTTPException:
+        raise
 
     audit = session.get_audit()
     return {
@@ -3122,7 +3360,7 @@ def regenerate(design_id: str, request: RegenerateRequest) -> GenerateResponse:
 
 @app.get("/exports/{design_id}/{filename:path}")
 def get_export(design_id: str, filename: str) -> FileResponse:
-    file_path = _resolve_export_path(design_id, filename)
+    file_path = _resolve_export_download_path(design_id, filename)
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="File not found.")
 
@@ -3379,15 +3617,30 @@ def sim_cert_list(design_id: str) -> dict[str, Any]:
 def render_critique_endpoint(
     design_id: str,
     file: UploadFile = File(..., description="PNG/JPEG screenshot of the rendered model."),
-    prompt: str | None = Query(default=None, description="Optional override prompt for the vision model."),
+    prompt: str | None = Query(default=None, max_length=MAX_PROMPT_LENGTH, description="Optional override prompt for the vision model."),
 ) -> dict[str, Any]:
     """Run a NVIDIA vision-language model on a render screenshot and return a structured critique."""
     design_dir = DESIGNS_DIR / design_id
     if not (design_dir / "metadata.json").exists():
         raise HTTPException(status_code=404, detail="Design not found.")
 
+    def _read_limited_image() -> bytes:
+        chunks: list[bytes] = []
+        total = 0
+        while True:
+            chunk = file.file.read(65536)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > MAX_UPLOAD_BYTES:
+                raise HTTPException(status_code=413, detail=f"Image upload exceeds {MAX_UPLOAD_BYTES // (1024 * 1024)} MB limit.")
+            chunks.append(chunk)
+        return b"".join(chunks)
+
     try:
-        image_bytes = file.file.read()
+        image_bytes = _read_limited_image()
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Failed to read image: {exc}") from exc
     finally:
@@ -3523,6 +3776,28 @@ def create_robot_template(req: RobotTemplateRequest) -> dict[str, Any]:
         "tags": ["robot_template", template_name],
         "domain": "mechanical",
     }
+    # Templates are kinematic skeletons without CAD features. Write a display
+    # mesh built from the skeleton so the 3D viewer can show the robot.
+    try:
+        from ai_cad.geda_bridge.exporter import skeleton_preview_mesh
+
+        preview = skeleton_preview_mesh(tree)
+        if preview is not None:
+            exports_dir = design_dir / "exports"
+            exports_dir.mkdir(parents=True, exist_ok=True)
+            preview.export(exports_dir / "model.stl")
+            meta["exports"] = {"stl": "model.stl", "step": None, "script": None}
+            validation = _build_assembly_validation_report(
+                exports_dir / "model.stl", len(tree.assemblies[0].instances)
+            )
+            validation.warnings.append(
+                "Preview shows the kinematic skeleton of the template, not manufacturable part geometry."
+            )
+            meta["validation"] = validation.model_dump()
+    except Exception:
+        # The preview is best-effort; the template itself is still valid.
+        meta["exports"] = {}
+
     _write_json(design_dir / "metadata.json", meta)
     _write_json(design_dir / "feature_tree.json", tree.model_dump(mode="json"))
     _write_json(design_dir / "parameters.json", [p.model_dump() for p in tree.parameters])
@@ -3531,7 +3806,7 @@ def create_robot_template(req: RobotTemplateRequest) -> dict[str, Any]:
         "design_id": design_id,
         "template": template_name,
         "feature_tree": tree.model_dump(mode="json"),
-        "export_urls": _build_export_urls(design_id, {}),
+        "export_urls": _build_export_urls(design_id, meta.get("exports") or {}),
     }
 
 
@@ -3658,7 +3933,7 @@ def list_morphology_topologies(
 
 
 @app.post("/morphology/search")
-def run_morphology_search(request: MorphologySearchRequest) -> dict[str, Any]:
+async def run_morphology_search(request: MorphologySearchRequest) -> dict[str, Any]:
     """Run a deterministic morphology or topology search and persist the results."""
     if request.topology_constraints:
         constraints: dict[str, Any] = dict(request.topology_constraints)
@@ -3696,13 +3971,20 @@ def run_morphology_search(request: MorphologySearchRequest) -> dict[str, Any]:
         prompt = f"Morphology search: {request.template}"
         tags = ["morphology_search", request.template]
 
-    candidates = search_morphologies(
-        space,
-        payload_kg=request.payload_kg,
-        robot_mass_kg=request.robot_mass_kg,
-        weights=request.weights,
-        use_physics=request.use_physics,
-    )
+    try:
+        candidates = await _run_sync_with_timeout(
+            search_morphologies,
+            space,
+            payload_kg=request.payload_kg,
+            robot_mass_kg=request.robot_mass_kg,
+            weights=request.weights,
+            use_physics=request.use_physics,
+            timeout=300.0,  # 5 min hard ceiling for morphology search
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Morphology search failed: {exc}")
 
     search_id = uuid.uuid4().hex
     design_dir = DESIGNS_DIR / search_id
@@ -3731,10 +4013,12 @@ def run_morphology_search(request: MorphologySearchRequest) -> dict[str, Any]:
             top_candidate = candidates[0]
             _write_json(design_dir / "feature_tree.json", top_candidate.tree.model_dump(mode="json"))
             store = _deep_job_store()
-            cert = run_certification(
+            cert = await _run_sync_with_timeout(
+                run_certification,
                 design_id=search_id,
                 design_dir=design_dir,
                 job_store=store,
+                timeout=300.0,
             )
             certificate = cert.model_dump()
         except Exception:
@@ -3781,7 +4065,7 @@ def get_morphology_search(search_id: str) -> dict[str, Any]:
 
 
 @app.post("/morphology/{search_id}/candidates/{candidate_id}/simulate")
-def simulate_morphology_candidate(
+async def simulate_morphology_candidate(
     search_id: str,
     candidate_id: str,
     request: MorphologySimulateRequest,
@@ -3851,14 +4135,21 @@ def simulate_morphology_candidate(
             seed=request.seed,
         )
         if env.is_available():
-            best_weights, train_report = train_robot_policy(
+            best_weights, train_report = await _run_sync_with_timeout(
+                train_robot_policy,
                 env=env,
                 n_iters=request.n_iters,
                 pop_size=request.pop_size,
                 seed=request.seed,
+                timeout=600.0,
             )
-            eval_report = evaluate_robot_policy(
-                env, best_weights, n_episodes=request.eval_episodes, seed=request.seed
+            eval_report = await _run_sync_with_timeout(
+                evaluate_robot_policy,
+                env,
+                best_weights,
+                n_episodes=request.eval_episodes,
+                seed=request.seed,
+                timeout=300.0,
             )
             brain_report = {
                 "success": bool(eval_report["success_rate"] >= 0.1),
@@ -3874,14 +4165,21 @@ def simulate_morphology_candidate(
         else:
             # Graceful fallback to the abstract attention smoke test.
             abstract_env = AbstractAttentionEnv(world=world, seed=request.seed)
-            best_weights, train_report = train_attention_policy(
+            best_weights, train_report = await _run_sync_with_timeout(
+                train_attention_policy,
                 env=abstract_env,
                 n_iters=request.n_iters,
                 pop_size=request.pop_size,
                 seed=request.seed,
+                timeout=600.0,
             )
-            eval_report = evaluate_attention_policy(
-                abstract_env, best_weights, n_episodes=request.eval_episodes, seed=request.seed
+            eval_report = await _run_sync_with_timeout(
+                evaluate_attention_policy,
+                abstract_env,
+                best_weights,
+                n_episodes=request.eval_episodes,
+                seed=request.seed,
+                timeout=300.0,
             )
             brain_report = {
                 "success": bool(eval_report["success_rate"] >= 0.5),
@@ -3891,6 +4189,8 @@ def simulate_morphology_candidate(
                 "best_training_reward": train_report["best_training_reward"],
                 "fallback": "abstract_attention_env",
             }
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Brain training smoke test failed: {exc}")
 
@@ -3922,16 +4222,26 @@ def _build_export_urls(design_id: str, exports: dict[str, str | None]) -> dict[s
 
 
 def _resolve_export_path(design_id: str, filename: str | None) -> Path | None:
-    """Resolve a stored export filename to an absolute filesystem path."""
+    """Resolve a stored export filename to an absolute filesystem path.
+
+    Mirrors the containment logic in ``_resolve_export_download_path`` so that
+    internal callers cannot be tricked into reading files outside the design
+    directory if the filename is derived from user-controlled metadata.
+    """
     if not filename:
         return None
-    design_dir = DESIGNS_DIR / design_id
-    candidate = design_dir / filename
+    design_dir = _resolve_design_dir(design_id).resolve()
+    safe_name = Path(filename).as_posix().lstrip("/")
+    if safe_name.startswith("..") or "/../" in f"/{safe_name}/":
+        raise HTTPException(status_code=400, detail="Invalid export filename.")
+    candidate = (design_dir / safe_name).resolve()
+    if not candidate.is_relative_to(design_dir):
+        raise HTTPException(status_code=400, detail="Invalid export filename.")
     if candidate.exists():
         return candidate
     # Backwards-compatible fallback for top-level export names.
-    fallback = design_dir / "exports" / Path(filename).name
-    if fallback.exists():
+    fallback = (design_dir / "exports" / Path(filename).name).resolve()
+    if fallback.is_relative_to(design_dir) and fallback.exists():
         return fallback
     return None
 

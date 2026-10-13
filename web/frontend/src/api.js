@@ -146,9 +146,12 @@ export async function runFEA(id, { fixedFace = '-x', loadMagnitudeN = 100, mater
 }
 
 export async function simulateDesign(id, { material = 'PLA', tolerance = 0.1 } = {}) {
+  // Building a bundle rebuilds and meshes every part of an assembly, which can
+  // take well over the default request timeout for multi-part robots.
   return apiFetch(`/designs/${id}/simulate`, {
     method: 'POST',
     body: JSON.stringify({ material, tolerance }),
+    timeout: 300000,
   })
 }
 

@@ -53,6 +53,7 @@ def test_gate_expensive_tools_require_approval():
     assert gate.requires_approval("generate_design") is True
     assert gate.requires_approval("train_brain") is True
     assert gate.requires_approval("synthesize_assembly") is True
+    assert gate.requires_approval("run_auto_orchestration") is True
 
 
 def test_gate_default_behavior():
@@ -96,6 +97,17 @@ def test_registry_duplicate_register_raises():
         from ai_cad.hermes.tools import HermesTool
 
         registry.register(HermesTool(name="classify_domain", description="dup"))
+
+
+def test_hermes_store_rejects_invalid_session_id(tmp_path: Path):
+    """Session IDs must match the hermes_<hex> format at the storage layer."""
+    store = HermesSessionStore(base_dir=tmp_path)
+    with pytest.raises(ValueError):
+        store.path_for("../../../etc/passwd")
+    with pytest.raises(ValueError):
+        store.path_for("hermes_")
+    # Valid generated id works.
+    assert store.path_for("hermes_abcdef12").name == "hermes_abcdef12.json"
 
 
 # -----------------------------------------------------------------------------

@@ -63,6 +63,114 @@ def _fallback_cube_mesh(size_mm: float = 10.0) -> trimesh.Trimesh:
     return trimesh.creation.box(extents=extents)
 
 
+def _is_skeleton_part(part) -> bool:
+    """True for template links that carry no CAD geometry of their own."""
+    return not part.sketches and not part.features
+
+
+def _capsule_between(p0: np.ndarray, p1: np.ndarray, radius: float) -> trimesh.Trimesh:
+    """Return a capsule whose axis runs from p0 to p1 (millimetres)."""
+    axis = p1 - p0
+    length = float(np.linalg.norm(axis))
+    capsule = trimesh.creation.capsule(height=length, radius=radius, count=[16, 16])
+    # trimesh capsules are centred on the origin along +Z.
+    transform = trimesh.geometry.align_vectors([0.0, 0.0, 1.0], axis / length)
+    transform[:3, 3] = (p0 + p1) / 2
+    capsule.apply_transform(transform)
+    return capsule
+
+
+def _skeleton_visual_mesh(
+    instance,
+    joints: list[KinematicJoint],
+    parameters: dict[str, Any],
+) -> trimesh.Trimesh:
+    """Build a proportioned visual mesh for a geometry-less template link.
+
+    Skeleton templates define a robot only by link frames and joint origins.
+    The visual is derived from that skeleton: a capsule from the joint that
+    drives the link to each joint it carries, a slab for feet, and a box hull
+    for the trunk. It is used for display only; inertial data still comes from
+    the placeholder cube so simulation behaviour is unchanged.
+    """
+    origin = np.array((instance.transform or {}).get("translation", (0.0, 0.0, 0.0)), dtype=float)
+    name = instance.id.lower()
+
+    def _num(key: str, default: float) -> float:
+        try:
+            return float(parameters.get(key, default))
+        except (TypeError, ValueError):
+            return default
+
+    joint_in = next((j for j in joints if j.child_link == instance.id), None)
+    start = np.array(joint_in.origin, dtype=float) - origin if joint_in is not None else np.zeros(3)
+    ends = [np.array(j.origin, dtype=float) - origin for j in joints if j.parent_link == instance.id]
+
+    reach = max([float(np.linalg.norm(e - start)) for e in ends] + [_num("thigh_length", 150.0)])
+    radius = float(np.clip(reach * 0.09, 10.0, 28.0))
+    meshes: list[trimesh.Trimesh] = []
+
+    if "foot" in name:
+        length = _num("foot_length", reach * 0.7)
+        width = _num("foot_width", length * 0.5)
+        height = max(length * 0.14, 12.0)
+        slab = trimesh.creation.box(extents=(length, width, height))
+        slab.apply_translation((length * 0.18, 0.0, height / 2))
+        meshes.append(slab)
+    elif joint_in is None and ends:
+        # Trunk: box enclosing every joint it carries, padded to a solid body.
+        pts = np.array(ends)
+        lo, hi = pts.min(axis=0), pts.max(axis=0)
+        pad = np.array([radius * 1.6, radius * 1.6, radius * 1.4])
+        depth = _num("torso_depth", 0.0)
+        if depth > 0.0 and (hi[1] - lo[1]) < depth:
+            mid = (hi[1] + lo[1]) / 2
+            lo[1], hi[1] = mid - depth / 2, mid + depth / 2
+            pad[1] = 0.0
+        body = trimesh.creation.box(extents=(hi - lo) + 2 * pad)
+        body.apply_translation((lo + hi) / 2)
+        meshes.append(body)
+    else:
+        for end in ends:
+            if float(np.linalg.norm(end - start)) > 5.0:
+                meshes.append(_capsule_between(start, end, radius))
+        if not meshes:
+            if "hand" in name or "effector" in name or "gripper" in name:
+                palm = trimesh.creation.box(extents=(radius * 1.6, radius * 2.2, radius * 2.6))
+                palm.apply_translation(start + np.array([0.0, 0.0, -radius * 1.3]))
+                meshes.append(palm)
+            else:
+                # Joint housing (e.g. a hip or shoulder link with coincident joints).
+                ball = trimesh.creation.icosphere(subdivisions=2, radius=radius * 1.25)
+                ball.apply_translation(start)
+                meshes.append(ball)
+
+    return trimesh.util.concatenate(meshes) if len(meshes) > 1 else meshes[0]
+
+
+def skeleton_preview_mesh(tree: FeatureTree) -> trimesh.Trimesh | None:
+    """Return one merged display mesh (mm, world frame) for a skeleton template.
+
+    Returns ``None`` when the tree is not a pure kinematic skeleton, i.e. when
+    any instance has real CAD geometry that should be built instead.
+    """
+    if not tree.assemblies:
+        return None
+    assembly = tree.assemblies[0]
+    parameters = tree.parameter_dict()
+    meshes: list[trimesh.Trimesh] = []
+    for inst in assembly.instances:
+        part = tree.find_part(inst.part_id)
+        if part is None or not _is_skeleton_part(part):
+            return None
+        mesh = _skeleton_visual_mesh(inst, assembly.joints, parameters)
+        mesh.apply_translation((inst.transform or {}).get("translation", (0.0, 0.0, 0.0)))
+        meshes.append(mesh)
+    if not meshes:
+        return None
+    return trimesh.util.concatenate(meshes)
+
+
 def _sanitize_name(name: str) -> str:
     """Make a string safe for URDF/MJCF link and mesh names."""
     safe = re.sub(r"[^A-Za-z0-9_]", "_", name)
@@ -254,11 +362,13 @@ def _build_bundle_part(
     parameters: dict[str, Any],
     tolerance: float = 0.1,
     mesh_mm: trimesh.Trimesh | None = None,
+    visual_mesh_mm: trimesh.Trimesh | None = None,
 ) -> BundlePart:
     """Build a BundlePart for one part instance.
 
     ``mesh_mm`` may be passed in to avoid rebuilding the same part mesh for
-    multiple assembly instances.
+    multiple assembly instances. ``visual_mesh_mm`` replaces the exported mesh
+    file while inertial data is still computed from ``mesh_mm``.
     """
     if mesh_mm is None:
         mesh_mm = _build_part_mesh(part, parameters, output_dir, tolerance)
@@ -274,7 +384,12 @@ def _build_bundle_part(
     mesh_m = mesh_mm.copy()
     mesh_m.vertices = mesh_m.vertices * MM_TO_M
     inertial = _inertial_from_mesh_m(mesh_m, part.material)
-    mesh_m.export(mesh_path)
+    if visual_mesh_mm is not None:
+        visual_m = visual_mesh_mm.copy()
+        visual_m.vertices = visual_m.vertices * MM_TO_M
+        visual_m.export(mesh_path)
+    else:
+        mesh_m.export(mesh_path)
 
     transform_m_list = None
     if transform_m is not None:
@@ -373,7 +488,10 @@ def _fallback_torque_nm(joint: KinematicJoint, payload_kg: float = 5.0) -> float
 def _build_body_hierarchy(
     parts: list[BundlePart], joints: list[KinematicJoint]
 ) -> tuple[dict[str, BundlePart], dict[str, str], dict[str, list[str]], list[BundlePart], list[tuple[KinematicJoint, str, str]]]:
-    """Group bodies by parent-child links from real (non-fixed) joints.
+    """Group bodies by parent-child links from the joint list.
+
+    Real (non-fixed) joints and fixed attachments both define the hierarchy;
+    only real joints are returned in the processed joint list.
 
     Returns:
         name_to_part mapping, parent map, children map, root bodies, and a list
@@ -397,6 +515,32 @@ def _build_body_hierarchy(
         children_map.setdefault(parent, []).append(child)
         processed.append((joint, parent, child))
 
+    # Fixed joints carry no degree of freedom, but the child must still move
+    # with its parent: nest it under the parent body instead of leaving it
+    # welded to the world. Joints to "world" (or unknown links) keep the child
+    # as a root body.
+    for joint in joints:
+        if joint.type != "fixed":
+            continue
+        parent = _resolve_link_name(joint.parent_link, parts)
+        child = _resolve_link_name(joint.child_link, parts)
+        if parent == child or child in seen_children:
+            continue
+        if parent not in name_to_part or child not in name_to_part:
+            continue
+        # Never create a cycle.
+        ancestor, is_cycle = parent, False
+        while ancestor in parent_map:
+            ancestor = parent_map[ancestor]
+            if ancestor == child:
+                is_cycle = True
+                break
+        if is_cycle:
+            continue
+        seen_children.add(child)
+        parent_map[child] = parent
+        children_map.setdefault(parent, []).append(child)
+
     roots = [p for p in parts if p.name not in parent_map]
     return name_to_part, parent_map, children_map, roots, processed
 
@@ -409,6 +553,24 @@ def _part_world_pos_quat(part: BundlePart) -> tuple[tuple[float, float, float], 
     return (0.0, 0.0, 0.0), (1.0, 0.0, 0.0, 0.0)
 
 
+def _part_world_rotation(part: BundlePart) -> np.ndarray:
+    """Return the 3x3 world rotation of a part instance."""
+    if part.transform_m is not None:
+        return np.array(part.transform_m, dtype=float)[:3, :3]
+    return np.eye(3)
+
+
+def _rotation_to_rpy(R: np.ndarray) -> tuple[float, float, float]:
+    """Return URDF roll-pitch-yaw (rad) for a 3x3 rotation matrix."""
+    M = np.eye(4)
+    M[:3, :3] = R
+    return _matrix_to_pos_rpy(M)[1]
+
+
+def _fmt3(values) -> str:
+    return " ".join(f"{float(v) + 0.0:.6f}" for v in values)
+
+
 def _build_urdf(
     parts: list[BundlePart],
     output_path: Path,
@@ -417,8 +579,11 @@ def _build_urdf(
 ) -> Path:
     """Write a URDF file with one link per part instance.
 
-    Parts that are children of a real (non-fixed) joint are connected by that
-    joint; all other parts remain fixed to the world link.
+    URDF places every child link frame at its joint, relative to the parent
+    link frame. Each jointed link therefore gets its frame at the joint anchor
+    (with the orientation of the part instance), and its mesh and inertial
+    data are offset back to where the part actually sits. Parts without a
+    parent joint are fixed to the world link at their instance pose.
     """
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -429,84 +594,75 @@ def _build_urdf(
     world_link = ET.SubElement(robot, "link", {"name": "world"})
     _urdf_inertial(world_link, 0.0, (0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
 
-    _, _, _, _, real_joints = _build_body_hierarchy(parts, joints)
-    real_joint_children = {child for _, _, child in real_joints}
+    name_to_part, parent_map, _, _, real_joints = _build_body_hierarchy(parts, joints)
+
+    # Joint that attaches each child link to its parent (real or fixed).
+    attach: dict[str, KinematicJoint] = {child: joint for joint, _, child in real_joints}
+    for joint in joints:
+        if joint.type != "fixed":
+            continue
+        child = _resolve_link_name(joint.child_link, parts)
+        parent = _resolve_link_name(joint.parent_link, parts)
+        if child not in attach and parent_map.get(child) == parent:
+            attach[child] = joint
+
+    # World pose of every link frame: joint anchor for attached links, instance
+    # origin otherwise. Orientation always follows the part instance.
+    frame_pos: dict[str, np.ndarray] = {}
+    frame_rot: dict[str, np.ndarray] = {}
+    inst_pos: dict[str, np.ndarray] = {}
+    for part in parts:
+        pos_world, _ = _part_world_pos_quat(part)
+        inst_pos[part.name] = np.array(pos_world, dtype=float)
+        frame_rot[part.name] = _part_world_rotation(part)
+        joint = attach.get(part.name)
+        frame_pos[part.name] = (
+            np.array(_joint_origin_m(joint), dtype=float) if joint is not None else inst_pos[part.name]
+        )
 
     for part in parts:
         link_name = _sanitize_name(part.name)
         link = ET.SubElement(robot, "link", {"name": link_name})
+        # Offset from the link frame back to the origin of the part itself.
+        offset = frame_rot[part.name].T @ (inst_pos[part.name] - frame_pos[part.name])
 
         i = part.inertial
-        _urdf_inertial(
-            link,
-            i.mass_kg,
-            i.center_of_mass_m,
-            i.inertia_tensor_kg_m2,
-        )
+        com = offset + np.array(i.center_of_mass_m, dtype=float)
+        _urdf_inertial(link, i.mass_kg, tuple(float(v) + 0.0 for v in com), i.inertia_tensor_kg_m2)
 
-        visual = ET.SubElement(link, "visual")
-        ET.SubElement(visual, "origin", {"xyz": "0 0 0", "rpy": "0 0 0"})
-        geom = ET.SubElement(visual, "geometry")
-        ET.SubElement(geom, "mesh", {"filename": part.mesh_file, "scale": "1 1 1"})
-
-        collision = ET.SubElement(link, "collision")
-        ET.SubElement(collision, "origin", {"xyz": "0 0 0", "rpy": "0 0 0"})
-        cgeom = ET.SubElement(collision, "geometry")
-        ET.SubElement(cgeom, "mesh", {"filename": part.mesh_file, "scale": "1 1 1"})
+        for tag in ("visual", "collision"):
+            elem = ET.SubElement(link, tag)
+            ET.SubElement(elem, "origin", {"xyz": _fmt3(offset), "rpy": "0 0 0"})
+            geom = ET.SubElement(elem, "geometry")
+            ET.SubElement(geom, "mesh", {"filename": part.mesh_file, "scale": "1 1 1"})
 
     for part in parts:
         link_name = _sanitize_name(part.name)
-        if link_name in real_joint_children:
-            continue
+        joint = attach.get(part.name)
+        parent_name = parent_map.get(part.name) if joint is not None else None
 
-        if part.transform_m is not None:
-            M = np.array(part.transform_m)
-            pos, rpy = _matrix_to_pos_rpy(M)
-        else:
-            pos, rpy = (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)
-
-        joint_name = f"{link_name}_fixed"
-        joint = ET.SubElement(
-            robot,
-            "joint",
-            {"name": joint_name, "type": "fixed"},
-        )
-        ET.SubElement(joint, "parent", {"link": "world"})
-        ET.SubElement(joint, "child", {"link": link_name})
-        ET.SubElement(
-            joint,
-            "origin",
-            {
-                "xyz": f"{pos[0]:.6f} {pos[1]:.6f} {pos[2]:.6f}",
-                "rpy": f"{rpy[0]:.6f} {rpy[1]:.6f} {rpy[2]:.6f}",
-            },
-        )
-
-    for joint, parent_name, child_name in real_joints:
-        joint_name = _sanitize_name(joint.id)
-        joint_elem = ET.SubElement(
-            robot,
-            "joint",
-            {"name": joint_name, "type": joint.type},
-        )
-        ET.SubElement(joint_elem, "parent", {"link": _sanitize_name(parent_name)})
-        ET.SubElement(joint_elem, "child", {"link": _sanitize_name(child_name)})
-        origin_m = _joint_origin_m(joint)
-        ET.SubElement(
-            joint_elem,
-            "origin",
-            {
-                "xyz": f"{origin_m[0]:.6f} {origin_m[1]:.6f} {origin_m[2]:.6f}",
-                "rpy": "0 0 0",
-            },
-        )
-        if joint.type in ("revolute", "prismatic"):
-            axis = _joint_axis(joint)
+        if joint is None or parent_name not in name_to_part:
+            joint_elem = ET.SubElement(robot, "joint", {"name": f"{link_name}_fixed", "type": "fixed"})
+            ET.SubElement(joint_elem, "parent", {"link": "world"})
+            ET.SubElement(joint_elem, "child", {"link": link_name})
             ET.SubElement(
                 joint_elem,
-                "axis",
-                {"xyz": f"{axis[0]:.6f} {axis[1]:.6f} {axis[2]:.6f}"},
+                "origin",
+                {"xyz": _fmt3(frame_pos[part.name]), "rpy": _fmt3(_rotation_to_rpy(frame_rot[part.name]))},
             )
+            continue
+
+        parent_rot = frame_rot[parent_name]
+        rel_pos = parent_rot.T @ (frame_pos[part.name] - frame_pos[parent_name])
+        rel_rot = parent_rot.T @ frame_rot[part.name]
+        joint_elem = ET.SubElement(robot, "joint", {"name": _sanitize_name(joint.id), "type": joint.type})
+        ET.SubElement(joint_elem, "parent", {"link": _sanitize_name(parent_name)})
+        ET.SubElement(joint_elem, "child", {"link": link_name})
+        ET.SubElement(joint_elem, "origin", {"xyz": _fmt3(rel_pos), "rpy": _fmt3(_rotation_to_rpy(rel_rot))})
+        if joint.type in ("revolute", "prismatic"):
+            # The axis is given in the world frame; URDF wants it in the joint frame.
+            axis = frame_rot[part.name].T @ np.array(_joint_axis(joint), dtype=float)
+            ET.SubElement(joint_elem, "axis", {"xyz": _fmt3(axis)})
             if joint.limits is not None:
                 lower, upper = _joint_limits_native(joint)
                 ET.SubElement(
@@ -586,18 +742,24 @@ def _build_mjcf(
 
     built: set[str] = set()
 
-    def _emit_body(parent_elem: ET.Element, part: BundlePart, parent_world_pos: tuple[float, float, float]) -> None:
+    def _emit_body(
+        parent_elem: ET.Element,
+        part: BundlePart,
+        parent_world_pos: tuple[float, float, float],
+        parent_world_rot: np.ndarray | None = None,
+    ) -> None:
         body_name = _sanitize_name(part.name)
         if body_name in built:
             return
         built.add(body_name)
 
-        pos_world, quat = _part_world_pos_quat(part)
-        rel_pos = (
-            pos_world[0] - parent_world_pos[0],
-            pos_world[1] - parent_world_pos[1],
-            pos_world[2] - parent_world_pos[2],
-        )
+        # MJCF body poses are relative to the parent body frame, so express the
+        # world pose of this instance in the (possibly rotated) parent frame.
+        pos_world, _ = _part_world_pos_quat(part)
+        rot_world = _part_world_rotation(part)
+        parent_rot = np.eye(3) if parent_world_rot is None else parent_world_rot
+        rel_pos = parent_rot.T @ (np.array(pos_world) - np.array(parent_world_pos))
+        quat = _rotation_matrix_to_quaternion(parent_rot.T @ rot_world)
 
         body = ET.SubElement(
             parent_elem,
@@ -631,13 +793,10 @@ def _build_mjcf(
         for joint, _, child_name in real_joints:
             if child_name != part.name:
                 continue
-            joint_origin_m = _joint_origin_m(joint)
-            joint_rel = (
-                joint_origin_m[0] - pos_world[0],
-                joint_origin_m[1] - pos_world[1],
-                joint_origin_m[2] - pos_world[2],
-            )
-            axis = _joint_axis(joint)
+            # Joint anchor and axis are given in the world frame; MJCF wants
+            # them in the child body frame.
+            joint_rel = rot_world.T @ (np.array(_joint_origin_m(joint)) - np.array(pos_world))
+            axis = rot_world.T @ np.array(_joint_axis(joint))
             lower, upper = _joint_limits_native(joint)
 
             if joint.type == "revolute":
@@ -678,7 +837,7 @@ def _build_mjcf(
         for child_name in children_map.get(body_name, []):
             child_part = name_to_part.get(child_name)
             if child_part is not None:
-                _emit_body(body, child_part, pos_world)
+                _emit_body(body, child_part, pos_world, rot_world)
 
     for root in roots:
         _emit_body(worldbody, root, (0.0, 0.0, 0.0))
@@ -761,6 +920,12 @@ def export_bundle_from_tree(
                 )
             mesh_mm = part_mesh_cache[cache_key]
             M = transforms.get(inst.id, np.eye(4))
+            visual_mesh_mm = None
+            if _is_skeleton_part(part) and joints:
+                try:
+                    visual_mesh_mm = _skeleton_visual_mesh(inst, joints, parameters)
+                except Exception:
+                    visual_mesh_mm = None
             parts.append(
                 _build_bundle_part(
                     part,
@@ -770,6 +935,7 @@ def export_bundle_from_tree(
                     parameters,
                     tolerance,
                     mesh_mm=mesh_mm,
+                    visual_mesh_mm=visual_mesh_mm,
                 )
             )
     else:
@@ -780,6 +946,20 @@ def export_bundle_from_tree(
 
     if not parts:
         raise ValueError("No parts could be exported.")
+
+    # Skeleton templates were tuned with their fixed end links (e.g. hands)
+    # exported as separate static bodies. Keep that behaviour for geometry-less
+    # links; links with real geometry are nested under their parent body.
+    if joints and tree.assemblies:
+        skeleton_instances = {
+            inst.id
+            for inst in tree.assemblies[0].instances
+            if (part := tree.find_part(inst.part_id)) is not None and _is_skeleton_part(part)
+        }
+        joints = [
+            j for j in joints
+            if not (j.type == "fixed" and j.child_link in skeleton_instances)
+        ]
 
     manifest = BundleManifest(
         design_id=tree.design_id,

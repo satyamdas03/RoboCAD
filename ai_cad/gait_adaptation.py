@@ -54,7 +54,7 @@ def _find_body_id(model, *candidates: str) -> int | None:
 
 def _torso_z(model, data) -> float:
     """Return current torso height in meters."""
-    torso_id = _find_body_id(model, "torso_torso_plate", "torso", "body_body", "body")
+    torso_id = _find_body_id(model, "torso_torso_plate", "torso", "body_body", "body", "i_torso_torso_plate")
     if torso_id is None:
         return 0.0
     return float(data.xpos[torso_id, 2])

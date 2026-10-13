@@ -1,0 +1,4 @@
+#!/bin/sh
+# Advisory pre-commit hook: scan staged files for likely secrets.
+# Enable with: git config core.hooksPath .githooks
+python scripts/check_no_secrets.py --staged || true

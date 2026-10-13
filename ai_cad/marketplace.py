@@ -64,12 +64,26 @@ class MarketplaceImportResult(BaseModel):
 
 
 DEFAULT_MARKETPLACE_DIR = Path("marketplace")
+REPO_ROOT = Path(__file__).resolve().parent.parent
+ALLOWED_SOURCE_ROOTS = [
+    REPO_ROOT / "marketplace",
+    REPO_ROOT / "assets",
+]
 
 
 def _marketplace_dir() -> Path:
     """Return the marketplace root directory."""
     DEFAULT_MARKETPLACE_DIR.mkdir(parents=True, exist_ok=True)
     return DEFAULT_MARKETPLACE_DIR
+
+
+def _is_safe_source_path(path: Path) -> bool:
+    """Return True if the resolved path is within an allowed repo subtree."""
+    try:
+        resolved = path.resolve()
+    except Exception:
+        return False
+    return any(resolved == root or resolved.is_relative_to(root) for root in ALLOWED_SOURCE_ROOTS)
 
 
 def _index_path() -> Path:
@@ -113,11 +127,26 @@ def _save_index(items: dict[str, MarketplaceItem]) -> None:
 
 
 def _resolve_source_path(source_path: str) -> Path:
-    """Resolve a source path relative to the repo root."""
+    """Resolve a source path and verify containment under allowed roots.
+
+    Rejects paths containing ``..`` segments before resolving so that symlink
+    resolution cannot be tricked into escaping the allowed roots. Relative paths
+    are resolved under the repo root; absolute paths are accepted only when they
+    already lie within an allowed marketplace directory.
+    """
     path = Path(source_path)
-    if not path.is_absolute():
-        path = Path(__file__).resolve().parent.parent / path
-    return path.resolve()
+    parts = path.parts
+    if any(part == ".." for part in parts):
+        raise ValueError(f"source_path contains parent-directory segments: {source_path}")
+    if path.is_absolute():
+        resolved = path.resolve()
+        if not _is_safe_source_path(resolved):
+            raise ValueError(f"source_path escapes allowed directories: {source_path}")
+        return resolved
+    resolved = (Path(__file__).resolve().parent.parent / path).resolve()
+    if not _is_safe_source_path(resolved):
+        raise ValueError(f"source_path escapes allowed directories: {source_path}")
+    return resolved
 
 
 def _asset_files(source_path: str) -> list[str]:
@@ -179,6 +208,10 @@ def create_item(item: MarketplaceItem) -> MarketplaceItem:
     items = _load_index()
     if item.id in items:
         raise ValueError(f"Marketplace item with id {item.id} already exists.")
+    if item.source_path:
+        # Defensive containment check; uploads are already copied into
+        # marketplace/uploads/{uuid}, but manual API calls may supply any path.
+        _resolve_source_path(item.source_path)
     items[item.id] = item
     _save_index(items)
     return item
@@ -234,6 +267,9 @@ def update_item(item_id: str, updates: dict[str, Any]) -> MarketplaceItem:
     data = current.model_dump(mode="json")
     data.update(updates)
     data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    new_source_path = data.get("source_path")
+    if new_source_path and new_source_path != current.source_path:
+        _resolve_source_path(new_source_path)
     item = MarketplaceItem(**data)
     items[item_id] = item
     _save_index(items)

@@ -249,10 +249,11 @@ def _resolve_numeric(value: Any, param_dict: dict[str, Any]) -> float:
         return float(value)
     except ValueError:
         pass
-    env = {"__builtins__": {}, "pi": math.pi, "sin": math.sin, "cos": math.cos, "sqrt": math.sqrt}
-    env.update(param_dict)
+    ctx = {"pi": math.pi}
+    ctx.update(param_dict)
+    from ai_cad.safe_eval import safe_eval_float
     try:
-        return float(eval(value, env))
+        return safe_eval_float(value, ctx)
     except Exception:
         return 0.0
 

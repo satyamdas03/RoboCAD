@@ -446,9 +446,9 @@ HERMES `AutoOrchestrator` (`ai_cad/hermes/orchestrator.py`) turns one voice or t
 
 ### Launch readiness — Options A-D (in progress)
 Post-Milestone I, the product is being hardened for launch across four axes:
-- **A. Security:** path/ID validation middleware in `web/backend/main.py`, export containment, safe marketplace archive extraction, CORS tightening, and subprocess env scrubbing in `ai_cad/executor.py`.
-- **B. Reliability / resilience:** Windows `.env` loading fixed for `python start.py` and `python -m robocad.health`; backend defaults to `127.0.0.1` with reload disabled; frontend API requests get a 30 s timeout and JSON error parsing.
-- **C. Honest-score verification:** default pytest suite re-run after all hardening changes — **412 passed, 279 deselected, 3 warnings**; heavy/slow/mujoco suite re-run in progress.
+- **A. Security:** path/ID validation middleware in `web/backend/main.py`, export containment, safe marketplace archive extraction, CORS tightening, subprocess env scrubbing, safe-eval AST replacement for `eval()` in `ai_cad/assembly.py`/`sketch_solver.py`/`morphology.py`, AST-based generated-code validation in `ai_cad/executor.py`, opt-in public-auth middleware (`ROBOCAD_ENABLE_PUBLIC_AUTH` + `ROBOCAD_API_KEY`), Onshape public-document opt-in, and HERMES auto-orchestration gating.
+- **B. Reliability / resilience:** Windows `.env` loading fixed for `python start.py` and `python -m robocad.health`; backend defaults to `127.0.0.1` with reload disabled; frontend API requests get a 30 s timeout and JSON error parsing; `/health` returns minimal JSON by default with `?verbose=1` for the full launcher check list.
+- **C. Honest-score verification:** default pytest suite re-run after all hardening changes — **412 passed, 280 deselected, 3 warnings**; heavy/slow/mujoco suite re-run in progress.
 - **D. Frontend / UX:** emilkowalski design/animation skills installed and applied; valid HTML, `100dvh`, pointer-aware hover, `prefers-reduced-motion`, message overflow wrapping, SVG icons, stable React keys, missing Vite proxies, and mobile input font-size fixes.
 
 **Note:** Milestone H (sim-to-real hardware-in-the-loop) remains future work blocked on hardware access.
@@ -457,7 +457,16 @@ Post-Milestone I, the product is being hardened for launch across four axes:
 
 ## ⚠️ Security / secrets
 
-All API keys live in the repo-root `.env` file, which is gitignored. Never commit keys. The voice and NVIDIA integration requires:
+All API keys live in the repo-root `.env` file, which is gitignored. Never commit keys. If a key has ever appeared in a plan file, chat export, or commit, **rotate it immediately** (regenerate the key in the provider console and update `.env`). The repository includes an advisory pre-commit hook to catch common secret patterns before they are committed:
+
+```bash
+# Enable the hook once per clone
+$ git config core.hooksPath .githooks
+```
+
+The hook is advisory (non-blocking). It scans staged files for likely API keys and `.env`-like values and prints warnings; review its output before each commit.
+
+Required/optional keys:
 
 - `ANTHROPIC_API_KEY` (for generation and HERMES)
 - `NVIDIA_API_KEY` (for STT/TTS, chat, vision, Cosmos)
@@ -472,4 +481,4 @@ MIT — see [`LICENSE`](LICENSE) if present, otherwise treat as open-source core
 
 ---
 
-*Built with care by Satyam Das and Claude Code. Test counts verified 2026-10-05 (Milestone I complete, launch readiness Options A–D in progress).*
+*Built with care by Satyam Das and Claude Code. Test counts verified 2026-10-05 (Milestone I complete, launch readiness Options A–D in progress, local backend smoke-tested).*

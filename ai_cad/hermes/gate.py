@@ -27,6 +27,12 @@ class ApprovalGate:
             "train_skill",
             "run_variant_sweep",
             "export_bundle",
+            "run_morphology_search",
+            "run_simulation_certification",
+            "build_world",
+            "replay_world",
+            "run_verification",
+            "run_auto_orchestration",
         }
     )
     read_only_tools: frozenset[str] = frozenset(

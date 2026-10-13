@@ -140,7 +140,7 @@ def _is_legged_robot(model) -> bool:
     if mujoco is None:
         return False
     template = _detect_template(model)
-    torso_id = _find_body_id(model, "torso_torso_plate", "torso", "body_body", "body")
+    torso_id = _find_body_id(model, "torso_torso_plate", "torso", "body_body", "body", "i_torso_torso_plate")
     foot_ids = _foot_body_ids(model, template)
     return torso_id is not None and len(foot_ids) > 0
 
@@ -377,7 +377,7 @@ def _drop_test_case(
     if mujoco is None:
         return {"passed": False, "error": "mujoco not installed"}
 
-    torso_id = _find_body_id(model, "torso_torso_plate", "torso", "body_body", "body")
+    torso_id = _find_body_id(model, "torso_torso_plate", "torso", "body_body", "body", "i_torso_torso_plate")
     template = _detect_template(model)
     standing_pose = default_standing_pose(template)
 

@@ -76,7 +76,7 @@ def build_design_context(design_id: str, designs_dir: Path | str) -> dict[str, A
                 {
                     "name": p.get("name"),
                     "value": p.get("value"),
-                    "description": p.get("description", "")[:120],
+                    "description": (p.get("description") or "")[:120],
                 }
             )
     summary["parameters"] = editable_params

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import PromptInput from './components/PromptInput.jsx'
+import { geometryFlagStatus } from './components/validationStatus'
 import StatusPanel from './components/StatusPanel.jsx'
 import STLViewer from './components/STLViewer.jsx'
 import ParameterList from './components/ParameterList.jsx'
@@ -423,14 +424,14 @@ export default function App() {
               <div className="kp-flex-col kp-gap-2" style={{ fontSize: '0.8rem' }}>
                 <div className="kp-flex kp-justify-between kp-align-center">
                   <span className="kp-text-muted">Manifold</span>
-                  <span className={`kp-badge ${result.validation.manifold ? 'kp-badge-success' : 'kp-badge-error'}`}>
-                    {result.validation.manifold ? 'OK' : 'FAIL'}
+                  <span className={`kp-badge ${geometryFlagStatus(result.validation, 'manifold').ok ? 'kp-badge-success' : 'kp-badge-error'}`}>
+                    {geometryFlagStatus(result.validation, 'manifold').label}
                   </span>
                 </div>
                 <div className="kp-flex kp-justify-between kp-align-center">
                   <span className="kp-text-muted">Watertight</span>
-                  <span className={`kp-badge ${result.validation.watertight ? 'kp-badge-success' : 'kp-badge-error'}`}>
-                    {result.validation.watertight ? 'OK' : 'FAIL'}
+                  <span className={`kp-badge ${geometryFlagStatus(result.validation, 'watertight').ok ? 'kp-badge-success' : 'kp-badge-error'}`}>
+                    {geometryFlagStatus(result.validation, 'watertight').label}
                   </span>
                 </div>
                 {result.validation.volume_mm3 != null && (

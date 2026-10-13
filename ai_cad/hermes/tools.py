@@ -321,3 +321,19 @@ class HermesToolRegistry:
                 },
             )
         )
+        self.register(
+            HermesTool(
+                name="run_auto_orchestration",
+                description="Run the full prompt-to-certified-design pipeline (domain classification, design generation or morphology search, brain smoke test, and simulation certification). Requires explicit approval.",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "prompt": {"type": "string", "description": "Natural-language design request"},
+                        "max_retries": {"type": "integer", "default": 3, "description": "Redesign attempts after certification failure"},
+                        "cert_threshold": {"type": "number", "default": 0.7, "description": "Minimum certificate score to accept"},
+                        "timeout_seconds": {"type": "number", "default": 1800.0, "description": "Wall-clock budget for the pipeline"},
+                    },
+                    "required": ["prompt"],
+                },
+            )
+        )

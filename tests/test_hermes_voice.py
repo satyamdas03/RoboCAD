@@ -113,9 +113,10 @@ def test_hermes_livekit_token_session_mismatch():
 
 
 def test_hermes_livekit_token_session_not_found():
+    """A well-formed but missing session id returns 404."""
     response = client.post(
-        "/hermes/session/hermes_missing/livekit-token",
-        json={"session_id": "hermes_missing"},
+        "/hermes/session/hermes_deadbeef/livekit-token",
+        json={"session_id": "hermes_deadbeef"},
     )
     assert response.status_code == 404
 
