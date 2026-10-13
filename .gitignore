@@ -65,3 +65,6 @@ MUJOCO_LOG.TXT
 # Solver job store artifacts
 verification_jobs.db
 *.db-journal
+
+# README screenshots and diagrams are part of the docs
+!docs/images/*.png
