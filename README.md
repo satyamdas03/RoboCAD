@@ -1,10 +1,121 @@
-# 🤖 RoboCAD — AI-Powered Parametric CAD for Robotics
+# 🤖 RoboCAD — AI-Powered Generative Engineering for Robotics
 
-> **Mission:** Let robotics builders design real, editable, manufacturable hardware parts and systems by describing them in plain language — no months of sketch-extrude-mate training required.
+> **Mission:** Let robotics builders design real, editable, manufacturable hardware parts and whole robots by describing them in plain language, then take those designs straight into physics simulation.
 >
-> **Core bet:** The AI writes **parametric CAD code** (build123d / FeatureScript), not throwaway meshes. The model you get is editable, versionable, and exportable for 3D printing, machining, Onshape, or physics simulation.
->
-> **Latest milestone:** Phases 0–**28A/B/C/D/E/F** are complete, **Phase 29–30** are delivered, and **Milestones A–G and I** are closed (Milestone H remains hardware-blocked). RoboCAD now has a **one-command launcher and health CLI** (28A), an **asset marketplace** (28B), a **deep multi-physics engine** (28C), a **morphology co-design lab** (28D), **simulation certification** (28E), **product hardening** (28F), **physics-based morphology scoring** (29), **real gait synthesis** (30), **adaptive gait robustness** (Milestone A), **structural dynamics / FEA for links** (Milestone B), **workspace / self-collision / manipulability scoring** (Milestone C), **real end-effector families** (Milestone D), **topology grammar beyond templates** (Milestone E), **real MuJoCo brain training on generated robots** (Milestone F), **automatic randomized-world simulation certification** (Milestone G), and **voice/text-to-certified-design orchestration** (Milestone I). **Launch readiness Options A–D is in progress:** emilkowalski design/animation skills are installed, Windows `.env`/launcher reliability is fixed, backend security hardening (path validation, safe archive extraction, CORS, subprocess env scrubbing) and frontend mobile/UX hardening (valid HTML, reduced motion, pointer-aware hover, API timeouts) are applied. The default pytest suite: **412 passing**; heavy/slow/mujoco suite is being re-verified. Phase 27D (hardware-in-the-loop sim-to-real) remains future work blocked on hardware access.
+> **Core bet:** The AI writes **parametric CAD code** (build123d), not throwaway meshes. The model you get is editable, versionable, and exportable for 3D printing, machining, Onshape, or MuJoCo / URDF / Isaac Sim.
+
+**Status (13 October 2026):** type `biped humanoid robot` and RoboCAD returns an upright, articulated biped built from real CAD parts, exports it as a verified MuJoCo + URDF bundle with 6 revolute joints and 6 actuators, and that bundle stands on its own feet in simulation. See [What it does today](#-what-it-does-today), [Verified results](#-verified-results) and [Known limitations](#%EF%B8%8F-known-limitations) for exactly what is and is not proven.
+
+![RoboCAD workflow: eight steps from prompt to certified design](docs/images/workflow.png)
+
+---
+
+## 📸 What it does today
+
+### 1. Prompt to articulated robot in the browser
+
+![Web frontend after the prompt "biped humanoid robot"](docs/images/frontend_biped_prompt_to_model.png)
+
+The prompt `biped humanoid robot` with **Detect domain** and **Auto-decompose systems** ticked:
+
+- The domain classifier labels the prompt **HUMANOID**.
+- The rule-based decomposer splits it into five part families: torso plate, hip hub, thigh, shin and foot.
+- The composer places **11 part instances** as an upright biped (X forward, Y left, Z up, soles on the ground) with **10 mates** and **10 joints** (6 revolute: `hip_pitch`, `knee`, `ankle` on each leg; 4 fixed hub attachments).
+- Thigh and shin form lap joints in neighbouring planes, so the knee can swing through its range without the bars interfering.
+- Every body passes the watertight and manifold checks. The status strip shows **OK · per body**, because a multi-part preview is validated body by body rather than as one solid.
+- The viewer is Z-up, so robots stand on the grid instead of lying on their side.
+
+`quadruped walker` produces a four-legged version with 12 revolute joints through the same path. Adding `with arms and gripper hands` to the biped prompt adds shoulder, upper-arm, forearm and hand parts.
+
+### 2. One click to a verified simulation bundle
+
+<img src="docs/images/frontend_simulation_bundle_panel.png" alt="Simulation / GEDA Bridge panel showing a verified bundle" width="320">
+
+**Generate simulation bundle** runs the GEDA Bridge on the design and reports the result: 11 bodies, 0.2875 kg total mass computed from the part geometry, all meshes watertight, all inertia tensors valid. The bundle (`model.mjcf`, `model.urdf`, meshes, manifest) downloads as a zip.
+
+### 3. The exported robot in MuJoCo
+
+![Generated biped, humanoid template and quadruped template in MuJoCo](docs/images/mujoco_robots_overview.png)
+
+| Panel | Robot | What the simulation shows |
+|---|---|---|
+| (a) | The biped generated from the prompt above | 11 bodies, 6 revolute joints, 6 actuators. With a free base, ground contact and position servos it stands on its own soles for 5 simulated seconds with **0.08° maximum tilt** and 0.16 mm height change, and recovers from a lateral push scaled to its mass. |
+| (b) | Humanoid robot template | Walking rollout used by the physics scorer: **0.075 m forward in 100 control steps**, 5.7° maximum pitch/roll. |
+| (c) | Quadruped robot template | Walking rollout: **0.25 m forward in 600 control steps**, 10.3° maximum pitch/roll. |
+
+Individual stills: [generated biped](docs/images/mujoco_generated_biped_standing.png), [humanoid template](docs/images/mujoco_humanoid_template_walking.png), [quadruped template](docs/images/mujoco_quadruped_template_walking.png).
+
+### 4. Robot templates in the viewer
+
+![Humanoid robot template shown in the web viewer](docs/images/frontend_humanoid_template.png)
+
+The **Humanoid / robot synthesis** panel creates parameterised humanoid, quadruped and manipulator-on-base templates. These are **kinematic skeletons** (link frames, joints, mass budget) used by morphology search, gait synthesis and brain training. They now show in the viewer and in MuJoCo with proportioned capsule-and-box link geometry derived from the skeleton, instead of 1 cm placeholder cubes. The geometry is for display only; inertial data and simulation behaviour are unchanged.
+
+---
+
+## 🧩 What RoboCAD can do
+
+| Area | Capability |
+|---|---|
+| **Input** | Text prompt, voice (LiveKit / NVIDIA), sketch or reference image, parameter edits, face-click parameter guessing |
+| **Understanding** | Keyword + embedding domain classification (mechanical, aero, thermal, electronics, humanoid); per-domain intent parsing |
+| **Decomposition** | Rule templates for quadcopters, robot arms, bipeds, quadrupeds, fixed-wing aircraft and electronics stacks; LLM fallback for unknown systems |
+| **Geometry** | FeatureTree JSON (schema 2.0.0) transpiled to build123d; sandboxed execution with scrubbed environment; trimesh validation; STEP / STL export |
+| **Assembly** | Layout and mate inference from part-family interfaces, kinematic joints, pose sampling, pairwise collision and clearance checks |
+| **Physics checks** | Lightweight structural FEA, thermal, aerodynamic and electronics analysis; optional CalculiX, ElmerFEM and OpenFOAM adapters |
+| **Simulation export** | GEDA Bridge bundles for MuJoCo MJCF, URDF and Isaac Sim JSON, with world and scene templates and domain randomisation |
+| **Robot intelligence** | Morphology search with physics scoring, gait synthesis for the robot templates, CEM-trained attention policies, simulation certification |
+| **Supervision** | HERMES conversational supervisor with planner, tool registry and approval gates; one-prompt auto-orchestration |
+| **Product** | One-command launcher, health check CLI, asset marketplace, Onshape upload |
+
+![RoboCAD layered architecture](docs/images/architecture.png)
+
+---
+
+## ✅ Verified results
+
+Measured on 13 October 2026 on the branch that introduced the fixes below.
+
+| Check | Result |
+|---|---|
+| Default pytest tier | **427 passed** (287 deselected by marker). This run started before the URDF rewrite and the last two backend edits. |
+| New layout and export tests (`tests/test_humanoid_layout.py`) | **9 passed**, including a MuJoCo test that the generated biped stays upright for 5 s and a test that URDF and MJCF describe the same robot |
+| Generated biped, MJCF vs solved assembly | Every body pose matches the assembly solver to within 1 µm and 1e-6 in rotation |
+| Generated biped, URDF vs MJCF | Mesh poses agree to within 0.2 µm at rest and with all six hinges rotated by 0.3 rad |
+| Humanoid template, URDF vs MJCF | Mesh poses agree to within 1e-9 m at rest and with all 14 hinges rotated |
+| Template walking | Humanoid 0.0747 m (100 steps) and quadruped 0.2520 m (600 steps): identical to the values before the changes |
+| Frontend build | `npm run build` succeeds |
+| Heavy / slow / MuJoCo pytest tier | **Not completed on this code.** A partial run reached about 106 of 287 tests with no failures before it was stopped. |
+
+---
+
+## ⚠️ Known limitations
+
+- **Generated robots stand but do not walk.** The gait controller is tuned for the skeleton templates. A biped or quadruped generated from real part geometry passes the standing and push tests but fails the stepping and walking tests.
+- **Template walking is short-horizon.** The humanoid template is validated over a 100-step rollout and falls in a 600-step rollout. This was already the case before the changes described here.
+- **Template geometry is not manufacturable.** Template links are capsules and boxes for display. Only robots produced through the prompt path have real CAD parts.
+- **Generated bipeds are small.** Part families use fixed default dimensions (150 mm limb segments), so the default biped is about 0.24 m tall and weighs 0.29 kg in PLA.
+- **Template end links stay behind.** Hands on the humanoid template are exported as static bodies, a pre-existing quirk the gait tuning depends on. They are hidden from the default MuJoCo render groups.
+- **Simulation only.** No hardware-in-the-loop validation has been done (Phase 27D remains blocked on hardware).
+- **Heavy test tier not re-verified** on the latest code, as noted above.
+
+---
+
+## 🔧 What changed in the 13 October 2026 update
+
+Before this update the prompt `biped humanoid robot` produced a torso plate floating above two bars lying flat, the UI reported an overconstrained assembly with 0 joints, and the exported MuJoCo model had no joints or actuators.
+
+| Area | Fix |
+|---|---|
+| Composer | Humanoid and quadruped layout is computed from the real part dimensions; limb bars hang vertically and are joined as lap joints; each layout mate carries its joint definition, which is emitted as a kinematic joint named for the gait controllers (`hip_pitch_l`, `knee_l`, `ankle_l`, …) |
+| Assembly solver | Mates placed by a layout are marked locked, so the solver keeps the explicit transforms instead of pulling part origins together |
+| Assembly transpiler | Rotations are emitted in the angle convention build123d expects, so compound rotations are correct; string parameters such as `gait_style` are quoted |
+| MJCF export | Body poses, joint anchors and joint axes are expressed in the rotated parent and child frames; parts attached by fixed joints are nested under their parent body |
+| URDF export | Rewritten: each link frame sits at its joint, with mesh and inertial offsets, so the URDF reproduces the MJCF kinematics |
+| Template visuals | Skeleton links get proportioned display meshes; robot templates write a viewer preview |
+| Physics scorer | Recognises generated robots; they keep their real masses, stand on their actual soles, and use an implicit integrator with rotor inertia; the push test scales with robot mass |
+| Backend | HERMES session creation no longer fails when a parameter has no description; rebuilding a skeleton template returns a clear error instead of a crash |
+| Frontend | Z-up viewer; per-body validation badges; simulation-bundle request no longer times out on multi-part robots |
 
 ---
 
@@ -125,6 +236,8 @@ The key insight: **CAD is code.** Modern parametric kernels (OpenCASCADE via bui
 ---
 
 ## 🚀 Phase-by-phase progress
+
+> The tables and phase notes from here down are the historical build log. Test counts in them are the counts at the time each phase closed. For the current, measured state see [Verified results](#-verified-results) and [Known limitations](#%EF%B8%8F-known-limitations) above.
 
 | Phase | Goal | Status |
 |---|---|---|
@@ -299,6 +412,18 @@ $ cd web/frontend && npm run dev     # terminal 2
 # 6. Check environment health
 $ python -m robocad.health
 ```
+
+Prompts to try once the frontend is open at `http://localhost:5173` (tick **Detect domain**, leave **Auto-decompose systems** on):
+
+| Prompt | Result |
+|---|---|
+| `biped humanoid robot` | Upright articulated biped, 11 parts, 6 revolute joints |
+| `quadruped walker` | Four-legged robot, 21 parts, 12 revolute joints |
+| `biped humanoid robot with arms and gripper hands` | Biped with shoulder, arm and hand parts |
+| `robot arm with gripper` | Serial arm with a parallel-jaw gripper |
+| `A 120 mm x 80 mm x 3 mm base plate with four M3 holes` | Single parametric part |
+
+Then press **Generate simulation bundle** in the Simulation / GEDA Bridge panel to export MJCF and URDF. Robot templates are created from the **Humanoid / robot synthesis** panel, which appears once a design is selected.
 
 Run tests:
 
