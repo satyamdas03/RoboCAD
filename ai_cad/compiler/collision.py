@@ -102,12 +102,20 @@ class CollisionMesh(BaseModel):
 # ------------------------------------------------------------------------------------------------
 # tessellation
 # ------------------------------------------------------------------------------------------------
-def tessellate(shape) -> tuple[np.ndarray, np.ndarray]:
+def tessellate(
+    shape,
+    linear_deflection_m: float | None = None,
+    angular_deflection_rad: float | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
     """Triangulate a B-rep into a welded vertex/face array, in metres.
 
     OCP gives every face its own copy of the shared vertices, so the raw result is a soup of
     disconnected triangles. Welding by coordinate is what makes the mesh closed, and a closed mesh is
     what makes the decomposition meaningful.
+
+    The deflection is a parameter because two callers want different meshes from the same solid: a
+    collision hull wants the fine one, and a visual mesh wants a coarse one whose silhouette is
+    right and whose triangle count is small. Defaults keep every existing call unchanged.
     """
     from OCP.BRep import BRep_Tool
     from OCP.BRepMesh import BRepMesh_IncrementalMesh
@@ -115,8 +123,11 @@ def tessellate(shape) -> tuple[np.ndarray, np.ndarray]:
     from OCP.TopExp import TopExp_Explorer
     from OCP.TopoDS import TopoDS
 
+    linear = LINEAR_DEFLECTION_M if linear_deflection_m is None else linear_deflection_m
+    angular = ANGULAR_DEFLECTION_RAD if angular_deflection_rad is None else angular_deflection_rad
+
     try:
-        BRepMesh_IncrementalMesh(shape, LINEAR_DEFLECTION_M, False, ANGULAR_DEFLECTION_RAD, True)
+        BRepMesh_IncrementalMesh(shape, linear, False, angular, True)
     except Exception as exc:  # pragma: no cover - kernel failure on a broken shape
         raise CollisionError(f"tessellation failed: {exc}") from exc
 

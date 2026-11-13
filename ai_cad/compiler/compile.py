@@ -14,12 +14,15 @@ from __future__ import annotations
 
 import html
 import json
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
 from pydantic import BaseModel, Field
 
 from ai_cad.compiler import bundle_checks
+from ai_cad.compiler.actuators import ActuatorSpec
+from ai_cad.compiler.collision import MAX_FILL_RATIO
 from ai_cad.compiler.kinematics import apply_limits, derive_skeleton, write_skeleton
 from ai_cad.compiler.materials import MATERIALS, Density, datasheet_density
 from ai_cad.compiler.print_model import PrintModel
@@ -32,7 +35,9 @@ from ai_cad.compiler.twin_bundle import (
     write_meshes,
     write_mjcf,
     write_urdf,
+    write_visual_meshes,
 )
+from ai_cad.compiler.visual import VISUAL_BUDGET_BYTES, visual_meshes
 from ai_cad.importers.step_import import import_step
 
 # The CAD's own assembly names. This is the designer's topology, not a geometric result; see the
@@ -153,6 +158,8 @@ def compile_bundle(
     print_model: PrintModel | None = None,
     actuator_mass_kg: float | None = None,
     actuator_mass_source: str | None = None,
+    actuator: ActuatorSpec | None = None,
+    visual: bool = False,
 ) -> Report:
     """Run every stage and write the bundle. Raises rather than emitting a partial report.
 
@@ -199,14 +206,36 @@ def compile_bundle(
         skeleton = apply_limits(skeleton, limits, limits_source)
     write_skeleton(skeleton, out / "robot.joints.yaml", notice=notice)
 
+    visuals: dict[str, object] = {}
+    visual_warnings: list[str] = []
+    if visual:
+        # Visual meshes are written per placed instance, not per part, so the budget has to be
+        # spent against the number of files that will exist rather than the number of parts.
+        part_of = {i.instance_id: i.part_id for i in assembly.instances}
+        counts = Counter(part_of[iid] for b in skeleton.bodies for iid in b.instance_ids)
+        visuals, visual_warnings = visual_meshes(
+            assembly, sorted(assembly.parts), counts=dict(counts)
+        )
+        for message in visual_warnings:
+            print(f"warning: {message}")
+
     model, properties, meshes = build_bundle(
         skeleton,
         assembly,
         name=name,
         density_by_part=densities or None,
         print_model=print_model,
+        actuator=actuator,
+        visual=visuals or None,
     )
     mesh_dir = write_meshes(model, assembly, meshes, out / "meshes")
+    if visuals:
+        # Same directory as the hulls: MuJoCo joins every mesh file to one meshdir, and a second
+        # directory would need a ".." path that only resolves from the right working directory.
+        write_visual_meshes(model, assembly, visuals, mesh_dir)
+    visual_bytes = (
+        sum(p.stat().st_size for p in mesh_dir.glob("*_vis.obj")) if visuals else 0
+    )
     mjcf_path = write_mjcf(model, out / "model.mjcf")
     urdf_path = write_urdf(model, out / "model.urdf")
     assumed = [b.body_id for b in model.bodies if b.rests_on_an_assumed_density]
@@ -313,7 +342,12 @@ def compile_bundle(
         bundle_checks.check_pose_equivalence(mjcf_path, urdf_path),
         bundle_checks.check_mujoco_load(mjcf_path),
         self_collision,
-        bundle_checks.check_limits_and_effort(mjcf_path, limits, limits_source),
+        bundle_checks.check_limits_and_effort(
+            mjcf_path,
+            limits,
+            limits_source,
+            rated_torque_nm=(actuator.rated_torque_nm if actuator is not None else None),
+        ),
         bundle_checks.check_free_base_stand(),
     ]
 
@@ -349,10 +383,31 @@ def compile_bundle(
             # scale. When a caller supplies one, the value and its citation travel together.
             "actuator_mass_kg": actuator_mass_kg,
             "actuator_mass_source": actuator_mass_source,
+            # The effort limit, with the kind of figure it is and the document behind it. Separated
+            # from the mass because they are different claims from different lines of a datasheet.
+            "actuators": len(model.actuators),
+            "actuator_torque_nm": (actuator.torque_nm if actuator is not None else None),
+            "actuator_torque_kind": (actuator.torque_kind if actuator is not None else None),
+            "actuator_rated_torque_nm": (
+                actuator.rated_torque_nm if actuator is not None else None
+            ),
+            "actuator_torque_source": (actuator.source if actuator is not None else None),
+            "actuator_kp": (actuator.kp if actuator is not None else None),
+            "actuator_kv": (actuator.kv if actuator is not None else None),
+            # Pictures, kept apart from the collision model they cannot influence.
+            "visual_meshes": sum(len(b.visual_files) for b in model.bodies),
+            "visual_triangles": sum(b.visual_triangles for b in model.bodies),
+            "visual_bytes": visual_bytes,
+            "visual_budget_bytes": VISUAL_BUDGET_BYTES,
         },
         checks=checks,
         bodies=body_rows,
-        warnings=sorted(set(model.warnings) | set(skeleton.warnings) | set(actuator_skipped)),
+        warnings=sorted(
+            set(model.warnings)
+            | set(skeleton.warnings)
+            | set(actuator_skipped)
+            | set(visual_warnings)
+        ),
         notes=[
             "Axes and origins come from the servos' output shafts and drive-horn placements in the CAD.",
             "Topology order comes from the CAD assembly names, not from geometry.",
@@ -368,6 +423,16 @@ def compile_bundle(
             "counted as unclassified and their volume is reported separately rather than folded into "
             "either side of the split.",
             _actuator_note(actuator_mass_kg, actuator_mass_source, actuator_skipped),
+            _drive_note(actuator, len(skeleton.joints)),
+            _collision_verdict(self_collision, meshes),
+            _visual_note(
+                bool(visuals),
+                sum(len(b.visual_files) for b in model.bodies),
+                sum(b.visual_triangles for b in model.bodies),
+                visual_bytes,
+                max(0, len(assembly.parts) - len(visuals)) if visuals else 0,
+                max((getattr(m, "cell_m", 0.0) for m in visuals.values()), default=0.0) * 0.5 * 1e3,
+            ),
             (
                 f"Masses in this report are a shell-and-infill estimate at {model.print_model}; the "
                 "solid bound is reported beside it and is never replaced. The centre of mass is held "
@@ -430,11 +495,18 @@ def _brep_note(measured: dict[str, dict]) -> str:
     # apart whether or not the CAD solids do. Tying the caveat to the shared volume instead would
     # have switched it off for a hull overlap whose B-rep turned out to be a tangency, which is
     # exactly the case the caveat needs to cover.
+    #
+    # The second sentence used to say that a torque read from inverse dynamics on this model *would*
+    # include those push-apart forces, and so was not reported. That was true and it was the reason
+    # the first version of the effort check reported 1,110 N*m against a 2.94 N*m limit. The check
+    # now disables contacts for the measurement, so the sentence has to say what is actually done
+    # rather than warn about what used to happen.
     torque = (
-        " MuJoCo collides the convex hulls, and this overlap is an overlap of those hulls, so any "
-        "torque read from inverse dynamics on this model includes the contact forces the simulator "
-        "applies to push them apart. A posed inverse-dynamics torque is therefore not the actuator "
-        "load and is not reported as one."
+        " MuJoCo collides the convex hulls, and this overlap is an overlap of those hulls, so a "
+        "rollout on this model will see the solver push them apart. The effort check therefore "
+        "measures with contact forces disabled, which is why its torque is the load the gearing must "
+        "hold rather than this overlap's contact forces; a torque read from inverse dynamics with "
+        "contacts enabled would be neither."
     )
     return (
         " "
@@ -502,6 +574,100 @@ def _actuator_note(
         "the density that reproduces that mass through the part's own CAD envelope, so the mass is "
         "the datasheet's and the centre of mass and inertia remain the envelope's. It is not a "
         "weigh-in, and it is one figure applied to every actuator rather than one per unit."
+    )
+
+
+def _visual_note(
+    wanted: bool, meshes: int, triangles: int, size_bytes: int, missing: int, worst_mm: float = 0.0
+) -> str:
+    """What the bundle says about its pictures, and what a viewer draws when there are none."""
+    if not wanted:
+        return (
+            "This bundle carries no visual meshes. A viewer that opens it draws the collision hulls, "
+            "which are convex covers and larger than the parts; nothing here is a picture of the CAD. "
+            "That is a rendering limitation, not a physics one: the hulls are the physics."
+        )
+    text = (
+        f"{meshes} visual mesh(es), {triangles:,} triangles, {size_bytes / 1e6:.2f} MB, written with "
+        "contype and conaffinity zero so the simulator never collides them. They are the B-rep "
+        "tessellated coarsely rather than the collision hulls, so what a viewer draws is the part's "
+        "own surface. One file is written per placed instance, in the body frame, so a part used "
+        "several times is written several times."
+    )
+    if missing:
+        text += (
+            f" {missing} part(s) could not be meshed and are drawn by their hull instead; the "
+            "warnings name them."
+        )
+    if worst_mm > 0.0:
+        text += (
+            f" Where a part was coarsened, its vertices moved by up to {worst_mm:.2f} mm on the "
+            "coarsest one -- a visible bevel at demo zoom, stated rather than hidden; the per-part "
+            "warnings give each part's own figure and say which grid it was reduced on."
+        )
+    if size_bytes > VISUAL_BUDGET_BYTES:
+        text += (
+            f" That exceeds the {VISUAL_BUDGET_BYTES / 1024 / 1024:.0f} MB budget set for visual geometry."
+        )
+    else:
+        text += (
+            f" That is inside the {VISUAL_BUDGET_BYTES / 1024 / 1024:.0f} MB budget set for visual geometry; "
+            "the per-part warnings give the grid cell any part was clustered on to get there."
+        )
+    return text
+
+
+def _collision_verdict(check: CheckResult, meshes: dict) -> str:
+    """What a red or green self_collision means, in terms of how the hulls were built.
+
+    A status alone invites the reader to either ignore the failure or distrust the robot. This
+    paragraph carries the two numbers that say which it is: how many parts the hulls inflate beyond
+    the expected band, and how many did not tessellate closed -- and then what the B-rep measurement
+    of the same bodies concluded.
+    """
+    oversized = sorted(pid for pid, m in meshes.items() if getattr(m, "fill_ratio", 0.0) > MAX_FILL_RATIO)
+    open_parts = sorted(pid for pid, m in meshes.items() if not getattr(m, "closed", True))
+    hulls = sum(getattr(m, "hull_count", 0) for m in meshes.values())
+    lead = (
+        f"The collision model is {hulls} convex hulls over {len(meshes)} parts. "
+        f"{len(oversized)} part(s) are covered by hulls that inflate them beyond {MAX_FILL_RATIO:g}x "
+        f"their own solid volume and {len(open_parts)} did not tessellate to a closed surface, so on "
+        "those parts the hulls are an envelope rather than a shape."
+    )
+    if check.status == "pass":
+        return (
+            lead + " At the rest pose no pair of bodies that are not bolted together produces a "
+            "contact, so that inflation costs nothing here."
+        )
+    overlaps = check.measured.get("non_adjacent_overlaps") or []
+    return (
+        lead + f" self_collision is {check.status.upper()} on {len(overlaps)} non-adjacent pair(s). "
+        "That is a statement about the hulls, which are what MuJoCo collides; the same check measures "
+        "the B-rep of the same bodies, and where the solids only touch, the overlap is the convex "
+        "approximation rather than an interference in the CAD. The status stays fail either way: the "
+        "simulator acts on the hulls."
+    )
+
+
+def _drive_note(actuator: ActuatorSpec | None, joints: int) -> str:
+    """What the bundle may claim about its actuators, in the same three-way shape as the mass note."""
+    if actuator is None:
+        return (
+            "This bundle declares no actuators. Its joints are limits and inertias with nothing to "
+            "command them, so nothing in the file states what torque any joint may be given and the "
+            "model cannot be driven without adding one. That is why limits_and_effort does not pass."
+        )
+    if not actuator.is_stated():
+        return (
+            f"{joints} position actuator(s) were written with kp and kv, and no force limit: no "
+            "torque figure was supplied, and none was invented to fill the field. A model with an "
+            "unstated effort limit loads and moves; it just cannot say how hard it may push."
+        )
+    return (
+        f"Each of the {joints} joints carries a position actuator with a force limit of "
+        f"{actuator.describe()}. The limit is the figure the datasheet states for this servo; the "
+        "torque each joint is actually asked for is measured by inverse dynamics and reported under "
+        "limits_and_effort. " + " ".join(actuator.assumptions())
     )
 
 

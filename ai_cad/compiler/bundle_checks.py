@@ -108,10 +108,17 @@ def check_inertia(model: BundleModel) -> CheckResult:
 
 # ------------------------------------------------------------------------------------------------
 def check_meshes_load(path: Path, directory: Path, model: BundleModel) -> CheckResult:
-    """MuJoCo loads the file and finds every mesh the model says it has."""
+    """MuJoCo loads the file and finds every mesh the model says it has.
+
+    The count is hull files plus visual files. Both become ``<mesh>`` assets, so counting only the
+    hulls made a model with pictures report 692 meshes against 433 expected and fail for having more
+    than it asked for.
+    """
     import mujoco
 
-    expected = sum(len(b.hull_files) for b in model.bodies)
+    hulls = sum(len(b.hull_files) for b in model.bodies)
+    visuals = sum(len(b.visual_files) for b in model.bodies)
+    expected = hulls + visuals
     try:
         mujoco_model, warnings = _load(path)
     except Exception as exc:
@@ -124,16 +131,18 @@ def check_meshes_load(path: Path, directory: Path, model: BundleModel) -> CheckR
     meshes = int(mujoco_model.nmesh)
     geoms = int(mujoco_model.ngeom)
     status = "pass" if meshes == expected and not warnings else "fail"
+    breakdown = f"{hulls} collision hull(s)" + (f" and {visuals} visual mesh(es)" if visuals else "")
     explanation = (
-        f"{meshes} of {expected} meshes loaded as mesh geoms, "
+        f"{meshes} of {expected} meshes loaded as mesh geoms from {breakdown}, "
         f"{len(warnings)} warning(s)."
         if status == "pass"
-        else f"{meshes} meshes against {expected} expected; warnings: {warnings}"
+        else f"{meshes} meshes against {expected} expected from {breakdown}; warnings: {warnings}"
     )
     return CheckResult(
         id="meshes_load",
         status=status,
-        measured={"meshes": meshes, "geoms": geoms, "warnings": warnings},
+        measured={"meshes": meshes, "geoms": geoms, "warnings": warnings,
+                  "hull_meshes": hulls, "visual_meshes": visuals},
         threshold={"expected_meshes": expected},
         explanation=explanation,
     )
@@ -553,10 +562,62 @@ def _distance(shape_a, shape_b) -> float | None:
 
 
 # ------------------------------------------------------------------------------------------------
+def _torque_demand(model, mujoco, names: dict[int, str]) -> dict[str, dict]:
+    """Inverse dynamics at a fixed set of poses: what torque gravity actually asks of each joint.
+
+    The poses are the model's reference configuration plus, one joint at a time, each end of its
+    travel range. That set is deterministic, so two runs report the same number, and it is small,
+    so the check stays cheap. It is a sample, not a search: a pose outside it can demand more, and
+    the report says "at the sampled poses" rather than "at the worst pose" for that reason.
+
+    Velocity and acceleration are zero, so the result is the static holding torque. A joint that
+    cannot hold its own link at rest will not do better in motion.
+
+    Contacts are disabled for this measurement. The collision hulls are a convex proxy, and where two
+    of them overlap the solver pushes them apart; that push is not actuator load and including it
+    made one joint read 1,110 N*m against a 2.94 N*m limit on a model whose arm weighs a third of a
+    kilogram. ``check_self_collision`` reports those overlaps on their own terms.
+    """
+    data = mujoco.MjData(model)
+    model.opt.disableflags |= int(mujoco.mjtDisableBit.mjDSBL_CONTACT)
+    reference = np.array(model.qpos0, dtype=float)
+    poses: list[tuple[str, object]] = [("reference", reference.copy())]
+    for index in range(model.njnt):
+        name = names.get(index)
+        if name is None or not model.jnt_limited[index]:
+            continue
+        if model.jnt_type[index] != mujoco.mjtJoint.mjJNT_HINGE:
+            continue
+        address = int(model.jnt_qposadr[index])
+        for label, value in (("lower", model.jnt_range[index][0]), ("upper", model.jnt_range[index][1])):
+            pose = reference.copy()
+            pose[address] = float(value)
+            poses.append((f"{name} at {label}", pose))
+
+    worst: dict[str, dict] = {}
+    for label, pose in poses:
+        data.qpos[:] = pose
+        data.qvel[:] = 0.0
+        data.qacc[:] = 0.0
+        data.qfrc_applied[:] = 0.0
+        mujoco.mj_inverse(model, data)
+        for index in range(model.njnt):
+            name = names.get(index)
+            if name is None or model.jnt_type[index] != mujoco.mjtJoint.mjJNT_HINGE:
+                continue
+            dof = int(model.jnt_dofadr[index])
+            torque = float(data.qfrc_inverse[dof])
+            entry = worst.get(name)
+            if entry is None or abs(torque) > abs(entry["torque_nm"]):
+                worst[name] = {"torque_nm": torque, "at": label}
+    return worst
+
+
 def check_limits_and_effort(
     path: Path,
     skeleton_limits: dict[str, dict[str, float] | None],
     source: str | None = None,
+    rated_torque_nm: float | None = None,
 ) -> CheckResult:
     """Say which joints carry limits and which carry none, and read the effort field actually used.
 
@@ -604,7 +665,56 @@ def check_limits_and_effort(
             }
     # Named for the effort half, so the effort half has to be able to fail the check.
     unstated = [name for name, effort in efforts.items() if not effort["force_limited"]]
-    if missing:
+
+    joint_names = {
+        index: mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_JOINT, index) for index in range(model.njnt)
+    }
+    demand = _torque_demand(model, mujoco, joint_names)
+    torque_rows: dict[str, dict] = {}
+    over: list[dict] = []
+    continuous: list[dict] = []
+    for index in range(model.nu):
+        if not model.actuator_forcelimited[index]:
+            continue
+        name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_ACTUATOR, index)
+        joint_name = joint_names.get(int(model.actuator_trnid[index][0]))
+        worst = demand.get(joint_name)
+        if not name or worst is None:
+            continue
+        low, high = (float(v) for v in model.actuator_forcerange[index])
+        limit = max(abs(low), abs(high))
+        if limit <= 0.0:
+            continue
+        required = abs(worst["torque_nm"])
+        row = {
+            "joint": joint_name,
+            "required_nm": required,
+            "forcerange_nm": limit,
+            "ratio": required / limit,
+            "at": worst["at"],
+        }
+        torque_rows[name] = row
+        if row["ratio"] > 1.0:
+            over.append({"actuator": name, **row})
+        if rated_torque_nm is not None and required > rated_torque_nm:
+            continuous.append({"actuator": name, "required_nm": required, "rated_nm": rated_torque_nm, **row})
+
+    if over:
+        # A joint whose gravity load exceeds the force limit cannot hold itself up. That is a fact
+        # about this model at these masses, and it outranks every bookkeeping complaint below.
+        lead = over[0]
+        status = "fail"
+        explanation = (
+            f"{len(over)} joint(s) are asked for more torque than their actuator states: "
+            f"{lead['actuator']} needs {lead['required_nm']:.3f} N*m at {lead['at']} against a "
+            f"forcerange of {lead['forcerange_nm']:.3f} N*m "
+            f"({lead['ratio'] * 100:.0f}% of the limit). Measured by inverse dynamics at the "
+            "reference pose and at each end of every joint's travel, with velocity and acceleration "
+            "zero and contacts disabled, so this is the load the gearing must hold rather than the "
+            "collision proxy's contact forces. Raise the force limit only with a datasheet or a "
+            "measurement behind it, or reduce the mass the joint carries."
+        )
+    elif missing:
         status = "warn"
         explanation = (
             f"{len(missing)} of {len(missing) + len(stated)} joints ship without a travel limit "
@@ -636,6 +746,19 @@ def check_limits_and_effort(
             f"({', '.join(sorted(unstated))}). A command range is not an effort limit: the model "
             "does not say what torque these actuators can deliver."
         )
+    elif continuous:
+        # Under the ceiling is not the whole answer. A servo held above its continuous rating cooks
+        # before it stalls, so a pose over that figure is reported even though nothing exceeds the
+        # hard limit.
+        lead = max(continuous, key=lambda row: row["required_nm"])
+        status = "warn"
+        explanation = (
+            f"every joint is limited and every actuator states a force limit, and no joint needs "
+            f"more than it, but {len(continuous)} joint(s) exceed the continuous rating: "
+            f"{lead['actuator']} needs {lead['required_nm']:.3f} N*m at {lead['at']} against a "
+            f"continuous {lead['rated_nm']:.3f} N*m. That is survivable for a moment and not for a "
+            "duty cycle."
+        )
     elif not source:
         status = "warn"
         explanation = (
@@ -644,9 +767,18 @@ def check_limits_and_effort(
         )
     else:
         status = "pass"
+        peak = max(torque_rows.values(), key=lambda row: row["ratio"], default=None)
+        demand_text = ""
+        if peak is not None:
+            demand_text = (
+                f" The largest demand at the sampled poses is {peak['required_nm']:.3f} N*m on "
+                f"{peak['joint']}, {peak['ratio'] * 100:.0f}% of its {peak['forcerange_nm']:.3f} "
+                "N*m limit, measured with contacts disabled and at a sample of poses rather than a "
+                "search over all of them."
+            )
         explanation = (
             f"{len(stated)} joint(s) carry a travel limit and {len(efforts)} actuator(s) state a "
-            f"force limit, from {source.rstrip('.')}."
+            f"force limit, from {source.rstrip('.')}.{demand_text}"
         )
     return CheckResult(
         id="limits_and_effort",
@@ -656,8 +788,17 @@ def check_limits_and_effort(
             "with_limit": stated,
             "actuators": efforts,
             "limits_source": source,
+            "torque_demand": torque_rows,
+            "over_limit": over,
+            "over_continuous": continuous,
+            "rated_torque_nm": rated_torque_nm,
+            "contacts_disabled_for_measurement": True,
         },
-        threshold={"rule": "every joint limited, effort stated with its source"},
+        threshold={
+            "rule": "every joint limited, effort stated with its source, and no sampled pose "
+            "demanding more than the force limit",
+            "rated_torque_nm": rated_torque_nm,
+        },
         explanation=explanation,
     )
 

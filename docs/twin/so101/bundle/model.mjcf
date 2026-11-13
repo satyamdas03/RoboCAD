@@ -434,10 +434,269 @@
     <mesh name="wrist_roll_follower_so101_007_h0" file="wrist_roll_follower_so101_007_h0.obj"/>
     <mesh name="wrist_roll_follower_so101_008_h0" file="wrist_roll_follower_so101_008_h0.obj"/>
     <mesh name="moving_jaw_so101_000_h0" file="moving_jaw_so101_000_h0.obj"/>
+    <mesh name="base_so101_000_vis" file="base_so101_000_vis.obj"/>
+    <mesh name="base_so101_001_vis" file="base_so101_001_vis.obj"/>
+    <mesh name="base_so101_002_vis" file="base_so101_002_vis.obj"/>
+    <mesh name="base_so101_003_vis" file="base_so101_003_vis.obj"/>
+    <mesh name="base_so101_004_vis" file="base_so101_004_vis.obj"/>
+    <mesh name="base_so101_005_vis" file="base_so101_005_vis.obj"/>
+    <mesh name="base_so101_006_vis" file="base_so101_006_vis.obj"/>
+    <mesh name="base_so101_007_vis" file="base_so101_007_vis.obj"/>
+    <mesh name="base_so101_008_vis" file="base_so101_008_vis.obj"/>
+    <mesh name="base_so101_009_vis" file="base_so101_009_vis.obj"/>
+    <mesh name="base_so101_010_vis" file="base_so101_010_vis.obj"/>
+    <mesh name="base_so101_011_vis" file="base_so101_011_vis.obj"/>
+    <mesh name="base_so101_012_vis" file="base_so101_012_vis.obj"/>
+    <mesh name="base_so101_013_vis" file="base_so101_013_vis.obj"/>
+    <mesh name="base_so101_014_vis" file="base_so101_014_vis.obj"/>
+    <mesh name="base_so101_015_vis" file="base_so101_015_vis.obj"/>
+    <mesh name="base_so101_016_vis" file="base_so101_016_vis.obj"/>
+    <mesh name="base_so101_017_vis" file="base_so101_017_vis.obj"/>
+    <mesh name="base_so101_018_vis" file="base_so101_018_vis.obj"/>
+    <mesh name="base_so101_019_vis" file="base_so101_019_vis.obj"/>
+    <mesh name="base_so101_020_vis" file="base_so101_020_vis.obj"/>
+    <mesh name="base_so101_021_vis" file="base_so101_021_vis.obj"/>
+    <mesh name="base_so101_022_vis" file="base_so101_022_vis.obj"/>
+    <mesh name="base_so101_023_vis" file="base_so101_023_vis.obj"/>
+    <mesh name="base_so101_024_vis" file="base_so101_024_vis.obj"/>
+    <mesh name="base_so101_025_vis" file="base_so101_025_vis.obj"/>
+    <mesh name="base_so101_026_vis" file="base_so101_026_vis.obj"/>
+    <mesh name="base_so101_027_vis" file="base_so101_027_vis.obj"/>
+    <mesh name="base_so101_028_vis" file="base_so101_028_vis.obj"/>
+    <mesh name="base_so101_029_vis" file="base_so101_029_vis.obj"/>
+    <mesh name="base_so101_030_vis" file="base_so101_030_vis.obj"/>
+    <mesh name="base_so101_031_vis" file="base_so101_031_vis.obj"/>
+    <mesh name="base_so101_032_vis" file="base_so101_032_vis.obj"/>
+    <mesh name="base_so101_033_vis" file="base_so101_033_vis.obj"/>
+    <mesh name="base_so101_034_vis" file="base_so101_034_vis.obj"/>
+    <mesh name="base_so101_035_vis" file="base_so101_035_vis.obj"/>
+    <mesh name="base_so101_036_vis" file="base_so101_036_vis.obj"/>
+    <mesh name="base_so101_037_vis" file="base_so101_037_vis.obj"/>
+    <mesh name="base_so101_038_vis" file="base_so101_038_vis.obj"/>
+    <mesh name="base_so101_039_vis" file="base_so101_039_vis.obj"/>
+    <mesh name="base_so101_040_vis" file="base_so101_040_vis.obj"/>
+    <mesh name="base_so101_041_vis" file="base_so101_041_vis.obj"/>
+    <mesh name="base_so101_042_vis" file="base_so101_042_vis.obj"/>
+    <mesh name="base_so101_043_vis" file="base_so101_043_vis.obj"/>
+    <mesh name="base_so101_044_vis" file="base_so101_044_vis.obj"/>
+    <mesh name="base_so101_045_vis" file="base_so101_045_vis.obj"/>
+    <mesh name="base_so101_046_vis" file="base_so101_046_vis.obj"/>
+    <mesh name="base_so101_047_vis" file="base_so101_047_vis.obj"/>
+    <mesh name="base_so101_048_vis" file="base_so101_048_vis.obj"/>
+    <mesh name="base_so101_049_vis" file="base_so101_049_vis.obj"/>
+    <mesh name="base_so101_050_vis" file="base_so101_050_vis.obj"/>
+    <mesh name="base_so101_051_vis" file="base_so101_051_vis.obj"/>
+    <mesh name="base_so101_052_vis" file="base_so101_052_vis.obj"/>
+    <mesh name="base_so101_053_vis" file="base_so101_053_vis.obj"/>
+    <mesh name="base_so101_054_vis" file="base_so101_054_vis.obj"/>
+    <mesh name="base_so101_055_vis" file="base_so101_055_vis.obj"/>
+    <mesh name="base_so101_056_vis" file="base_so101_056_vis.obj"/>
+    <mesh name="base_so101_057_vis" file="base_so101_057_vis.obj"/>
+    <mesh name="base_so101_058_vis" file="base_so101_058_vis.obj"/>
+    <mesh name="base_so101_059_vis" file="base_so101_059_vis.obj"/>
+    <mesh name="base_so101_060_vis" file="base_so101_060_vis.obj"/>
+    <mesh name="base_so101_061_vis" file="base_so101_061_vis.obj"/>
+    <mesh name="base_so101_062_vis" file="base_so101_062_vis.obj"/>
+    <mesh name="base_so101_063_vis" file="base_so101_063_vis.obj"/>
+    <mesh name="base_so101_064_vis" file="base_so101_064_vis.obj"/>
+    <mesh name="base_so101_065_vis" file="base_so101_065_vis.obj"/>
+    <mesh name="base_so101_066_vis" file="base_so101_066_vis.obj"/>
+    <mesh name="base_so101_067_vis" file="base_so101_067_vis.obj"/>
+    <mesh name="base_so101_068_vis" file="base_so101_068_vis.obj"/>
+    <mesh name="base_so101_069_vis" file="base_so101_069_vis.obj"/>
+    <mesh name="base_so101_070_vis" file="base_so101_070_vis.obj"/>
+    <mesh name="base_so101_071_vis" file="base_so101_071_vis.obj"/>
+    <mesh name="base_so101_072_vis" file="base_so101_072_vis.obj"/>
+    <mesh name="base_so101_073_vis" file="base_so101_073_vis.obj"/>
+    <mesh name="base_so101_074_vis" file="base_so101_074_vis.obj"/>
+    <mesh name="base_so101_075_vis" file="base_so101_075_vis.obj"/>
+    <mesh name="base_so101_076_vis" file="base_so101_076_vis.obj"/>
+    <mesh name="base_so101_077_vis" file="base_so101_077_vis.obj"/>
+    <mesh name="base_so101_078_vis" file="base_so101_078_vis.obj"/>
+    <mesh name="base_so101_079_vis" file="base_so101_079_vis.obj"/>
+    <mesh name="base_so101_080_vis" file="base_so101_080_vis.obj"/>
+    <mesh name="base_so101_081_vis" file="base_so101_081_vis.obj"/>
+    <mesh name="base_so101_082_vis" file="base_so101_082_vis.obj"/>
+    <mesh name="base_so101_083_vis" file="base_so101_083_vis.obj"/>
+    <mesh name="base_so101_084_vis" file="base_so101_084_vis.obj"/>
+    <mesh name="base_so101_085_vis" file="base_so101_085_vis.obj"/>
+    <mesh name="base_so101_086_vis" file="base_so101_086_vis.obj"/>
+    <mesh name="base_so101_087_vis" file="base_so101_087_vis.obj"/>
+    <mesh name="base_so101_088_vis" file="base_so101_088_vis.obj"/>
+    <mesh name="base_so101_089_vis" file="base_so101_089_vis.obj"/>
+    <mesh name="base_so101_090_vis" file="base_so101_090_vis.obj"/>
+    <mesh name="base_so101_091_vis" file="base_so101_091_vis.obj"/>
+    <mesh name="base_so101_092_vis" file="base_so101_092_vis.obj"/>
+    <mesh name="base_so101_093_vis" file="base_so101_093_vis.obj"/>
+    <mesh name="base_so101_094_vis" file="base_so101_094_vis.obj"/>
+    <mesh name="base_so101_095_vis" file="base_so101_095_vis.obj"/>
+    <mesh name="base_so101_096_vis" file="base_so101_096_vis.obj"/>
+    <mesh name="base_so101_097_vis" file="base_so101_097_vis.obj"/>
+    <mesh name="base_so101_098_vis" file="base_so101_098_vis.obj"/>
+    <mesh name="base_so101_099_vis" file="base_so101_099_vis.obj"/>
+    <mesh name="base_so101_100_vis" file="base_so101_100_vis.obj"/>
+    <mesh name="base_so101_101_vis" file="base_so101_101_vis.obj"/>
+    <mesh name="base_so101_102_vis" file="base_so101_102_vis.obj"/>
+    <mesh name="base_so101_103_vis" file="base_so101_103_vis.obj"/>
+    <mesh name="base_so101_104_vis" file="base_so101_104_vis.obj"/>
+    <mesh name="base_so101_105_vis" file="base_so101_105_vis.obj"/>
+    <mesh name="base_so101_106_vis" file="base_so101_106_vis.obj"/>
+    <mesh name="base_so101_107_vis" file="base_so101_107_vis.obj"/>
+    <mesh name="base_so101_108_vis" file="base_so101_108_vis.obj"/>
+    <mesh name="base_so101_109_vis" file="base_so101_109_vis.obj"/>
+    <mesh name="base_so101_110_vis" file="base_so101_110_vis.obj"/>
+    <mesh name="base_so101_111_vis" file="base_so101_111_vis.obj"/>
+    <mesh name="base_so101_112_vis" file="base_so101_112_vis.obj"/>
+    <mesh name="base_so101_113_vis" file="base_so101_113_vis.obj"/>
+    <mesh name="base_so101_114_vis" file="base_so101_114_vis.obj"/>
+    <mesh name="base_so101_115_vis" file="base_so101_115_vis.obj"/>
+    <mesh name="base_so101_116_vis" file="base_so101_116_vis.obj"/>
+    <mesh name="base_so101_117_vis" file="base_so101_117_vis.obj"/>
+    <mesh name="base_so101_118_vis" file="base_so101_118_vis.obj"/>
+    <mesh name="base_so101_119_vis" file="base_so101_119_vis.obj"/>
+    <mesh name="base_so101_120_vis" file="base_so101_120_vis.obj"/>
+    <mesh name="base_so101_121_vis" file="base_so101_121_vis.obj"/>
+    <mesh name="base_so101_122_vis" file="base_so101_122_vis.obj"/>
+    <mesh name="base_so101_123_vis" file="base_so101_123_vis.obj"/>
+    <mesh name="base_so101_124_vis" file="base_so101_124_vis.obj"/>
+    <mesh name="base_so101_125_vis" file="base_so101_125_vis.obj"/>
+    <mesh name="base_so101_126_vis" file="base_so101_126_vis.obj"/>
+    <mesh name="base_so101_127_vis" file="base_so101_127_vis.obj"/>
+    <mesh name="base_so101_128_vis" file="base_so101_128_vis.obj"/>
+    <mesh name="base_so101_129_vis" file="base_so101_129_vis.obj"/>
+    <mesh name="base_so101_130_vis" file="base_so101_130_vis.obj"/>
+    <mesh name="base_so101_131_vis" file="base_so101_131_vis.obj"/>
+    <mesh name="base_so101_132_vis" file="base_so101_132_vis.obj"/>
+    <mesh name="base_so101_133_vis" file="base_so101_133_vis.obj"/>
+    <mesh name="base_so101_134_vis" file="base_so101_134_vis.obj"/>
+    <mesh name="base_so101_135_vis" file="base_so101_135_vis.obj"/>
+    <mesh name="base_so101_136_vis" file="base_so101_136_vis.obj"/>
+    <mesh name="base_so101_137_vis" file="base_so101_137_vis.obj"/>
+    <mesh name="base_so101_138_vis" file="base_so101_138_vis.obj"/>
+    <mesh name="base_so101_139_vis" file="base_so101_139_vis.obj"/>
+    <mesh name="base_so101_140_vis" file="base_so101_140_vis.obj"/>
+    <mesh name="base_so101_141_vis" file="base_so101_141_vis.obj"/>
+    <mesh name="base_so101_142_vis" file="base_so101_142_vis.obj"/>
+    <mesh name="base_so101_143_vis" file="base_so101_143_vis.obj"/>
+    <mesh name="base_so101_144_vis" file="base_so101_144_vis.obj"/>
+    <mesh name="base_so101_145_vis" file="base_so101_145_vis.obj"/>
+    <mesh name="base_so101_146_vis" file="base_so101_146_vis.obj"/>
+    <mesh name="base_so101_147_vis" file="base_so101_147_vis.obj"/>
+    <mesh name="base_so101_148_vis" file="base_so101_148_vis.obj"/>
+    <mesh name="base_so101_149_vis" file="base_so101_149_vis.obj"/>
+    <mesh name="rotation_pitch_so101_000_vis" file="rotation_pitch_so101_000_vis.obj"/>
+    <mesh name="rotation_pitch_so101_001_vis" file="rotation_pitch_so101_001_vis.obj"/>
+    <mesh name="rotation_pitch_so101_002_vis" file="rotation_pitch_so101_002_vis.obj"/>
+    <mesh name="rotation_pitch_so101_003_vis" file="rotation_pitch_so101_003_vis.obj"/>
+    <mesh name="rotation_pitch_so101_004_vis" file="rotation_pitch_so101_004_vis.obj"/>
+    <mesh name="rotation_pitch_so101_005_vis" file="rotation_pitch_so101_005_vis.obj"/>
+    <mesh name="rotation_pitch_so101_006_vis" file="rotation_pitch_so101_006_vis.obj"/>
+    <mesh name="rotation_pitch_so101_007_vis" file="rotation_pitch_so101_007_vis.obj"/>
+    <mesh name="rotation_pitch_so101_008_vis" file="rotation_pitch_so101_008_vis.obj"/>
+    <mesh name="rotation_pitch_so101_009_vis" file="rotation_pitch_so101_009_vis.obj"/>
+    <mesh name="rotation_pitch_so101_010_vis" file="rotation_pitch_so101_010_vis.obj"/>
+    <mesh name="rotation_pitch_so101_011_vis" file="rotation_pitch_so101_011_vis.obj"/>
+    <mesh name="rotation_pitch_so101_012_vis" file="rotation_pitch_so101_012_vis.obj"/>
+    <mesh name="rotation_pitch_so101_013_vis" file="rotation_pitch_so101_013_vis.obj"/>
+    <mesh name="rotation_pitch_so101_014_vis" file="rotation_pitch_so101_014_vis.obj"/>
+    <mesh name="upper_arm_so101_000_vis" file="upper_arm_so101_000_vis.obj"/>
+    <mesh name="upper_arm_so101_001_vis" file="upper_arm_so101_001_vis.obj"/>
+    <mesh name="upper_arm_so101_002_vis" file="upper_arm_so101_002_vis.obj"/>
+    <mesh name="upper_arm_so101_003_vis" file="upper_arm_so101_003_vis.obj"/>
+    <mesh name="upper_arm_so101_004_vis" file="upper_arm_so101_004_vis.obj"/>
+    <mesh name="upper_arm_so101_005_vis" file="upper_arm_so101_005_vis.obj"/>
+    <mesh name="upper_arm_so101_006_vis" file="upper_arm_so101_006_vis.obj"/>
+    <mesh name="upper_arm_so101_007_vis" file="upper_arm_so101_007_vis.obj"/>
+    <mesh name="upper_arm_so101_008_vis" file="upper_arm_so101_008_vis.obj"/>
+    <mesh name="upper_arm_so101_009_vis" file="upper_arm_so101_009_vis.obj"/>
+    <mesh name="upper_arm_so101_010_vis" file="upper_arm_so101_010_vis.obj"/>
+    <mesh name="upper_arm_so101_011_vis" file="upper_arm_so101_011_vis.obj"/>
+    <mesh name="upper_arm_so101_012_vis" file="upper_arm_so101_012_vis.obj"/>
+    <mesh name="upper_arm_so101_013_vis" file="upper_arm_so101_013_vis.obj"/>
+    <mesh name="under_arm_so101_000_vis" file="under_arm_so101_000_vis.obj"/>
+    <mesh name="under_arm_so101_001_vis" file="under_arm_so101_001_vis.obj"/>
+    <mesh name="under_arm_so101_002_vis" file="under_arm_so101_002_vis.obj"/>
+    <mesh name="under_arm_so101_003_vis" file="under_arm_so101_003_vis.obj"/>
+    <mesh name="under_arm_so101_004_vis" file="under_arm_so101_004_vis.obj"/>
+    <mesh name="under_arm_so101_005_vis" file="under_arm_so101_005_vis.obj"/>
+    <mesh name="under_arm_so101_006_vis" file="under_arm_so101_006_vis.obj"/>
+    <mesh name="under_arm_so101_007_vis" file="under_arm_so101_007_vis.obj"/>
+    <mesh name="under_arm_so101_008_vis" file="under_arm_so101_008_vis.obj"/>
+    <mesh name="under_arm_so101_009_vis" file="under_arm_so101_009_vis.obj"/>
+    <mesh name="under_arm_so101_010_vis" file="under_arm_so101_010_vis.obj"/>
+    <mesh name="under_arm_so101_011_vis" file="under_arm_so101_011_vis.obj"/>
+    <mesh name="under_arm_so101_012_vis" file="under_arm_so101_012_vis.obj"/>
+    <mesh name="under_arm_so101_013_vis" file="under_arm_so101_013_vis.obj"/>
+    <mesh name="under_arm_so101_014_vis" file="under_arm_so101_014_vis.obj"/>
+    <mesh name="under_arm_so101_015_vis" file="under_arm_so101_015_vis.obj"/>
+    <mesh name="under_arm_so101_016_vis" file="under_arm_so101_016_vis.obj"/>
+    <mesh name="under_arm_so101_017_vis" file="under_arm_so101_017_vis.obj"/>
+    <mesh name="under_arm_so101_018_vis" file="under_arm_so101_018_vis.obj"/>
+    <mesh name="under_arm_so101_019_vis" file="under_arm_so101_019_vis.obj"/>
+    <mesh name="under_arm_so101_020_vis" file="under_arm_so101_020_vis.obj"/>
+    <mesh name="under_arm_so101_021_vis" file="under_arm_so101_021_vis.obj"/>
+    <mesh name="under_arm_so101_022_vis" file="under_arm_so101_022_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_000_vis" file="wrist_roll_pitch_so100_000_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_001_vis" file="wrist_roll_pitch_so100_001_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_002_vis" file="wrist_roll_pitch_so100_002_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_003_vis" file="wrist_roll_pitch_so100_003_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_004_vis" file="wrist_roll_pitch_so100_004_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_005_vis" file="wrist_roll_pitch_so100_005_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_006_vis" file="wrist_roll_pitch_so100_006_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_007_vis" file="wrist_roll_pitch_so100_007_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_008_vis" file="wrist_roll_pitch_so100_008_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_009_vis" file="wrist_roll_pitch_so100_009_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_010_vis" file="wrist_roll_pitch_so100_010_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_011_vis" file="wrist_roll_pitch_so100_011_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_012_vis" file="wrist_roll_pitch_so100_012_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_013_vis" file="wrist_roll_pitch_so100_013_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_014_vis" file="wrist_roll_pitch_so100_014_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_015_vis" file="wrist_roll_pitch_so100_015_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_016_vis" file="wrist_roll_pitch_so100_016_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_017_vis" file="wrist_roll_pitch_so100_017_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_018_vis" file="wrist_roll_pitch_so100_018_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_019_vis" file="wrist_roll_pitch_so100_019_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_020_vis" file="wrist_roll_pitch_so100_020_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_021_vis" file="wrist_roll_pitch_so100_021_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_022_vis" file="wrist_roll_pitch_so100_022_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_023_vis" file="wrist_roll_pitch_so100_023_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_024_vis" file="wrist_roll_pitch_so100_024_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_025_vis" file="wrist_roll_pitch_so100_025_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_026_vis" file="wrist_roll_pitch_so100_026_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_027_vis" file="wrist_roll_pitch_so100_027_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_028_vis" file="wrist_roll_pitch_so100_028_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_029_vis" file="wrist_roll_pitch_so100_029_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_030_vis" file="wrist_roll_pitch_so100_030_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_031_vis" file="wrist_roll_pitch_so100_031_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_032_vis" file="wrist_roll_pitch_so100_032_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_033_vis" file="wrist_roll_pitch_so100_033_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_034_vis" file="wrist_roll_pitch_so100_034_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_035_vis" file="wrist_roll_pitch_so100_035_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_036_vis" file="wrist_roll_pitch_so100_036_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_037_vis" file="wrist_roll_pitch_so100_037_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_038_vis" file="wrist_roll_pitch_so100_038_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_039_vis" file="wrist_roll_pitch_so100_039_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_040_vis" file="wrist_roll_pitch_so100_040_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_041_vis" file="wrist_roll_pitch_so100_041_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_042_vis" file="wrist_roll_pitch_so100_042_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_043_vis" file="wrist_roll_pitch_so100_043_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_044_vis" file="wrist_roll_pitch_so100_044_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_045_vis" file="wrist_roll_pitch_so100_045_vis.obj"/>
+    <mesh name="wrist_roll_pitch_so100_046_vis" file="wrist_roll_pitch_so100_046_vis.obj"/>
+    <mesh name="wrist_roll_follower_so101_000_vis" file="wrist_roll_follower_so101_000_vis.obj"/>
+    <mesh name="wrist_roll_follower_so101_001_vis" file="wrist_roll_follower_so101_001_vis.obj"/>
+    <mesh name="wrist_roll_follower_so101_002_vis" file="wrist_roll_follower_so101_002_vis.obj"/>
+    <mesh name="wrist_roll_follower_so101_003_vis" file="wrist_roll_follower_so101_003_vis.obj"/>
+    <mesh name="wrist_roll_follower_so101_004_vis" file="wrist_roll_follower_so101_004_vis.obj"/>
+    <mesh name="wrist_roll_follower_so101_005_vis" file="wrist_roll_follower_so101_005_vis.obj"/>
+    <mesh name="wrist_roll_follower_so101_006_vis" file="wrist_roll_follower_so101_006_vis.obj"/>
+    <mesh name="wrist_roll_follower_so101_007_vis" file="wrist_roll_follower_so101_007_vis.obj"/>
+    <mesh name="wrist_roll_follower_so101_008_vis" file="wrist_roll_follower_so101_008_vis.obj"/>
+    <mesh name="moving_jaw_so101_000_vis" file="moving_jaw_so101_000_vis.obj"/>
   </asset>
   <worldbody>
     <body name="base_so101" pos="0.000000000 0.000000000 0.000000000">
-      <inertial pos="-0.000005617 0.022514506 0.032682134" mass="0.253867444" fullinertia="0.000267052627405 0.000237114922561 0.000268231908679 -5.8166269147e-07 -7.60240204587e-08 -2.71891422067e-05"/>
+      <inertial pos="-0.000302383 0.022224584 0.036608852" mass="0.211552363" fullinertia="0.00018390988455 0.00015394204513 0.000175759580359 -9.2257557924e-07 4.43918930233e-07 -1.65473416599e-05"/>
       <geom name="base_so101_000_h0" type="mesh" mesh="base_so101_000_h0"/>
       <geom name="base_so101_001_h0" type="mesh" mesh="base_so101_001_h0"/>
       <geom name="base_so101_002_h0" type="mesh" mesh="base_so101_002_h0"/>
@@ -712,9 +971,159 @@
       <geom name="base_so101_147_h0" type="mesh" mesh="base_so101_147_h0"/>
       <geom name="base_so101_148_h0" type="mesh" mesh="base_so101_148_h0"/>
       <geom name="base_so101_149_h0" type="mesh" mesh="base_so101_149_h0"/>
+      <geom name="base_so101_000_vis" type="mesh" mesh="base_so101_000_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_001_vis" type="mesh" mesh="base_so101_001_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_002_vis" type="mesh" mesh="base_so101_002_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_003_vis" type="mesh" mesh="base_so101_003_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_004_vis" type="mesh" mesh="base_so101_004_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_005_vis" type="mesh" mesh="base_so101_005_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_006_vis" type="mesh" mesh="base_so101_006_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_007_vis" type="mesh" mesh="base_so101_007_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_008_vis" type="mesh" mesh="base_so101_008_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_009_vis" type="mesh" mesh="base_so101_009_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_010_vis" type="mesh" mesh="base_so101_010_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_011_vis" type="mesh" mesh="base_so101_011_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_012_vis" type="mesh" mesh="base_so101_012_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_013_vis" type="mesh" mesh="base_so101_013_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_014_vis" type="mesh" mesh="base_so101_014_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_015_vis" type="mesh" mesh="base_so101_015_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_016_vis" type="mesh" mesh="base_so101_016_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_017_vis" type="mesh" mesh="base_so101_017_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_018_vis" type="mesh" mesh="base_so101_018_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_019_vis" type="mesh" mesh="base_so101_019_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_020_vis" type="mesh" mesh="base_so101_020_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_021_vis" type="mesh" mesh="base_so101_021_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_022_vis" type="mesh" mesh="base_so101_022_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_023_vis" type="mesh" mesh="base_so101_023_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_024_vis" type="mesh" mesh="base_so101_024_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_025_vis" type="mesh" mesh="base_so101_025_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_026_vis" type="mesh" mesh="base_so101_026_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_027_vis" type="mesh" mesh="base_so101_027_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_028_vis" type="mesh" mesh="base_so101_028_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_029_vis" type="mesh" mesh="base_so101_029_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_030_vis" type="mesh" mesh="base_so101_030_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_031_vis" type="mesh" mesh="base_so101_031_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_032_vis" type="mesh" mesh="base_so101_032_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_033_vis" type="mesh" mesh="base_so101_033_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_034_vis" type="mesh" mesh="base_so101_034_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_035_vis" type="mesh" mesh="base_so101_035_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_036_vis" type="mesh" mesh="base_so101_036_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_037_vis" type="mesh" mesh="base_so101_037_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_038_vis" type="mesh" mesh="base_so101_038_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_039_vis" type="mesh" mesh="base_so101_039_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_040_vis" type="mesh" mesh="base_so101_040_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_041_vis" type="mesh" mesh="base_so101_041_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_042_vis" type="mesh" mesh="base_so101_042_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_043_vis" type="mesh" mesh="base_so101_043_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_044_vis" type="mesh" mesh="base_so101_044_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_045_vis" type="mesh" mesh="base_so101_045_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_046_vis" type="mesh" mesh="base_so101_046_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_047_vis" type="mesh" mesh="base_so101_047_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_048_vis" type="mesh" mesh="base_so101_048_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_049_vis" type="mesh" mesh="base_so101_049_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_050_vis" type="mesh" mesh="base_so101_050_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_051_vis" type="mesh" mesh="base_so101_051_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_052_vis" type="mesh" mesh="base_so101_052_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_053_vis" type="mesh" mesh="base_so101_053_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_054_vis" type="mesh" mesh="base_so101_054_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_055_vis" type="mesh" mesh="base_so101_055_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_056_vis" type="mesh" mesh="base_so101_056_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_057_vis" type="mesh" mesh="base_so101_057_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_058_vis" type="mesh" mesh="base_so101_058_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_059_vis" type="mesh" mesh="base_so101_059_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_060_vis" type="mesh" mesh="base_so101_060_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_061_vis" type="mesh" mesh="base_so101_061_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_062_vis" type="mesh" mesh="base_so101_062_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_063_vis" type="mesh" mesh="base_so101_063_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_064_vis" type="mesh" mesh="base_so101_064_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_065_vis" type="mesh" mesh="base_so101_065_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_066_vis" type="mesh" mesh="base_so101_066_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_067_vis" type="mesh" mesh="base_so101_067_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_068_vis" type="mesh" mesh="base_so101_068_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_069_vis" type="mesh" mesh="base_so101_069_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_070_vis" type="mesh" mesh="base_so101_070_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_071_vis" type="mesh" mesh="base_so101_071_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_072_vis" type="mesh" mesh="base_so101_072_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_073_vis" type="mesh" mesh="base_so101_073_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_074_vis" type="mesh" mesh="base_so101_074_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_075_vis" type="mesh" mesh="base_so101_075_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_076_vis" type="mesh" mesh="base_so101_076_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_077_vis" type="mesh" mesh="base_so101_077_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_078_vis" type="mesh" mesh="base_so101_078_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_079_vis" type="mesh" mesh="base_so101_079_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_080_vis" type="mesh" mesh="base_so101_080_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_081_vis" type="mesh" mesh="base_so101_081_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_082_vis" type="mesh" mesh="base_so101_082_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_083_vis" type="mesh" mesh="base_so101_083_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_084_vis" type="mesh" mesh="base_so101_084_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_085_vis" type="mesh" mesh="base_so101_085_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_086_vis" type="mesh" mesh="base_so101_086_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_087_vis" type="mesh" mesh="base_so101_087_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_088_vis" type="mesh" mesh="base_so101_088_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_089_vis" type="mesh" mesh="base_so101_089_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_090_vis" type="mesh" mesh="base_so101_090_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_091_vis" type="mesh" mesh="base_so101_091_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_092_vis" type="mesh" mesh="base_so101_092_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_093_vis" type="mesh" mesh="base_so101_093_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_094_vis" type="mesh" mesh="base_so101_094_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_095_vis" type="mesh" mesh="base_so101_095_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_096_vis" type="mesh" mesh="base_so101_096_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_097_vis" type="mesh" mesh="base_so101_097_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_098_vis" type="mesh" mesh="base_so101_098_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_099_vis" type="mesh" mesh="base_so101_099_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_100_vis" type="mesh" mesh="base_so101_100_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_101_vis" type="mesh" mesh="base_so101_101_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_102_vis" type="mesh" mesh="base_so101_102_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_103_vis" type="mesh" mesh="base_so101_103_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_104_vis" type="mesh" mesh="base_so101_104_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_105_vis" type="mesh" mesh="base_so101_105_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_106_vis" type="mesh" mesh="base_so101_106_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_107_vis" type="mesh" mesh="base_so101_107_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_108_vis" type="mesh" mesh="base_so101_108_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_109_vis" type="mesh" mesh="base_so101_109_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_110_vis" type="mesh" mesh="base_so101_110_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_111_vis" type="mesh" mesh="base_so101_111_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_112_vis" type="mesh" mesh="base_so101_112_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_113_vis" type="mesh" mesh="base_so101_113_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_114_vis" type="mesh" mesh="base_so101_114_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_115_vis" type="mesh" mesh="base_so101_115_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_116_vis" type="mesh" mesh="base_so101_116_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_117_vis" type="mesh" mesh="base_so101_117_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_118_vis" type="mesh" mesh="base_so101_118_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_119_vis" type="mesh" mesh="base_so101_119_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_120_vis" type="mesh" mesh="base_so101_120_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_121_vis" type="mesh" mesh="base_so101_121_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_122_vis" type="mesh" mesh="base_so101_122_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_123_vis" type="mesh" mesh="base_so101_123_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_124_vis" type="mesh" mesh="base_so101_124_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_125_vis" type="mesh" mesh="base_so101_125_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_126_vis" type="mesh" mesh="base_so101_126_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_127_vis" type="mesh" mesh="base_so101_127_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_128_vis" type="mesh" mesh="base_so101_128_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_129_vis" type="mesh" mesh="base_so101_129_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_130_vis" type="mesh" mesh="base_so101_130_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_131_vis" type="mesh" mesh="base_so101_131_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_132_vis" type="mesh" mesh="base_so101_132_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_133_vis" type="mesh" mesh="base_so101_133_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_134_vis" type="mesh" mesh="base_so101_134_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_135_vis" type="mesh" mesh="base_so101_135_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_136_vis" type="mesh" mesh="base_so101_136_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_137_vis" type="mesh" mesh="base_so101_137_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_138_vis" type="mesh" mesh="base_so101_138_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_139_vis" type="mesh" mesh="base_so101_139_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_140_vis" type="mesh" mesh="base_so101_140_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_141_vis" type="mesh" mesh="base_so101_141_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_142_vis" type="mesh" mesh="base_so101_142_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_143_vis" type="mesh" mesh="base_so101_143_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_144_vis" type="mesh" mesh="base_so101_144_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_145_vis" type="mesh" mesh="base_so101_145_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_146_vis" type="mesh" mesh="base_so101_146_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_147_vis" type="mesh" mesh="base_so101_147_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_148_vis" type="mesh" mesh="base_so101_148_vis" contype="0" conaffinity="0" group="2" density="0"/>
+      <geom name="base_so101_149_vis" type="mesh" mesh="base_so101_149_vis" contype="0" conaffinity="0" group="2" density="0"/>
       <body name="rotation_pitch_so101" pos="-0.000099432 -0.007552839 0.063531479">
         <joint name="joint_1" type="hinge" axis="0.000000000 0.008726535 -0.999961923" pos="0 0 0" damping="0" armature="0" range="-1.919860000 1.919860000"/>
-        <inertial pos="0.000632264 -0.031039214 0.014196123" mass="0.155927846" fullinertia="0.000156318007261 0.000153067068523 4.35734141229e-05 -6.73989097985e-07 -2.32394358263e-06 6.73752745759e-06"/>
+        <inertial pos="0.001974230 -0.031351098 0.022788630" mass="0.139131321" fullinertia="9.07794574294e-05 9.21486236312e-05 3.02860148942e-05 -5.39879034468e-07 -2.38255659482e-06 4.23093088261e-06"/>
         <geom name="rotation_pitch_so101_000_h0" type="mesh" mesh="rotation_pitch_so101_000_h0"/>
         <geom name="rotation_pitch_so101_001_h0" type="mesh" mesh="rotation_pitch_so101_001_h0"/>
         <geom name="rotation_pitch_so101_002_h0" type="mesh" mesh="rotation_pitch_so101_002_h0"/>
@@ -740,9 +1149,24 @@
         <geom name="rotation_pitch_so101_012_h0" type="mesh" mesh="rotation_pitch_so101_012_h0"/>
         <geom name="rotation_pitch_so101_013_h0" type="mesh" mesh="rotation_pitch_so101_013_h0"/>
         <geom name="rotation_pitch_so101_014_h0" type="mesh" mesh="rotation_pitch_so101_014_h0"/>
+        <geom name="rotation_pitch_so101_000_vis" type="mesh" mesh="rotation_pitch_so101_000_vis" contype="0" conaffinity="0" group="2" density="0"/>
+        <geom name="rotation_pitch_so101_001_vis" type="mesh" mesh="rotation_pitch_so101_001_vis" contype="0" conaffinity="0" group="2" density="0"/>
+        <geom name="rotation_pitch_so101_002_vis" type="mesh" mesh="rotation_pitch_so101_002_vis" contype="0" conaffinity="0" group="2" density="0"/>
+        <geom name="rotation_pitch_so101_003_vis" type="mesh" mesh="rotation_pitch_so101_003_vis" contype="0" conaffinity="0" group="2" density="0"/>
+        <geom name="rotation_pitch_so101_004_vis" type="mesh" mesh="rotation_pitch_so101_004_vis" contype="0" conaffinity="0" group="2" density="0"/>
+        <geom name="rotation_pitch_so101_005_vis" type="mesh" mesh="rotation_pitch_so101_005_vis" contype="0" conaffinity="0" group="2" density="0"/>
+        <geom name="rotation_pitch_so101_006_vis" type="mesh" mesh="rotation_pitch_so101_006_vis" contype="0" conaffinity="0" group="2" density="0"/>
+        <geom name="rotation_pitch_so101_007_vis" type="mesh" mesh="rotation_pitch_so101_007_vis" contype="0" conaffinity="0" group="2" density="0"/>
+        <geom name="rotation_pitch_so101_008_vis" type="mesh" mesh="rotation_pitch_so101_008_vis" contype="0" conaffinity="0" group="2" density="0"/>
+        <geom name="rotation_pitch_so101_009_vis" type="mesh" mesh="rotation_pitch_so101_009_vis" contype="0" conaffinity="0" group="2" density="0"/>
+        <geom name="rotation_pitch_so101_010_vis" type="mesh" mesh="rotation_pitch_so101_010_vis" contype="0" conaffinity="0" group="2" density="0"/>
+        <geom name="rotation_pitch_so101_011_vis" type="mesh" mesh="rotation_pitch_so101_011_vis" contype="0" conaffinity="0" group="2" density="0"/>
+        <geom name="rotation_pitch_so101_012_vis" type="mesh" mesh="rotation_pitch_so101_012_vis" contype="0" conaffinity="0" group="2" density="0"/>
+        <geom name="rotation_pitch_so101_013_vis" type="mesh" mesh="rotation_pitch_so101_013_vis" contype="0" conaffinity="0" group="2" density="0"/>
+        <geom name="rotation_pitch_so101_014_vis" type="mesh" mesh="rotation_pitch_so101_014_vis" contype="0" conaffinity="0" group="2" density="0"/>
         <body name="upper_arm_so101" pos="-0.014656818 -0.031316927 0.056225806">
           <joint name="joint_2" type="hinge" axis="0.999961923 0.008726203 0.000076152" pos="0 0 0" damping="0" armature="0" range="-1.745330000 1.745330000"/>
-          <inertial pos="0.016453233 0.060295864 0.000127774" mass="0.147401041" fullinertia="0.000183685017384 6.48605858151e-05 0.000234897364264 3.20764284407e-06 7.03179839094e-08 8.39623455698e-07"/>
+          <inertial pos="0.016692899 0.059764614 0.000130101" mass="0.064160247" fullinertia="8.15324299141e-05 2.85280480286e-05 0.000104126149214 1.62962945307e-06 2.16244582271e-08 2.16964725621e-07"/>
           <geom name="upper_arm_so101_000_h0" type="mesh" mesh="upper_arm_so101_000_h0"/>
           <geom name="upper_arm_so101_001_h0" type="mesh" mesh="upper_arm_so101_001_h0"/>
           <geom name="upper_arm_so101_002_h0" type="mesh" mesh="upper_arm_so101_002_h0"/>
@@ -757,9 +1181,23 @@
           <geom name="upper_arm_so101_011_h0" type="mesh" mesh="upper_arm_so101_011_h0"/>
           <geom name="upper_arm_so101_012_h0" type="mesh" mesh="upper_arm_so101_012_h0"/>
           <geom name="upper_arm_so101_013_h0" type="mesh" mesh="upper_arm_so101_013_h0"/>
+          <geom name="upper_arm_so101_000_vis" type="mesh" mesh="upper_arm_so101_000_vis" contype="0" conaffinity="0" group="2" density="0"/>
+          <geom name="upper_arm_so101_001_vis" type="mesh" mesh="upper_arm_so101_001_vis" contype="0" conaffinity="0" group="2" density="0"/>
+          <geom name="upper_arm_so101_002_vis" type="mesh" mesh="upper_arm_so101_002_vis" contype="0" conaffinity="0" group="2" density="0"/>
+          <geom name="upper_arm_so101_003_vis" type="mesh" mesh="upper_arm_so101_003_vis" contype="0" conaffinity="0" group="2" density="0"/>
+          <geom name="upper_arm_so101_004_vis" type="mesh" mesh="upper_arm_so101_004_vis" contype="0" conaffinity="0" group="2" density="0"/>
+          <geom name="upper_arm_so101_005_vis" type="mesh" mesh="upper_arm_so101_005_vis" contype="0" conaffinity="0" group="2" density="0"/>
+          <geom name="upper_arm_so101_006_vis" type="mesh" mesh="upper_arm_so101_006_vis" contype="0" conaffinity="0" group="2" density="0"/>
+          <geom name="upper_arm_so101_007_vis" type="mesh" mesh="upper_arm_so101_007_vis" contype="0" conaffinity="0" group="2" density="0"/>
+          <geom name="upper_arm_so101_008_vis" type="mesh" mesh="upper_arm_so101_008_vis" contype="0" conaffinity="0" group="2" density="0"/>
+          <geom name="upper_arm_so101_009_vis" type="mesh" mesh="upper_arm_so101_009_vis" contype="0" conaffinity="0" group="2" density="0"/>
+          <geom name="upper_arm_so101_010_vis" type="mesh" mesh="upper_arm_so101_010_vis" contype="0" conaffinity="0" group="2" density="0"/>
+          <geom name="upper_arm_so101_011_vis" type="mesh" mesh="upper_arm_so101_011_vis" contype="0" conaffinity="0" group="2" density="0"/>
+          <geom name="upper_arm_so101_012_vis" type="mesh" mesh="upper_arm_so101_012_vis" contype="0" conaffinity="0" group="2" density="0"/>
+          <geom name="upper_arm_so101_013_vis" type="mesh" mesh="upper_arm_so101_013_vis" contype="0" conaffinity="0" group="2" density="0"/>
           <body name="under_arm_so101" pos="0.001511340 0.112441232 0.028706371">
             <joint name="joint_3" type="hinge" axis="0.999923848 0.008649719 0.008802353" pos="0 0 0" damping="0" armature="0" range="-1.690000000 1.690000000"/>
-            <inertial pos="0.017080157 -0.044403134 -0.003924071" mass="0.186941495" fullinertia="0.000320173840235 7.64514785038e-05 0.000348144949836 2.86195159517e-06 -1.69610523845e-07 3.16641914016e-05"/>
+            <inertial pos="0.017798701 -0.029916942 -0.011266868" mass="0.151150750" fullinertia="0.000277116555727 6.05280019659e-05 0.000275901917238 -9.06904606874e-07 1.21626033564e-06 5.24160926984e-05"/>
             <geom name="under_arm_so101_000_h0" type="mesh" mesh="under_arm_so101_000_h0"/>
             <geom name="under_arm_so101_001_h0" type="mesh" mesh="under_arm_so101_001_h0"/>
             <geom name="under_arm_so101_002_h0" type="mesh" mesh="under_arm_so101_002_h0"/>
@@ -793,9 +1231,32 @@
             <geom name="under_arm_so101_020_h0" type="mesh" mesh="under_arm_so101_020_h0"/>
             <geom name="under_arm_so101_021_h0" type="mesh" mesh="under_arm_so101_021_h0"/>
             <geom name="under_arm_so101_022_h0" type="mesh" mesh="under_arm_so101_022_h0"/>
+            <geom name="under_arm_so101_000_vis" type="mesh" mesh="under_arm_so101_000_vis" contype="0" conaffinity="0" group="2" density="0"/>
+            <geom name="under_arm_so101_001_vis" type="mesh" mesh="under_arm_so101_001_vis" contype="0" conaffinity="0" group="2" density="0"/>
+            <geom name="under_arm_so101_002_vis" type="mesh" mesh="under_arm_so101_002_vis" contype="0" conaffinity="0" group="2" density="0"/>
+            <geom name="under_arm_so101_003_vis" type="mesh" mesh="under_arm_so101_003_vis" contype="0" conaffinity="0" group="2" density="0"/>
+            <geom name="under_arm_so101_004_vis" type="mesh" mesh="under_arm_so101_004_vis" contype="0" conaffinity="0" group="2" density="0"/>
+            <geom name="under_arm_so101_005_vis" type="mesh" mesh="under_arm_so101_005_vis" contype="0" conaffinity="0" group="2" density="0"/>
+            <geom name="under_arm_so101_006_vis" type="mesh" mesh="under_arm_so101_006_vis" contype="0" conaffinity="0" group="2" density="0"/>
+            <geom name="under_arm_so101_007_vis" type="mesh" mesh="under_arm_so101_007_vis" contype="0" conaffinity="0" group="2" density="0"/>
+            <geom name="under_arm_so101_008_vis" type="mesh" mesh="under_arm_so101_008_vis" contype="0" conaffinity="0" group="2" density="0"/>
+            <geom name="under_arm_so101_009_vis" type="mesh" mesh="under_arm_so101_009_vis" contype="0" conaffinity="0" group="2" density="0"/>
+            <geom name="under_arm_so101_010_vis" type="mesh" mesh="under_arm_so101_010_vis" contype="0" conaffinity="0" group="2" density="0"/>
+            <geom name="under_arm_so101_011_vis" type="mesh" mesh="under_arm_so101_011_vis" contype="0" conaffinity="0" group="2" density="0"/>
+            <geom name="under_arm_so101_012_vis" type="mesh" mesh="under_arm_so101_012_vis" contype="0" conaffinity="0" group="2" density="0"/>
+            <geom name="under_arm_so101_013_vis" type="mesh" mesh="under_arm_so101_013_vis" contype="0" conaffinity="0" group="2" density="0"/>
+            <geom name="under_arm_so101_014_vis" type="mesh" mesh="under_arm_so101_014_vis" contype="0" conaffinity="0" group="2" density="0"/>
+            <geom name="under_arm_so101_015_vis" type="mesh" mesh="under_arm_so101_015_vis" contype="0" conaffinity="0" group="2" density="0"/>
+            <geom name="under_arm_so101_016_vis" type="mesh" mesh="under_arm_so101_016_vis" contype="0" conaffinity="0" group="2" density="0"/>
+            <geom name="under_arm_so101_017_vis" type="mesh" mesh="under_arm_so101_017_vis" contype="0" conaffinity="0" group="2" density="0"/>
+            <geom name="under_arm_so101_018_vis" type="mesh" mesh="under_arm_so101_018_vis" contype="0" conaffinity="0" group="2" density="0"/>
+            <geom name="under_arm_so101_019_vis" type="mesh" mesh="under_arm_so101_019_vis" contype="0" conaffinity="0" group="2" density="0"/>
+            <geom name="under_arm_so101_020_vis" type="mesh" mesh="under_arm_so101_020_vis" contype="0" conaffinity="0" group="2" density="0"/>
+            <geom name="under_arm_so101_021_vis" type="mesh" mesh="under_arm_so101_021_vis" contype="0" conaffinity="0" group="2" density="0"/>
+            <geom name="under_arm_so101_022_vis" type="mesh" mesh="under_arm_so101_022_vis" contype="0" conaffinity="0" group="2" density="0"/>
             <body name="wrist_roll_pitch_so100" pos="0.002082247 -0.134148409 0.003812563">
               <joint name="joint_4" type="hinge" axis="0.999847701 -0.000152961 0.017451404" pos="0 0 0" damping="0" armature="0" range="-1.658060000 1.658060000"/>
-              <inertial pos="0.022715910 -0.018471853 0.000453993" mass="0.148535826" fullinertia="0.000130913281014 4.73085197331e-05 0.000160599893073 2.17365116185e-05 -2.42166704282e-07 1.4076482708e-06"/>
+              <inertial pos="0.026885028 -0.013323769 0.000495514" mass="0.200107519" fullinertia="0.00020938622915 5.75248340713e-05 0.000250956723144 4.96554487621e-05 -1.60683316289e-06 5.27080506032e-06"/>
               <geom name="wrist_roll_pitch_so100_000_h0" type="mesh" mesh="wrist_roll_pitch_so100_000_h0"/>
               <geom name="wrist_roll_pitch_so100_001_h0" type="mesh" mesh="wrist_roll_pitch_so100_001_h0"/>
               <geom name="wrist_roll_pitch_so100_002_h0" type="mesh" mesh="wrist_roll_pitch_so100_002_h0"/>
@@ -863,9 +1324,56 @@
               <geom name="wrist_roll_pitch_so100_044_h0" type="mesh" mesh="wrist_roll_pitch_so100_044_h0"/>
               <geom name="wrist_roll_pitch_so100_045_h0" type="mesh" mesh="wrist_roll_pitch_so100_045_h0"/>
               <geom name="wrist_roll_pitch_so100_046_h0" type="mesh" mesh="wrist_roll_pitch_so100_046_h0"/>
+              <geom name="wrist_roll_pitch_so100_000_vis" type="mesh" mesh="wrist_roll_pitch_so100_000_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_001_vis" type="mesh" mesh="wrist_roll_pitch_so100_001_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_002_vis" type="mesh" mesh="wrist_roll_pitch_so100_002_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_003_vis" type="mesh" mesh="wrist_roll_pitch_so100_003_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_004_vis" type="mesh" mesh="wrist_roll_pitch_so100_004_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_005_vis" type="mesh" mesh="wrist_roll_pitch_so100_005_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_006_vis" type="mesh" mesh="wrist_roll_pitch_so100_006_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_007_vis" type="mesh" mesh="wrist_roll_pitch_so100_007_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_008_vis" type="mesh" mesh="wrist_roll_pitch_so100_008_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_009_vis" type="mesh" mesh="wrist_roll_pitch_so100_009_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_010_vis" type="mesh" mesh="wrist_roll_pitch_so100_010_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_011_vis" type="mesh" mesh="wrist_roll_pitch_so100_011_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_012_vis" type="mesh" mesh="wrist_roll_pitch_so100_012_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_013_vis" type="mesh" mesh="wrist_roll_pitch_so100_013_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_014_vis" type="mesh" mesh="wrist_roll_pitch_so100_014_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_015_vis" type="mesh" mesh="wrist_roll_pitch_so100_015_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_016_vis" type="mesh" mesh="wrist_roll_pitch_so100_016_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_017_vis" type="mesh" mesh="wrist_roll_pitch_so100_017_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_018_vis" type="mesh" mesh="wrist_roll_pitch_so100_018_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_019_vis" type="mesh" mesh="wrist_roll_pitch_so100_019_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_020_vis" type="mesh" mesh="wrist_roll_pitch_so100_020_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_021_vis" type="mesh" mesh="wrist_roll_pitch_so100_021_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_022_vis" type="mesh" mesh="wrist_roll_pitch_so100_022_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_023_vis" type="mesh" mesh="wrist_roll_pitch_so100_023_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_024_vis" type="mesh" mesh="wrist_roll_pitch_so100_024_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_025_vis" type="mesh" mesh="wrist_roll_pitch_so100_025_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_026_vis" type="mesh" mesh="wrist_roll_pitch_so100_026_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_027_vis" type="mesh" mesh="wrist_roll_pitch_so100_027_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_028_vis" type="mesh" mesh="wrist_roll_pitch_so100_028_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_029_vis" type="mesh" mesh="wrist_roll_pitch_so100_029_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_030_vis" type="mesh" mesh="wrist_roll_pitch_so100_030_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_031_vis" type="mesh" mesh="wrist_roll_pitch_so100_031_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_032_vis" type="mesh" mesh="wrist_roll_pitch_so100_032_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_033_vis" type="mesh" mesh="wrist_roll_pitch_so100_033_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_034_vis" type="mesh" mesh="wrist_roll_pitch_so100_034_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_035_vis" type="mesh" mesh="wrist_roll_pitch_so100_035_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_036_vis" type="mesh" mesh="wrist_roll_pitch_so100_036_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_037_vis" type="mesh" mesh="wrist_roll_pitch_so100_037_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_038_vis" type="mesh" mesh="wrist_roll_pitch_so100_038_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_039_vis" type="mesh" mesh="wrist_roll_pitch_so100_039_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_040_vis" type="mesh" mesh="wrist_roll_pitch_so100_040_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_041_vis" type="mesh" mesh="wrist_roll_pitch_so100_041_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_042_vis" type="mesh" mesh="wrist_roll_pitch_so100_042_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_043_vis" type="mesh" mesh="wrist_roll_pitch_so100_043_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_044_vis" type="mesh" mesh="wrist_roll_pitch_so100_044_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_045_vis" type="mesh" mesh="wrist_roll_pitch_so100_045_vis" contype="0" conaffinity="0" group="2" density="0"/>
+              <geom name="wrist_roll_pitch_so100_046_vis" type="mesh" mesh="wrist_roll_pitch_so100_046_vis" contype="0" conaffinity="0" group="2" density="0"/>
               <body name="wrist_roll_follower_so101" pos="0.018224470 -0.059300491 -0.000203909">
                 <joint name="joint_5" type="hinge" axis="0.000000665 -0.999961256 -0.008802682" pos="0 0 0" damping="0" armature="0" range="-2.743850000 2.841210000"/>
-                <inertial pos="0.000395192 -0.028591069 -0.005588729" mass="0.123007928" fullinertia="7.6139754497e-05 5.12702286602e-05 5.27801460069e-05 7.98588967909e-08 -4.55376074577e-07 -1.18034190396e-05"/>
+                <inertial pos="-0.000502372 -0.026652499 -0.004949909" mass="0.120141798" fullinertia="4.38588511842e-05 3.25464374297e-05 3.20924174643e-05 2.93643825212e-07 -4.03523939964e-07 -6.15966330573e-06"/>
                 <geom name="wrist_roll_follower_so101_000_h0" type="mesh" mesh="wrist_roll_follower_so101_000_h0"/>
                 <geom name="wrist_roll_follower_so101_001_h0" type="mesh" mesh="wrist_roll_follower_so101_001_h0"/>
                 <geom name="wrist_roll_follower_so101_002_h0" type="mesh" mesh="wrist_roll_follower_so101_002_h0"/>
@@ -885,10 +1393,20 @@
                 <geom name="wrist_roll_follower_so101_006_h0" type="mesh" mesh="wrist_roll_follower_so101_006_h0"/>
                 <geom name="wrist_roll_follower_so101_007_h0" type="mesh" mesh="wrist_roll_follower_so101_007_h0"/>
                 <geom name="wrist_roll_follower_so101_008_h0" type="mesh" mesh="wrist_roll_follower_so101_008_h0"/>
+                <geom name="wrist_roll_follower_so101_000_vis" type="mesh" mesh="wrist_roll_follower_so101_000_vis" contype="0" conaffinity="0" group="2" density="0"/>
+                <geom name="wrist_roll_follower_so101_001_vis" type="mesh" mesh="wrist_roll_follower_so101_001_vis" contype="0" conaffinity="0" group="2" density="0"/>
+                <geom name="wrist_roll_follower_so101_002_vis" type="mesh" mesh="wrist_roll_follower_so101_002_vis" contype="0" conaffinity="0" group="2" density="0"/>
+                <geom name="wrist_roll_follower_so101_003_vis" type="mesh" mesh="wrist_roll_follower_so101_003_vis" contype="0" conaffinity="0" group="2" density="0"/>
+                <geom name="wrist_roll_follower_so101_004_vis" type="mesh" mesh="wrist_roll_follower_so101_004_vis" contype="0" conaffinity="0" group="2" density="0"/>
+                <geom name="wrist_roll_follower_so101_005_vis" type="mesh" mesh="wrist_roll_follower_so101_005_vis" contype="0" conaffinity="0" group="2" density="0"/>
+                <geom name="wrist_roll_follower_so101_006_vis" type="mesh" mesh="wrist_roll_follower_so101_006_vis" contype="0" conaffinity="0" group="2" density="0"/>
+                <geom name="wrist_roll_follower_so101_007_vis" type="mesh" mesh="wrist_roll_follower_so101_007_vis" contype="0" conaffinity="0" group="2" density="0"/>
+                <geom name="wrist_roll_follower_so101_008_vis" type="mesh" mesh="wrist_roll_follower_so101_008_vis" contype="0" conaffinity="0" group="2" density="0"/>
                 <body name="moving_jaw_so101" pos="0.016805035 -0.025826989 0.019993845">
                   <joint name="joint_6" type="hinge" axis="0.999961926 -0.000076150 0.008725873" pos="0 0 0" damping="0" armature="0" range="-0.174533000 1.745330000"/>
-                  <inertial pos="-0.018136940 -0.001837155 0.029848708" mass="0.025657406" fullinertia="1.1305665044e-05 1.4126658123e-05 4.05125615866e-06 8.17781642919e-09 -1.71623985126e-07 7.72173223176e-07"/>
+                  <inertial pos="-0.018136940 -0.001837155 0.029848708" mass="0.015414838" fullinertia="6.79238547388e-06 8.48722362241e-06 2.43397388618e-06 4.91319009588e-09 -1.03110808519e-07 4.63917705326e-07"/>
                   <geom name="moving_jaw_so101_000_h0" type="mesh" mesh="moving_jaw_so101_000_h0"/>
+                  <geom name="moving_jaw_so101_000_vis" type="mesh" mesh="moving_jaw_so101_000_vis" contype="0" conaffinity="0" group="2" density="0"/>
                 </body>
               </body>
             </body>
@@ -897,4 +1415,12 @@
       </body>
     </body>
   </worldbody>
+  <actuator>
+    <position name="joint_1_servo" joint="joint_1" kp="20" kv="1" gear="1" forcerange="-2.941995 2.941995" ctrlrange="-1.919860000 1.919860000"/>
+    <position name="joint_2_servo" joint="joint_2" kp="20" kv="1" gear="1" forcerange="-2.941995 2.941995" ctrlrange="-1.745330000 1.745330000"/>
+    <position name="joint_3_servo" joint="joint_3" kp="20" kv="1" gear="1" forcerange="-2.941995 2.941995" ctrlrange="-1.690000000 1.690000000"/>
+    <position name="joint_4_servo" joint="joint_4" kp="20" kv="1" gear="1" forcerange="-2.941995 2.941995" ctrlrange="-1.658060000 1.658060000"/>
+    <position name="joint_5_servo" joint="joint_5" kp="20" kv="1" gear="1" forcerange="-2.941995 2.941995" ctrlrange="-2.743850000 2.841210000"/>
+    <position name="joint_6_servo" joint="joint_6" kp="20" kv="1" gear="1" forcerange="-2.941995 2.941995" ctrlrange="-0.174533000 1.745330000"/>
+  </actuator>
 </mujoco>

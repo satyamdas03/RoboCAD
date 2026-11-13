@@ -15,6 +15,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
+from ai_cad.compiler.actuators import ActuatorSpec, actuators_for
 from ai_cad.compiler.collision import CollisionError, CollisionMesh, collision_mesh, write_obj
 from ai_cad.compiler.kinematics import Skeleton
 from ai_cad.compiler.properties import (
@@ -76,16 +77,37 @@ class BodyModel(BaseModel):
     inertia_6: tuple[float, float, float, float, float, float]  # ixx iyy izz ixy ixz iyz
     hull_files: list[str] = Field(default_factory=list)
     hull_count: int = 0
+    # Pictures, not physics. Empty unless the bundle was built with visual meshes; they are written
+    # with contype and conaffinity zero so the simulator never collides them.
+    visual_files: list[str] = Field(default_factory=list)
+    visual_triangles: int = 0
     part_count: int = 0
     instance_count: int = 0
     instance_ids: list[str] = Field(default_factory=list, exclude=True)
     rests_on_an_assumed_density: bool = False
 
 
+class ActuatorModel(BaseModel):
+    """One position servo in the MJCF, with its torque and its provenance kept apart."""
+
+    name: str
+    joint: str
+    kp: float
+    kv: float
+    gear: float = 1.0
+    # None means the file states no force limit, which is not the same as a limit of zero: the
+    # check has to report the first and must never silently pass on the second.
+    torque_nm: float | None = None
+    torque_kind: str = "unstated"
+    rated_torque_nm: float | None = None
+    source: str | None = None
+
+
 class BundleModel(BaseModel):
     schema_version: str = BUNDLE_SCHEMA
     name: str
     bodies: list[BodyModel]
+    actuators: list[ActuatorModel] = Field(default_factory=list)
     # With a print model supplied this is the shell-and-infill total; without one it is the solid
     # total. ``total_solid_mass_kg`` is the bound either way, so a consumer never has to know which
     # build produced the file to find the upper limit.
@@ -127,6 +149,18 @@ def _mesh_plan(part_of, body: BodyModel, meshes: dict[str, CollisionMesh]) -> li
     return plan
 
 
+def _visual_plan(part_of, body: BodyModel, visuals: dict[str, object]) -> list[tuple[str, str]]:
+    """(file name, instance id) for one body's visual meshes, one per placed instance."""
+    plan: list[tuple[str, str]] = []
+    counter = 0
+    for instance_id in body.instance_ids:
+        if visuals.get(part_of[instance_id]) is None:
+            continue
+        plan.append((f"{body.body_id}_{counter:03d}_vis.obj", instance_id))
+        counter += 1
+    return plan
+
+
 def build_bundle(
     skeleton: Skeleton,
     assembly: ImportedAssembly,
@@ -134,12 +168,18 @@ def build_bundle(
     density_by_part=None,
     hull_cache: dict[str, CollisionMesh] | None = None,
     print_model: PrintModel | None = None,
+    actuator: ActuatorSpec | None = None,
+    visual: dict[str, object] | None = None,
 ) -> tuple[BundleModel, dict[str, LinkMassProperties], dict[str, CollisionMesh]]:
     """Bodies with their measured mass properties and their collision hulls.
 
     ``print_model`` turns the solid-volume mass into a shell-and-infill estimate. Both figures land
     in the bundle: ``solid_mass_kg`` is the kernel's answer and ``printed_mass_kg`` is the model's,
     so nothing downstream has to guess which one it was handed.
+
+    ``actuator`` gives every joint one position servo. Without it the model has joints and no
+    actuators, which loads and runs and cannot be commanded -- the report says so rather than
+    leaving a reader to notice.
     """
     joints = {j.child_body: j for j in skeleton.joints}
     properties: dict[str, LinkMassProperties] = {}
@@ -209,18 +249,46 @@ def build_bundle(
         plan = _mesh_plan(part_of, body, meshes)
         body.hull_files = [name for name, _, _ in plan]
         body.hull_count = len(plan)
+        if visual:
+            visual_plan = _visual_plan(part_of, body, visual)
+            body.visual_files = [file for file, _ in visual_plan]
+            body.visual_triangles = sum(
+                int(getattr(visual[part_of[instance_id]], "triangles", 0))
+                for _, instance_id in visual_plan
+            )
         bodies.append(body)
 
     total = sum(b.mass_kg for b in bodies)
     solid_total = sum(b.solid_mass_kg or b.mass_kg for b in bodies)
+    actuators: list[ActuatorModel] = []
+    if actuator is not None:
+        joint_names = [j.joint_id for j in skeleton.joints]
+        for name_, joint_name in actuators_for(joint_names, actuator):
+            actuators.append(
+                ActuatorModel(
+                    name=name_,
+                    joint=joint_name,
+                    kp=actuator.kp,
+                    kv=actuator.kv,
+                    gear=actuator.gear,
+                    torque_nm=actuator.torque_nm,
+                    torque_kind=actuator.torque_kind,
+                    rated_torque_nm=actuator.rated_torque_nm,
+                    source=actuator.source,
+                )
+            )
+    bundle_warnings = sorted(set(warnings))
+    if actuator is not None:
+        bundle_warnings.extend(actuator.assumptions())
     return (
         BundleModel(
             name=name,
             bodies=bodies,
+            actuators=actuators,
             total_mass_kg=total,
             total_solid_mass_kg=solid_total,
             print_model=(print_model.describe() if print_model is not None else None),
-            warnings=sorted(set(warnings)),
+            warnings=sorted(bundle_warnings),
         ),
         properties,
         meshes,
@@ -261,6 +329,34 @@ def write_meshes(
     return directory
 
 
+def write_visual_meshes(
+    model: BundleModel,
+    assembly: ImportedAssembly,
+    visuals: dict[str, object],
+    directory: Path,
+) -> Path:
+    """One OBJ per placed instance, in the body frame, same placement rule as the hulls."""
+    from ai_cad.compiler.visual import write_visual_obj
+
+    directory.mkdir(parents=True, exist_ok=True)
+    instance_of = {i.instance_id: i for i in assembly.instances}
+    part_of = {i.instance_id: i.part_id for i in assembly.instances}
+    for body in model.bodies:
+        origin = body.origin_m
+        for filename, instance_id in _visual_plan(part_of, body, visuals):
+            instance = instance_of[instance_id]
+            mesh = visuals[instance.part_id]
+            m = instance.transform
+            moved = []
+            for x, y, z in mesh.vertices:
+                wx = m[0] * x + m[1] * y + m[2] * z + m[3]
+                wy = m[4] * x + m[5] * y + m[6] * z + m[7]
+                wz = m[8] * x + m[9] * y + m[10] * z + m[11]
+                moved.append((wx - origin[0], wy - origin[1], wz - origin[2]))
+            write_visual_obj(mesh.model_copy(update={"vertices": moved}), directory / filename)
+    return directory
+
+
 def write_mjcf(model: BundleModel, path: Path, meshdir: str = "meshes") -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     by_id = {b.body_id: b for b in model.bodies}
@@ -293,6 +389,12 @@ def write_mjcf(model: BundleModel, path: Path, meshdir: str = "meshes") -> Path:
     for body in model.bodies:
         for name in body.hull_files:
             lines.append(f'    <mesh name="{Path(name).stem}" file="{name}"/>')
+    # Visual meshes share the mesh directory: MuJoCo joins every <mesh file=""> to the compiler's
+    # one meshdir, so a second directory would have to be reached with ".." and a path that only
+    # works when the bundle is opened from the right cwd is a bug waiting to be filed.
+    for body in model.bodies:
+        for name in body.visual_files:
+            lines.append(f'    <mesh name="{Path(name).stem}" file="{name}"/>')
     lines.append("  </asset>")
     lines.append("  <worldbody>")
 
@@ -320,12 +422,45 @@ def write_mjcf(model: BundleModel, path: Path, meshdir: str = "meshes") -> Path:
         )
         for name in body.hull_files:
             lines.append(f'{pad}  <geom name="{Path(name).stem}" type="mesh" mesh="{Path(name).stem}"/>')
+        for name in body.visual_files:
+            # contype and conaffinity zero: this geom is drawn and never collided. The hulls above
+            # stay the only thing narrowphase sees, so adding a picture cannot change the physics.
+            lines.append(
+                f'{pad}  <geom name="{Path(name).stem}" type="mesh" mesh="{Path(name).stem}" '
+                'contype="0" conaffinity="0" group="2" density="0"/>'
+            )
         for child in children.get(body.body_id, []):
             emit(child, depth + 1)
         lines.append(f"{pad}</body>")
 
     emit(roots[0], 2)
     lines.append("  </worldbody>")
+    if model.actuators:
+        by_joint = {b.joint_id: b for b in model.bodies if b.joint_id}
+        lines.append("  <actuator>")
+        for act in model.actuators:
+            body = by_joint.get(act.joint)
+            if body is None:
+                raise BundleError(
+                    f"actuator {act.name} drives joint {act.joint}, which no body in this model "
+                    "carries; an actuator with no joint is a command with nowhere to go"
+                )
+            attrs = (
+                f'name="{act.name}" joint="{act.joint}" kp="{act.kp:g}" kv="{act.kv:g}" '
+                f'gear="{act.gear:g}"'
+            )
+            if act.torque_nm is not None:
+                # forcerange is the effort limit. The sign pair is the range a joint may be driven
+                # through; the magnitude is the datasheet figure and its kind is in the report.
+                attrs += f' forcerange="{-act.torque_nm:.6f} {act.torque_nm:.6f}"'
+            if body.limits and "lower" in body.limits and "upper" in body.limits:
+                # A position servo commanded outside the joint range fights the limit and burns
+                # current doing it, so the command range is the travel range.
+                attrs += (
+                    f' ctrlrange="{body.limits["lower"]:.9f} {body.limits["upper"]:.9f}"'
+                )
+            lines.append(f"    <position {attrs}/>")
+        lines.append("  </actuator>")
     lines.append("</mujoco>")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return path
@@ -355,6 +490,7 @@ def write_urdf(model: BundleModel, path: Path, meshdir: str = "meshes") -> Path:
                 f'<geometry><mesh filename="{meshdir}/{name}"/></geometry></visual>'
             )
         lines.append("  </link>")
+    act_by_joint = {a.joint: a for a in model.actuators}
     for body in model.bodies:
         if body.parent is None:
             continue
@@ -362,12 +498,23 @@ def write_urdf(model: BundleModel, path: Path, meshdir: str = "meshes") -> Path:
         pos = tuple(body.origin_m[i] - parent.origin_m[i] for i in range(3))
         span = ""
         if body.limits and "lower" in body.limits and "upper" in body.limits:
-            effort = float(body.limits.get("effort", 0.0))
-            velocity = float(body.limits.get("velocity", 0.0))
-            span = (
-                f'<limit lower="{body.limits["lower"]:.9f}" upper="{body.limits["upper"]:.9f}" '
-                f'effort="{effort:.6f}" velocity="{velocity:.6f}"/>'
-            )
+            act = act_by_joint.get(body.joint_id or "")
+            # The effort written here is the same torque the MJCF states, from the same source.
+            # Absent both, no <limit> element at all: a URDF reading effort="0" says this joint
+            # can exert nothing, which is a fabricated number rather than an absent one.
+            effort = None
+            if act is not None and act.torque_nm is not None:
+                effort = act.torque_nm
+            elif body.limits.get("effort"):
+                effort = float(body.limits["effort"])
+            if effort is not None:
+                velocity = float(body.limits.get("velocity", 0.0))
+                span = (
+                    f'<limit lower="{body.limits["lower"]:.9f}" upper="{body.limits["upper"]:.9f}" '
+                    f'effort="{effort:.6f}" velocity="{velocity:.6f}"/>'
+                )
+            else:
+                span = "<!-- no effort stated: no <limit> element, rather than effort=0 -->"
         lines.append(
             f'  <joint name="{body.joint_id}" type="revolute">'
             f'<parent link="{body.parent}"/><child link="{body.body_id}"/>'
@@ -385,6 +532,7 @@ def write_urdf(model: BundleModel, path: Path, meshdir: str = "meshes") -> Path:
 
 
 __all__ = [
+    "ActuatorModel",
     "BUNDLE_SCHEMA",
     "BundleError",
     "BundleModel",

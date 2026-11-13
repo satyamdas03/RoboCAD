@@ -18,6 +18,7 @@ import sys
 from pathlib import Path
 
 from ai_cad.compiler import compare, revision
+from ai_cad.compiler.actuators import ActuatorSpec
 from ai_cad.compiler.compile import compile_bundle, render_html
 from ai_cad.compiler.print_model import PrintModel
 
@@ -50,6 +51,20 @@ SERVO_MASS_TOLERANCE_KG = 0.001
 SERVO_SOURCE = (
     "Feetech STS3215 product specification (STS3215-PRODUCT_SPECIFICATION.pdf, feetech.cn): "
     "weight 55 +/- 1 g, both the 7.4 V and the 12 V variant"
+)
+
+# What the servos can push, from the manufacturer's own published figures for the 12 V variant.
+# 1 kg*cm = 0.0980665 N*m, so 30 kg*cm is 2.941995 N*m and 10 kg*cm is 0.980665 N*m. The source
+# names the two places these were read; it does not claim the PDF covers this variant, because the
+# PDF in hand documents the 7.4 V servo, whose figures are 19.5 and 5 kg*cm.
+SERVO_STALL_TORQUE_NM = 2.941995
+SERVO_RATED_TORQUE_NM = 0.980665
+SERVO_TORQUE_SOURCE = (
+    "Feetech ST3215 12 V variant: stall torque 30 kg*cm (2.942 N*m), rated load 10 kg*cm "
+    "(0.981 N*m), as published at docs.waveshare.com/ST3215_Servo and in the RobotShop and "
+    "TorqueMicro listings for that variant. The torque is NOT taken from the Feetech "
+    "product-specification PDF cited for the 55 g mass, which documents the 7.4 V variant "
+    "(19.5 kg*cm stall, 5 kg*cm rated)."
 )
 
 # The published model the travel limits come from. The revision is not asserted here and checked
@@ -114,6 +129,11 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="an earlier robot.joints.yaml to diff this run against; omitted means no diff",
     )
+    parser.add_argument(
+        "--visual",
+        action="store_true",
+        help="also write a visual mesh per part (the B-rep surface, not the collision hull)",
+    )
     args = parser.parse_args(argv)
 
     official = Path(args.official)
@@ -131,6 +151,13 @@ def main(argv: list[str] | None = None) -> int:
         print_model=PrintModel(),
         actuator_mass_kg=SERVO_MASS_KG,
         actuator_mass_source=SERVO_SOURCE,
+        actuator=ActuatorSpec(
+            torque_nm=SERVO_STALL_TORQUE_NM,
+            torque_kind="stall",
+            rated_torque_nm=SERVO_RATED_TORQUE_NM,
+            source=SERVO_TORQUE_SOURCE,
+        ),
+        visual=args.visual,
     )
 
     bundle = json.loads((Path(args.out) / "bundle.json").read_text(encoding="utf-8"))

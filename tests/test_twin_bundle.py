@@ -362,7 +362,7 @@ class TestBrepNote:
         note = self._note({"distance_m": 0.0, "intersection_m3": 5.2e-10, "shape_pairs": 47, "shape_pairs_total": 47})
         assert "0.52 mm3" in note
         assert "inverse dynamics" in note
-        assert "not the actuator load" in note
+        assert "contact forces disabled" in note
 
     def test_solids_that_touch_without_sharing_material_are_reported_as_contact(self):
         note = self._note({"distance_m": 0.0, "intersection_m3": 0.0, "shape_pairs": 2, "shape_pairs_total": 2})

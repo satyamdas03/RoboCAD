@@ -1,6 +1,6 @@
 # SO-101: compiled twin against the published model
 
-Generated 2026-11-13T12:48:54+00:00 from `so101.step`.
+Generated 2026-11-13T15:54:40+00:00 from `so101.step`.
 
 - Bodies: 7  Joints: 6  Parts: 83  Instances: 259
 - Collision hulls: 433
@@ -10,12 +10,12 @@ Generated 2026-11-13T12:48:54+00:00 from `so101.step`.
 
 | check | status | what it measured |
 |---|---|---|
-| `meshes_load` | pass | 433 of 433 meshes loaded as mesh geoms, 0 warning(s). |
+| `meshes_load` | pass | 692 of 692 meshes loaded as mesh geoms from 433 collision hull(s) and 259 visual mesh(es), 0 warning(s). |
 | `inertia_valid` | pass | Every body's tensor is positive definite and satisfies the triangle inequality. |
 | `pose_equivalence` | pass | URDF and MJCF agree to 0.000e+00 m over 100 random configurations and 0.000e+00 m at rest, against a 1e-06 m tolerance. |
 | `mujoco_load` | pass | Loaded with zero warnings; 1000 passive steps at 0.0020 s stayed finite. |
-| `self_collision` | fail | 1 non-adjacent pair(s) overlap, deepest -7.939e-03 m. The CAD solids of wrist_roll_pitch_so100 and moving_jaw_so101 intersect and share 0.52 mm3 of material, so part of that overlap is real and part of it may be the hull; this measurement does not split the two. The status stays fail either way: MuJoCo collides the hulls, so the simulator will act on the overlap whatever the B-rep says. MuJoCo collides the convex hulls, and this overlap is an overlap of those hulls, so any torque read from inverse dynamics on this model includes the contact forces the simulator applies to push them apart. A posed inverse-dynamics torque is therefore not the actuator load and is not reported as one. |
-| `limits_and_effort` | warn | 6 joint(s) carry a travel limit, from SO-ARM100 so101_new_calib.urdf, sha256 3a65d2d35e68a8d2f0c2cc176d19b884506543c93ba72980145b80abe276022c, at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits, but the file declares no actuators, so no torque or force limit is stated anywhere in it and the effort half of this check has nothing to verify. An actuator and its effort range have to be added before the model can be driven or the torque quoted. |
+| `self_collision` | fail | 1 non-adjacent pair(s) overlap, deepest -7.939e-03 m. The CAD solids of wrist_roll_pitch_so100 and moving_jaw_so101 intersect and share 0.52 mm3 of material, so part of that overlap is real and part of it may be the hull; this measurement does not split the two. The status stays fail either way: MuJoCo collides the hulls, so the simulator will act on the overlap whatever the B-rep says. MuJoCo collides the convex hulls, and this overlap is an overlap of those hulls, so a rollout on this model will see the solver push them apart. The effort check therefore measures with contact forces disabled, which is why its torque is the load the gearing must hold rather than this overlap's contact forces; a torque read from inverse dynamics with contacts enabled would be neither. |
+| `limits_and_effort` | pass | 6 joint(s) carry a travel limit and 6 actuator(s) state a force limit, from SO-ARM100 so101_new_calib.urdf, sha256 3a65d2d35e68a8d2f0c2cc176d19b884506543c93ba72980145b80abe276022c, at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits. The largest demand at the sampled poses is 0.652 N*m on joint_2, 22% of its 2.942 N*m limit, measured with contacts disabled and at a sample of poses rather than a search over all of them. |
 | `free_base_stand` | skipped | the base body carries no free joint, so there is no balance to test; this check applies to legged robots only |
 
 ## Notes
@@ -25,20 +25,24 @@ Generated 2026-11-13T12:48:54+00:00 from `so101.step`.
 - Joint limits come from SO-ARM100 so101_new_calib.urdf, sha256 3a65d2d35e68a8d2f0c2cc176d19b884506543c93ba72980145b80abe276022c, at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits.
 - Every mass rests on an assumed density unless a part was weighed; the per-body flag says which, and the report never presents an assumed mass as a measurement.
 - The printed/actuator/fastener split comes from the CAD part names. On this file 13 parts carry generic names (SOLID, Component1..7) and cannot be placed by name, so they are counted as unclassified and their volume is reported separately rather than folded into either side of the split.
-- The bundle's own mass model carries no actuator mass. A servo's mass comes from a datasheet or a scale, and this model has neither, so the all-parts mass treats every actuator as its own solid volume of PLA. That number is labelled as an assumption wherever it appears; it is not a weigh-in. A comparison that adds a catalogue actuator mass does so beside this model, states the figure and its source, and does not change these masses.
+- Each actuator carries a datasheet mass of 0.0550 kg: Feetech STS3215 product specification (STS3215-PRODUCT_SPECIFICATION.pdf, feetech.cn): weight 55 +/- 1 g, both the 7.4 V and the 12 V variant. It is applied as the density that reproduces that mass through the part's own CAD envelope, so the mass is the datasheet's and the centre of mass and inertia remain the envelope's. It is not a weigh-in, and it is one figure applied to every actuator rather than one per unit.
+- Each of the 6 joints carries a position actuator with a force limit of 2.94199 N*m stall, from Feetech ST3215 12 V variant: stall torque 30 kg*cm (2.942 N*m), rated load 10 kg*cm (0.981 N*m), as published at docs.waveshare.com/ST3215_Servo and in the RobotShop and TorqueMicro listings for that variant. The torque is NOT taken from the Feetech product-specification PDF cited for the 55 g mass, which documents the 7.4 V variant (19.5 kg*cm stall, 5 kg*cm rated); continuous rating 0.980665 N*m. The limit is the figure the datasheet states for this servo; the torque each joint is actually asked for is measured by inverse dynamics and reported under limits_and_effort. kp = 20 N*m/rad and kv = 1 N*m*s/rad are ASSUMPTIONS, not datasheet values: the servo closes its own control loop and publishes no stiffness for a simulator to use. Every torque figure below was measured against these gains.
+- The collision model is 151 convex hulls over 83 parts. 13 part(s) are covered by hulls that inflate them beyond 3x their own solid volume and 4 did not tessellate to a closed surface, so on those parts the hulls are an envelope rather than a shape. self_collision is FAIL on 1 non-adjacent pair(s). That is a statement about the hulls, which are what MuJoCo collides; the same check measures the B-rep of the same bodies, and where the solids only touch, the overlap is the convex approximation rather than an interference in the CAD. The status stays fail either way: the simulator acts on the hulls.
+- 259 visual mesh(es), 620,093 triangles, 19.38 MB, written with contype and conaffinity zero so the simulator never collides them. They are the B-rep tessellated coarsely rather than the collision hulls, so what a viewer draws is the part's own surface. One file is written per placed instance, in the body frame, so a part used several times is written several times. Where a part was coarsened, its vertices moved by up to 1.20 mm on the coarsest one -- a visible bevel at demo zoom, stated rather than hidden; the per-part warnings give each part's own figure and say which grid it was reduced on. That is inside the 24 MB budget set for visual geometry; the per-part warnings give the grid cell any part was clustered on to get there.
+- Masses in this report are a shell-and-infill estimate at 1.20 mm wall over 20% infill; the solid bound is reported beside it and is never replaced. The centre of mass is held at the solid's centre and the inertia tensor is scaled by the same factor as the mass, which is an approximation stated here rather than hidden in the arithmetic.
 
 ## Mass: RoboCAD against SO-ARM100 so101_new_calib.urdf
 
-| body (ours) | body (theirs) | ours kg | printed only (ub) kg | theirs kg | delta g | delta % | fill vs whole mass | printed fill |
-|---|---|---|---|---|---|---|---|---|
-| `base_so101` | base_link | 0.2539 | 0.2452* | 0.1470 | +106.9 | +72.7% | 0.58 | 0.38 |
-| `rotation_pitch_so101` | shoulder_link | 0.1559 | 0.1316* | 0.1000 | +55.9 | +55.9% | 0.64 | 0.34 |
-| `upper_arm_so101` | upper_arm_link | 0.1474 | 0.0000* | 0.1030 | +44.4 | +43.1% | 0.70 | — |
-| `under_arm_so101` | lower_arm_link | 0.1869 | 0.0462* | 0.1040 | +82.9 | +79.8% | 0.56 | 1.06 |
-| `wrist_roll_pitch_so100` | wrist_link | 0.1485 | 0.0918* | 0.0790 | +69.5 | +88.0% | 0.53 | 0.26 |
-| `wrist_roll_follower_so101` | gripper_link | 0.1230 | 0.0462* | 0.0870 | +36.0 | +41.4% | 0.71 | 0.69 |
-| `moving_jaw_so101` | moving_jaw_so101_v1_link | 0.0257 | 0.0257 | 0.0120 | +13.7 | +113.8% | 0.47 | 0.47 |
-| **total** | | **1.0413** | **0.5867** | **0.6320** | **+409.3** | **+64.8%** | | |
+| body (ours) | body (theirs) | ours kg | printed only (ub) kg | print estimate kg | theirs kg | delta g | delta % | fill vs whole mass | printed fill |
+|---|---|---|---|---|---|---|---|---|---|
+| `base_so101` | base_link | 0.2116 | 0.2452* | 0.2116 | 0.1470 | +64.6 | +43.9% | 0.58 | 0.38 |
+| `rotation_pitch_so101` | shoulder_link | 0.1391 | 0.1316* | 0.1391 | 0.1000 | +39.1 | +39.1% | 0.64 | 0.34 |
+| `upper_arm_so101` | upper_arm_link | 0.0642 | 0.0000* | 0.0642 | 0.1030 | -38.8 | -37.7% | 0.70 | — |
+| `under_arm_so101` | lower_arm_link | 0.1512 | 0.0462* | 0.1512 | 0.1040 | +47.2 | +45.3% | 0.56 | 1.06 |
+| `wrist_roll_pitch_so100` | wrist_link | 0.2001 | 0.0918* | 0.2001 | 0.0790 | +121.1 | +153.3% | 0.53 | 0.26 |
+| `wrist_roll_follower_so101` | gripper_link | 0.1201 | 0.0462* | 0.1201 | 0.0870 | +33.1 | +38.1% | 0.71 | 0.69 |
+| `moving_jaw_so101` | moving_jaw_so101_v1_link | 0.0154 | 0.0257 | 0.0154 | 0.0120 | +3.4 | +28.5% | 0.47 | 0.47 |
+| **total** | | **0.9017** | **0.5867** | **0.9017** | **0.6320** | **+269.7** | **+42.7%** | | |
 
 ## Joint-to-joint spacing (no frame needed)
 
@@ -85,6 +89,7 @@ Generated 2026-11-13T12:48:54+00:00 from `so101.step`.
 - The printed-only column counts parts whose CAD names classify them as links. Parts with generic names (SOLID, Component1..7) are left out of it rather than guessed into it, so it is a lower bound on printed plastic, not a total; a body marked with an asterisk carries such parts, and a printed-only figure of 0 for that body means only that no part on it could be identified as printed.
 - The fill column is derived, not assumed: the official mass divided by the mass our geometry would have as 100% solid PLA (1240 kg/m3). Read against a body's whole published mass it can exceed a real fill fraction, because a servo is not plastic.
 - The printed-fill column removes one actuator per joint from their body mass and divides what is left by our printed-only upper bound. It assumes their link masses include the servo that link carries, which is the common convention and is stated here rather than silently applied.
+- The print estimate is a model, not a measurement: each body's parts as a shell over infill at the wall thickness and infill fraction stated in the bundle, except the bought-in ones. Those bodies weigh 1.3320 kg at 100% solid and 0.9017 kg under the model. 6 bought-in part(s) keep their datasheet mass and are not reduced, so the change is smaller than the infill fraction alone would suggest. The model's centre-of-mass and inertia treatment is stated in the bundle's warnings. The infill fraction is a choice, not a finding: read the interval across infill fractions, not this single number.
 - The joint-to-joint spacings are printed before the frame alignment because no change of frame can alter them: a rotation and a translation move both ends of a segment by the same amount, so their agreement is not a consequence of the fit. The largest difference is 1.7 mm between joint_4 and joint_5. A difference in the pose the two files were stored in would show up here too, so agreement means the links are the same length and both files are in much the same configuration.
 - Our world datum and theirs are different choices of origin and axes, so one rigid transform is fitted over the 6 joints both files place and ours is carried into their frame before any angle is computed. The rotation is fitted to the axis directions and the translation to the anchor centroid. It is a change of frame, not a correction of the robot: the axis angles and anchor distances below are the residual after it.
 - The rotation is fitted to the axis directions rather than to the anchor positions. An anchor is a poor constraint on a rotation: a revolute joint's origin is free to sit anywhere along its own axis, and a difference in the pose the two files were stored in moves every anchor at once. Fitting the rotation to anchors spends both of those on the rotation and reports the robot as worse than it is.
