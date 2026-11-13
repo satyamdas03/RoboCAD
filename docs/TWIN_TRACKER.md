@@ -20,6 +20,13 @@ checked, a version diff, and a clearly labelled synthetic calibration preview. T
 Nothing past the demo slice gets built until Satyam says so. M5, M7, M8 to M12 and Phase 2 are
 PARKED, not deleted.
 
+## P0-a: joint origins
+
+| | Question | Verdict | Evidence |
+|---|---|---|---|
+| | Are the joint origins wrong, or is the comparison wrong? | **Same robot.** Kinematics match once five zero-pose offsets and a 38.74 mm base translation are applied. Residual at five joint origins over 100 poses: median 2.50 mm, p90 5.95, max 11.25. Offsets -88.17, +90.29, -90.31, -0.15, 0.00 deg. Zero-seed converges to the same vector, so it is a global basin. | `docs/demo/twin/p0a_confirmation.json`, reproduced independently by the monitor lane |
+| | Does that clear the model? | **No.** Collision geometry, mass, inertia and contact behaviour are untouched by this verdict. The self_collision fail and 13 oversized hulls live in P0-b. | `report.json` warnings |
+
 ## Findings raised by the monitor lane
 
 | | Finding | Evidence | Owner |
