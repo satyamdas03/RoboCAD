@@ -80,13 +80,13 @@ def _propose(assembly_path: Path, out: Path | None, quiet: bool, notice_path: Pa
         try:
             notice = notice_path.read_text(encoding="utf-8")
         except OSError as exc:
-            print(f"cannot read notice file: {exc}", file=sys.stderr)
+            print(f"cannot read notice file: {_safe(exc, 500)}", file=sys.stderr)
             return 2
 
     try:
         assembly = import_step(assembly_path)
     except StepImportError as exc:
-        print(f"cannot import {assembly_path}: {exc}", file=sys.stderr)
+        print(f"cannot import {_safe(assembly_path)}: {_safe(exc, 500)}", file=sys.stderr)
         return 2
 
     try:
@@ -96,7 +96,7 @@ def _propose(assembly_path: Path, out: Path | None, quiet: bool, notice_path: Pa
     except (FeatureExtractionError, JointInferenceError) as exc:
         # A guard that fired is a real answer: the command refuses rather than writing a proposal
         # that looks complete and is silently missing faces or bodies.
-        print(f"refusing to write a partial proposal: {exc}", file=sys.stderr)
+        print(f"refusing to write a partial proposal: {_safe(exc, 500)}", file=sys.stderr)
         return 3
     out = out or assembly_path.parent / DEFAULT_OUT
     write_proposal(proposal, out, notice=notice)
@@ -128,16 +128,17 @@ def _propose(assembly_path: Path, out: Path | None, quiet: bool, notice_path: Pa
 
 
 def _diff(before_path: Path, after_path: Path) -> int:
-    from ai_cad.importers.joints import diff_proposals, read_proposal
+    from ai_cad.importers.joints import axis_line_distance_m, diff_proposals, read_proposal
 
     try:
         before = read_proposal(before_path)
         after = read_proposal(after_path)
     except FileNotFoundError as exc:
-        print(f"no such file: {exc.filename}", file=sys.stderr)
+        print(f"no such file: {_safe(exc.filename)}", file=sys.stderr)
         return 2
     except Exception as exc:  # malformed YAML is a user-facing error, not a crash
-        print(f"cannot read proposal: {exc}", file=sys.stderr)
+        # A parser error quotes the offending content, which came from the file being read.
+        print(f"cannot read proposal: {_safe(exc, 500)}", file=sys.stderr)
         return 2
 
     changes = diff_proposals(before, after)
@@ -159,7 +160,7 @@ def _diff(before_path: Path, after_path: Path) -> int:
         print(f"~ {_safe(entry['joint_id'])} {_safe(old.parent_link)} -> "
               f"{_safe(old.child_link)}: {fields}")
         if "axis_position" in entry["fields"]:
-            moved = max(abs(a - b) for a, b in zip(old.axis_point, new.axis_point))
+            moved = axis_line_distance_m(old, new)
             print(f"    axis moved {moved * 1e3:.2f} mm")
         if "axis_direction" in entry["fields"]:
             print(f"    axis {tuple(round(v, 3) for v in old.axis_dir)} -> "

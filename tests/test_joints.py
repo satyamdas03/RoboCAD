@@ -296,6 +296,76 @@ class TestGuards:
         assert proposal.unresolved_pairs == []
         assert any("not listed" in w for w in proposal.warnings)
 
+    def test_link_bbox_is_computed_from_rotated_corners(self):
+        # Adding translation to a part's local box is only right for an unrotated placement. This
+        # is the box the gap test uses to decide whether a pair is examined at all, so an
+        # under-estimate would silently drop real joints.
+        import math
+
+        c, s = math.cos(math.pi / 2), math.sin(math.pi / 2)
+        rotated = (
+            c, -s, 0.0, 0.0,
+            s, c, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            0.0, 0.0, 0.0, 1.0,
+        )
+        asm = ImportedAssembly(
+            parts={"p": _part("p", (0.0, 0.0, 0.0), (0.04, 0.01, 0.01))},
+            instances=[
+                ImportedInstance(
+                    instance_id="i0",
+                    name="arm",
+                    part_id="p",
+                    transform=rotated,
+                    assembly_path=("root", "arm"),
+                )
+            ],
+        )
+        group = group_links(asm)[0]
+        # A 0.04 x 0.01 x 0.01 box turned 90 degrees about Z spans 0.01 in x and 0.04 in y.
+        assert group.bbox_min_m == pytest.approx((-0.01, 0.0, 0.0), abs=1e-9)
+        assert group.bbox_max_m == pytest.approx((0.0, 0.04, 0.01), abs=1e-9)
+
+    def test_cylinder_cap_is_announced_and_marks_the_proposal_partial(self, monkeypatch):
+        import ai_cad.importers.joints as mod
+
+        asm, cylinders = _touching_pair()
+        monkeypatch.setattr(mod, "MAX_CYLINDERS_PER_LINK", 0)
+        proposal = mod.infer_joints(asm, cylinders=cylinders)
+        assert proposal.partial is True
+        assert any("largest faces only" in w for w in proposal.warnings)
+
+    def test_a_complete_run_is_not_marked_partial(self):
+        asm, cylinders = _touching_pair()
+        assert infer_joints(asm, cylinders=cylinders).partial is False
+
+    def test_radius_index_does_not_miss_a_match_across_a_bucket_boundary(self):
+        # The radius index exists so the pairing loop is not the product of two face counts. The
+        # risk it introduces is a match hidden by which bucket a radius falls into, so this test
+        # sits exactly on a boundary: 3.0 mm and 3.5 mm are in adjacent buckets and 0.5 mm apart,
+        # which is the largest gap the rule accepts.
+        asm, _ = _touching_pair()
+        cylinders = [
+            _cyl("i0", 0.0030, (0.01, 0.01, 0.01), (1.0, 0.0, 0.0), is_bore=True),
+            _cyl("i1", 0.0035, (0.03, 0.01, 0.01), (-1.0, 0.0, 0.0), is_bore=False),
+        ]
+        joints = infer_joints(asm, cylinders=cylinders).joints
+        assert len(joints) == 1
+        assert joints[0].evidence.radius_m == pytest.approx(0.00325)
+
+    def test_the_face_pair_comparison_checks_its_deadline(self):
+        # The body-pair loop checks the deadline once per body pair, which is not enough: one pair
+        # of dense bodies can run for a long time inside the face comparison. The cap on faces per
+        # body is generous enough that this must be bounded on its own.
+        import time as _time
+
+        import ai_cad.importers.joints as mod
+
+        left = [_cyl("i0", 0.003, (0.01, 0.01, 0.01), (1.0, 0.0, 0.0), is_bore=True)] * 600
+        right = [_cyl("i1", 0.003, (0.03, 0.01, 0.01), (-1.0, 0.0, 0.0), is_bore=False)] * 600
+        with pytest.raises(mod.JointInferenceError, match="budget"):
+            mod._best_interface(left, right, deadline=_time.monotonic() - 1.0, budget_s=1.0)
+
     def test_bodies_that_do_not_touch_are_never_matched(self):
         # 10 cm apart with geometrically coaxial faces. No bearing spans that gap, and the bbox
         # test that rejects it runs before the cylinder comparison that would accept it.
@@ -433,6 +503,19 @@ class TestProposalFile:
         assert changes["changed"][0]["joint_id"] == before.joints[0].joint_id
         assert "axis_position" in changes["changed"][0]["fields"]
 
+    def test_a_point_that_slides_along_the_same_axis_is_not_a_moved_axis(self):
+        # The recorded point is chosen for readability (it is projected from the link bounding
+        # boxes), so it can slide along the axis without the axis moving. Reporting that as a moved
+        # joint would make the revision diff cry wolf on every grouping change.
+        asm, cylinders = _touching_pair()
+        before = infer_joints(asm, cylinders=cylinders)
+        joint = before.joints[0]
+        slid_point = tuple(joint.axis_point[i] + 0.05 * joint.axis_dir[i] for i in range(3))
+        after = before.model_copy(
+            update={"joints": [joint.model_copy(update={"axis_point": slid_point})]}
+        )
+        assert diff_proposals(before, after)["changed"] == []
+
 
 # --------------------------------------------------------------------------------------------
 # the CLI a reviewer actually runs
@@ -492,6 +575,18 @@ class TestCli:
         out = capsys.readouterr().out
         assert "\x1b" not in out
         assert "?[2J?[31mEVIL" in out
+
+    def test_a_parser_error_quoting_the_file_is_also_escaped(self, tmp_path, capsys):
+        # The YAML parser quotes the offending content in its error message, and that content came
+        # from the file. The error path needs the same escape as the success path.
+        from robocad.joints_cli import main as cli_main
+
+        bad = tmp_path / "bad.yaml"
+        bad.write_text("schema: robocad.joints/1\n\x1b[2Jbogus: [unclosed\n", encoding="utf-8")
+        assert cli_main(["diff", str(bad), str(bad)]) == 2
+        err = capsys.readouterr().err
+        assert "\x1b" not in err
+        assert "cannot read proposal" in err
 
 
 # --------------------------------------------------------------------------------------------

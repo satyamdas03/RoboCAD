@@ -44,7 +44,13 @@ MAX_PAIR_GAP_M = 5.0e-3
 # of bodies and the number of faces per body are both attacker-controlled, and the loop is
 # quadratic in the first and linear in the second.
 MAX_PAIRING_BODIES = 400
-MAX_CYLINDERS_PER_LINK = 400
+# Per-body face cap. It was 400, which silently truncated the real SO-101 servos (471 cylinders)
+# and so compared them on their 400 largest faces: on a servo the spline bore is a *small* face, so
+# the cap could have dropped the very interface a joint is made of. The cap is now above any
+# consumer-CAD body seen so far, and pairs are compared through a radius index (``_best_interface``)
+# so a generous cap costs time proportional to the matching faces rather than to the product of the
+# two face counts. The deadline below is what makes that bound real rather than hoped for.
+MAX_CYLINDERS_PER_LINK = 4000
 MAX_UNRESOLVED_PAIRS = 250
 DEFAULT_INFER_BUDGET_S = 60.0
 BUDGET_CHECK_EVERY = 512
@@ -107,6 +113,11 @@ class JointProposal(BaseModel):
     warnings: list[str] = Field(default_factory=list)
     summary: dict = Field(default_factory=dict)
     status: str = "proposed"
+    partial: bool = Field(
+        default=False,
+        description="True when a resource cap was reached, so the proposal cannot claim to have "
+        "examined every body or every cylindrical face.",
+    )
 
     def by_id(self) -> dict[str, ProposedJoint]:
         return {j.joint_id: j for j in self.joints}
@@ -181,6 +192,14 @@ def _classify(name: str) -> str:
 
 
 def _group_bbox(instances: dict[str, object], parts, group: LinkGroup):
+    """World-space bounding box of a group, computed from the placed corners of each part.
+
+    Adding the translation to the part's local box is only correct for unrotated placements, and
+    most placements in a real assembly are rotated. The gap test built on this box decides whether
+    a body pair is examined at all, so an under-estimated box would quietly drop real joints. The
+    box below is the AABB of the transformed corners: it contains the transformed part, so it can
+    only ever consider extra pairs, never miss one.
+    """
     lo = [math.inf] * 3
     hi = [-math.inf] * 3
     for iid in group.instance_ids:
@@ -188,16 +207,25 @@ def _group_bbox(instances: dict[str, object], parts, group: LinkGroup):
         part = parts.get(inst.part_id) if inst is not None else None
         if part is None:
             continue
-        m = inst.transform
-        t = (m[3], m[7], m[11])
-        for axis in range(3):
-            v = part.signature.bbox_min_m[axis]
-            lo[axis] = min(lo[axis], v + t[axis])
-            v = part.signature.bbox_max_m[axis]
-            hi[axis] = max(hi[axis], v + t[axis])
+        sig = part.signature
+        for x in (sig.bbox_min_m[0], sig.bbox_max_m[0]):
+            for y in (sig.bbox_min_m[1], sig.bbox_max_m[1]):
+                for z in (sig.bbox_min_m[2], sig.bbox_max_m[2]):
+                    point = _transform_point(inst.transform, (x, y, z))
+                    for axis in range(3):
+                        lo[axis] = min(lo[axis], point[axis])
+                        hi[axis] = max(hi[axis], point[axis])
     if any(math.isinf(v) for v in lo):
         return (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)
     return tuple(lo), tuple(hi)
+
+
+def _transform_point(m: tuple[float, ...], p) -> tuple[float, float, float]:
+    return (
+        m[0] * p[0] + m[1] * p[1] + m[2] * p[2] + m[3],
+        m[4] * p[0] + m[5] * p[1] + m[6] * p[2] + m[7],
+        m[8] * p[0] + m[9] * p[1] + m[10] * p[2] + m[11],
+    )
 
 
 def _nearest_group(group: LinkGroup, candidates: list[LinkGroup]) -> LinkGroup | None:
@@ -257,12 +285,23 @@ def infer_joints(
             "only the largest bodies were compared. Review this proposal as partial."
         )
 
-    faces_for = {
-        g.link_id: sorted(by_link.get(g.link_id, []), key=lambda f: -f.area_m2)[
-            :MAX_CYLINDERS_PER_LINK
-        ]
-        for g in candidates
-    }
+    faces_for = {}
+    truncated = []
+    for g in candidates:
+        faces = by_link.get(g.link_id, [])
+        if len(faces) > MAX_CYLINDERS_PER_LINK:
+            truncated.append(f"{g.link_id} ({len(faces)})")
+            faces = sorted(faces, key=lambda f: -f.area_m2)[:MAX_CYLINDERS_PER_LINK]
+        else:
+            faces = sorted(faces, key=lambda f: -f.area_m2)
+        faces_for[g.link_id] = faces
+    if truncated:
+        # Dropping faces can drop a joint. It is capped so a hostile file cannot make the scan
+        # unbounded, but the file says it was capped and the proposal says it is partial.
+        extra_warnings.append(
+            f"{len(truncated)} body group(s) had more than {MAX_CYLINDERS_PER_LINK} cylindrical "
+            "faces and were compared on their largest faces only: " + ", ".join(truncated[:6])
+        )
 
     checks = 0
     for i, left in enumerate(candidates):
@@ -277,7 +316,12 @@ def infer_joints(
             # Cheap test first: two bodies that do not touch cannot share a bearing interface.
             if _bbox_gap(left, right) > MAX_PAIR_GAP_M:
                 continue
-            pair = _best_interface(faces_for[left.link_id], faces_for[right.link_id])
+            pair = _best_interface(
+                faces_for[left.link_id],
+                faces_for[right.link_id],
+                deadline=deadline,
+                budget_s=budget_s,
+            )
             if pair is None:
                 continue
             jointed.add(frozenset((left.link_id, right.link_id)))
@@ -349,32 +393,64 @@ def infer_joints(
             "note": "geometry-confirmed joints only; a missing joint is expected on "
                     "servo-mediated assemblies and is for review, not a failure",
         },
+        partial=bool(extra_warnings),
     )
 
 
-def _best_interface(left: list[CylinderFace], right: list[CylinderFace]):
+def _best_interface(
+    left: list[CylinderFace],
+    right: list[CylinderFace],
+    deadline: float | None = None,
+    budget_s: float | None = None,
+):
+    """Best bore/shaft interface between two bodies, or None.
+
+    A naive double loop compares every face of one body with every face of the other, which on a
+    servo (471 cylinders) is 222k comparisons per body pair and cannot be capped without either
+    truncating faces or hanging. The radial tolerance (0.5 mm) is what lets it be linear instead:
+    faces are bucketed by radius with the bucket width set to the tolerance, so a match can only be
+    in the candidate's own bucket or an adjacent one. The exact tolerance check still runs on every
+    candidate, so the index changes cost, never the answer.
+    """
+    buckets: dict[int, list[CylinderFace]] = {}
+    for b in right:
+        if b.radius_m < MIN_JOINT_RADIUS_M:
+            continue
+        buckets.setdefault(_radius_bucket(b.radius_m), []).append(b)
+
     best = None
     face_pairs = 0
+    checks = 0
     for a in left:
         if a.radius_m < MIN_JOINT_RADIUS_M:
             continue
-        for b in right:
-            if b.radius_m < MIN_JOINT_RADIUS_M:
+        k = _radius_bucket(a.radius_m)
+        for key in (k - 1, k, k + 1):
+            neighbours = buckets.get(key)
+            if not neighbours:
                 continue
-            if a.is_bore == b.is_bore:
-                continue
-            gap = abs(a.radius_m - b.radius_m)
-            if gap > RADIAL_MATCH_M:
-                continue
-            if abs(_dot(a.axis_dir, b.axis_dir)) < PARALLEL_DOT:
-                continue
-            offset = _line_distance(a.axis_point, a.axis_dir, b.axis_point)
-            if offset > AXIS_OFFSET_M:
-                continue
-            face_pairs += 1
-            score = (gap, offset)
-            if best is None or score < best[0]:
-                best = (score, a, b)
+            for b in neighbours:
+                checks += 1
+                if deadline is not None and checks % BUDGET_CHECK_EVERY == 0:
+                    if time.monotonic() > deadline:
+                        raise JointInferenceError(
+                            "joint inference exceeded its "
+                            f"{budget_s:.0f} s budget while comparing two bodies' faces"
+                        )
+                if a.is_bore == b.is_bore:
+                    continue
+                gap = abs(a.radius_m - b.radius_m)
+                if gap > RADIAL_MATCH_M:
+                    continue
+                if abs(_dot(a.axis_dir, b.axis_dir)) < PARALLEL_DOT:
+                    continue
+                offset = _line_distance(a.axis_point, a.axis_dir, b.axis_point)
+                if offset > AXIS_OFFSET_M:
+                    continue
+                face_pairs += 1
+                score = (gap, offset)
+                if best is None or score < best[0]:
+                    best = (score, a, b)
     if best is None:
         return None
     _, first, second = best
@@ -393,6 +469,11 @@ def _best_interface(left: list[CylinderFace], right: list[CylinderFace]):
     }
 
 
+def _radius_bucket(radius_m: float) -> int:
+    """Bucket index at the radial tolerance, so a match lands within one bucket of its partner."""
+    return int(math.floor(radius_m / RADIAL_MATCH_M))
+
+
 def _to_joint(index: int, left: LinkGroup, right: LinkGroup, pair: dict) -> ProposedJoint:
     """Turn an interface into a proposed joint.
 
@@ -403,7 +484,7 @@ def _to_joint(index: int, left: LinkGroup, right: LinkGroup, pair: dict) -> Prop
     """
     bore = pair["bore"]
     parent, child = (right, left) if pair["bore_on_left"] else (left, right)
-    point = _project_to_midpoint(bore.axis_point, bore.axis_dir, parent, child)
+    point = _interface_point(bore.axis_point, bore.axis_dir, parent, child)
     confidence = _confidence(pair)
     return ProposedJoint(
         joint_id=f"joint_{index:02d}",
@@ -421,12 +502,15 @@ def _to_joint(index: int, left: LinkGroup, right: LinkGroup, pair: dict) -> Prop
     )
 
 
-def _project_to_midpoint(point, direction, parent: LinkGroup, child: LinkGroup):
-    """A point on the joint axis, chosen near the interface so the YAML is readable.
+def _interface_point(point, direction, parent: LinkGroup, child: LinkGroup):
+    """A point on the joint axis, near the interface, so the YAML is readable.
 
-    OCC reports a cylinder's axis origin wherever the surface was parameterised, which on real parts
-    can be tens of metres from the body. The line is what is physical, so the reported point is the
-    projection of the interface midpoint onto that line.
+    The line is the physical quantity; every point on it is the same axis. The reported point is the
+    projection of the two links' bounding-box midpoint onto that line, because OCC reports a
+    cylinder's axis origin wherever the surface was parameterised -- on the real SO-101 that origin
+    is 17.6 m from the robot, so the raw point is useless to a reviewer. The trade-off is that this
+    point moves when a bounding box moves, so ``diff_proposals`` compares the **lines**, not the
+    points: a point that slid along an unchanged axis is not a moved axis.
     """
     mid = tuple(
         (parent.bbox_min_m[a] + parent.bbox_max_m[a] + child.bbox_min_m[a] + child.bbox_max_m[a]) / 4.0
@@ -553,7 +637,10 @@ def diff_proposals(before: JointProposal, after: JointProposal) -> dict:
             fields.append("topology")
         if _angle_deg(a.axis_dir, b.axis_dir) > 0.5:
             fields.append("axis_direction")
-        if _norm(_sub(a.axis_point, b.axis_point)) > 1e-5:
+        # The axis is a line, and the recorded point is only a representative point on it. Compare
+        # the distance between the two lines: a point that slid along an unchanged axis is the same
+        # joint, and reporting it as moved would train a reviewer to ignore the diff.
+        if axis_line_distance_m(a, b) > 1e-5:
             fields.append("axis_position")
         if abs(a.evidence.radius_m - b.evidence.radius_m) > 1e-6:
             fields.append("radius")
@@ -605,6 +692,24 @@ def _line_distance(p1, d, p2) -> float:
     return _norm(perp)
 
 
+def axis_line_distance_m(a, b) -> float:
+    """Shortest distance between two joint axes, as lines rather than as recorded points.
+
+    A ``ProposedJoint`` records a point on the axis, and that point is chosen for readability, not
+    for stability: it slides along the axis when a bounding box changes. The axis itself is the
+    line, so this is the number a revision diff must compare.
+    """
+    cross = (
+        a.axis_dir[1] * b.axis_dir[2] - a.axis_dir[2] * b.axis_dir[1],
+        a.axis_dir[2] * b.axis_dir[0] - a.axis_dir[0] * b.axis_dir[2],
+        a.axis_dir[0] * b.axis_dir[1] - a.axis_dir[1] * b.axis_dir[0],
+    )
+    size = _norm(cross)
+    if size < 1e-9:  # parallel: the perpendicular distance from one point to the other line
+        return _line_distance(a.axis_point, a.axis_dir, b.axis_point)
+    return abs(_dot(_sub(b.axis_point, a.axis_point), cross)) / size
+
+
 def _angle_deg(a, b) -> float:
     cos = max(-1.0, min(1.0, abs(_dot(a, b))))
     return math.degrees(math.acos(cos))
@@ -626,6 +731,7 @@ __all__ = [
     "MAX_PAIR_GAP_M",
     "ProposedJoint",
     "SCHEMA",
+    "axis_line_distance_m",
     "diff_proposals",
     "group_links",
     "infer_joints",
