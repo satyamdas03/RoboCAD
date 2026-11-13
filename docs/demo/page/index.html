@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SO-101 living page</title>
+<style>
+  :root{
+    --bg:#0b0e13; --panel:#11161f; --line:#1e2633; --ink:#e6ebf2; --dim:#8b97a8; --accent:#57d3a0; --warn:#f2b45c;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
+  #app{display:grid;grid-template-columns:1fr 320px;height:100%;grid-template-rows:auto 1fr}
+  header{grid-column:1/-1;display:flex;gap:16px;align-items:baseline;padding:10px 16px;border-bottom:1px solid var(--line)}
+  header h1{font-size:15px;margin:0;font-weight:600;letter-spacing:.01em}
+  header .src{color:var(--dim);font-size:13px}
+  header .src b{color:var(--warn);font-weight:600}
+  #stage{position:relative;min-height:0}
+  canvas{display:block;width:100%;height:100%}
+  aside{border-left:1px solid var(--line);background:var(--panel);overflow:auto;padding:12px}
+  .grp{margin-bottom:16px}
+  .grp h2{font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--dim);margin:0 0 8px}
+  .row{display:flex;justify-content:space-between;gap:8px;padding:4px 0;font-family:var(--mono);font-size:13px}
+  .row span:last-child{color:var(--accent)}
+  .bar{height:3px;background:#1b2431;margin-top:2px}
+  .bar i{display:block;height:100%;background:var(--accent)}
+  button{background:#18212e;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 11px;font-size:13px;cursor:pointer}
+  button:hover{border-color:#2f3d51} button[aria-pressed="true"]{background:#1f3a2f;border-color:#2f6a53;color:#bff3dc}
+  .btns{display:flex;flex-wrap:wrap;gap:6px}
+  .hint{color:var(--dim);font-size:12px;margin-top:8px}
+  #hud{position:absolute;left:14px;bottom:12px;font-family:var(--mono);font-size:12px;color:var(--dim)}
+  #load{position:absolute;inset:0;display:grid;place-items:center;color:var(--dim);font-family:var(--mono);font-size:12px}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>SO-101 · living page</h1>
+    <div class="src" id="srcline"></div>
+  </header>
+  <div id="stage"><div id="load">loading baked trajectory…</div></div>
+  <aside>
+    <div class="grp">
+      <h2>Model</h2>
+      <div class="row"><span>total mass</span><span id="m-total">–</span></div>
+      <div class="row"><span>bodies</span><span id="m-bodies">–</span></div>
+      <div class="row"><span>triangles</span><span id="m-tris">–</span></div>
+      <div class="row"><span>frames</span><span id="m-frames">–</span></div>
+    </div>
+    <div class="grp">
+      <h2>Links</h2>
+      <div id="links"></div>
+    </div>
+    <div class="grp">
+      <h2>Joints</h2>
+      <div id="joints"></div>
+    </div>
+    <div class="grp">
+      <h2>View</h2>
+      <div class="btns">
+        <button id="b-play" aria-pressed="true">Pause</button>
+        <button id="b-explode" aria-pressed="false">Exploded</button>
+        <button id="b-com" aria-pressed="false">CoM</button>
+        <button id="b-reset">Reset view</button>
+      </div>
+      <div class="hint">drag to orbit · wheel to zoom · numbers above are read from the baked MuJoCo model</div>
+    </div>
+    <div class="grp">
+      <h2>Provenance</h2>
+      <div class="row"><span>source</span><span id="p-source">–</span></div>
+      <div class="row"><span>synthetic</span><span id="p-synth">–</span></div>
+    </div>
+  </aside>
+  <div id="hud"></div>
+</div>
+
+<script src="trajectory.js"></script>
+<script src="meshes.js"></script>
+<script src="three.min.js"></script>
+<script>
+(function(){
+  "use strict";
+  const META = window.SO101_META;
+  const TRAJ = window.SO101_TRAJ;
+  const MESHES = window.SO101_MESHES;
+
+  function b64ToBytes(b64){
+    const bin = atob(b64), out = new Uint8Array(bin.length);
+    for (let i=0;i<bin.length;i++) out[i] = bin.charCodeAt(i);
+    return out.buffer;
+  }
+  const f32 = b64 => new Float32Array(b64ToBytes(b64));
+  const u32 = b64 => new Uint32Array(b64ToBytes(b64));
+
+  const qpos = f32(TRAJ.qpos), qfrc = f32(TRAJ.qfrc);
+  const bodyPos = f32(TRAJ.body_pos), bodyMat = f32(TRAJ.body_mat);
+  const frames = META.frames, nq = META.nq, nbody = META.nbody;
+
+  document.getElementById('srcline').innerHTML =
+    'source: <b>' + (META.source || 'unknown') + '</b> · official SO-101 model, not the compiled bundle';
+  document.getElementById('p-source').textContent = META.source || 'unknown';
+  document.getElementById('p-synth').textContent = META.synthetic ? 'yes' : 'no';
+  document.getElementById('m-total').textContent = META.total_mass_kg.toFixed(3) + ' kg';
+  document.getElementById('m-bodies').textContent = nbody;
+  document.getElementById('m-frames').textContent = frames;
+
+  // ---- three.js scene ----
+  const stage = document.getElementById('stage');
+  const renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  stage.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0b0e13);
+  const camera = new THREE.PerspectiveCamera(38, 1, 0.005, 50);
+
+  scene.add(new THREE.HemisphereLight(0xdff0ff, 0x22303d, 1.15));
+  const key = new THREE.DirectionalLight(0xffffff, 1.5); key.position.set(0.4, 0.9, 0.7); scene.add(key);
+  const rim = new THREE.DirectionalLight(0x7fb6ff, 0.7); rim.position.set(-0.7, 0.4, -0.6); scene.add(rim);
+  const grid = new THREE.GridHelper(1.2, 24, 0x24303f, 0x18212c);
+  grid.position.y = 0; scene.add(grid);
+
+  const bodyGroups = [];
+  for (let b=0;b<nbody;b++){
+    const g = new THREE.Group();
+    g.matrixAutoUpdate = false;
+    scene.add(g); bodyGroups.push(g);
+  }
+
+  const geometries = new Map();
+  let triTotal = 0;
+  for (const m of MESHES){
+    const verts = f32(m.verts), idx = u32(m.faces);
+    const geom = new THREE.BufferGeometry();
+    geom.setAttribute('position', new THREE.BufferAttribute(verts.slice(), 3));
+    geom.setIndex(new THREE.BufferAttribute(idx.slice(), 1));
+    geom.computeVertexNormals();
+    geometries.set(m.id, geom);
+    triTotal += m.count;
+  }
+
+  const mats = new Map();
+  function materialFor(body){
+    if (!mats.has(body)) mats.set(body, new THREE.MeshStandardMaterial({
+      color: new THREE.Color().setHSL(0.56 - 0.04*body, 0.28, 0.62),
+      metalness:0.15, roughness:0.55, flatShading:false, side:THREE.DoubleSide
+    }));
+    return mats.get(body);
+  }
+
+  for (const g of (META.geoms||[])){
+    const geom = geometries.get(g.mesh);
+    if (!geom) continue;
+    const mesh = new THREE.Mesh(geom, materialFor(g.body));
+    const q = g.quat || [1,0,0,0], p = g.pos || [0,0,0];
+    mesh.userData.geomIndex = g.geom;
+    mesh.quaternion.set(q[1], q[2], q[3], q[0]);
+    mesh.position.set(p[0], p[1], p[2]);
+    bodyGroups[g.body].add(mesh);
+  }
+
+  // CoM markers, one per body
+  const comDots = [];
+  for (let b=0;b<nbody;b++){
+    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.006, 10, 8),
+      new THREE.MeshBasicMaterial({color:0xffd166}));
+    dot.visible = false; scene.add(dot); comDots.push(dot);
+  }
+
+  let frame = Math.floor(frames/2);
+  const m4 = new THREE.Matrix4();
+  function applyFrame(f){
+    const base = f*nbody*3, mbase = f*nbody*9;
+    for (let b=0;b<nbody;b++){
+      const px=bodyPos[base+b*3], py=bodyPos[base+b*3+1], pz=bodyPos[base+b*3+2];
+      m4.set(
+        bodyMat[mbase+b*9+0], bodyMat[mbase+b*9+1], bodyMat[mbase+b*9+2], px,
+        bodyMat[mbase+b*9+3], bodyMat[mbase+b*9+4], bodyMat[mbase+b*9+5], py,
+        bodyMat[mbase+b*9+6], bodyMat[mbase+b*9+7], bodyMat[mbase+b*9+8], pz,
+        0,0,0,1);
+      bodyGroups[b].matrix.copy(m4);
+      bodyGroups[b].matrixWorldNeedsUpdate = true;
+      comDots[b].position.set(px,py,pz);
+    }
+    // joint readouts
+    const q0 = f*nq;
+    for (let j=0;j<nq;j++){
+      const el = jEls[j]; if(!el) continue;
+      el.angle.textContent = (qpos[q0+j]).toFixed(3) + ' rad';
+      el.torque.textContent = (qfrc[q0+j]).toFixed(3) + ' N·m';
+    }
+    hudEl.textContent = 't = ' + (f/META.hz).toFixed(2) + ' s  ·  frame ' + f + '/' + frames;
+  }
+
+  // panels
+  const linksEl = document.getElementById('links');
+  const maxMass = Math.max(...META.bodies.map(b=>b.mass));
+  const linkEls = [];
+  META.bodies.forEach((b,i)=>{
+    if (i===0) return; // world
+    const row = document.createElement('div');
+    row.innerHTML = '<div class="row"><span>'+b.name+'</span><span>'+b.mass.toFixed(4)+' kg</span></div>'+
+      '<div class="bar"><i style="width:'+(100*b.mass/maxMass).toFixed(1)+'%"></i></div>';
+    linksEl.appendChild(row);
+    linkEls.push({body:i, el:row});
+  });
+  linkEls.forEach(o=>{
+    o.el.style.cursor='pointer';
+    o.el.title='click to isolate this link';
+    o.el.addEventListener('click', ()=>isolate(o.body));
+  });
+
+  const jointsEl = document.getElementById('joints');
+  const jEls = META.joints.map(j=>{
+    const row = document.createElement('div');
+    row.innerHTML = '<div class="row"><span>'+j.name+'</span><span></span></div>'+
+      '<div class="row" style="padding-top:0;color:#8b97a8"><span>torque</span><span style="color:#8b97a8"></span></div>';
+    jointsEl.appendChild(row);
+    const spans = row.querySelectorAll('.row span:last-child');
+    return {angle:spans[0], torque:spans[1]};
+  });
+
+  document.getElementById('m-tris').textContent = triTotal.toLocaleString();
+
+  // interaction
+  let az = 0.9, el = 0.35, dist = 0.75, target = new THREE.Vector3(0.0, 0.16, 0.0);
+  function placeCamera(){
+    camera.position.set(
+      target.x + dist*Math.cos(el)*Math.cos(az),
+      target.y + dist*Math.sin(el),
+      target.z + dist*Math.cos(el)*Math.sin(az));
+    camera.lookAt(target);
+  }
+  let drag=false, lx=0, ly=0;
+  renderer.domElement.addEventListener('pointerdown', e=>{drag=true;lx=e.clientX;ly=e.clientY;});
+  addEventListener('pointerup', ()=>drag=false);
+  addEventListener('pointermove', e=>{
+    if(!drag) return;
+    az -= (e.clientX-lx)*0.008; el = Math.max(-1.2, Math.min(1.3, el + (e.clientY-ly)*0.006));
+    lx=e.clientX; ly=e.clientY; placeCamera();
+  });
+  renderer.domElement.addEventListener('wheel', e=>{
+    e.preventDefault();
+    dist = Math.max(0.18, Math.min(3.0, dist * (1 + Math.sign(e.deltaY)*0.08)));
+    placeCamera();
+  }, {passive:false});
+
+  let playing = true, exploded = false, showCom = false, isolated = null;
+  const playBtn = document.getElementById('b-play');
+  playBtn.onclick = ()=>{ playing = !playing; playBtn.textContent = playing?'Pause':'Play';
+                          playBtn.setAttribute('aria-pressed', String(playing)); };
+  const expBtn = document.getElementById('b-explode');
+  expBtn.onclick = ()=>{ exploded = !exploded; expBtn.setAttribute('aria-pressed', String(exploded));
+    bodyGroups.forEach((g,i)=>{ g.position.setScalar(0); });
+    if (exploded) applyExplode(); };
+  const comBtn = document.getElementById('b-com');
+  comBtn.onclick = ()=>{ showCom = !showCom; comBtn.setAttribute('aria-pressed', String(showCom));
+    comDots.forEach(d=>d.visible = showCom); };
+  document.getElementById('b-reset').onclick = ()=>{ az=0.9; el=0.35; dist=0.75; placeCamera(); isolate(null); };
+
+  const explodeOffsets = new Map();
+  function applyExplode(){
+    // offset each body along its parent-to-child direction in world space
+    for (let b=1;b<nbody;b++){
+      const parent = META.bodies[b].parent;
+      const f = frame;
+      const bp = f*nbody*3;
+      const dx = bodyPos[bp+b*3] - bodyPos[bp+parent*3];
+      const dy = bodyPos[bp+b*3+1] - bodyPos[bp+parent*3+1];
+      const dz = bodyPos[bp+b*3+2] - bodyPos[bp+parent*3+2];
+      const len = Math.hypot(dx,dy,dz) || 1;
+      explodedOffsets.set(b, [dx/len*0.045, dy/len*0.045, dz/len*0.045]);
+    }
+  }
+
+  function isolate(body){
+    isolated = (isolated === body) ? null : body;
+    bodyGroups.forEach((g,i)=>{ g.visible = (isolated===null) || (i===isolated); });
+    linkEls.forEach(o=>{ o.el.style.opacity = (isolated===null||o.body===isolated) ? '1' : '0.35'; });
+  }
+
+  function resize(){
+    const w = stage.clientWidth, h = stage.clientHeight;
+    renderer.setSize(w, h, false);
+    camera.aspect = w/h; camera.updateProjectionMatrix();
+  }
+  addEventListener('resize', resize);
+
+  const hudEl = document.getElementById('hud');
+  // frame the model from its own bounds instead of a guessed camera distance
+  applyFrame(frame);
+  (function frameModel(){
+    const box = new THREE.Box3();
+    bodyGroups.forEach(g => { g.updateMatrixWorld(true); box.expandByObject(g); });
+    if (!box.isEmpty()){
+      box.getCenter(target);
+      dist = Math.max(0.25, box.getSize(new THREE.Vector3()).length() * 1.15);
+    }
+  })();
+  placeCamera(); resize();
+  document.getElementById('load').remove();
+
+  let t0 = performance.now(), last = 0;
+  function loop(now){
+    requestAnimationFrame(loop);
+    if (playing){
+      const dt = (now - t0)/1000; t0 = now;
+      frame = (frame + Math.round(dt*META.hz)) % frames;
+      applyFrame(frame);
+      if (exploded){
+        applyExplode();
+        for (let b=1;b<nbody;b++){
+          const o = explodedOffsets.get(b); if(!o) continue;
+          const off = new THREE.Matrix4().makeTranslation(o[0],o[1],o[2]);
+          bodyGroups[b].matrix.premultiply(off);
+        }
+      }
+    } else { t0 = now; }
+    renderer.render(scene, camera);
+  }
+  applyFrame(frame);
+  requestAnimationFrame(loop);
+
+  // expose a tiny hook so the film recorder and the verifier can drive frames deterministically
+  window.SO101_PAGE = {
+    setFrame: f => { frame = ((f % frames) + frames) % frames; applyFrame(frame); renderer.render(scene, camera); },
+    frames, hz: META.hz, meta: META,
+    pause: () => { playing = false; playBtn.textContent='Play'; playBtn.setAttribute('aria-pressed','false'); },
+    // verifier hook: world position of the first vertex of the Nth mesh geom, for cross-checking
+    meshWorldSample: (geomIndex) => {
+      let m = null;
+      scene.traverse(o => { if (o.isMesh && o.userData.geomIndex === geomIndex) m = o; });
+      if (!m) return null;
+      m.updateWorldMatrix(true, false);
+      const v = new THREE.Vector3().fromBufferAttribute(m.geometry.attributes.position, 0);
+      return v.applyMatrix4(m.matrixWorld).toArray();
+    },
+    fps: () => new Promise(res => {
+      let n = 0; const start = performance.now();
+      const tick = () => { n++; if (performance.now()-start < 1000) requestAnimationFrame(tick); else res(n); };
+      requestAnimationFrame(tick);
+    })
+  };
+})();
+</script>
+</body>
+</html>

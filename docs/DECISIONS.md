@@ -3,6 +3,31 @@
 Newest first. One entry per decision, with the date, what was decided, why, and what it rules out.
 A decision without a reason is a preference; it does not belong here.
 
+## 2026-11-13 Sprint decisions (demo deadline Sat 14 Nov 22:00 Sydney)
+
+Satyam is unavailable until the deadline, and these were made so the sprint does not wait. Each is
+one line of reasoning, as the sprint rule requires.
+
+1. **Publish `docs/twin/so101/`.** Apache-2.0 permits derived files when attribution is kept and
+   changes are marked. `docs/twin/so101/NOTICE.md` names the SO-101 project, the licence, the pinned
+   commit `a758567`, and what we changed.
+2. **M2 YAML is cross-reviewed, not auto-inferred.** The session that did not write
+   `robot.joints.yaml` checks it against the written criteria (every instance assigned exactly once,
+   six revolute joints within 1 degree of the servo shaft axis, limits sourced and stated, tree
+   matching official topology) and records PASS or FAIL in this file. Satyam confirms afterwards.
+3. **Collision: CoACD for at most 30 minutes.** Then convex hulls or primitives, with the reason
+   recorded. Debugging installs is not product work.
+4. **Heavy test tier stopped for the sprint.** One frozen Labs test exceeds 900 s, so the tier cannot
+   finish, and the machine is needed for the demo. `BASELINE.md` records the stop and the evidence.
+5. **Living page built on three.js directly, not a vendored teardown kit.** No teardown kit exists in
+   this repo and none was named by version, so the page uses the three.js already pinned in the app
+   (MIT, credited in `THIRD_PARTY.md`), which keeps the licence story and the dependency count
+   unchanged.
+
+Rules out: reopening scope, waiting on Satyam, or claiming a heavy tier result that does not exist.
+
+
+
 ## 2026-11-13 Licence split: Apache-2.0 compile layer, proprietary calibration engine
 
 Decided: the repository root carries Apache-2.0. `ai_cad/twin/` carries its own licence file and

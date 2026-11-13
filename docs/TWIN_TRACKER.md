@@ -20,6 +20,13 @@ checked, a version diff, and a clearly labelled synthetic calibration preview. T
 Nothing past the demo slice gets built until Satyam says so. M5, M7, M8 to M12 and Phase 2 are
 PARKED, not deleted.
 
+## Findings raised by the monitor lane
+
+| | Finding | Evidence | Owner |
+|---|---|---|---|
+| | `scripts/build_installer.py:main` runs `_build_frontend()` before `_run_pyinstaller()`, so a machine without PyInstaller still pays a multi minute npm build before being told it cannot build the installer. Cheap to fix, order the check first. | `scripts/build_installer.py:163-164`, found because a test in the default tier was really running npm | unassigned, `scripts/` is outside both lane splits |
+| | `tests/test_morphology_api.py::test_run_topology_search` does not finish inside its own `@pytest.mark.timeout(180)`, nor inside 900 s alone on an idle machine, so the heavy tier cannot complete while it is selected. Satyam's decision 2026-11-13: leave it, document it, do not touch frozen work. | `docs/BASELINE.md`, stack in `ai_cad/morphology.py:614` to `check_assembly_collision` | Satyam decides |
+
 ## Decisions locked
 
 | | Decision | Value every later report cites |
@@ -77,12 +84,30 @@ notice and a statement of changes are required on the page, film and report.
 
 | | ID | Deliverable | Acceptance evidence | Owner | State |
 |---|---|---|---|---|---|
-| | M1 | STEP import of the chosen assembly | part and instance counts, units, transforms, warnings | build | [ ] |
-| | M2 | Link grouping and joint inference, YAML reviewed by Satyam | proposals versus his edited YAML, axes correct | build | [ ] |
+| | M1 | STEP import of the chosen assembly | part and instance counts, units, transforms, warnings | build | [x] |
+| | M2 | Link grouping and joint inference, YAML reviewed by Satyam | proposals versus his edited YAML, axes correct | build | [~] |
 | | M3 | Exact mass and inertia, collision hulls via CoACD | analytic part checks, CoACD hulls, MuJoCo loads clean | build | [ ] |
 
 No vendor-spread work. If a step looks like it will pass about 3 days, stop and propose a smaller
 version, per the course correction.
+
+M1 evidence, re-run by the monitor session against the pinned SO-101 file rather than taken from the
+build session's report. Command `python -c "... import_step(<so101.step>)"` in the repo at `2a767cb`,
+output in `docs/baseline/m1_so101_verify.log`: `label_count 394 parts 83 instances 259`, `units mm`,
+`root SO101 Assembly v4`, `warnings 0`, `reused_parts 28 max_reuse 45`, `reflected 0`,
+`non_proper 0`, `assembly_path_max_depth 7`. That is every number the build session reported,
+reproduced by a different operator and process. Import time 48.5 s under load, 10.7 s warm cache on
+an idle box; the cold-cache idle figure is still unmeasured and is the only one fit for a report.
+
+M2 result, recorded the way the build session insisted, because it is much smaller than the milestone
+name suggests. On the pinned SO-101, geometry recovers exactly **one** joint: the gripper servo to
+moving jaw, radius 3.00 mm, from 120 face pairs. The six named arm links share zero coaxial bore or
+shaft interfaces at any tolerance down to 0.5 mm, and loosening the rule adds screw-to-screw false
+positives rather than real joints. The proposal therefore reports 1 joint and 91 unresolved pairs
+across 26 body groups, and never invents a tree. This is the honest M2 acceptance result, not
+"joints inferred". The row stays `[~]` because the acceptance gate is Satyam reviewing the YAML, and
+the generated proposal at `docs/twin/so101/` is deliberately uncommitted until he says the derived
+work may be published.
 
 ## Step 4: M4 core
 
