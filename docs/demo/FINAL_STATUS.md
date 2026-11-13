@@ -1,7 +1,7 @@
 # Final status, demo sprint
 
-Owner of this file: monitor session (Lane B). Updated 2026-11-14. Every claim carries a tag:
-`verified-ran`, `verified-read`, `claimed`. Deadline: Sat 14 Nov 2026, 22:00 Sydney.
+Owner of this file: monitor session (Lane B). Updated 2026-11-14, 11:00. Every claim carries a tag:
+`verified-ran`, `verified-read`, `claimed`. Deadline: hard freeze Sat 14 Nov 2026, 13:15 Sydney.
 
 ## Open this first, in this order
 
@@ -29,10 +29,17 @@ Owner of this file: monitor session (Lane B). Updated 2026-11-14. Every claim ca
 - Page loads from `file://` with the browser context offline: **zero non-file requests**. `verified-ran`
 - Page geometry matches MuJoCo to **0.000 to 0.001 mm** on three mesh geoms. `verified-ran`
 - Render 51 to 58 fps headless at 83k triangles, 600 frames, page HTML under 30 KB. `verified-ran`
-- Compiled bundle: 7 bodies, 6 hinge joints, 433 collision hulls, 1.0413 kg, checks
-  `meshes_load` pass, `inertia_valid` pass, `pose_equivalence` pass at 0.000 m over 100
-  configurations, `mujoco_load` pass, `self_collision` **fail**, `limits_and_effort` warn,
-  `free_base_stand` skipped. `verified-read` from `report.json`
+- Compiled bundle, frozen tag `demo-bundle-v1` at `f202c12`: 7 bodies, 6 hinge joints, 433 collision
+  hulls, **0.9017 kg** printed / **1.3320 kg** solid bound. Checks: `meshes_load` pass,
+  `inertia_valid` pass, `pose_equivalence` pass at 0.000 m over 100 configurations, `mujoco_load`
+  pass, `self_collision` **fail**, `limits_and_effort` **pass** (0.652 N·m on `joint_2`, 22% of the
+  servo's 2.942 N·m stall, contacts disabled), `free_base_stand` skipped. `verified-read` from
+  `report.json` at the tag, and re-derived from the packaged zip's own `report.js` by
+  `scripts/verify_demo_zip.py` `verified-ran`
+- Default test tier at the tag, measured in a worktree checked out at `demo-bundle-v1`:
+  **745 passed, 300 deselected, 3 warnings, 391.13 s, exit 0**, collected 1045. `verified-ran`. The
+  three warnings are pre-existing `InsecureKeyLengthWarning`s. Recorded in `docs/BASELINE.md` with no
+  caveat, because the tree was the tag and not the tag plus edits.
 - Joint axes agree with the published model within **2.14 degrees** (rms 1.05) after a
   sense-searched datum fit over all 64 sense combinations. `verified-ran`
 - Joint **origins** do not agree. Bounded metric, anchor to the other joint's axis: **94.2, 110.3,
@@ -58,10 +65,11 @@ Owner of this file: monitor session (Lane B). Updated 2026-11-14. Every claim ca
   do not interfere. `verified-read` from Lane A, corrected after their unit bug
 - Identification rungs 0, 1, 2 and 4 recover (0.57, 1.6/0.86, latency exact, 0.12/0.56 percent).
   Rung 3 is blocked. `verified-ran`
-- Default test tier: `664 passed, 298 deselected, 3 warnings in 863.19 s`, exit 0, run at `af75fdd`
-  with three Lane A files modified but uncommitted in the same tree. `verified-ran`. The collected
-  count measured afterwards is 668 of 968, and the difference is those edits landing mid-run, so the
-  row is recorded as "commit plus in-flight edits", not as a clean artifact.
+- Default test tier: `745 passed, 300 deselected, 3 warnings in 391.13 s`, exit 0, run in a worktree
+  at `demo-bundle-v1` (`f202c12`), so the tree and the tag are the same thing. `verified-ran`
+- Post-tag commits (`42b50ba`, `0ef337c`) touch `robocad/demo.py`, `scripts/diff_revision_f030.py`
+  and the committed `revision_f030` bundle. The default tier was re-run over that tree; the result is
+  in `docs/BASELINE.md` under the commit it was measured at.
 
 ## Cross-verification of Lane A's published bundle
 
@@ -77,14 +85,30 @@ Three targets were named before computing them, so the choice could not flatter 
    implies exactly 1240.0 kg/m3, and the body masses sum to the reported 1.04134 kg total.
    `verified-ran`
 
-**Not verified, and not shown**: the revision diff. The `revision.json` that was published with the
-bundle compared `robot.joints.proposed.yaml` against `so101_demo` and reported **19 links removed, 7
-changed, 0 added**, an artefact of two different link identity schemes rather than a revision. It was
-excluded from the page and flagged to Lane A. Lane A then made the diff refuse that comparison:
-`ai_cad/compiler/revision.py` records each document's link scheme and returns `comparable=False`
-with a reason instead of a table, and the two revision files were removed from the published bundle.
-`docs/twin/so101/NOTICE.md` says the bundle carries no revision diff and why. A diff that reports
-deletions that never happened is worse than a missing panel.
+**The revision diff that shipped.** The `revision.json` published earlier
+with the bundle compared `robot.joints.proposed.yaml` against `so101_demo` and reported **19 links
+removed, 7 changed, 0 added**, an artefact of two different link identity schemes rather than a
+revision. It was excluded from the page and flagged. `ai_cad/compiler/revision.py` now records each
+document's link scheme and returns `comparable=False` with a reason instead of a table, and the two
+files were removed from the published bundle. A diff that reports deletions that never happened is
+worse than a missing panel.
+
+That gap is closed by a real one. Same pipeline, same STEP file, one input changed: the print model's
+infill fraction, 0.20 to 0.30, keyed only on the link names `robot.joints.yaml` declares.
+
+| | before (f = 0.20) | after (f = 0.30) | change |
+|---|---|---|---|
+| printed mass | 0.9017 kg | 0.9555 kg | +0.0538 kg, **+6.0%** |
+| solid bound | 1.3320 kg | 1.3320 kg | unchanged, the solid is not a print assumption |
+| effort demand | 0.652 N·m on `joint_2` | 0.687 N·m on `joint_2` | 22% to 23% of the 2.942 N·m stall |
+
+Sanity, all re-derived by `python scripts/diff_revision_f030.py` rather than asserted: **0 links
+added, 0 links removed**, all **7** printed links heavier (biggest relative movers `upper_arm_so101`
++16.2% and `moving_jaw_so101` +8.3%), and the actuator and joint blocks **byte-identical** between
+the two bundles, which is what "servos unchanged" means when a bundle states its hardware in those
+blocks. `verified-ran`. Artifacts: `docs/twin/so101/revision_f030/diff.json` and `diff.md`, with the
+`f = 0.30` bundle committed beside them (2.5 MB, hulls only) so the diff can be re-derived by someone
+who does not trust this machine.
 
 ## Identification: the rung reached and why it stopped
 
@@ -101,11 +125,13 @@ same mistake will be made again.
 
 ## Assumptions Satyam must confirm
 
-1. **Printed mass is an upper bound at 100 percent fill.** The compile layer counts printed plastic
-   as solid PLA at the material library density, `materials.py` `"pla": 1240.0` kg/m3, and the report
-   field is `printed_mass_upper_bound_kg`. There is **no wall thickness and no infill fraction**
-   anywhere in the compile layer; a page line claiming "1.2 mm wall, 0.20 infill" would describe a
-   model that is not in the bundle, so the page does not claim it. `verified-read` from Lane A.
+1. **The print model's two inputs: wall 1.2 mm, infill 0.20.** Printed mass is `0.9017 kg` at those
+   settings, against a `1.3320 kg` solid boundary at the same density. Both are the model's stated
+   assumptions, not measurements, and the bundle prints both figures side by side so the range is
+   visible: `print_model` reads `"1.20 mm wall over 20% infill"` in `bundle.json`. The infill value
+   is live code, not prose — the `f = 0.30` revision in this report was produced by passing it to the
+   compiler. `verified-read` and `verified-ran`. **What Satyam must confirm:** that 1.2 mm and 0.20
+   describe how the partner would print this, because every mass here moves with them.
 2. **Servo mass, 55 g plus or minus 1 g**, sourced to the Feetech STS3215 product specification
    document (feetech.cn); the code carries the document name, not a URL. It enters the
    comparison only, as the figure that reconciles our mass against the published mass. It does **not**
@@ -113,12 +139,23 @@ same mistake will be made again.
    55 g is already inside our body masses would overstate every body. `verified-read` from Lane A.
 3. **Publishing `docs/twin/so101/`.** Satyam authorised this in the sprint directive, verbatim:
    "Publish docs/twin/so101/: YES. Add docs/twin/so101/NOTICE.md crediting the SO-101 project, its
-   Apache-2.0 licence, the pinned commit, and a list of what we changed." What is still true: the
-   directory is **uncommitted**, `NOTICE.md` is not written, and no `demo-bundle-v1` tag exists,
-   because Lane A will not commit derived CAD on a relayed instruction. Nothing in this folder
-   describes it as published.
-4. **M2 YAML review**: cross-reviewed by the lane that did not write it, criteria recorded in
-   `DECISIONS.md`. M2 stays `[~]` while the YAML is uncommitted for the licence question.
+   Apache-2.0 licence, the pinned commit, and a list of what we changed." **Done:** the directory is
+   committed, `NOTICE.md` is written, and the tag `demo-bundle-v1` exists at `f202c12`. The earlier
+   licence caution on derived CAD is resolved for this directory by that instruction. `verified-ran`
+   (`git tag --list`, `git ls-files docs/twin/so101 | wc -l`).
+4. **M2 joint skeleton review:** reviewed by the session that did not write it, against four written
+   criteria, **PASS 4/4**, with the official URDF's sha256 re-checked against the digest the checker
+   pins before the check ran. The skeleton and the review record are committed
+   (`docs/twin/so101/robot.joints.yaml`, `docs/twin/so101/JOINT_REVIEW.md`), and the tracker row is
+   `[x]`. `verified-ran`.
+5. **The servo mass, 55 g, is the one figure no artifact here can check.** It is sourced to the
+   Feetech STS3215 specification and it enters only the comparison against the published model, never
+   the bundle's mass properties. **What Satyam must confirm:** that the source is the right variant,
+   because a different servo changes the comparison and not the compiled masses.
+6. **Actuator gains are assumptions.** `kp` = 20 and `kv` = 1 are labelled as assumptions in the
+   bundle; the real servo closes its own loop and publishes no stiffness. The live hold in
+   `docs/twin/so101/live_hold.md` fails at those gains and the failure is kept. **What Satyam must
+   confirm:** whether the partner can supply measured gains, which is Phase 2 calibration.
 
 ## What is deliberately not shipped
 
@@ -177,11 +214,35 @@ agree to 15 mm at the 99th percentile.)
 - Package: `docs/demo/so101_demo.zip`, built by `teardown_export/package_demo.py`, which copies the
   artefacts, zips them, extracts the zip into a fresh temporary directory and opens that copy from
   `file://` with the network off. The package test is the deliverable, not the folder.
+- Frozen bundle tag: **`demo-bundle-v1` at `f202c12`**. Nothing inside `docs/twin/so101/bundle/`
+  changed after the tag; the revision compile and the diff live in sibling directories.
+- Independent verification of the package: `scripts/verify_demo_zip.py` names three numbers before
+  computing any of them (printed mass 0.901658836 kg; revision 0.901658836 to 0.955453030 kg; seven
+  check rows at 5 pass / 1 fail / 1 skipped), extracts the zip to a fresh directory, and re-derives
+  each from the zip's own baked JSON. It also asserts the page opens from `file://` with zero page
+  errors and zero non-file requests. Its result at the freeze commit is recorded in
+  `docs/demo/verify.json`.
+- Live viewer: `python -m robocad.demo so101 --bundle docs/twin/so101/bundle --mode replay` replays
+  the bundle's trajectory. **Hold fails and the failure ships as documentation, not as a caveat**:
+  573.26 mrad steady error, all six joints at the 2.942 N·m force limit, because `kp` = 20 asks for
+  10 N·m to take a 0.5 rad step. Per-joint numbers in `docs/twin/so101/live_hold.md`. `verified-ran`
 - Page rendered from the bundle's own visual meshes at 128,073 triangles, 56 fps, zero network
-  requests.
+  requests. `claimed` on the triangle count, which is the page lane's measurement; the bundle's own
+  620,093 source triangles are `verified-read` from `report.json`.
 - Comparison panel states solid upper bound, print model, published figure, the gap between the last
   two, and the conventions note with the 1.69 mm frame-free link-length agreement.
-- Torque panel reads its limit from the bundle's actuators, 2.94 N m, and is not saturated on this
-  trajectory: peak 1.26 N m official against 0.63 N m compiled.
+- Torque panel reads its limit from the bundle's actuators, 2.94 N·m, and is not saturated on this
+  trajectory: peak 1.26 N·m official against 0.63 N·m compiled.
 - M2 review recorded as PASS by the lane that did not write it, 4 of 4 criteria, with the official
   URDF's sha256 verified against the pinned digest before the check ran.
+
+## Five things Satyam has to confirm
+
+1. **Wall thickness 1.2 mm** — the print model's first input, and every printed mass scales with it.
+2. **Infill 0.20** — the second input; today's revision exists to show what moving it to 0.30 costs.
+3. **The 55 g servo mass and its source** (Feetech STS3215 specification) — it drives the comparison
+   against the published model and not the compiled masses.
+4. **Actuator `kp` = 20 / `kv` = 1** — labelled assumptions, and the reason the live hold fails
+   honestly rather than passing quietly.
+5. **Publishing `docs/twin/so101/`** — done under the sprint directive; confirming it keeps the
+   licence statement and the pinned commit on the page, film and report.

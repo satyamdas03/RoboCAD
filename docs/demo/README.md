@@ -10,24 +10,38 @@ and the provenance line at the top says which bundle and which checks are shown.
    the SO-101 compiled from the STEP file exported from the SO-ARM100 repository at commit
    `a758567`, not a hand-written model. The 3D geometry is the bundle's own visual meshes,
    decimated to 128k of its 620k triangles so a browser can hold it.
-2. **0:30, the seven checks.** Point at the Checks panel. Five pass. `self_collision` **fails**: two
-   convex hulls overlap 7.9 mm at rest. The B-rep solids touch and share 0.52 mm3, which is
-   contact-scale, so MuJoCo will act on a contact the CAD does not have. The report carries 265
-   warnings, including 26 parts whose hulls are more than 3x their own volume. None of this is
-   hidden, and none of it is a passing light.
+2. **0:30, the seven checks.** Point at the Checks panel. Five pass, one is skipped, and
+   `self_collision` **fails**: two convex hulls overlap 7.9 mm at rest. The B-rep solids touch and
+   share 0.52 mm3, which is contact-scale, so MuJoCo will act on a contact the CAD does not have. The
+   report carries 149 warnings, and 13 of them are parts whose hulls cover more than 3x their own
+   volume (the largest, `part_081`, 28.9x); the bundle's assembly import adds 116 more of its own.
+   None of this is hidden, and none of it is a passing light. `[verified: counted in
+   docs/twin/so101/bundle/report.json and bundle.json]`
 3. **1:00, same robot as the official model.** Comparison panel: joint axes agree within **1.05°**
    rms, worst 2.14°. Joint origins look wrong by up to 110 mm **until the zero-pose conventions are
    applied**, and then they agree at **2.50 mm median / 11.25 mm worst**. Frame-free link lengths
    agree to **1.69 mm**, which no registration can fake. See `CONVENTIONS.md`.
 4. **1:30, masses with their assumptions.** Solid upper bound **1.332 kg**, print model **0.902 kg**,
    published **0.632 kg**. The print model assumes 1.2 mm walls and 0.20 infill, so printed mass is a
-   range, not a measurement. Servos use 55 g datasheet mass through their CAD envelope.
+   range, not a measurement. The compiled body masses are printed plastic only — the 55 g servo mass
+   is used in the comparison against the published model and does **not** enter the bundle's mass
+   properties, so the two totals are not the same kind of number.
 5. **2:00, what that does to the motors.** Torque panel: required torque for the same trajectory on
    both models, with the bundle's own 2.94 N m actuator limit drawn as a dashed line. Peak 1.26 N m
    official against 0.63 N m compiled, so neither saturates on this motion.
-6. **2:30, the revision.** `diff.md`: the same pipeline recompiled at 0.30 infill, diffed per link on
-   the same link names.
-7. **2:45, calibration and what we need.** Twin panel: four of five identification rungs recover
+6. **2:20, the revision.** `docs/twin/so101/revision_f030/diff.md`: the same pipeline recompiled at
+   0.30 infill against the frozen bundle's 0.20, diffed per link on the same link names from
+   `robot.joints.yaml`. 0 links added, 0 removed, all seven printed links heavier, servos unchanged.
+   Printed mass 0.902 to 0.956 kg, +6.0%; the solid bound stays 1.332 kg because the solid is not a
+   print assumption. The effort check moves with it: 0.652 to 0.687 N m on `joint_2`, 22% to 23% of
+   the servo's stall.
+7. **2:35, the live viewer (only if a display is at hand).** `python -m robocad.demo so101 --bundle
+   docs/twin/so101/bundle --mode replay` opens the same bundle in the MuJoCo viewer and replays the
+   trajectory the page bakes. **Replay only, not hold.** Holding a commanded pose fails on this
+   bundle, and the failure is kept rather than hidden: 573 mrad steady-state error with every joint
+   pinned at its 2.942 N m force limit, because the gain assumption `kp` = 20 asks for 10 N m to take
+   a 0.5 rad step. `docs/twin/so101/live_hold.md` has the per-joint numbers.
+8. **2:45, calibration and what we need.** Twin panel: four of five identification rungs recover
    their planted values. The fifth cannot, and the page says why: a 4096-count encoder is 1.53 mrad,
    the servo is 998 N m per rad, so position quantisation is 1.53 N m of torque noise against a
    0.15 N m friction signal. **A motor-current channel takes that SNR from 0.10 to 4.48.** That is
