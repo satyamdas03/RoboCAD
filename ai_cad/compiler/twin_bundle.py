@@ -17,7 +17,13 @@ from pydantic import BaseModel, Field
 
 from ai_cad.compiler.collision import CollisionError, CollisionMesh, collision_mesh, write_obj
 from ai_cad.compiler.kinematics import Skeleton
-from ai_cad.compiler.properties import LinkMassProperties, PropertyError, link_properties
+from ai_cad.compiler.properties import (
+    LinkMassProperties,
+    MassProperties,
+    PropertyError,
+    link_properties,
+)
+from ai_cad.compiler.print_model import PrintModel
 from ai_cad.importers.models import ImportedAssembly
 
 BUNDLE_SCHEMA = "robocad.twin.bundle/1"
@@ -56,6 +62,16 @@ class BodyModel(BaseModel):
     limits: dict[str, float] | None = None
     limits_source: str | None = None
     mass_kg: float
+    # The same parts cast solid: an upper bound, and equal to ``mass_kg`` when the bundle was built
+    # without a print model. Kept beside the mass rather than replacing it so a reader can see how
+    # much of the figure is the kernel and how much is the infill assumption.
+    solid_mass_kg: float | None = None
+    # The shell-and-infill estimate. None when no print model was supplied, which is why a consumer
+    # has to print a dash rather than echoing ``mass_kg``.
+    printed_mass_kg: float | None = None
+    printed_parts: int = 0
+    bought_in_parts: int = 0
+    print_model: str | None = None
     com_m: tuple[float, float, float]
     inertia_6: tuple[float, float, float, float, float, float]  # ixx iyy izz ixy ixz iyz
     hull_files: list[str] = Field(default_factory=list)
@@ -70,7 +86,12 @@ class BundleModel(BaseModel):
     schema_version: str = BUNDLE_SCHEMA
     name: str
     bodies: list[BodyModel]
+    # With a print model supplied this is the shell-and-infill total; without one it is the solid
+    # total. ``total_solid_mass_kg`` is the bound either way, so a consumer never has to know which
+    # build produced the file to find the upper limit.
     total_mass_kg: float
+    total_solid_mass_kg: float | None = None
+    print_model: str | None = None
     warnings: list[str] = Field(default_factory=list)
 
 
@@ -112,12 +133,20 @@ def build_bundle(
     name: str = "so101",
     density_by_part=None,
     hull_cache: dict[str, CollisionMesh] | None = None,
+    print_model: PrintModel | None = None,
 ) -> tuple[BundleModel, dict[str, LinkMassProperties], dict[str, CollisionMesh]]:
-    """Bodies with their measured mass properties and their collision hulls."""
+    """Bodies with their measured mass properties and their collision hulls.
+
+    ``print_model`` turns the solid-volume mass into a shell-and-infill estimate. Both figures land
+    in the bundle: ``solid_mass_kg`` is the kernel's answer and ``printed_mass_kg`` is the model's,
+    so nothing downstream has to guess which one it was handed.
+    """
     joints = {j.child_body: j for j in skeleton.joints}
     properties: dict[str, LinkMassProperties] = {}
     meshes: dict[str, CollisionMesh] = {}
     hull_cache = hull_cache if hull_cache is not None else {}
+    volume_cache: dict[str, MassProperties] = {}
+    area_cache: dict[str, float] = {}
     bodies: list[BodyModel] = []
     warnings: list[str] = []
 
@@ -130,6 +159,9 @@ def build_bundle(
                 assignment.body_id,
                 assignment.instance_ids,
                 density_by_part,
+                cache=volume_cache,
+                area_cache=area_cache,
+                print_model=print_model,
             )
         except PropertyError as exc:
             raise BundleError(f"body {assignment.body_id}: {exc}") from exc
@@ -162,6 +194,11 @@ def build_bundle(
             limits=joint.limits if joint else None,
             limits_source=joint.limits_source if joint else None,
             mass_kg=props.mass_kg,
+            solid_mass_kg=props.solid_mass_kg,
+            printed_mass_kg=(props.mass_kg if print_model is not None else None),
+            printed_parts=props.print_modelled_parts,
+            bought_in_parts=props.bought_in_parts,
+            print_model=(print_model.describe() if print_model is not None else None),
             com_m=props.com_m,
             inertia_6=_inertia6(props),
             part_count=len(assignment.part_ids),
@@ -175,8 +212,16 @@ def build_bundle(
         bodies.append(body)
 
     total = sum(b.mass_kg for b in bodies)
+    solid_total = sum(b.solid_mass_kg or b.mass_kg for b in bodies)
     return (
-        BundleModel(name=name, bodies=bodies, total_mass_kg=total, warnings=sorted(set(warnings))),
+        BundleModel(
+            name=name,
+            bodies=bodies,
+            total_mass_kg=total,
+            total_solid_mass_kg=solid_total,
+            print_model=(print_model.describe() if print_model is not None else None),
+            warnings=sorted(set(warnings)),
+        ),
         properties,
         meshes,
     )

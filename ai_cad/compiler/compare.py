@@ -26,6 +26,7 @@ Three rules:
 """
 from __future__ import annotations
 
+import math
 import re
 from pathlib import Path
 
@@ -49,6 +50,13 @@ class BodyComparison(BaseModel):
     # Printed parts at 100% solid PLA: an upper bound on what this body weighs if it is only
     # printed plastic, which is the like-for-like counterpart to a published printed-part mass.
     ours_printed_upper_kg: float | None = None
+    # The shell-and-infill estimate for the same printed parts. Present only when the bundle was
+    # built with a print model; a bundle without one has no estimate, which is a dash and not a copy
+    # of the upper bound.
+    ours_print_estimate_kg: float | None = None
+    # Parts on this body whose mass came from a datasheet rather than from a density: servos, mostly.
+    # Their mass is not printed plastic, so it is not part of what an infill model may reduce.
+    bought_in_parts: int = 0
     # Their mass over the mass our geometry would have at 100% solid PLA. This is a derived number,
     # not an assumption: it asks what fill fraction their published mass would correspond to if
     # their link is our link printed in PLA. Above 1.0 means the two are not the same part.
@@ -151,6 +159,17 @@ class Comparison(BaseModel):
     link_spacings: list[LinkSpacing] = Field(default_factory=list)
     alignment: FrameAlignment | None = None
     notes: list[str] = Field(default_factory=list)
+
+
+def _optional_float(value) -> float | None:
+    """A bundle field that may be absent, null or not a number. Absent must stay absent."""
+    if value is None:
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
 
 
 def _float_list(text: str | None) -> list[float]:
@@ -550,6 +569,8 @@ def compare(
                 ),
                 ours_solid_volume_m3=volume,
                 ours_printed_upper_kg=printed_kg,
+                ours_print_estimate_kg=_optional_float(body.get("printed_mass_kg")),
+                bought_in_parts=int(body.get("bought_in_parts", 0) or 0),
                 implied_fill=fill,
                 ours_unclassified_volume_m3=unclassified,
                 servos_on_body=on_body,
@@ -706,6 +727,9 @@ def compare(
             "servo that link carries, which is the common convention and is stated here rather than "
             "silently applied."
         )
+    sensitivity = _sensitivity_note(bodies)
+    if sensitivity:
+        notes.append(sensitivity)
     if spacings:
         largest = max(spacings, key=lambda s: abs(s.delta_m))
         notes.append(
@@ -797,11 +821,39 @@ def _printed_fill_text(body: BodyComparison) -> str:
     return "—" if body.printed_fill is None else f"{body.printed_fill:.2f}"
 
 
+def _print_estimate_text(body: BodyComparison) -> str:
+    """The modelled figure, or a dash. A bundle built without a print model has no estimate, and
+    echoing the upper bound here would look like a model that happened to agree with it."""
+    if body.ours_print_estimate_kg is None:
+        return "—"
+    return f"{body.ours_print_estimate_kg:.4f}"
+
+
+def _sensitivity_note(bodies: list["BodyComparison"]) -> str | None:
+    """What the printed estimate is, in one sentence, when there is one to explain."""
+    estimated = [b.ours_print_estimate_kg for b in bodies]
+    if not any(v is not None for v in estimated):
+        return None
+    solid = sum(b.ours_kg for b in bodies)
+    model = sum(v or 0.0 for v in estimated)
+    bought = sum(b.bought_in_parts for b in bodies)
+    return (
+        f"The print estimate is a model, not a measurement: each body's parts as a shell over infill "
+        f"at the wall thickness and infill fraction stated in the bundle, except the bought-in ones. "
+        f"Those bodies weigh "
+        f"{solid:.4f} kg at 100% solid and {model:.4f} kg under the model. {bought} bought-in "
+        f"part(s) keep their datasheet mass and are not reduced, so the change is smaller than the "
+        f"infill fraction alone would suggest. The model's centre-of-mass and inertia treatment is "
+        f"stated in the bundle's warnings. The infill fraction is a choice, not a finding: read the "
+        f"interval across infill fractions, not this single number."
+    )
+
+
 def render_markdown(comparison: Comparison) -> str:
     rows = [
-        "| body (ours) | body (theirs) | ours kg | printed only (ub) kg | theirs kg | delta g "
-        "| delta % | fill vs whole mass | printed fill |",
-        "|---|---|---|---|---|---|---|---|---|",
+        "| body (ours) | body (theirs) | ours kg | printed only (ub) kg | print estimate kg "
+        "| theirs kg | delta g | delta % | fill vs whole mass | printed fill |",
+        "|---|---|---|---|---|---|---|---|---|---|",
     ]
     for b in comparison.bodies:
         theirs = "—" if b.theirs_kg is None else f"{b.theirs_kg:.4f}"
@@ -810,6 +862,7 @@ def render_markdown(comparison: Comparison) -> str:
         fill = "—" if b.implied_fill is None else f"{b.implied_fill:.2f}"
         rows.append(
             f"| `{b.ours}` | {b.theirs or '—'} | {b.ours_kg:.4f} | {_printed_kg_text(b)} | "
+            f"{_print_estimate_text(b)} | "
             f"{theirs} | {delta} | {pct} | {fill} | {_printed_fill_text(b)} |"
         )
     printed_total = [b.ours_printed_upper_kg for b in comparison.bodies]
@@ -817,8 +870,15 @@ def render_markdown(comparison: Comparison) -> str:
         f"{sum(printed_total):.4f}" if all(v is not None for v in printed_total) and printed_total
         else "—"
     )
+    estimate_total = [b.ours_print_estimate_kg for b in comparison.bodies]
+    estimate_total = (
+        f"{sum(estimate_total):.4f}"
+        if any(v is not None for v in estimate_total)
+        else "—"
+    )
     rows.append(
         f"| **total** | | **{comparison.ours_total_kg:.4f}** | **{printed_total}** "
+        f"| **{estimate_total}** "
         f"| **{comparison.theirs_total_kg:.4f}** "
         f"| **{comparison.delta_kg * 1e3:+.1f}** "
         f"| **{'—' if comparison.delta_percent is None else f'{comparison.delta_percent:+.1f}%'}** | | |"
@@ -918,11 +978,17 @@ def render_html(comparison: Comparison) -> str:
             f"<tr><td><code>{_html.escape(b.ours)}</code>{flag}</td>"
             f"<td>{_html.escape(b.theirs or '—')}</td><td>{b.ours_kg:.4f}</td>"
             f"<td>{_printed_kg_text(b)}</td>"
+            f"<td>{_print_estimate_text(b)}</td>"
             f"<td>{theirs}</td><td>{delta}</td><td>{pct}</td><td>{fill}</td>"
             f"<td>{_printed_fill_text(b)}</td></tr>"
         )
+    estimate_total = [b.ours_print_estimate_kg for b in comparison.bodies]
+    total_estimate = (
+        f"{sum(estimate_total):.4f}" if any(v is not None for v in estimate_total) else "—"
+    )
     rows.append(
         f"<tr><th>total</th><th></th><th>{comparison.ours_total_kg:.4f}</th><th></th>"
+        f"<th>{total_estimate}</th>"
         f"<th>{comparison.theirs_total_kg:.4f}</th><th>{comparison.delta_kg * 1e3:+.1f}</th>"
         f"<th>{'—' if comparison.delta_percent is None else f'{comparison.delta_percent:+.1f}%'}</th>"
         f"<th></th><th></th></tr>"
@@ -959,7 +1025,7 @@ def render_html(comparison: Comparison) -> str:
     return (
         f"<h2>Against {_html.escape(comparison.theirs)}</h2>"
         "<table><tr><th>body (ours)</th><th>body (theirs)</th><th>ours kg</th>"
-        "<th>printed only (ub) kg</th><th>theirs kg</th>"
+        "<th>printed only (ub) kg</th><th>print estimate kg</th><th>theirs kg</th>"
         "<th>delta g</th><th>delta %</th><th>fill vs whole mass</th>"
         "<th>printed fill</th></tr>"
         + "".join(rows)

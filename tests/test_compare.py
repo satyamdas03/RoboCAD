@@ -526,3 +526,37 @@ class TestFrameAlignment:
         assert result.alignment.rms_axis_deg == pytest.approx(0.0, abs=1e-6)
         assert any("pose the two files were stored in" in note for note in result.notes)
         assert any("Only the perpendicular part" in note for note in result.notes)
+
+
+class TestThePrintEstimateColumn:
+    """A bundle built with a print model reports an estimate; one built without must not invent it."""
+
+    def _bundle(self, **extra):
+        import copy
+
+        bundle = copy.deepcopy(BUNDLE)
+        bundle["bodies"][0].update(extra)
+        return bundle
+
+    def test_no_estimate_reads_as_a_dash_not_as_a_copy_of_the_bound(self, urdf):
+        result = compare.compare(BUNDLE, urdf, {"base": "base_link"}, {"joint_1": "pan"})
+        assert result.bodies[0].ours_print_estimate_kg is None
+        assert "| — |" in compare.render_markdown(result)
+
+    def test_the_estimate_is_read_from_the_body_row(self, urdf):
+        bundle = self._bundle(printed_mass_kg=0.42, bought_in_parts=2)
+        result = compare.compare(bundle, urdf, {"base": "base_link"}, {"joint_1": "pan"})
+        assert result.bodies[0].ours_print_estimate_kg == pytest.approx(0.42)
+        assert result.bodies[0].bought_in_parts == 2
+        assert "0.4200" in compare.render_markdown(result)
+        assert "0.4200" in compare.render_html(result)
+
+    def test_the_note_says_it_is_a_model_and_names_the_bought_in_parts(self, urdf):
+        bundle = self._bundle(printed_mass_kg=0.42, bought_in_parts=2)
+        result = compare.compare(bundle, urdf, {"base": "base_link"}, {"joint_1": "pan"})
+        joined = " ".join(result.notes)
+        assert "model, not a measurement" in joined
+        assert "2 bought-in part(s)" in joined
+        # without an estimate the note has nothing to explain and is absent
+        plain = compare.compare(BUNDLE, urdf, {"base": "base_link"}, {"joint_1": "pan"})
+        assert not any("model, not a measurement" in note for note in plain.notes)

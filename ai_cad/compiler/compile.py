@@ -21,7 +21,8 @@ from pydantic import BaseModel, Field
 
 from ai_cad.compiler import bundle_checks
 from ai_cad.compiler.kinematics import apply_limits, derive_skeleton, write_skeleton
-from ai_cad.compiler.materials import MATERIALS
+from ai_cad.compiler.materials import MATERIALS, Density, datasheet_density
+from ai_cad.compiler.print_model import PrintModel
 from ai_cad.importers.joints import classify_part
 from ai_cad.compiler.twin_bundle import (
     BundleError,
@@ -90,6 +91,41 @@ def _volume_by_role(assembly, instance_ids: list[str], part_of: dict[str, str]) 
     return out
 
 
+def actuator_densities(
+    assembly, mass_kg: float, source: str
+) -> tuple[dict[str, Density], list[str]]:
+    """A datasheet density for every part the name classifier calls an actuator.
+
+    A servo's CAD solid is its envelope, not its contents, so nothing in ``materials.MATERIALS`` is
+    right for it: modelled as PLA it weighs whatever its envelope displaces, which on this robot is
+    several times a real servo. What is actually known is what the part weighs, so the density that
+    reproduces that mass through the kernel is the honest number to use, and it is flagged
+    ``bought_in`` so the print model leaves it alone.
+
+    Returns the densities and one sentence per part that could not be given one. A part whose CAD
+    envelope cannot hold its datasheet mass is a modelling mismatch: it stays on the assumed density,
+    which the report already discloses, rather than being handed an invented number.
+    """
+    if not source or not source.strip():
+        raise ValueError("an actuator mass needs a citation; pass the document it came from")
+    if mass_kg <= 0.0:
+        raise ValueError("an actuator mass must be positive")
+    out: dict[str, Density] = {}
+    skipped: list[str] = []
+    for part in assembly.parts.values():
+        if classify_part(part.name) != "actuator":
+            continue
+        volume = part.signature.volume_m3
+        if volume is None or volume <= 0.0:
+            skipped.append(f"actuator {part.name!r} has no positive CAD volume; left on a density")
+            continue
+        try:
+            out[part.part_id] = datasheet_density(mass_kg, volume, source)
+        except ValueError as exc:
+            skipped.append(f"actuator {part.name!r} kept an assumed density: {exc}")
+    return out, skipped
+
+
 def read_notice(directory: str | Path) -> str | None:
     """The licence notice that travels with a derived bundle, if one is beside it.
 
@@ -113,6 +149,10 @@ def compile_bundle(
     notice: str | None = None,
     limits: dict[str, dict] | None = None,
     limits_source: str | None = None,
+    density_by_part: dict[str, Density] | None = None,
+    print_model: PrintModel | None = None,
+    actuator_mass_kg: float | None = None,
+    actuator_mass_source: str | None = None,
 ) -> Report:
     """Run every stage and write the bundle. Raises rather than emitting a partial report.
 
@@ -121,6 +161,13 @@ def compile_bundle(
 
     ``limits`` and ``limits_source`` are how travel limits enter, and they must arrive together: the
     CAD has none, so a number here without a named source is a fabricated specification.
+
+    ``print_model`` turns the solid-volume mass into a shell-and-infill estimate and records both
+    figures, so a reader can see how much of the number is the kernel and how much is the infill
+    choice. ``actuator_mass_kg`` with ``actuator_mass_source`` is the datasheet mass of one actuator,
+    applied to every part the name classifier calls an actuator: those parts are bought, not printed,
+    and their CAD solids are envelopes rather than material. An explicit ``density_by_part`` entry
+    wins over both.
     """
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -132,12 +179,30 @@ def compile_bundle(
 
     assembly = import_step(str(step_path))
     part_of = {instance.instance_id: instance.part_id for instance in assembly.instances}
+    if (actuator_mass_kg is None) != (actuator_mass_source is None):
+        raise ValueError(
+            "actuator_mass_kg and actuator_mass_source must be supplied together: a datasheet mass "
+            "without the document it came from is indistinguishable from a guess"
+        )
+    densities = dict(density_by_part or {})
+    if actuator_mass_kg is not None:
+        bought_in, skipped = actuator_densities(assembly, actuator_mass_kg, actuator_mass_source)
+        for part_id, density in bought_in.items():
+            densities.setdefault(part_id, density)
+        for message in skipped:
+            print(f"warning: {message}")
     skeleton = derive_skeleton(assembly, chain)
     if limits:
         skeleton = apply_limits(skeleton, limits, limits_source)
     write_skeleton(skeleton, out / "robot.joints.yaml", notice=notice)
 
-    model, properties, meshes = build_bundle(skeleton, assembly, name=name)
+    model, properties, meshes = build_bundle(
+        skeleton,
+        assembly,
+        name=name,
+        density_by_part=densities or None,
+        print_model=print_model,
+    )
     mesh_dir = write_meshes(model, assembly, meshes, out / "meshes")
     mjcf_path = write_mjcf(model, out / "model.mjcf")
     urdf_path = write_urdf(model, out / "model.urdf")
@@ -157,6 +222,13 @@ def compile_bundle(
             "parts": b.part_count,
             "instances": b.instance_count,
             "assumed_density": b.rests_on_an_assumed_density,
+            # The solid bound and the modelled estimate, side by side. A report that carried only
+            # one of them could not say how much of its own figure was the kernel and how much was
+            # the infill choice.
+            "solid_mass_kg": b.solid_mass_kg,
+            "printed_mass_kg": b.printed_mass_kg,
+            "printed_parts": b.printed_parts,
+            "bought_in_parts": b.bought_in_parts,
             # Solid volume of every part on the body, at the density-neutral level. It is what
             # lets a reader ask "what fill fraction would reproduce their published mass",
             # which is a question with an answer, rather than a guess at one.
@@ -263,14 +335,17 @@ def compile_bundle(
             "instances": assembly.instance_count,
             "hulls": sum(len(b.hull_files) for b in model.bodies),
             "total_mass_kg": round(model.total_mass_kg, 9),
+            "total_solid_mass_kg": round(model.total_solid_mass_kg or model.total_mass_kg, 9),
+            "print_model": model.print_model,
             "assumed_density_bodies": assumed,
             "printed_mass_upper_bound_kg": round(printed_volume * MATERIALS["pla"], 9),
             "printed_volume_m3": round(printed_volume, 15),
             "unclassified_volume_m3": round(unknown_volume, 15),
             "volume_by_role_m3": {role: round(v, 15) for role, v in sorted(by_role.items())},
             # Not measured here and not guessed here: an actuator's mass needs a datasheet or a
-            # scale, and this compile has neither.
-            "actuator_mass_kg": None,
+            # scale. When a caller supplies one, the value and its citation travel together.
+            "actuator_mass_kg": actuator_mass_kg,
+            "actuator_mass_source": actuator_mass_source,
         },
         checks=checks,
         bodies=body_rows,
@@ -289,12 +364,29 @@ def compile_bundle(
             "carry generic names (SOLID, Component1..7) and cannot be placed by name, so they are "
             "counted as unclassified and their volume is reported separately rather than folded into "
             "either side of the split.",
-            "The bundle's own mass model carries no actuator mass. A servo's mass comes from a "
-            "datasheet or a scale, and this model has neither, so the all-parts mass treats every "
-            "actuator as its own solid volume of PLA. That number is labelled as an assumption "
-            "wherever it appears; it is not a weigh-in. A comparison that adds a catalogue actuator "
-            "mass does so beside this model, states the figure and its source, and does not change "
-            "these masses.",
+            (
+                f"Each actuator carries a datasheet mass of {actuator_mass_kg:.4f} kg: "
+                f"{actuator_mass_source}. It is applied as the density that reproduces that mass "
+                "through the part's own CAD envelope, so the mass is the datasheet's and the centre "
+                "of mass and inertia remain the envelope's. It is not a weigh-in, and it is one "
+                "figure applied to every actuator rather than one per unit."
+                if actuator_mass_kg is not None
+                else "The bundle's own mass model carries no actuator mass. A servo's mass comes "
+                "from a datasheet or a scale, and this model has neither, so the all-parts mass "
+                "treats every actuator as its own solid volume of PLA. That number is labelled as an "
+                "assumption wherever it appears; it is not a weigh-in. A comparison that adds a "
+                "catalogue actuator mass does so beside this model, states the figure and its "
+                "source, and does not change these masses."
+            ),
+            (
+                f"Masses in this report are a shell-and-infill estimate at {model.print_model}; the "
+                "solid bound is reported beside it and is never replaced. The centre of mass is held "
+                "at the solid's centre and the inertia tensor is scaled by the same factor as the "
+                "mass, which is an approximation stated here rather than hidden in the arithmetic."
+                if print_model is not None
+                else "Masses in this report are solid volumes at a stated density: an upper bound on "
+                "what the parts weigh, not an estimate of it."
+            ),
         ],
     )
     (out / "report.json").write_text(report.model_dump_json(indent=2), encoding="utf-8")
@@ -372,6 +464,16 @@ def _row(check: CheckResult) -> str:
     )
 
 
+def _mass_cell(value) -> str:
+    """A mass that may be absent. A dash, never a zero: a missing model is not a weightless body."""
+    if value is None:
+        return "—"
+    try:
+        return f"{float(value):.6f}"
+    except (TypeError, ValueError):
+        return "—"
+
+
 def render_csv(report: Report) -> str:
     lines = ["check,status,explanation"]
     for check in report.checks:
@@ -384,6 +486,9 @@ def render_html(report: Report) -> str:
     rows = "\n".join(_row(c) for c in report.checks)
     bodies = "\n".join(
         f"<tr><td>{html.escape(b['body_id'])}</td><td>{b['mass_kg']:.6f}</td>"
+        f"<td>{_mass_cell(b.get('solid_mass_kg'))}</td>"
+        f"<td>{_mass_cell(b.get('printed_mass_kg'))}</td>"
+        f"<td>{b.get('bought_in_parts', 0)}</td>"
         f"<td>{b.get('solid_volume_m3', 0.0) * 1e6:.3f}</td>"
         f"<td>{b['hulls']}</td><td>{b['parts']}</td><td>{b['instances']}</td>"
         f"<td>{'yes' if b['assumed_density'] else 'no'}</td></tr>"
@@ -428,7 +533,8 @@ def render_html(report: Report) -> str:
 <h2>Checks</h2>
 <table><tr><th>check</th><th>status</th><th>what it measured</th></tr>{rows}</table>
 <h2>Bodies</h2>
-<table><tr><th>body</th><th>mass (kg)</th><th>solid volume (cm3)</th><th>hulls</th><th>parts</th>
+<table><tr><th>body</th><th>mass (kg)</th><th>solid bound (kg)</th><th>print estimate (kg)</th>
+<th>bought-in parts</th><th>solid volume (cm3)</th><th>hulls</th><th>parts</th>
 <th>instances</th><th>assumed density</th></tr>{bodies}</table>
 {comparison}
 <h2>Warnings</h2><ul>{warnings}</ul>

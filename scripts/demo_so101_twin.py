@@ -19,6 +19,7 @@ from pathlib import Path
 
 from ai_cad.compiler import compare, revision
 from ai_cad.compiler.compile import compile_bundle, render_html
+from ai_cad.compiler.print_model import PrintModel
 
 # Which of our bodies is which of theirs. This is a judgement from the two naming schemes, not a
 # geometric result, and it is printed beside the numbers so a reader can map them differently.
@@ -127,6 +128,9 @@ def main(argv: list[str] | None = None) -> int:
         notice=_notice(Path(args.out)),
         limits=limits,
         limits_source=source,
+        print_model=PrintModel(),
+        actuator_mass_kg=SERVO_MASS_KG,
+        actuator_mass_source=SERVO_SOURCE,
     )
 
     bundle = json.loads((Path(args.out) / "bundle.json").read_text(encoding="utf-8"))

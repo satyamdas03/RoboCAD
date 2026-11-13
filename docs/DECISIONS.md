@@ -429,3 +429,52 @@ seven centimetres" is not supportable and is withdrawn. The supportable statemen
 compiled model reproduces the published kinematics within its own link-length and axis-direction
 error once its zero pose and base translation are applied, and that the bundle does not currently
 state either, so a naive comparison against the published model is meaningless.
+
+## 2026-11-14 A link mass is a range, and the solid figure is never replaced
+
+Decided: the compiler keeps reporting the kernel's solid-volume mass as the upper bound, and adds a
+separate printed-part model beside it rather than substituting one for the other.
+
+`ai_cad/compiler/print_model.py` computes `shell = min(V, A*w)` and
+`effective = shell + f * max(0, V - shell)` with a 1.2 mm wall (three perimeters at a 0.4 mm nozzle)
+and 20 percent infill. `link_properties` takes an optional `print_model`; with none supplied it
+behaves exactly as before, which is why the change is additive and every existing mass test is
+unchanged.
+
+The `min(V, A*w)` cap is the part that is easy to get wrong. A part thinner than two wall
+thicknesses has no interior; a shell model without the cap would report it heavier than its own
+solid, which is impossible. It is tested directly.
+
+Why keep both numbers. The solid figure cannot be wrong in the direction that matters: nothing
+weighs more than its casting. The printed figure is a model, and a 20 percent infill on a part that
+was printed solid is a 5x error in the other direction. A report that shows one number has to choose
+which error to hide; showing both makes the range visible. The model also exposes `sensitivity()`,
+which sweeps infill at 0.15, 0.20 and 0.30 so a reader can see how much of the answer is that
+choice.
+
+What the model does not claim, and what the link's warnings now say in words: each part's centre of
+mass is held at its solid centre of mass, and its inertia tensor is scaled by the same factor as its
+mass. Hollowing a part moves its centre of mass toward its shell, and a hollow part's inertia is not
+a scalar multiple of its solid inertia. That approximation is stated in the report rather than left
+inside the arithmetic.
+
+Applies only to materials that are printed. `is_printed_material` covers PLA, PETG, ABS, nylon and
+resin, and excludes aluminium, steel, brass and carbon fibre. Applying an infill model to a bought
+aluminium bracket would understate it by several times, in the direction that makes a robot look
+lighter and safer than it is.
+
+Bought-in parts, delivered in the same change. The SO-101's six servos are modelled in the CAD as
+homogenous blocks, so a density applied to their envelope made them weigh whatever that envelope
+displaced. `materials.datasheet_density` now takes a datasheet mass and the part's CAD volume and
+returns the density that reproduces the mass through the kernel, flagged `bought_in`; the print model
+skips any part carrying that flag, because nobody printed a servo. `compile.actuator_densities`
+builds those densities for every part the name classifier calls an actuator, and returns one sentence
+per part it could not satisfy — a servo whose envelope cannot hold its own datasheet mass stays on the
+assumed density, disclosed, rather than being handed an invented number.
+
+What is still not evidence. Every figure here is a model over a CAD solid at an assumed density. The
+servo mass is one datasheet number applied to all six, without a scale; the infill fraction is a
+slicer default; the wall thickness is three perimeters at a nozzle size nobody stated for this robot.
+The bundle now carries `solid_mass_kg` and `printed_mass_kg` side by side, and the comparison carries
+both columns and says they move with the infill setting, so the range is visible rather than the
+midpoint. Nothing in this entry makes a link mass a measurement, and only a scale does.

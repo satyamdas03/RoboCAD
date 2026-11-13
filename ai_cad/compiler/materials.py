@@ -38,16 +38,33 @@ MIN_PLAUSIBLE_DENSITY = 100.0
 MAX_PLAUSIBLE_DENSITY = 25_000.0  # osmium is 22,590
 
 
+# Materials that arrive as filament and leave a slicer, so a solid-volume mass is an upper bound.
+# Metals and carbon fibre are bought as stock and are solid; applying a print model to them would
+# understate a bracket by a factor of several.
+PRINTED_MATERIALS: frozenset[str] = frozenset({"pla", "petg", "abs", "nylon", "resin"})
+
+
+def is_printed_material(material: str | None) -> bool:
+    """True when this material is printed rather than bought as solid stock."""
+    key = (material or "").strip().lower().replace("-", "_").replace(" ", "_")
+    return key in PRINTED_MATERIALS
+
+
 class Density(BaseModel):
     """A density with its provenance, so a report can say which links rest on a guess."""
 
     model_config = ConfigDict(frozen=True)
 
     value_kg_m3: float = Field(gt=MIN_PLAUSIBLE_DENSITY, lt=MAX_PLAUSIBLE_DENSITY)
-    source: str = Field(description="measured | material | assumed")
+    source: str = Field(description="measured | material | datasheet | assumed")
     material: str | None = None
     range_kg_m3: tuple[float, float] | None = Field(default=None)
     note: str | None = None
+    # A part that arrives from a supplier is a sealed unit: its mass comes off a datasheet, and there
+    # is no infill to model because nobody printed it. The B-rep still gives its envelope volume, so
+    # the density below is the datasheet mass divided by that volume -- which is the number that makes
+    # the kernel's mass, centre of mass and inertia agree with the part on the bench.
+    bought_in: bool = False
 
     @property
     def is_assumed(self) -> bool:
@@ -78,6 +95,39 @@ def density_for(material: str | None, assumed: bool = False) -> Density:
     )
 
 
+def datasheet_density(
+    mass_kg: float,
+    volume_m3: float,
+    note: str,
+    material: str | None = None,
+) -> Density:
+    """Density that makes a bought-in part weigh its datasheet mass.
+
+    A servo is not a homogenous block of anything, so no material name could give it a density. What
+    is known instead is what it weighs and how much space its CAD envelope takes, and their ratio is
+    the density that reproduces both. ``note`` must say where the mass came from: a datasheet figure
+    without a citation is indistinguishable from a guess, which is the failure this module exists to
+    prevent.
+    """
+    if volume_m3 <= 0.0:
+        raise ValueError("cannot derive a bought-in density from a non-positive volume")
+    if not note or not note.strip():
+        raise ValueError("a datasheet mass needs a citation; pass a note naming the document")
+    value = mass_kg / volume_m3
+    if not (MIN_PLAUSIBLE_DENSITY < value < MAX_PLAUSIBLE_DENSITY):
+        raise ValueError(
+            f"datasheet mass {mass_kg!r} kg over CAD volume {volume_m3!r} m3 gives {value:.1f} kg/m3, "
+            "which is outside any solid part; check the units or the part's volume"
+        )
+    return Density(
+        value_kg_m3=value,
+        source="datasheet",
+        material=material,
+        bought_in=True,
+        note=note.strip(),
+    )
+
+
 def measured_density(mass_kg: float, volume_m3: float, note: str | None = None) -> Density:
     """Density implied by a weighed part. This is the only source that is not a guess."""
     if volume_m3 <= 0.0:
@@ -97,6 +147,7 @@ __all__ = [
     "DEFAULT_MATERIAL",
     "MATERIALS",
     "Density",
+    "datasheet_density",
     "density_for",
     "measured_density",
 ]

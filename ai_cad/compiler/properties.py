@@ -20,7 +20,8 @@ import math
 
 from pydantic import BaseModel, Field
 
-from ai_cad.compiler.materials import Density, density_for
+from ai_cad.compiler.materials import Density, density_for, is_printed_material
+from ai_cad.compiler.print_model import PrintModel
 from ai_cad.importers.models import ImportedAssembly, is_proper_rotation
 
 Vec3 = tuple[float, float, float]
@@ -66,7 +67,14 @@ class PartContribution(BaseModel):
     part_id: str
     instance_ids: list[str] = Field(default_factory=list)
     mass_kg: float
+    # As measured by the kernel: the closed solid. This is the upper bound and is always reported,
+    # whatever the part is modelled as actually being.
     volume_m3: float
+    # The volume the reported mass was computed from. Equal to ``volume_m3`` when no print model was
+    # supplied, or when the part is bought in rather than printed.
+    effective_volume_m3: float | None = None
+    surface_area_m2: float | None = None
+    print_modelled: bool = False
     density: Density
     com_m: Vec3
     inertia_kg_m2: Mat3
@@ -86,6 +94,25 @@ class LinkMassProperties(MassProperties):
     @property
     def rests_on_an_assumed_density(self) -> bool:
         return any(p.density.is_assumed for p in self.parts)
+
+    @property
+    def solid_mass_kg(self) -> float:
+        """The mass at 100% fill, i.e. what every part would weigh cast solid.
+
+        This is the upper bound and it is recoverable from the parts whatever the reported mass was,
+        because a part's kernel volume is never overwritten. It equals ``mass_kg`` exactly when no
+        print model was applied.
+        """
+        return sum(p.volume_m3 * p.density.value_kg_m3 for p in self.parts)
+
+    @property
+    def print_modelled_parts(self) -> int:
+        return sum(1 for p in self.parts if p.print_modelled)
+
+    @property
+    def bought_in_parts(self) -> int:
+        """Parts whose mass came from a datasheet rather than from a density and a volume."""
+        return sum(1 for p in self.parts if p.density.bought_in)
 
 
 # ------------------------------------------------------------------------------------------------
@@ -129,6 +156,27 @@ def unit_density_properties(shape) -> MassProperties:
         inertia_kg_m2=inertia,
         orientation_flipped=flipped,
     )
+
+
+def surface_area_m2(shape) -> float:
+    """Outer surface area of a solid, converted to square metres.
+
+    Needed by the print model, which builds a shell of a given thickness over the surface. A part
+    with no area is a degenerate solid and is refused rather than silently treated as zero.
+    """
+    from OCP.BRepGProp import BRepGProp
+    from OCP.GProp import GProp_GProps
+
+    props = GProp_GProps()
+    try:
+        BRepGProp.SurfaceProperties_s(shape, props)
+    except Exception as exc:  # pragma: no cover - kernel failure on a broken solid
+        raise PropertyError(f"the kernel could not measure this shape's surface: {exc}") from exc
+    area_mm2 = props.Mass()
+    if not math.isfinite(area_mm2) or area_mm2 <= 0.0:
+        raise PropertyError(f"shape has no positive surface area ({area_mm2!r})")
+    # 1 mm^2 = 1e-6 m^2
+    return area_mm2 * 1.0e-6
 
 
 def with_density(props: MassProperties, density: Density) -> MassProperties:
@@ -194,7 +242,9 @@ def link_properties(
     *,
     assumed_density: bool = True,
     cache: dict[str, MassProperties] | None = None,
+    area_cache: dict[str, float] | None = None,
     bbox: tuple[Vec3, Vec3] | None = None,
+    print_model: PrintModel | None = None,
 ) -> LinkMassProperties:
     """Mass properties for one link, from its parts, with provenance per part.
 
@@ -230,14 +280,50 @@ def link_properties(
         if part.part_id not in unit_cache:
             unit_cache[part.part_id] = unit_density_properties(shape)
         density = (density_by_part or {}).get(part.part_id) or density_for(None, assumed=assumed_density)
-        local = with_density(unit_cache[part.part_id], density)
+        unit = unit_cache[part.part_id]
+        solid_volume_m3 = unit.mass_kg
+        area = None
+        effective_volume_m3 = solid_volume_m3
+        modelled = False
+        if (
+            print_model is not None
+            and is_printed_material(density.material)
+            and not density.bought_in
+        ):
+            # Surface area is a kernel call per unique part, so it is cached like the volume. Both
+            # caches are keyed by part_id because the same B-rep is placed many times.
+            if area_cache is not None:
+                if part.part_id not in area_cache:
+                    area_cache[part.part_id] = surface_area_m2(shape)
+                area = area_cache[part.part_id]
+            else:
+                area = surface_area_m2(shape)
+            effective_volume_m3 = print_model.effective_volume_m3(solid_volume_m3, area)
+            modelled = True
+        local = with_density(unit, density)
+        if modelled:
+            # Scaling both mass and inertia by the same factor is the cheap approximation: it keeps
+            # the tensor physically valid while accepting that a hollow part's inertia is not its
+            # solid inertia times a scalar. The warning below says so in words the report carries.
+            factor = 0.0 if solid_volume_m3 <= 0.0 else effective_volume_m3 / solid_volume_m3
+            local = local.model_copy(
+                update={
+                    "mass_kg": local.mass_kg * factor,
+                    "inertia_kg_m2": tuple(
+                        tuple(v * factor for v in row) for row in local.inertia_kg_m2
+                    ),
+                }
+            )
         placed = transform_properties(local, inst.transform)
         contributions.append(
             PartContribution(
                 part_id=part.part_id,
                 instance_ids=[instance_id],
                 mass_kg=placed.mass_kg,
-                volume_m3=local.mass_kg / density.value_kg_m3,
+                volume_m3=solid_volume_m3,
+                effective_volume_m3=effective_volume_m3 if modelled else None,
+                surface_area_m2=area,
+                print_modelled=modelled,
                 density=density,
                 com_m=placed.com_m,
                 inertia_kg_m2=placed.inertia_kg_m2,
@@ -258,6 +344,25 @@ def link_properties(
             f"{sum(1 for c in contributions if c.density.is_assumed)} of {len(contributions)} "
             f"part(s) in {link_id} use an assumed density ({density_for(None).value_kg_m3:.0f} "
             "kg/m3); mass and inertia scale linearly with it"
+        )
+    modelled = [c for c in contributions if c.print_modelled]
+    if modelled and print_model is not None:
+        shell_only = sum(
+            1
+            for c in modelled
+            if c.surface_area_m2 is not None
+            and print_model.shell_volume_m3(c.volume_m3, c.surface_area_m2) >= c.volume_m3
+        )
+        warnings.append(
+            f"{len(modelled)} of {len(contributions)} part(s) in {link_id} were massed as printed "
+            f"parts at {print_model.describe()} rather than as solids; this is a model, not a "
+            f"measurement, and {shell_only} of them are thinner than one wall so print solid"
+        )
+        warnings.append(
+            f"the printed-part model in {link_id} holds each part's centre of mass at its solid "
+            "centre and scales its inertia tensor by the same factor as its mass; a hollow part's "
+            "true centre of mass moves toward its shell and its true inertia is not a scalar "
+            "multiple of the solid's"
         )
     flipped = [c.part_id for c in contributions if c.orientation_flipped]
     if flipped:
