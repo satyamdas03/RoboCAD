@@ -127,3 +127,25 @@ nothing uncommitted in the main tree can reach it.
 No caveat on this row: the tree was the tag, not the tag plus edits. The three warnings are the
 pre-existing `InsecureKeyLengthWarning` from the JWT tests, not new ones. `BASELINE.md` was written
 before the run by the same lane, which is a note about the ordering, not about the number.
+
+## After the tag: the sprint's own commits
+
+The tag is frozen, so the work that came after it is measured separately rather than folded into the
+row above.
+
+| item | value |
+|---|---|
+| tree | `0ef337c`, plus three uncommitted non-test files in flight (`docs/demo/README.md`, `docs/demo/FINAL_STATUS.md`, `scripts/verify_demo_zip.py`) |
+| command | `python -m pytest -q` |
+| result | **745 passed, 300 deselected, 3 warnings, exit 0, 432.76 s (7:12)** |
+| collected | 1045 at the start of the run |
+| delta from the tag | `robocad/demo.py` (bounded steps, escaped names, replay deadline) and `scripts/diff_revision_f030.py` (new, not imported by any test) |
+
+The run is 41 s slower than the tag's 391 s on the same test count. Nothing in the diff explains a 10%
+wall-clock change, so the honest reading is machine load, not the code.
+
+That run collected before `tests/test_revision_f030_artifact.py` existed, so it does not cover it. The
+seven tests in that file were run on their own at `70ce42c`: `7 passed in 1.03 s`, and the collected
+count at `70ce42c` is **752 of 1052, 300 deselected**, measured with
+`python -m pytest --collect-only -q -p no:cacheprovider` rather than derived from the row above. A
+single run covering all 752 is recorded at the freeze commit.
