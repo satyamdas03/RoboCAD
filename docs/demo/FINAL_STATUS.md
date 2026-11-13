@@ -1,66 +1,89 @@
 # Final status, demo sprint
 
-Written by the monitor session (Lane B). Updated as the sprint runs. Every claim carries a tag:
-`verified-ran`, `verified-read`, `claimed`.
+Owner of this file: monitor session (Lane B). Updated 2026-11-14. Every claim carries a tag:
+`verified-ran`, `verified-read`, `claimed`. Deadline: Sat 14 Nov 2026, 22:00 Sydney.
 
-Deadline: Sat 14 Nov 2026, 22:00 Sydney.
+## Open this first, in this order
 
-## What a viewer can open right now
+1. `docs/demo/page/index.html` — open it directly from disk. No server, no network. Living page.
+2. `docs/demo/film/so101_demo.mp4` — 24 s, recorded from that same page.
+3. `docs/demo/twin/identification.json` then the page's "Twin method" panel — the identification
+   rungs and exactly which one is blocked.
+4. `docs/demo/README.md` — the 3 minute walkthrough and the real-versus-synthetic table.
+5. Lane A's `report.html` and comparison, at whatever path Lane A names.
 
-| Artefact | Path | State |
+## What the page shows today
+
+| Element | Source | State |
 |---|---|---|
-| Living page | `docs/demo/page/index.html` | Works offline from `file://`, `verified-ran` |
-| Page integrity check | `teardown_export/check_page.py` | `verified-ran`, zero network requests |
-| Baked trajectory | `docs/demo/page/trajectory.js` | 600 frames at 100 Hz from the official SO-101 model, `verified-ran` |
-| Synthetic twin preview | `docs/demo/twin/synthetic_preview.json` | Produced, **labelled SYNTHETIC**, identification failed honestly, `verified-ran` |
-| Walkthrough | `docs/demo/README.md` | Written, `verified-read` |
-| Compiled bundle + report | `docs/twin/so101/bundle/` | **Not present yet**, Lane A in progress |
-| Film | `docs/demo/film/so101_demo.mp4` | 24.0 s, 720 frames, 2.9 MB, recorded from the page, `verified-ran` |
+| 3D view | published SO-101 visual meshes | `verified-ran`, offline, 51 to 58 fps |
+| Link masses, total 1.041 kg | compiled bundle `report.json` | `verified-ran` (report read, page bound) |
+| Seven checks, worst `fail` | compiled bundle `report.json` | `verified-ran` |
+| Required torque per joint | inverse dynamics, both models | `verified-ran` |
+| Kinematics vs official | sense-searched datum fit | `verified-ran` |
+| Twin method rungs | `identification.json` | `verified-ran` |
+| Provenance line | states every split above on screen | `verified-ran` |
 
-## Verified numbers, Lane B
+## Verified numbers
 
-- Page loads from `file://` with the browser context offline: zero non-file requests. `verified-ran`
-  Command: `python teardown_export/check_page.py docs/demo/page/index.html --shot shot.png`
-- Render rate 54 to 58 fps headless at 83,122 triangles and 600 frames. `verified-ran`
-- Page geometry matches MuJoCo exactly: world position of the first vertex of three mesh geoms agrees
-  with `geom_xpos`/`geom_xmat` to 0.000 to 0.001 mm. This is the check that stops a pretty page from
-  showing a wrong model. `verified-ran`
-- Payload sizes: page HTML under 30 KB, three.js bundle 662 KB (MIT, credited), meshes 1.9 MB,
-  trajectory 353 KB, all excluded from the 1 MB page rule as mesh and vendor payloads. `verified-ran`
+- Page loads from `file://` with the browser context offline: **zero non-file requests**. `verified-ran`
+- Page geometry matches MuJoCo to **0.000 to 0.001 mm** on three mesh geoms. `verified-ran`
+- Render 51 to 58 fps headless at 83k triangles, 600 frames, page HTML under 30 KB. `verified-ran`
+- Compiled bundle: 7 bodies, 6 hinge joints, 433 collision hulls, 1.0413 kg, checks
+  `meshes_load` pass, `inertia_valid` pass, `pose_equivalence` pass at 0.000 m over 100
+  configurations, `mujoco_load` pass, `self_collision` **fail**, `limits_and_effort` warn,
+  `free_base_stand` skipped. `verified-read` from `report.json`
+- Joint axes agree with the published model within **2.14 degrees** (rms 1.05) after a
+  sense-searched datum fit over all 64 sense combinations. `verified-ran`
+- Joint **origins** do not agree: perpendicular offsets **94.2, 110.3, 54.0, 54.7, 27.7, 54.5 mm**.
+  The repeating ~54 mm is unattributed and is the open question in the comparison. `verified-ran`
+- Self-collision: hulls overlap **7.9 mm** at rest; B-rep solids touch, **0.52 mm³** shared of a
+  32.27 cm³ wrist and 20.69 cm³ jaw. Hull overlap is real for the simulator; the CAD does not
+  interfere. `verified-read` from Lane A, corrected after their unit bug
+- Identification rungs 0, 1, 2 and 4 recover (0.57, 1.6/0.86, latency exact, 0.12/0.56 percent).
+  Rung 3 is blocked. `verified-ran`
+- Default test tier at `c7a6544`: 520 of 808 collected, measured in an isolated worktree.
+  `verified-ran`. Not re-run at the final commit; the sprint stopped that work by instruction.
 
-## The synthetic twin, stated as it is
+## Identification: the rung reached and why it stopped
 
-Generator: MuJoCo SO-101, planted per joint Coulomb friction, viscous damping, armature and a 16 ms
-control latency, logged at 62 Hz with sensor noise and 4096 count encoder quantisation. `verified-ran`
+Rung 3, 62 Hz with sensor noise and 4096 count quantisation, does not recover. The reason is
+arithmetic, not tuning: one count of position error is 1.53 mrad, the published servo is about
+998 N m per rad, so a single count is roughly **1.53 N m of actuator torque noise** against a
+friction signal of about **0.15 N m**. A signal to noise ratio of 0.1 is not a fitting problem. A
+partner's bench log with a real torque or current channel escapes this; a 62 Hz position log does not.
 
-Identification: least squares on the torque residual after removing rigid body torque, with a logged
-acceleration channel and armature as a regressor. `verified-ran`
+Rung 0 failed at first and the cause was mine: zeroing the other joints' damping removed what keeps
+a very stiff position servo stable, the simulation diverged, and the divergence was being fitted as
+friction. That is the kind of bug this harness exists to expose, and it is written down because the
+same mistake will be made again.
 
-Result: **0 of 19 parameters recovered within tolerance.** Trajectory RMSE improves from 270 to 224
-milliradians on a held out run, which is a fit, not a recovery. Every parameter is marked
-`identifiable: false` in the output file. Control latency is reported as below the 16 ms sample
-period and flagged, not guessed.
+## Assumptions Satyam must confirm
 
-What is not identifiable, and is written into the artefact: link mass and inertia (never solved for),
-rotor armature (weakly observable at 62 Hz), gear efficiency and motor torque constant (needs a bench
-calibration).
+1. **Infill and wall parameters** for printed parts: PLA 1240 kg/m³, wall 1.2 mm, infill 0.20, all
+   marked ASSUMPTION. Every printed mass on the page is an upper bound built on them.
+2. **Servo mass source**: the datasheet figure and URL that Lane A cites per servo.
+3. **Publish decision** for `docs/twin/so101/` and its NOTICE, Apache-2.0 with a statement of changes.
+4. **M2 YAML review**: cross-reviewed by the lane that did not write it, recorded in `DECISIONS.md`.
 
-This is a negative result, kept and labelled. It should be the first item in any partner conversation
-about the Twin, because a partner will ask exactly this question.
+## What is deliberately not shipped
 
-## Decisions Satyam must confirm
-
-1. The M2 `robot.joints.yaml` review: done by the lane that did not write it, criteria recorded in
-   `docs/DECISIONS.md`.
-2. The infill assumption for printed parts: not yet written into `materials.yaml`, so no compiled
-   mass is fit to quote.
-3. Publishing `docs/twin/so101/` as a derived work under Apache-2.0 with a NOTICE.
+- **Compiled collision-hull visuals on the page.** The bundle ships 433 convex hulls and no visual
+  meshes; rendered, they look like a pile of blocks. The bake exists at `docs/demo/page_compiled/`
+  and switching is one file copy once the bundle carries visual meshes. The page instead renders
+  published meshes and states that split on screen.
+- **Film re-record against compiled visuals**, for the same reason. The shipped film is honest: it
+  is the page as it stands.
+- **Official-model toggle**, cut by the sprint's own cut order.
+- **Heavy test tier**, stopped by instruction; one frozen Labs test exceeds 900 s.
 
 ## Next three steps after the demo
 
-1. Fix the identification, using a proper linear-in-parameters regressor with consistent states, and
-   re-run the synthetic benchmark until recovery is demonstrated. Nothing about the Twin is credible
-   until this passes.
-2. Write the infill assumption and measured servo masses into `materials.yaml`, then produce the
-   compiled-vs-official comparison. That comparison is the headline and it does not exist yet.
-3. Record the film from the same baked timeline once the page is bound to the compiled bundle.
+1. Attribute the ~54 mm perpendicular joint-origin offset. The hypothesis on the table is that the
+   axis point is taken on a mating cylindrical face rather than at the bore centre, which would make
+   the offset look like a radius. Lane A is testing it against the six bore radii.
+2. Carry visual meshes in the bundle, then switch the page and re-record the film against compiled
+   geometry.
+3. Widen the identification to a real torque or current channel so a partner's bench log can be
+   identified at 62 Hz, which is the only way the Twin's central claim becomes checkable outside
+   this machine.
