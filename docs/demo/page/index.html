@@ -108,6 +108,19 @@
   const TRAJ = window.SO101_TRAJ;
   const MESHES = window.SO101_MESHES;
 
+  // CAD part names come from arbitrary STEP files, so no report or model value is ever
+  // interpolated into HTML. Everything is built as DOM nodes with textContent.
+  function mk(tag, cls, text){ const n = document.createElement(tag); if (cls) n.className = cls;
+    if (text !== undefined && text !== null) n.textContent = String(text); return n; }
+  function dataRow(label, value, extra){
+    const row = mk('div', 'row');
+    const left = mk('span', null, label);
+    if (extra) left.appendChild(extra);
+    row.appendChild(left);
+    row.appendChild(mk('span', null, value === undefined || value === null ? '' : String(value)));
+    return row;
+  }
+
   function b64ToBytes(b64){
     const bin = atob(b64), out = new Uint8Array(bin.length);
     for (let i=0;i<bin.length;i++) out[i] = bin.charCodeAt(i);
@@ -120,8 +133,10 @@
   const bodyPos = f32(TRAJ.body_pos), bodyMat = f32(TRAJ.body_mat);
   const frames = META.frames, nq = META.nq, nbody = META.nbody;
 
-  document.getElementById('srcline').innerHTML =
-    'source: <b>' + (META.source || 'unknown') + '</b> · official SO-101 model, not the compiled bundle';
+  (function(){ const line = document.getElementById('srcline');
+    line.textContent = 'source: ';
+    line.appendChild(mk('b', null, META.source || 'unknown'));
+    line.appendChild(document.createTextNode(' · official SO-101 model, not the compiled bundle')); })();
   document.getElementById('p-source').textContent = META.source || 'unknown';
   document.getElementById('p-synth').textContent = META.synthetic ? 'yes' : 'no';
   document.getElementById('m-total').textContent = META.total_mass_kg.toFixed(3) + ' kg';
@@ -222,8 +237,10 @@
   META.bodies.forEach((b,i)=>{
     if (i===0) return; // world
     const row = document.createElement('div');
-    row.innerHTML = '<div class="row"><span>'+b.name+'</span><span>'+b.mass.toFixed(4)+' kg</span></div>'+
-      '<div class="bar"><i style="width:'+(100*b.mass/maxMass).toFixed(1)+'%"></i></div>';
+    row.appendChild(dataRow(b.name, b.mass.toFixed(4) + ' kg'));
+    const bar = mk('div', 'bar'); const fill = mk('i');
+    fill.style.width = (100*b.mass/maxMass).toFixed(1) + '%';
+    bar.appendChild(fill); row.appendChild(bar);
     linksEl.appendChild(row);
     linkEls.push({body:i, el:row});
   });
@@ -236,11 +253,12 @@
   const jointsEl = document.getElementById('joints');
   const jEls = META.joints.map(j=>{
     const row = document.createElement('div');
-    row.innerHTML = '<div class="row"><span>'+j.name+'</span><span></span></div>'+
-      '<div class="row" style="padding-top:0;color:#8b97a8"><span>torque</span><span style="color:#8b97a8"></span></div>';
+    const nameRow = dataRow(j.name, '');
+    const torqueRow = dataRow('torque', '');
+    torqueRow.style.paddingTop = '0'; torqueRow.style.color = '#8b97a8';
+    row.appendChild(nameRow); row.appendChild(torqueRow);
     jointsEl.appendChild(row);
-    const spans = row.querySelectorAll('.row span:last-child');
-    return {angle:spans[0], torque:spans[1]};
+    return {angle: nameRow.lastChild, torque: torqueRow.lastChild};
   });
 
   document.getElementById('m-tris').textContent = triTotal.toLocaleString();
@@ -353,9 +371,11 @@
     grp.style.display = '';
     const box = document.getElementById('checks');
     R.checks.forEach(c => {
-      const row = document.createElement('div');
-      row.className = 'check';
-      row.innerHTML = '<span>' + c.id + '</span><span class="st st-' + c.status + '">' + c.status + '</span>';
+      const allowed = {pass: 1, warn: 1, fail: 1, skipped: 1};
+      const status = allowed[c.status] ? c.status : 'skipped';
+      const row = mk('div', 'check');
+      row.appendChild(mk('span', null, c.id));
+      row.appendChild(mk('span', 'st st-' + status, status));
       box.appendChild(row);
       const detail = document.createElement('div');
       detail.className = 'check-detail';
@@ -385,20 +405,20 @@
         ['official', cmp.theirs_total_kg.toFixed(3) + ' kg'],
         ['delta', (cmp.delta_percent >= 0 ? '+' : '') + cmp.delta_percent.toFixed(1) + ' %'],
       ];
-      rows.forEach(([k,v]) => {
-        const d = document.createElement('div'); d.className = 'row';
-        d.innerHTML = '<span>' + k + '</span><span>' + v + '</span>'; el.appendChild(d);
-      });
+      rows.forEach(([k, v]) => el.appendChild(dataRow(k, v)));
       const note = document.createElement('div'); note.className = 'hint';
       note.textContent = 'masses are at the density stated in the report; printed parts are an upper bound.';
       el.appendChild(note);
     }
 
     // provenance: the page must not imply this is the official model once a compiled bundle is bound
-    document.getElementById('srcline').innerHTML =
-      'source: <b>' + (R.name || 'compiled bundle') + '</b> · masses and checks from the compiled ' +
-      'bundle, 3D meshes from the official model · checks: ' + R.worst_check + ' (' +
-      R.checks.filter(c=>c.status==='pass').length + ' of ' + R.checks.length + ' pass)';
+    (function(){ const line = document.getElementById('srcline');
+      line.textContent = 'source: ';
+      line.appendChild(mk('b', null, R.name || 'compiled bundle'));
+      line.appendChild(document.createTextNode(
+        ' · masses and checks from the compiled bundle, 3D meshes from the official model · checks: ' +
+        R.worst_check + ' (' + R.checks.filter(c=>c.status==='pass').length + ' of ' +
+        R.checks.length + ' pass)')); })();
     document.getElementById('p-source').textContent = 'compiled bundle (masses, checks)';
     const totals = R.totals || {};
     if (totals.total_mass_kg) {
@@ -408,10 +428,8 @@
       document.getElementById('m-bodies').textContent = totals.bodies;
     }
     if (totals.hulls) {
-      const row = document.createElement('div');
-      row.className = 'row';
-      row.innerHTML = '<span>collision hulls</span><span>' + totals.hulls + '</span>';
-      document.getElementById('m-frames').parentElement.parentElement.appendChild(row);
+      document.getElementById('m-frames').parentElement.parentElement
+        .appendChild(dataRow('collision hulls', totals.hulls));
     }
 
     // link masses come from the compiled report, not from the official model the meshes came from
@@ -421,12 +439,18 @@
       const heaviest = Math.max(...R.bodies.map(b => b.mass_kg || 0));
       R.bodies.forEach(b => {
         const wrap = document.createElement('div');
-        const assumed = b.assumed_density
-          ? ' <span style="color:#f2b45c;font-size:10px">ASSUMED DENSITY</span>' : '';
-        wrap.innerHTML = '<div class="row"><span>' + b.name + assumed + '</span><span>' +
-          (b.mass_kg != null ? b.mass_kg.toFixed(4) + ' kg' : 'n/a') + '</span></div>' +
-          '<div class="bar"><i style="width:' + (100 * (b.mass_kg || 0) / (heaviest || 1)).toFixed(1) +
-          '%"></i></div>';
+        let badge = null;
+        if (b.assumed_density) {
+          badge = mk('span', null, ' assumed');
+          badge.style.color = '#f2b45c';
+          badge.style.fontSize = '10px';
+          badge.title = 'mass from solid volume at an assumed density';
+        }
+        wrap.appendChild(dataRow(b.name,
+          b.mass_kg != null ? b.mass_kg.toFixed(4) + ' kg' : 'n/a', badge));
+        const bar = mk('div', 'bar'); const fill = mk('i');
+        fill.style.width = (100 * (b.mass_kg || 0) / (heaviest || 1)).toFixed(1) + '%';
+        bar.appendChild(fill); wrap.appendChild(bar);
         linksBox.appendChild(wrap);
       });
     }
