@@ -155,7 +155,7 @@
     line.textContent = 'source: ';
     line.appendChild(mk('b', null, META.source || 'unknown'));
     line.appendChild(document.createTextNode(window.SO101_REPORT
-      ? ' · masses, checks and torques from the compiled bundle; 3D shapes from the published meshes'
+      ? ' · compiled bundle at docs/twin/so101/bundle (tag demo-bundle-v1); 3D shapes from the published meshes'
       : ' · official SO-101 model')); })();
   document.getElementById('p-source').textContent = META.source || 'unknown';
   document.getElementById('p-synth').textContent = META.synthetic ? 'yes' : 'no';
@@ -440,7 +440,7 @@
       line.textContent = 'source: ';
       line.appendChild(mk('b', null, R.name || 'compiled bundle'));
       line.appendChild(document.createTextNode(
-        ' · compiled from STEP: masses, checks and collision hulls · checks: ' +
+        ' · compiled bundle, docs/twin/so101/bundle, tag demo-bundle-v1 · published meshes for 3D · checks: ' +
         R.worst_check + ' (' + R.checks.filter(c=>c.status==='pass').length + ' of ' +
         R.checks.length + ' pass)')); })();
     document.getElementById('p-source').textContent = 'compiled bundle (masses, checks)';
