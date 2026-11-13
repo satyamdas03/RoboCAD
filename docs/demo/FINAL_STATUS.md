@@ -227,8 +227,9 @@ agree to 15 mm at the 99th percentile.)
   573.26 mrad steady error, all six joints at the 2.942 N·m force limit, because `kp` = 20 asks for
   10 N·m to take a 0.5 rad step. Per-joint numbers in `docs/twin/so101/live_hold.md`. `verified-ran`
 - Page rendered from the bundle's own visual meshes at 128,073 triangles, 56 fps, zero network
-  requests. `claimed` on the triangle count, which is the page lane's measurement; the bundle's own
-  620,093 source triangles are `verified-read` from `report.json`.
+  requests. The triangle count is `verified-ran` two ways: decoded here out of `page/meshes.js`, where
+  each mesh's packed index buffer sums to exactly 128,073 triangles across 259 meshes, and the
+  bundle's own 620,093 source triangles from `report.json` `verified-read`.
 - Comparison panel states solid upper bound, print model, published figure, the gap between the last
   two, and the conventions note with the 1.69 mm frame-free link-length agreement.
 - Torque panel reads its limit from the bundle's actuators, 2.94 N·m, and is not saturated on this

@@ -34,12 +34,22 @@ EXPECTED_PRINTED_KG = 0.901658836
 EXPECTED_REVISION_KG = (0.901658836, 0.955453030)
 EXPECTED_CHECK_ROWS = {"pass": 5, "fail": 1, "skipped": 1}
 
+# A zip an outsider hands us can lie about how much it expands to. The package is 4 MB and its
+# contents are 7 MB, so anything past this is not the demo and is not read.
+MAX_EXPANDED_BYTES = 512 * 1024 * 1024
+
 
 def _extract(zip_path: pathlib.Path) -> pathlib.Path:
     """Unpack into a directory nobody has touched, and refuse anything that escapes it."""
     tmp = pathlib.Path(tempfile.mkdtemp(prefix="a6_verify_"))
     with zipfile.ZipFile(zip_path) as zf:
-        for member in zf.infolist():
+        infos = zf.infolist()
+        expanded = sum(member.file_size for member in infos)
+        if expanded > MAX_EXPANDED_BYTES:
+            raise SystemExit(
+                f"refusing to extract: {expanded} bytes expanded is past the {MAX_EXPANDED_BYTES} cap"
+            )
+        for member in infos:
             name = member.filename
             if name.startswith("/") or ".." in pathlib.PurePosixPath(name).parts:
                 raise SystemExit(f"refusing to extract {name!r}: it escapes the archive root")
