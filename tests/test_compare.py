@@ -560,3 +560,27 @@ class TestThePrintEstimateColumn:
         # without an estimate the note has nothing to explain and is absent
         plain = compare.compare(BUNDLE, urdf, {"base": "base_link"}, {"joint_1": "pan"})
         assert not any("model, not a measurement" in note for note in plain.notes)
+
+
+class TestTheSolidBoundIsNotTheEstimate:
+    """``ours_kg`` is the bundle's reported mass, which a print-modelled bundle already reduced.
+    Reading the bound out of it would print the estimate twice."""
+
+    def test_the_note_reads_the_solid_bound_not_the_reported_mass(self, urdf):
+        import copy
+
+        bundle = copy.deepcopy(BUNDLE)
+        bundle["bodies"][0].update(
+            {"mass_kg": 0.42, "solid_mass_kg": 0.60, "printed_mass_kg": 0.42}
+        )
+        result = compare.compare(bundle, urdf, {"base": "base_link"}, {"joint_1": "pan"})
+        body = result.bodies[0]
+        assert body.ours_kg == pytest.approx(0.42)
+        assert body.ours_solid_mass_kg == pytest.approx(0.60)
+        note = next(n for n in result.notes if "model, not a measurement" in n)
+        assert "0.6000 kg at 100% solid" in note
+        assert "0.4200 kg under the model" in note
+
+    def test_a_bundle_without_a_solid_field_falls_back_to_the_reported_mass(self, urdf):
+        result = compare.compare(BUNDLE, urdf, {"base": "base_link"}, {"joint_1": "pan"})
+        assert result.bodies[0].ours_solid_mass_kg == pytest.approx(result.bodies[0].ours_kg)

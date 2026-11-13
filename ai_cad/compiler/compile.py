@@ -185,11 +185,14 @@ def compile_bundle(
             "without the document it came from is indistinguishable from a guess"
         )
     densities = dict(density_by_part or {})
+    actuator_skipped: list[str] = []
     if actuator_mass_kg is not None:
-        bought_in, skipped = actuator_densities(assembly, actuator_mass_kg, actuator_mass_source)
+        bought_in, actuator_skipped = actuator_densities(
+            assembly, actuator_mass_kg, actuator_mass_source
+        )
         for part_id, density in bought_in.items():
             densities.setdefault(part_id, density)
-        for message in skipped:
+        for message in actuator_skipped:
             print(f"warning: {message}")
     skeleton = derive_skeleton(assembly, chain)
     if limits:
@@ -349,7 +352,7 @@ def compile_bundle(
         },
         checks=checks,
         bodies=body_rows,
-        warnings=sorted(set(model.warnings) | set(skeleton.warnings)),
+        warnings=sorted(set(model.warnings) | set(skeleton.warnings) | set(actuator_skipped)),
         notes=[
             "Axes and origins come from the servos' output shafts and drive-horn placements in the CAD.",
             "Topology order comes from the CAD assembly names, not from geometry.",
@@ -364,20 +367,7 @@ def compile_bundle(
             "carry generic names (SOLID, Component1..7) and cannot be placed by name, so they are "
             "counted as unclassified and their volume is reported separately rather than folded into "
             "either side of the split.",
-            (
-                f"Each actuator carries a datasheet mass of {actuator_mass_kg:.4f} kg: "
-                f"{actuator_mass_source}. It is applied as the density that reproduces that mass "
-                "through the part's own CAD envelope, so the mass is the datasheet's and the centre "
-                "of mass and inertia remain the envelope's. It is not a weigh-in, and it is one "
-                "figure applied to every actuator rather than one per unit."
-                if actuator_mass_kg is not None
-                else "The bundle's own mass model carries no actuator mass. A servo's mass comes "
-                "from a datasheet or a scale, and this model has neither, so the all-parts mass "
-                "treats every actuator as its own solid volume of PLA. That number is labelled as an "
-                "assumption wherever it appears; it is not a weigh-in. A comparison that adds a "
-                "catalogue actuator mass does so beside this model, states the figure and its "
-                "source, and does not change these masses."
-            ),
+            _actuator_note(actuator_mass_kg, actuator_mass_source, actuator_skipped),
             (
                 f"Masses in this report are a shell-and-infill estimate at {model.print_model}; the "
                 "solid bound is reported beside it and is never replaced. The centre of mass is held "
@@ -479,6 +469,40 @@ def render_csv(report: Report) -> str:
     for check in report.checks:
         lines.append(f"{check.id},{check.status},\"{check.explanation}\"")
     return "\n".join(lines) + "\n"
+
+
+def _actuator_note(
+    mass_kg: float | None, source: str | None, skipped: list[str]
+) -> str:
+    """What the report may say about actuator masses, given what was actually applied.
+
+    A note that claims a datasheet mass was applied while some actuator kept an assumed density is
+    worse than no note: it turns a disclosed guess into an undisclosed one. The three cases are
+    therefore separate sentences, and the partial case names the count rather than the figure.
+    """
+    if mass_kg is None:
+        return (
+            "The bundle's own mass model carries no actuator mass. A servo's mass comes from a "
+            "datasheet or a scale, and this model has neither, so the all-parts mass treats every "
+            "actuator as its own solid volume of PLA. That number is labelled as an assumption "
+            "wherever it appears; it is not a weigh-in. A comparison that adds a catalogue actuator "
+            "mass does so beside this model, states the figure and its source, and does not change "
+            "these masses."
+        )
+    if skipped:
+        return (
+            f"A datasheet actuator mass of {mass_kg:.4f} kg ({source}) was supplied, but it could "
+            f"NOT be applied to {len(skipped)} actuator part(s); they are named in this report's "
+            "warnings. Those parts keep an assumed density and therefore mass as a solid block of "
+            "that assumed material, so the all-parts mass overstates them. This report does not "
+            "claim a datasheet mass for those parts."
+        )
+    return (
+        f"Each actuator carries a datasheet mass of {mass_kg:.4f} kg: {source}. It is applied as "
+        "the density that reproduces that mass through the part's own CAD envelope, so the mass is "
+        "the datasheet's and the centre of mass and inertia remain the envelope's. It is not a "
+        "weigh-in, and it is one figure applied to every actuator rather than one per unit."
+    )
 
 
 def render_html(report: Report) -> str:

@@ -367,3 +367,31 @@ class TestActuatorsArriveWithADatasheetMass:
 
         with pytest.raises(ValueError):
             actuator_densities(self._assembly(0.020), 0.055, "")
+
+
+class TestTheReportOnlyClaimsWhatItApplied:
+    """The actuator note has three cases, and the partial one must not read like the full one."""
+
+    def test_no_mass_supplied_says_the_model_has_none(self) -> None:
+        from ai_cad.compiler.compile import _actuator_note
+
+        note = _actuator_note(None, None, [])
+        assert "carries no actuator mass" in note
+        assert "datasheet" in note
+
+    def test_an_applied_mass_names_its_source_and_does_not_overclaim(self) -> None:
+        from ai_cad.compiler.compile import _actuator_note
+
+        note = _actuator_note(0.055, "Feetech STS3215 specification", [])
+        assert "0.0550 kg" in note
+        assert "Feetech STS3215 specification" in note
+        assert "not a weigh-in" in note
+
+    def test_a_skipped_actuator_is_stated_and_the_claim_is_withdrawn(self) -> None:
+        from ai_cad.compiler.compile import _actuator_note
+
+        note = _actuator_note(0.055, "Feetech STS3215 specification", ["actuator 'Servo' kept ..."])
+        assert "could NOT be applied to 1 actuator part(s)" in note
+        assert "does not claim a datasheet mass" in note
+        # and it must not repeat the sentence that says every actuator carries it
+        assert "Each actuator carries a datasheet mass" not in note

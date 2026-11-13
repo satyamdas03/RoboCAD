@@ -40,6 +40,10 @@ class BodyComparison(BaseModel):
     ours: str
     theirs: str | None
     ours_kg: float
+    # The same body cast solid. ``ours_kg`` is the mass the bundle reports, which for a
+    # print-modelled bundle is already the estimate -- so reading the solid bound out of
+    # ``ours_kg`` would print the estimate twice and say the model changed nothing.
+    ours_solid_mass_kg: float | None = None
     theirs_kg: float | None
     delta_kg: float | None
     delta_percent: float | None
@@ -549,6 +553,11 @@ def compare(
                 ours=our_id,
                 theirs=their_id,
                 ours_kg=ours_kg,
+                ours_solid_mass_kg=(
+                    _optional_float(body.get("solid_mass_kg"))
+                    if body.get("solid_mass_kg") is not None
+                    else ours_kg
+                ),
                 theirs_kg=theirs_kg,
                 delta_kg=delta,
                 delta_percent=percent,
@@ -834,7 +843,7 @@ def _sensitivity_note(bodies: list["BodyComparison"]) -> str | None:
     estimated = [b.ours_print_estimate_kg for b in bodies]
     if not any(v is not None for v in estimated):
         return None
-    solid = sum(b.ours_kg for b in bodies)
+    solid = sum(b.ours_solid_mass_kg or b.ours_kg for b in bodies)
     model = sum(v or 0.0 for v in estimated)
     bought = sum(b.bought_in_parts for b in bodies)
     return (
