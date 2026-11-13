@@ -48,3 +48,5 @@ The same effort check runs inside both bundles, so the revision's cost can be re
 | f = 0.30 | 0.687 N*m | `joint_2` | 23% |
 
 Both are measured with contacts disabled at a sample of poses, which is what makes them comparable to each other. A heavier print is a heavier arm, and the joint that carries the most of it is the same joint in both compiles.
+
+The revision is a loadable model and not only a JSON: the same command that runs the frozen bundle runs this one, `python -m robocad.demo so101 --bundle docs/twin/so101/revision_f030/bundle --mode replay`, and it steps 500 times without a warning. That is what makes it a revision of the same pipeline rather than a second pipeline's answer.

@@ -296,6 +296,12 @@ def render_markdown(diff: dict) -> str:
                 "them comparable to each other. A heavier print is a heavier arm, and the joint that "
                 "carries the most of it is the same joint in both compiles.",
                 "",
+                "The revision is a loadable model and not only a JSON: the same command that runs the "
+                "frozen bundle runs this one, `python -m robocad.demo so101 --bundle "
+                "docs/twin/so101/revision_f030/bundle --mode replay`, and it steps 500 times without "
+                "a warning. That is what makes it a revision of the same pipeline rather than a "
+                "second pipeline's answer.",
+                "",
             ]
         )
     return "\n".join(lines)
