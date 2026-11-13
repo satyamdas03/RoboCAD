@@ -94,6 +94,10 @@
       <div class="row"><span>rated (servo)</span><span id="t-rated">–</span></div>
       <div class="hint" id="t-torque-note"></div>
     </div>
+    <div class="grp" id="rev-grp" style="display:none">
+      <h2>Revision: 0.20 -> 0.30 infill</h2>
+      <div id="rev"></div>
+    </div>
     <div class="grp" id="twin-grp">
       <h2>Twin method <span class="synth">SYNTHETIC</span></h2>
       <div id="ident"></div>
@@ -119,6 +123,7 @@
 <script src="identification.js"></script>
 <script src="report.js"></script>
 <script src="torque.js"></script>
+<script src="diff.js"></script>
 <script>
 (function(){
   "use strict";
@@ -522,6 +527,27 @@
         linksBox.appendChild(wrap);
       });
     }
+  })();
+
+  // ---- revision panel: what changed between two print settings, per link ----
+  (function revisionPanel(){
+    const R = window.SO101_REVISION;
+    if (!R || !R.links || !R.links.length) return;
+    document.getElementById('rev-grp').style.display = '';
+    const box = document.getElementById('rev');
+    const changed = R.links.filter(l => l.status !== 'unchanged');
+    changed.slice(0, 8).forEach(l => {
+      const delta = l.mass_delta_percent;
+      const label = l.name + ' ' + (delta != null ? (delta >= 0 ? '+' : '') + delta.toFixed(1) + ' %' : l.status);
+      box.appendChild(dataRow(label, l.mass_after_kg != null ? l.mass_after_kg.toFixed(3) + ' kg' : '—'));
+    });
+    if (R.totals && R.totals.before_kg && R.totals.after_kg) {
+      box.appendChild(dataRow('total',
+        R.totals.before_kg.toFixed(3) + ' -> ' + R.totals.after_kg.toFixed(3) + ' kg'));
+    }
+    box.appendChild(mk('div', 'hint',
+      changed.length + ' of ' + R.links.length + ' links changed; diff keyed on the link names from ' +
+      'robot.joints.yaml, so a link cannot appear as removed and re-added.'));
   })();
 
   // ---- torque panel and kinematics row: what the mass and geometry difference does to the motors ----
