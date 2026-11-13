@@ -18,6 +18,7 @@ from ai_cad.compiler.collision import (
     Hull,
     _closed,
     _triangle_volume,
+    bound_point_cloud,
     collision_mesh,
     convex_hull,
     decompose,
@@ -172,6 +173,46 @@ class TestHullCap:
         assert len(hull.vertices) == 8
         assert hull.reduced is False
         assert hull.snap_m == 0.0
+
+
+class TestPointBudget:
+    """The hull is built before the triangle cap is consulted, so the cap cannot bound it.
+
+    A pathological tessellation reached ``convex_hull`` as a whole point cloud and the hull was built
+    at that size; the ``COACD_TRIANGLE_LIMIT`` branch is only reached afterwards. The budget bounds the
+    operation that actually runs first, and says so when it fires.
+    """
+
+    def _cloud(self, count: int) -> np.ndarray:
+        rng = np.random.default_rng(0)
+        return rng.random((count, 3)) * 0.05
+
+    def test_a_cloud_under_the_budget_is_returned_untouched(self) -> None:
+        points = self._cloud(500)
+        same, cell = bound_point_cloud(points, budget=1000)
+        assert cell == 0.0
+        assert same is not None and len(same) == len(points)
+
+    def test_an_oversized_cloud_is_reduced_to_the_budget_and_the_cell_is_reported(self) -> None:
+        points = self._cloud(20000)
+        reduced, cell = bound_point_cloud(points, budget=500)
+        assert len(reduced) <= 500
+        assert cell > 0.0
+        # Snapping moves a point by at most half a cell, so every kept point is within that of the
+        # cloud it came from -- the same bound ``convex_hull`` relies on.
+        extent = points.max(axis=0) - points.min(axis=0)
+        assert cell < float(np.linalg.norm(extent))
+
+    def test_the_reduction_keeps_every_point_inside_the_reported_bound(self) -> None:
+        # The cell is the guarantee the report prints, so it has to be true of every point the hull
+        # is built from: a snapped point is at most half a cell from the input point it came from, on
+        # each axis, so no point moves further than half a cell diagonal.
+        points = self._cloud(20000)
+        reduced, cell = bound_point_cloud(points, budget=500)
+        nearest = np.sqrt(
+            ((reduced[:, None, :] - points[None, :, :]) ** 2).sum(axis=2)
+        ).min(axis=1)
+        assert float(nearest.max()) <= cell * math.sqrt(3) / 2.0 + 1e-12
 
 
 class TestDecomposition:

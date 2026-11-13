@@ -197,19 +197,60 @@ class TestLoadedChecks:
         model.bodies[1].limits = {"lower": -1.5, "upper": 1.5, "effort": 3.0, "velocity": 2.0}
         return write_mjcf(model, tmp_path / "model.mjcf")
 
-    def test_a_limit_with_a_source_passes_and_names_it(self, tmp_path):
+    def test_a_limit_with_a_source_is_not_a_pass_without_an_effort(self, tmp_path):
         mjcf = self._limited(tmp_path)
+        result = bundle_checks.check_limits_and_effort(
+            mjcf, {"joint_1": {"lower": -1.5, "upper": 1.5}}, "the published model at abc123"
+        )
+        # Travel limits alone are half a specification. This model has no actuator, so nothing in it
+        # states what torque the joint may be asked for, and the check must not pass on that.
+        assert result.status == "warn"
+        assert "no actuators" in result.explanation
+        assert "abc123" in result.explanation
+
+    def test_a_force_limited_actuator_with_limits_and_a_source_passes(self, tmp_path):
+        mjcf = self._with_actuator(
+            self._limited(tmp_path), '<motor name="motor0" joint="joint_1" forcerange="-3 3"/>'
+        )
         result = bundle_checks.check_limits_and_effort(
             mjcf, {"joint_1": {"lower": -1.5, "upper": 1.5}}, "the published model at abc123"
         )
         assert result.status == "pass"
         assert "abc123" in result.explanation
         assert result.measured["limits_source"] == "the published model at abc123"
+        assert result.measured["actuators"]["motor0"]["force_limited"] is True
+        assert result.measured["actuators"]["motor0"]["forcerange"] == pytest.approx([-3.0, 3.0])
+
+    def test_a_command_range_is_not_an_effort_limit(self, tmp_path):
+        # A motor with a ctrlrange and no forcerange states how far it may be commanded and nothing
+        # about the force that command can deliver. Reading ctrlrange as the effort limit turned this
+        # check green on a model that never states a torque.
+        mjcf = self._with_actuator(
+            self._limited(tmp_path), '<motor name="motor0" joint="joint_1" ctrlrange="-1.5 1.5"/>'
+        )
+        result = bundle_checks.check_limits_and_effort(
+            mjcf, {"joint_1": {"lower": -1.5, "upper": 1.5}}, "the published model at abc123"
+        )
+        assert result.status == "warn"
+        assert "no force limit" in result.explanation
+        assert result.measured["actuators"]["motor0"]["force_limited"] is False
+
+    @staticmethod
+    def _with_actuator(mjcf: Path, act: str) -> Path:
+        """Append an actuator to an MJCF the writer produced without one."""
+        text = mjcf.read_text(encoding="utf-8")
+        assert "<actuator" not in text
+        text = text.replace("</mujoco>", f"  <actuator>{act}</actuator>\n</mujoco>")
+        mjcf.write_text(text, encoding="utf-8")
+        return mjcf
 
     def test_a_limit_without_a_source_is_not_a_pass(self, tmp_path):
         # The numbers can be right and still be unverifiable: a limit nobody can trace back to a
-        # datasheet or a measurement cannot be checked against the machine.
-        mjcf = self._limited(tmp_path)
+        # datasheet or a measurement cannot be checked against the machine. The actuator is forced
+        # limited so this test fails on the missing source and not on the missing effort.
+        mjcf = self._with_actuator(
+            self._limited(tmp_path), '<motor name="motor0" joint="joint_1" forcerange="-3 3"/>'
+        )
         result = bundle_checks.check_limits_and_effort(mjcf, {"joint_1": {"lower": -1.5, "upper": 1.5}})
         assert result.status == "warn"
         assert "where" in result.explanation

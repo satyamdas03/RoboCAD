@@ -215,6 +215,27 @@ class TestCompare:
         assert result.bodies[0].ours_parts == 4
         assert result.bodies[0].ours_instances == 9
 
+    def test_the_assumed_density_flag_is_read_under_the_producer_spelling(self, urdf):
+        # The fixture above spells the flag the way the report's body rows do, so it could not catch
+        # a reader that only knows that spelling. This row comes from the model that writes
+        # bundle.json, so the field name under test is the producer's own and cannot drift from it.
+        from ai_cad.compiler.twin_bundle import BodyModel
+
+        row = BodyModel(
+            body_id="base",
+            name="Base",
+            mass_kg=0.6,
+            com_m=(0.0, 0.0, 0.0),
+            inertia_6=(1e-4, 1e-4, 1e-4, 0.0, 0.0, 0.0),
+            rests_on_an_assumed_density=True,
+        ).model_dump()
+        assert "rests_on_an_assumed_density" in row
+        assert "assumed_density" not in row
+        bundle = {"total_mass_kg": 0.6, "bodies": [row], "joints": []}
+        result = compare.compare(bundle, urdf, {"base": "base_link"}, {})
+        assert result.bodies[0].assumed_density is True
+        assert any("ASSUMED" in note for note in result.notes)
+
     def test_the_servo_figure_is_read_against_their_total(self, urdf):
         # The note must do the arithmetic from the total and the joints it was given, not carry a
         # sentence typed to fit an earlier run. The text this replaced claimed six 55 g servos

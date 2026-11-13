@@ -1,10 +1,10 @@
 # SO-101: compiled twin against the published model
 
-Generated 2026-11-13T11:48:24+00:00 from `so101.step`.
+Generated 2026-11-13T12:48:54+00:00 from `so101.step`.
 
 - Bodies: 7  Joints: 6  Parts: 83  Instances: 259
 - Collision hulls: 433
-- Joint limits: from SO-ARM100 so101_new_calib.urdf at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits.
+- Joint limits: from SO-ARM100 so101_new_calib.urdf, sha256 3a65d2d35e68a8d2f0c2cc176d19b884506543c93ba72980145b80abe276022c, at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits.
 
 ## Checks
 
@@ -15,14 +15,14 @@ Generated 2026-11-13T11:48:24+00:00 from `so101.step`.
 | `pose_equivalence` | pass | URDF and MJCF agree to 0.000e+00 m over 100 random configurations and 0.000e+00 m at rest, against a 1e-06 m tolerance. |
 | `mujoco_load` | pass | Loaded with zero warnings; 1000 passive steps at 0.0020 s stayed finite. |
 | `self_collision` | fail | 1 non-adjacent pair(s) overlap, deepest -7.939e-03 m. The CAD solids of wrist_roll_pitch_so100 and moving_jaw_so101 intersect and share 0.52 mm3 of material, so part of that overlap is real and part of it may be the hull; this measurement does not split the two. The status stays fail either way: MuJoCo collides the hulls, so the simulator will act on the overlap whatever the B-rep says. MuJoCo collides the convex hulls, and this overlap is an overlap of those hulls, so any torque read from inverse dynamics on this model includes the contact forces the simulator applies to push them apart. A posed inverse-dynamics torque is therefore not the actuator load and is not reported as one. |
-| `limits_and_effort` | pass | 6 joint(s) carry a travel limit, from SO-ARM100 so101_new_calib.urdf at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits. |
+| `limits_and_effort` | warn | 6 joint(s) carry a travel limit, from SO-ARM100 so101_new_calib.urdf, sha256 3a65d2d35e68a8d2f0c2cc176d19b884506543c93ba72980145b80abe276022c, at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits, but the file declares no actuators, so no torque or force limit is stated anywhere in it and the effort half of this check has nothing to verify. An actuator and its effort range have to be added before the model can be driven or the torque quoted. |
 | `free_base_stand` | skipped | the base body carries no free joint, so there is no balance to test; this check applies to legged robots only |
 
 ## Notes
 
 - Axes and origins come from the servos' output shafts and drive-horn placements in the CAD.
 - Topology order comes from the CAD assembly names, not from geometry.
-- Joint limits come from SO-ARM100 so101_new_calib.urdf at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits.
+- Joint limits come from SO-ARM100 so101_new_calib.urdf, sha256 3a65d2d35e68a8d2f0c2cc176d19b884506543c93ba72980145b80abe276022c, at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits.
 - Every mass rests on an assumed density unless a part was weighed; the per-body flag says which, and the report never presents an assumed mass as a measurement.
 - The printed/actuator/fastener split comes from the CAD part names. On this file 13 parts carry generic names (SOLID, Component1..7) and cannot be placed by name, so they are counted as unclassified and their volume is reported separately rather than folded into either side of the split.
 - The bundle's own mass model carries no actuator mass. A servo's mass comes from a datasheet or a scale, and this model has neither, so the all-parts mass treats every actuator as its own solid volume of PLA. That number is labelled as an assumption wherever it appears; it is not a weigh-in. A comparison that adds a catalogue actuator mass does so beside this model, states the figure and its source, and does not change these masses.
@@ -80,6 +80,7 @@ Generated 2026-11-13T11:48:24+00:00 from `so101.step`.
 
 - Ours is measured from the CAD B-rep at a stated density. Theirs is the value published in the official model. Neither is adjusted to match the other.
 - The body correspondence is a judgement from the two naming schemes and is printed beside the numbers so it can be disputed.
+- Some of our bodies rest on an ASSUMED material density; their mass is therefore an estimate, not a measurement, and the report says which.
 - The official model accounts for 0.6320 kg. Our joints imply 6 actuators, and at Feetech STS3215 product specification (STS3215-PRODUCT_SPECIFICATION.pdf, feetech.cn): weight 55 +/- 1 g, both the 7.4 V and the 12 V variant they weigh 330 g, which is 52% of their total. That leaves 302 g for every printed link and fastener. Our printed parts alone are 587 g at 100% solid, so the arithmetic is consistent with their masses being whole-body masses that include the servos, at a fill fraction well under solid. That is a reading of the numbers, not a statement of their method.
 - The printed-only column counts parts whose CAD names classify them as links. Parts with generic names (SOLID, Component1..7) are left out of it rather than guessed into it, so it is a lower bound on printed plastic, not a total; a body marked with an asterisk carries such parts, and a printed-only figure of 0 for that body means only that no part on it could be identified as printed.
 - The fill column is derived, not assumed: the official mass divided by the mass our geometry would have as 100% solid PLA (1240 kg/m3). Read against a body's whole published mass it can exceed a real fill fraction, because a servo is not plastic.

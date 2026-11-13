@@ -334,9 +334,14 @@ def render_html(revision: Revision) -> str:
         before = "—" if link.volume_before_m3 is None else f"{link.volume_before_m3 * 1e6:.3f}"
         after = "—" if link.volume_after_m3 is None else f"{link.volume_after_m3 * 1e6:.3f}"
         mass = "—" if link.mass_delta_kg is None else f"{link.mass_delta_kg * 1e3:+.2f}"
+        # ``status`` and ``link_id`` both reach the page, and both can arrive from a report.json this
+        # process did not write. The status is drawn from a fixed vocabulary by this module's own
+        # producers, but a field that is only ever one of four words today is still an unescaped
+        # string going into markup, so it is escaped the same way the id beside it is.
+        status = _html.escape(link.status)
         rows.append(
-            f"<tr class='{link.status}'><td><code>{_html.escape(link.link_id)}</code></td>"
-            f"<td>{link.status}</td>"
+            f"<tr class='{status}'><td><code>{_html.escape(link.link_id)}</code></td>"
+            f"<td>{status}</td>"
             f"<td>{'—' if link.quantity_before is None else link.quantity_before}</td>"
             f"<td>{'—' if link.quantity_after is None else link.quantity_after}</td>"
             f"<td>{'—' if link.quantity_delta is None else f'{link.quantity_delta:+d}'}</td>"

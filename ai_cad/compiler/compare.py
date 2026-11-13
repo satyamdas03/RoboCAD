@@ -537,7 +537,17 @@ def compare(
                 # them parts/instances. Reading only one spelling printed a zero for every body.
                 ours_parts=int(body.get("parts", body.get("part_count", 0)) or 0),
                 ours_instances=int(body.get("instances", body.get("instance_count", 0)) or 0),
-                assumed_density=bool(body.get("assumed_density", False)),
+                # bundle.json writes the model field name ``rests_on_an_assumed_density``; the
+                # report's body rows write ``assumed_density``. Reading only the short spelling made
+                # this flag False for every body of a bundle whose masses all rest on 1240 kg/m3,
+                # which turned a disclosure off without any error -- the worst shape a missing
+                # disclosure can take.
+                assumed_density=bool(
+                    body.get(
+                        "assumed_density",
+                        body.get("rests_on_an_assumed_density", False),
+                    )
+                ),
                 ours_solid_volume_m3=volume,
                 ours_printed_upper_kg=printed_kg,
                 implied_fill=fill,

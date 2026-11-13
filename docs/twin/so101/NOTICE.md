@@ -34,8 +34,14 @@ The check report in this directory is the authority for this artifact. At this r
 `self_collision` as **fail**: two convex hulls overlap by 7.9 mm at rest, so MuJoCo will act on a
 contact the CAD does not have. Beside that, the same report carries the B-rep measurement: the CAD
 solids of the two bodies touch and share 0.52 mm^3 over 47 of 47 shape pairs, which is contact
-scale rather than interference between two parts occupying the same space. The other checks pass or
-are skipped as recorded in `report.json`.
+scale rather than interference between two parts occupying the same space.
+
+It also records `limits_and_effort` as **warn**, and the reason is the model, not the limits: the
+six joints carry travel limits adopted from the published URDF, with that file's sha256 in the
+provenance, but this bundle contains no `<actuator>` element at all, so nothing in it states what
+torque or force any joint may be given. A check named `limits_and_effort` cannot pass on travel
+limits alone, and this one does not. Four checks pass, one fails, one warns, one is skipped as not
+applicable to a bolted base.
 
 An earlier copy of this notice described a report that did not contain that B-rep measurement,
 because the directory then held a bundle compiled before a units defect in the measuring code was

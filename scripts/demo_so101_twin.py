@@ -12,6 +12,7 @@ compiler.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -50,6 +51,13 @@ SERVO_SOURCE = (
     "weight 55 +/- 1 g, both the 7.4 V and the 12 V variant"
 )
 
+# The published model the travel limits come from. The revision is not asserted here and checked
+# later: it is claimed only for the bytes whose digest is recorded below. The digest was taken from
+# `Simulation/SO101/so101_new_calib.urdf` at that commit on 2026-11-13 and matches the file this run
+# was given, which is the only reason the report may say "at revision".
+PINNED_LIMITS_REVISION = "a758567c3978dfeefe282ede0500085a48fe8f78"
+PINNED_LIMITS_SHA256 = "3a65d2d35e68a8d2f0c2cc176d19b884506543c93ba72980145b80abe276022c"
+
 
 def limits_from_official(urdf_path: Path) -> tuple[dict[str, dict], str]:
     """Travel limits from the published model, with the provenance string that must travel with them.
@@ -57,8 +65,24 @@ def limits_from_official(urdf_path: Path) -> tuple[dict[str, dict], str]:
     The CAD has no limits. Taking them from the published URDF is a decision with a named source, and
     the source is written into the YAML and the report so nobody has to guess where a number came
     from. It is not an inference from geometry.
+
+    The provenance names the revision only for the bytes whose digest is the pinned one. A digest is
+    something this function can check; a revision pasted into a string is not, and a report that
+    claims a pinned revision for whatever file it was handed is a claim nobody verified.
     """
-    _, joints = compare.read_urdf(urdf_path)
+    path = Path(urdf_path)
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    if digest == PINNED_LIMITS_SHA256:
+        provenance = (
+            f"SO-ARM100 {path.name}, sha256 {digest}, at revision {PINNED_LIMITS_REVISION}, "
+            "joint <limit> elements."
+        )
+    else:
+        provenance = (
+            f"{path.name}, sha256 {digest}, no pinned revision (this is not the file whose digest is "
+            f"{PINNED_LIMITS_SHA256}), joint <limit> elements."
+        )
+    _, joints = compare.read_urdf(path)
     out: dict[str, dict] = {}
     for our_joint, their_joint in JOINT_MAP.items():
         entry = joints.get(their_joint)
@@ -66,8 +90,7 @@ def limits_from_official(urdf_path: Path) -> tuple[dict[str, dict], str]:
         if limit:
             out[our_joint] = dict(limit)
     source = (
-        f"SO-ARM100 so101_new_calib.urdf at revision a758567c3978dfeefe282ede0500085a48fe8f78, "
-        "joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits."
+        provenance + " Not derived from the CAD: the STEP file carries no travel limits."
     )
     return out, source
 

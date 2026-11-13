@@ -261,3 +261,20 @@ class TestComparability:
         restored = Revision(**result.model_dump())
         assert restored.comparable is False
         assert restored.incomparable_reason == result.incomparable_reason
+
+
+class TestHtmlEscaping:
+    def test_a_status_is_escaped_before_it_reaches_markup(self):
+        # A revision can be rebuilt from a report.json this process did not write, and ``status`` is
+        # a plain string on the model. It is four words when this module writes it; it is escaped
+        # when anything else does.
+        from ai_cad.compiler.revision import LinkDelta, Revision
+
+        result = Revision(
+            before="a.yaml",
+            after="b.yaml",
+            links=[LinkDelta(link_id="a", status="<script>alert(1)</script>")],
+        )
+        page = revision.render_html(result)
+        assert "<script>" not in page
+        assert "&lt;script&gt;" in page

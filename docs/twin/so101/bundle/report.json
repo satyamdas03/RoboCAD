@@ -1,7 +1,7 @@
 {
   "schema_version": "robocad.twin.report/1",
   "name": "so101",
-  "generated_at": "2026-11-13T11:48:24+00:00",
+  "generated_at": "2026-11-13T12:48:54+00:00",
   "source": {
     "file": "so101.step",
     "parts": 83,
@@ -129,7 +129,7 @@
     },
     {
       "id": "limits_and_effort",
-      "status": "pass",
+      "status": "warn",
       "measured": {
         "no_limit": [],
         "with_limit": {
@@ -177,12 +177,12 @@
           }
         },
         "actuators": {},
-        "limits_source": "SO-ARM100 so101_new_calib.urdf at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits."
+        "limits_source": "SO-ARM100 so101_new_calib.urdf, sha256 3a65d2d35e68a8d2f0c2cc176d19b884506543c93ba72980145b80abe276022c, at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits."
       },
       "threshold": {
         "rule": "every joint limited, effort stated with its source"
       },
-      "explanation": "6 joint(s) carry a travel limit, from SO-ARM100 so101_new_calib.urdf at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits."
+      "explanation": "6 joint(s) carry a travel limit, from SO-ARM100 so101_new_calib.urdf, sha256 3a65d2d35e68a8d2f0c2cc176d19b884506543c93ba72980145b80abe276022c, at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits, but the file declares no actuators, so no torque or force limit is stated anywhere in it and the effort half of this check has nothing to verify. An actuator and its effort range have to be added before the model can be driven or the torque quoted."
     },
     {
       "id": "free_base_stand",
@@ -581,7 +581,7 @@
   "notes": [
     "Axes and origins come from the servos' output shafts and drive-horn placements in the CAD.",
     "Topology order comes from the CAD assembly names, not from geometry.",
-    "Joint limits come from SO-ARM100 so101_new_calib.urdf at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits.",
+    "Joint limits come from SO-ARM100 so101_new_calib.urdf, sha256 3a65d2d35e68a8d2f0c2cc176d19b884506543c93ba72980145b80abe276022c, at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits.",
     "Every mass rests on an assumed density unless a part was weighed; the per-body flag says which, and the report never presents an assumed mass as a measurement.",
     "The printed/actuator/fastener split comes from the CAD part names. On this file 13 parts carry generic names (SOLID, Component1..7) and cannot be placed by name, so they are counted as unclassified and their volume is reported separately rather than folded into either side of the split.",
     "The bundle's own mass model carries no actuator mass. A servo's mass comes from a datasheet or a scale, and this model has neither, so the all-parts mass treats every actuator as its own solid volume of PLA. That number is labelled as an assumption wherever it appears; it is not a weigh-in. A comparison that adds a catalogue actuator mass does so beside this model, states the figure and its source, and does not change these masses."
@@ -604,7 +604,7 @@
         "delta_percent": 72.69894131528171,
         "ours_parts": 69,
         "ours_instances": 150,
-        "assumed_density": false,
+        "assumed_density": true,
         "ours_solid_volume_m3": 0.000204731809462,
         "ours_printed_upper_kg": 0.2451785512192,
         "implied_fill": 0.5790423452432671,
@@ -621,7 +621,7 @@
         "delta_percent": 55.91849049871826,
         "ours_parts": 12,
         "ours_instances": 15,
-        "assumed_density": false,
+        "assumed_density": true,
         "ours_solid_volume_m3": 0.000125748262587,
         "ours_printed_upper_kg": 0.13157150745475998,
         "implied_fill": 0.6413607499682281,
@@ -638,7 +638,7 @@
         "delta_percent": 43.10780714657882,
         "ours_parts": 4,
         "ours_instances": 14,
-        "assumed_density": false,
+        "assumed_density": true,
         "ours_solid_volume_m3": 0.000118871807549,
         "ours_printed_upper_kg": 0.0,
         "implied_fill": 0.6987738963655645,
@@ -655,7 +655,7 @@
         "delta_percent": 79.75143711619889,
         "ours_parts": 13,
         "ours_instances": 23,
-        "assumed_density": false,
+        "assumed_density": true,
         "ours_solid_volume_m3": 0.000150759269839,
         "ours_printed_upper_kg": 0.04624525428468,
         "implied_fill": 0.5563237858043728,
@@ -672,7 +672,7 @@
         "delta_percent": 88.02003257754515,
         "ours_parts": 14,
         "ours_instances": 47,
-        "assumed_density": false,
+        "assumed_density": true,
         "ours_solid_volume_m3": 0.000119786956239,
         "ours_printed_upper_kg": 0.091788608412,
         "implied_fill": 0.5318582207919259,
@@ -689,7 +689,7 @@
         "delta_percent": 41.38842264243401,
         "ours_parts": 9,
         "ours_instances": 9,
-        "assumed_density": false,
+        "assumed_density": true,
         "ours_solid_volume_m3": 0.000099199941693,
         "ours_printed_upper_kg": 0.04624525428468,
         "implied_fill": 0.7072714875147104,
@@ -706,7 +706,7 @@
         "delta_percent": 113.8117194634985,
         "ours_parts": 1,
         "ours_instances": 1,
-        "assumed_density": false,
+        "assumed_density": true,
         "ours_solid_volume_m3": 0.000020691456722,
         "ours_printed_upper_kg": 0.025657406335280002,
         "implied_fill": 0.4677012104493002,
@@ -1029,6 +1029,7 @@
     "notes": [
       "Ours is measured from the CAD B-rep at a stated density. Theirs is the value published in the official model. Neither is adjusted to match the other.",
       "The body correspondence is a judgement from the two naming schemes and is printed beside the numbers so it can be disputed.",
+      "Some of our bodies rest on an ASSUMED material density; their mass is therefore an estimate, not a measurement, and the report says which.",
       "The official model accounts for 0.6320 kg. Our joints imply 6 actuators, and at Feetech STS3215 product specification (STS3215-PRODUCT_SPECIFICATION.pdf, feetech.cn): weight 55 +/- 1 g, both the 7.4 V and the 12 V variant they weigh 330 g, which is 52% of their total. That leaves 302 g for every printed link and fastener. Our printed parts alone are 587 g at 100% solid, so the arithmetic is consistent with their masses being whole-body masses that include the servos, at a fill fraction well under solid. That is a reading of the numbers, not a statement of their method.",
       "The printed-only column counts parts whose CAD names classify them as links. Parts with generic names (SOLID, Component1..7) are left out of it rather than guessed into it, so it is a lower bound on printed plastic, not a total; a body marked with an asterisk carries such parts, and a printed-only figure of 0 for that body means only that no part on it could be identified as printed.",
       "The fill column is derived, not assumed: the official mass divided by the mass our geometry would have as 100% solid PLA (1240 kg/m3). Read against a body's whole published mass it can exceed a real fill fraction, because a servo is not plastic.",

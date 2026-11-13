@@ -1,6 +1,7 @@
 # RoboCAD twin joint skeleton, derived from CAD geometry.
 # Axes and origins come from the servo output shafts and drive-horn placements in the CAD.
-# Joint limits: 6 of 6 joints, sourced from SO-ARM100 so101_new_calib.urdf at revision
+# Joint limits: 6 of 6 joints, sourced from SO-ARM100 so101_new_calib.urdf, sha256
+# 3a65d2d35e68a8d2f0c2cc176d19b884506543c93ba72980145b80abe276022c, at revision
 # a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD:
 # the STEP file carries no travel limits.
 # Topology order is taken from the CAD's own assembly names, not from geometry.
@@ -511,9 +512,9 @@ joints:
     upper: 1.91986
     effort: 10.0
     velocity: 10.0
-  limits_source: 'SO-ARM100 so101_new_calib.urdf at revision a758567c3978dfeefe282ede0500085a48fe8f78,
-    joint <limit> elements. Not derived from the CAD: the STEP file carries no travel
-    limits.'
+  limits_source: 'SO-ARM100 so101_new_calib.urdf, sha256 3a65d2d35e68a8d2f0c2cc176d19b884506543c93ba72980145b80abe276022c,
+    at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements.
+    Not derived from the CAD: the STEP file carries no travel limits.'
   servo: st3215_servo
   horn_instance: inst_211
   evidence:
@@ -549,9 +550,9 @@ joints:
     upper: 1.74533
     effort: 10.0
     velocity: 10.0
-  limits_source: 'SO-ARM100 so101_new_calib.urdf at revision a758567c3978dfeefe282ede0500085a48fe8f78,
-    joint <limit> elements. Not derived from the CAD: the STEP file carries no travel
-    limits.'
+  limits_source: 'SO-ARM100 so101_new_calib.urdf, sha256 3a65d2d35e68a8d2f0c2cc176d19b884506543c93ba72980145b80abe276022c,
+    at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements.
+    Not derived from the CAD: the STEP file carries no travel limits.'
   servo: st3215_servo_2
   horn_instance: inst_219
   evidence:
@@ -587,9 +588,9 @@ joints:
     upper: 1.69
     effort: 10.0
     velocity: 10.0
-  limits_source: 'SO-ARM100 so101_new_calib.urdf at revision a758567c3978dfeefe282ede0500085a48fe8f78,
-    joint <limit> elements. Not derived from the CAD: the STEP file carries no travel
-    limits.'
+  limits_source: 'SO-ARM100 so101_new_calib.urdf, sha256 3a65d2d35e68a8d2f0c2cc176d19b884506543c93ba72980145b80abe276022c,
+    at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements.
+    Not derived from the CAD: the STEP file carries no travel limits.'
   servo: st3215_servo_3
   horn_instance: inst_227
   evidence:
@@ -625,9 +626,9 @@ joints:
     upper: 1.65806
     effort: 10.0
     velocity: 10.0
-  limits_source: 'SO-ARM100 so101_new_calib.urdf at revision a758567c3978dfeefe282ede0500085a48fe8f78,
-    joint <limit> elements. Not derived from the CAD: the STEP file carries no travel
-    limits.'
+  limits_source: 'SO-ARM100 so101_new_calib.urdf, sha256 3a65d2d35e68a8d2f0c2cc176d19b884506543c93ba72980145b80abe276022c,
+    at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements.
+    Not derived from the CAD: the STEP file carries no travel limits.'
   servo: st3215_servo_4
   horn_instance: inst_235
   evidence:
@@ -663,9 +664,9 @@ joints:
     upper: 2.84121
     effort: 10.0
     velocity: 10.0
-  limits_source: 'SO-ARM100 so101_new_calib.urdf at revision a758567c3978dfeefe282ede0500085a48fe8f78,
-    joint <limit> elements. Not derived from the CAD: the STEP file carries no travel
-    limits.'
+  limits_source: 'SO-ARM100 so101_new_calib.urdf, sha256 3a65d2d35e68a8d2f0c2cc176d19b884506543c93ba72980145b80abe276022c,
+    at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements.
+    Not derived from the CAD: the STEP file carries no travel limits.'
   servo: st3215_servo_5
   horn_instance: inst_243
   evidence:
@@ -701,9 +702,9 @@ joints:
     upper: 1.74533
     effort: 10.0
     velocity: 10.0
-  limits_source: 'SO-ARM100 so101_new_calib.urdf at revision a758567c3978dfeefe282ede0500085a48fe8f78,
-    joint <limit> elements. Not derived from the CAD: the STEP file carries no travel
-    limits.'
+  limits_source: 'SO-ARM100 so101_new_calib.urdf, sha256 3a65d2d35e68a8d2f0c2cc176d19b884506543c93ba72980145b80abe276022c,
+    at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements.
+    Not derived from the CAD: the STEP file carries no travel limits.'
   servo: st3215_servo_6
   horn_instance: inst_250
   evidence:
@@ -735,8 +736,8 @@ summary:
   - st3215_servo_4
   - st3215_servo_5
   - st3215_servo_6
-  limits: '6 of 6 joints, sourced from SO-ARM100 so101_new_calib.urdf at revision
-    a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived
-    from the CAD: the STEP file carries no travel limits.'
+  limits: '6 of 6 joints, sourced from SO-ARM100 so101_new_calib.urdf, sha256 3a65d2d35e68a8d2f0c2cc176d19b884506543c93ba72980145b80abe276022c,
+    at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements.
+    Not derived from the CAD: the STEP file carries no travel limits.'
   topology_source: CAD assembly names, not geometry
 status: derived

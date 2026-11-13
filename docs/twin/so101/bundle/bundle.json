@@ -446,7 +446,7 @@
         "effort": 10.0,
         "velocity": 10.0
       },
-      "limits_source": "SO-ARM100 so101_new_calib.urdf at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits.",
+      "limits_source": "SO-ARM100 so101_new_calib.urdf, sha256 3a65d2d35e68a8d2f0c2cc176d19b884506543c93ba72980145b80abe276022c, at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits.",
       "mass_kg": 0.15592784560814818,
       "com_m": [
         0.0005328315286854383,
@@ -521,7 +521,7 @@
         "effort": 10.0,
         "velocity": 10.0
       },
-      "limits_source": "SO-ARM100 so101_new_calib.urdf at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits.",
+      "limits_source": "SO-ARM100 so101_new_calib.urdf, sha256 3a65d2d35e68a8d2f0c2cc176d19b884506543c93ba72980145b80abe276022c, at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits.",
       "mass_kg": 0.14740104136097618,
       "com_m": [
         0.0016969824124334681,
@@ -583,7 +583,7 @@
         "effort": 10.0,
         "velocity": 10.0
       },
-      "limits_source": "SO-ARM100 so101_new_calib.urdf at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits.",
+      "limits_source": "SO-ARM100 so101_new_calib.urdf, sha256 3a65d2d35e68a8d2f0c2cc176d19b884506543c93ba72980145b80abe276022c, at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits.",
       "mass_kg": 0.18694149460084683,
       "com_m": [
         0.003835245990369159,
@@ -666,7 +666,7 @@
         "effort": 10.0,
         "velocity": 10.0
       },
-      "limits_source": "SO-ARM100 so101_new_calib.urdf at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits.",
+      "limits_source": "SO-ARM100 so101_new_calib.urdf, sha256 3a65d2d35e68a8d2f0c2cc176d19b884506543c93ba72980145b80abe276022c, at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits.",
       "mass_kg": 0.14853582573626067,
       "com_m": [
         0.011553245740393146,
@@ -783,7 +783,7 @@
         "effort": 10.0,
         "velocity": 10.0
       },
-      "limits_source": "SO-ARM100 so101_new_calib.urdf at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits.",
+      "limits_source": "SO-ARM100 so101_new_calib.urdf, sha256 3a65d2d35e68a8d2f0c2cc176d19b884506543c93ba72980145b80abe276022c, at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits.",
       "mass_kg": 0.12300792769891758,
       "com_m": [
         0.007456997749349984,
@@ -851,7 +851,7 @@
         "effort": 10.0,
         "velocity": 10.0
       },
-      "limits_source": "SO-ARM100 so101_new_calib.urdf at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits.",
+      "limits_source": "SO-ARM100 so101_new_calib.urdf, sha256 3a65d2d35e68a8d2f0c2cc176d19b884506543c93ba72980145b80abe276022c, at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits.",
       "mass_kg": 0.02565740633561982,
       "com_m": [
         0.005729901070553589,

@@ -3,6 +3,38 @@
 Newest first. One entry per decision, with the date, what was decided, why, and what it rules out.
 A decision without a reason is a preference; it does not belong here.
 
+## 2026-11-13 A check called `limits_and_effort` needs an effort limit to pass
+
+Decided: `bundle_checks.check_limits_and_effort` passes only when every joint carries a travel limit,
+every actuator states a force range (`actuator_forcelimited`), and the limits carry a provenance
+string. It reports warn when the file declares no actuators, when an actuator states only a
+`ctrlrange`, and when no source is recorded.
+
+Why: the status was `pass if source else warn`, so pass meant "a provenance string existed". The
+published SO-101 bundle has no `<actuator>` element at all — `nu` is 0 — and the check passed, which
+made "limits_and_effort  pass" a statement nobody had checked. `ctrlrange` is worse than missing: for
+a position servo it is the command in radians, and reading it as the effort limit turns a model that
+never states a torque green. A peer's review caught both. The published bundle now reads warn, 4 of 7
+checks passing, because the compiler writes no actuator section and therefore cannot claim to have
+checked effort.
+
+Rules out: counting a check as evidence of something it read but never compared, and treating a
+command range as a specification.
+
+## 2026-11-13 The collision hull is bounded before it is built, not after
+
+Decided: `collision_mesh` reduces the tessellated point cloud to `MAX_HULL_POINTS` (1,000,000) with
+`bound_point_cloud` before `convex_hull` runs, and records the grid it snapped to in the part's
+warnings.
+
+Why: `COACD_TRIANGLE_LIMIT` was documented as the cap that keeps a pathological part from reaching a
+decomposition whose cost is unbounded, but the hull is built first, from the whole cloud, and the
+triangle cap is consulted afterwards. So the cap bounded the second operation and not the first, and
+the first is the one that holds the whole tessellation in memory. A review flagged the ordering.
+
+Rules out: citing a downstream cap as a bound on an upstream operation. The bound now sits where the
+work happens, and a part that hits it says so in the bundle.
+
 ## 2026-11-13 Correction: the published bundle does ship derived meshes
 
 Commit `541e712` says "no upstream geometry, mesh or binary is redistributed". That sentence was

@@ -54,6 +54,14 @@ COACD_TRIANGLE_LIMIT = 6000
 # unreduced hull was 15.8 MB, which MuJoCo will load and then grind against.
 MAX_HULL_VERTICES = 96
 
+# Peak bound for the hull build. ``COACD_TRIANGLE_LIMIT`` bounds the decomposition's work, but the
+# convex hull is built first and on the full point cloud, so a pathological tessellation is bounded by
+# nothing on that path: the triangle cap is checked after the hull already exists. Above this many
+# points the cloud is snapped to a grid until it fits, and the grid size is reported, so peak memory is
+# bounded by this number rather than by the input. A part that hits it is named in the bundle's
+# warnings; no part of the SO-101 run emits that warning.
+MAX_HULL_POINTS = 1_000_000
+
 WELD_TOLERANCE_M = 1e-9
 
 
@@ -244,6 +252,35 @@ def _quantise(vertices, cell: float):
     return np.unique(snapped, axis=0)
 
 
+def bound_point_cloud(points, budget: int = MAX_HULL_POINTS):
+    """``(points, cell)`` with at most ``budget`` distinct points; ``cell`` is 0.0 when none were lost.
+
+    The search starts fine and coarsens, so the reduced cloud keeps as much of the shape as the budget
+    allows. Snapping moves a point by at most half a cell, and the cell is returned so the caller can
+    state that bound instead of dropping the detail silently.
+
+    This exists because the hull is built before the triangle cap is consulted. Bounding the point
+    cloud on the path every hull passes through is one guard instead of one per caller.
+    """
+    import numpy as np
+
+    points = np.asarray(points, dtype=float)
+    if len(points) <= budget:
+        return points, 0.0
+    extent = points.max(axis=0) - points.min(axis=0)
+    diagonal = float(np.linalg.norm(extent))
+    cell = max(diagonal / 4096.0, 1e-9)
+    for _ in range(40):
+        reduced = _quantise(points, cell)
+        if len(reduced) <= budget:
+            return reduced, cell
+        cell *= 1.2
+    # Unreachable for any real cloud: the number of distinct snapped points falls as the cell grows,
+    # and 40 coarsenings reach the cloud's own extent. If a caller passes a budget below the number of
+    # corners, the last resort is the coarsest grid there is, and it is reported as the cell used.
+    return _quantise(points, max(diagonal, cell)), max(diagonal, cell)
+
+
 def convex_hull(vertices, max_vertices: int | None = None) -> Hull:
     """The convex hull of a point cloud, as a triangle mesh.
 
@@ -306,7 +343,18 @@ def collision_mesh(part, **kwargs) -> CollisionMesh:
     closed = _closed(vertices, faces)
     warnings: list[str] = []
 
-    hull = convex_hull(vertices)
+    # Bounded before the hull, not after: the triangle cap below is consulted once the hull already
+    # exists, so it cannot bound the operation that runs first.
+    hull_points, hull_cell = bound_point_cloud(vertices)
+    if hull_cell:
+        warnings.append(
+            f"{part.part_id}: the tessellation produced {len(vertices)} points, over the "
+            f"{MAX_HULL_POINTS:,} point budget; the convex hull was built from them snapped to a "
+            f"{hull_cell * 1e3:.3f} mm grid ({len(hull_points)} points), so peak memory is bounded by "
+            "the budget rather than by the input. The decomposition, when it runs, still uses every "
+            "triangle."
+        )
+    hull = convex_hull(hull_points)
     if part_volume > 0.0 and hull.volume_m3 <= part_volume * CONVEX_TOLERANCE:
         # The part is convex enough that splitting it would add geoms and cost contact time for
         # nothing. This is also what keeps a dense PCB out of a decomposition that has no timeout.

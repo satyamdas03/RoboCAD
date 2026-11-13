@@ -565,8 +565,12 @@ def check_limits_and_effort(
     still not a model of this robot.
 
     ``source`` is the provenance string that travelled with the limits. When it is absent the check
-    still reports pass if the joints are limited, but says plainly that the file does not record where
-    the numbers came from -- a limit without a source is a specification nobody can check.
+    still reports warn, and says plainly that the file does not record where the numbers came from --
+    a limit without a source is a specification nobody can check.
+
+    Both halves have to hold for a pass. A travel limit without a stated effort is half a
+    specification: the model says how far the joint may go and nothing about the torque it may be
+    asked for, and a command range in a position servo is not an effort limit.
     """
     import mujoco
 
@@ -591,8 +595,15 @@ def check_limits_and_effort(
             efforts[name] = {
                 "ctrlrange": [float(v) for v in model.actuator_ctrlrange[index]],
                 "gear": [float(v) for v in model.actuator_gear[index][:6]],
-                "field_read": "actuator_ctrlrange",
+                # An effort limit is a force/torque range. ctrlrange is not one: for a position servo
+                # it is the command in radians, and a model can carry a full command range and no
+                # statement at all about the torque that command can deliver.
+                "force_limited": bool(model.actuator_forcelimited[index]),
+                "forcerange": [float(v) for v in model.actuator_forcerange[index]],
+                "field_read": "actuator_ctrlrange and actuator_forcerange",
             }
+    # Named for the effort half, so the effort half has to be able to fail the check.
+    unstated = [name for name, effort in efforts.items() if not effort["force_limited"]]
     if missing:
         status = "warn"
         explanation = (
@@ -606,16 +617,36 @@ def check_limits_and_effort(
             "the file declares no limits at all, so there is nothing here to check; an unlimited "
             "model loads and runs and is still not a model of this robot"
         )
-    else:
-        status = "pass" if source else "warn"
+    elif not efforts:
+        # Previously this branch passed on the presence of a provenance string, which meant the check
+        # named "limits_and_effort" passed with no effort stated anywhere in the model.
+        status = "warn"
         explanation = (
-            f"{len(stated)} joint(s) carry a travel limit, from {source.rstrip('.')}."
-            if source
-            else (
-                f"{len(stated)} joint(s) carry a travel limit, but the file does not record where "
-                "those numbers came from; a limit without a source cannot be checked against the "
-                "machine."
-            )
+            f"{len(stated)} joint(s) carry a travel limit, from "
+            f"{(source or 'an unrecorded source').rstrip('.')}, but the file declares no actuators, "
+            "so no torque or force limit is stated anywhere in it and the effort half of this check "
+            "has nothing to verify. An actuator and its effort range have to be added before the "
+            "model can be driven or the torque quoted."
+        )
+    elif unstated:
+        status = "warn"
+        explanation = (
+            f"{len(stated)} joint(s) carry a travel limit, but "
+            f"{len(unstated)} of {len(efforts)} actuator(s) state no force limit "
+            f"({', '.join(sorted(unstated))}). A command range is not an effort limit: the model "
+            "does not say what torque these actuators can deliver."
+        )
+    elif not source:
+        status = "warn"
+        explanation = (
+            f"{len(stated)} joint(s) carry a travel limit, but the file does not record where those "
+            "numbers came from; a limit without a source cannot be checked against the machine."
+        )
+    else:
+        status = "pass"
+        explanation = (
+            f"{len(stated)} joint(s) carry a travel limit and {len(efforts)} actuator(s) state a "
+            f"force limit, from {source.rstrip('.')}."
         )
     return CheckResult(
         id="limits_and_effort",
