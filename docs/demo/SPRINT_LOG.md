@@ -148,3 +148,24 @@ deselected** at `70ce42c`, measured with `--collect-only -q -p no:cacheprovider`
 all 752 is recorded at the freeze commit in `BASELINE.md`.
 
 Next: the freeze commit, and the three post-demo steps in `FINAL_STATUS.md`.
+
+### 2026-11-14 final, monitor session, Lane B closed
+
+Verified artifact, not a claim: `docs/demo/so101_demo.zip`, sha256
+`5977d7f4e50d87edc5d904fad39401a3e383d14403c0f91e38b4d749e5050b69`, 3,892,620 bytes, 20 files,
+built at commit `64efbd5`.
+
+Independent verification by the other lane, recorded in `docs/demo/verify.json` (commit `4af81f5`):
+
+    [PASS] 1  printed mass  sum(bodies) 0.901658836 kg, totals 0.901658836 kg
+    [PASS] 2  revision       0.901658836 -> 0.955453030 kg over 7 link(s)
+    [PASS] 3  check rows     {'pass': 5, 'fail': 1, 'skipped': 1}
+    [PASS] 4  page opens    7 check rows rendered, 7 link rows, revision panel 470 chars over 7 row(s),
+                             0 page error(s), 0 non-file request(s), 0 missing relative link(s)
+
+Four passes, exit 0. The fourth check is the one that matters: the zip was unzipped somewhere else
+and opened from file:// with the network off, which is the only test that resembles what a recipient
+does.
+
+Open, and deliberately not closed today: the repo page and the packaged page are two bakes of the
+same content, and only the packaged one is verified. If the repo copy drifts, nothing catches it.
