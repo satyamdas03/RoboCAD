@@ -327,7 +327,7 @@ class TestStepImport:
         with pytest.raises(StepImportError, match="import limit"):
             StepImporter(max_bytes=128).read(assembly_step)
 
-    def test_parse_budget_is_enforced(self, assembly_step):
+    def test_parse_budget_aborts_at_the_next_check_point(self, assembly_step):
         with pytest.raises(StepImportError, match="budget"):
             StepImporter(parse_budget_s=1e-9).read(assembly_step)
 
