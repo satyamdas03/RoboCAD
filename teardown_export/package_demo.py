@@ -71,6 +71,7 @@ def main() -> int:
         "comparison.md": "docs/demo/so101_vs_official.md",
         "identifiability.md": "docs/twin/so101/identifiability.md",
         "NOTICE.md": "docs/twin/so101/NOTICE.md",
+        "diff.js": "docs/demo/page/diff.js",
     }
     for name, rel in wanted.items():
         _copy(repo / rel, out / name, repo)
