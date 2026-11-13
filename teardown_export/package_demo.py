@@ -17,15 +17,29 @@ import tempfile
 import zipfile
 
 
-def _copy(src: pathlib.Path, dest: pathlib.Path) -> None:
+def _copy(src: pathlib.Path, dest: pathlib.Path, repo: pathlib.Path) -> None:
+    """Copy one artefact into the package, refusing anything that could leak out of the repo.
+
+    A distributable archive is a publishing surface, so a symlink or a path that resolves outside
+    the repository is exactly the kind of thing that would put a credential or a home-directory file
+    into a zip someone emails. Both are refused loudly rather than copied.
+    """
     if not src.exists():
         print(f"MISSING, skipped: {src}")
         return
+    if src.is_symlink():
+        raise SystemExit(f"refusing to package a symlink: {src}")
+    resolved = src.resolve()
+    if not resolved.is_relative_to(repo):
+        raise SystemExit(f"refusing to package a path outside the repository: {resolved}")
     dest.parent.mkdir(parents=True, exist_ok=True)
-    if src.is_dir():
-        shutil.copytree(src, dest, dirs_exist_ok=True)
+    if resolved.is_dir():
+        for child in resolved.rglob("*"):
+            if child.is_symlink():
+                raise SystemExit(f"refusing to package a symlink inside a directory: {child}")
+        shutil.copytree(resolved, dest, dirs_exist_ok=True)
     else:
-        shutil.copy2(src, dest)
+        shutil.copy2(resolved, dest)
 
 
 def main() -> int:
@@ -59,15 +73,15 @@ def main() -> int:
         "NOTICE.md": "docs/twin/so101/NOTICE.md",
     }
     for name, rel in wanted.items():
-        _copy(repo / rel, out / name)
+        _copy(repo / rel, out / name, repo)
 
     # optional artefacts: present only when the other lane has produced them
     for name, rel in {"diff.md": "docs/twin/so101/revision_f030/diff.md",
                       "diff.json": "docs/twin/so101/revision_f030/diff.json",
                       "CONVENTIONS.md": "docs/twin/so101/CONVENTIONS.md"}.items():
-        _copy(repo / rel, out / name)
+        _copy(repo / rel, out / name, repo)
 
-    _copy(repo / "docs/demo/README.md", out / "README.md")
+    _copy(repo / "docs/demo/README.md", out / "README.md", repo)
 
     index = out / "index.html"
     if index.exists():
