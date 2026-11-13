@@ -16,9 +16,9 @@ Owner of this file: monitor session (Lane B). Updated 2026-11-14. Every claim ca
 
 | Element | Source | State |
 |---|---|---|
-| 3D view | published SO-101 visual meshes | `verified-ran`, offline, 51 to 58 fps |
-| Link masses, total 1.041 kg | compiled bundle `report.json` | `verified-ran` (report read, page bound) |
-| Seven checks, worst `fail` | compiled bundle `report.json` | `verified-ran` |
+| 3D view | **the compiled bundle's own 259 visual meshes** | `verified-ran`, offline, 56 fps, 128k triangles |
+| Masses: solid 1.332 kg, print model 0.902 kg, published 0.632 kg | compiled bundle `comparison.json` | `verified-ran`, tagged `demo-bundle-v1` |
+| Seven checks: 5 pass, `self_collision` fail, 1 skipped | compiled bundle `report.json` | `verified-ran` |
 | Required torque per joint | inverse dynamics, both models | `verified-ran` |
 | Kinematics vs official | sense-searched datum fit | `verified-ran` |
 | Twin method rungs | `identification.json` | `verified-ran` |
@@ -171,3 +171,17 @@ agree to 15 mm at the 99th percentile.)
    that is what the report says; this line is the qualification. `verified-ran`
 3. **The limits provenance stamps a pinned revision it never verified.** `scripts/demo_so101_twin.py`
    writes `a758567...` into the provenance without hashing the URDF it was handed. `verified-read`
+
+## Freeze state, Sat 14 Nov
+
+- Package: `docs/demo/so101_demo.zip`, built by `teardown_export/package_demo.py`, which copies the
+  artefacts, zips them, extracts the zip into a fresh temporary directory and opens that copy from
+  `file://` with the network off. The package test is the deliverable, not the folder.
+- Page rendered from the bundle's own visual meshes at 128,073 triangles, 56 fps, zero network
+  requests.
+- Comparison panel states solid upper bound, print model, published figure, the gap between the last
+  two, and the conventions note with the 1.69 mm frame-free link-length agreement.
+- Torque panel reads its limit from the bundle's actuators, 2.94 N m, and is not saturated on this
+  trajectory: peak 1.26 N m official against 0.63 N m compiled.
+- M2 review recorded as PASS by the lane that did not write it, 4 of 4 criteria, with the official
+  URDF's sha256 verified against the pinned digest before the check ran.

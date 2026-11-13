@@ -450,7 +450,8 @@
           'conventions applied: ' + al.method + '. Joint axes agree within ' +
           (al.rms_axis_deg || 0).toFixed(2) + ' degrees rms, worst ' + (al.worst_axis_deg || 0).toFixed(2) +
           '. Without the zero-pose offsets and base translation, joint origins look wrong by ' +
-          ((al.worst_point_m || 0) * 1000).toFixed(0) + ' mm; with them, 2.50 mm median. See CONVENTIONS.md.');
+          ((al.worst_point_m || 0) * 1000).toFixed(0) + ' mm; with them, 2.50 mm median. See docs/twin/so101/CONVENTIONS.md, which also records the ' +
+          'rejected 10.30 degree ICP rotation and why identity beats it.');
         el.appendChild(conv);
       }
       if ((cmp.link_spacings || []).length) {
@@ -467,7 +468,7 @@
       line.textContent = 'source: ';
       line.appendChild(mk('b', null, R.name || 'compiled bundle'));
       line.appendChild(document.createTextNode(
-        ' · compiled bundle demo-bundle-v1, compiled visual meshes · checks: ' +
+        ' · compiled bundle demo-bundle-v1, its visual meshes decimated to 128k of 620k triangles · checks: ' +
         R.worst_check + ' (' + R.checks.filter(c=>c.status==='pass').length + ' of ' +
         R.checks.length + ' pass)')); })();
     document.getElementById('p-source').textContent = 'compiled bundle (masses, checks)';

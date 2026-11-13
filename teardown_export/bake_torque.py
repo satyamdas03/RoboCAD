@@ -94,6 +94,13 @@ def main() -> int:
     finally:
         os.chdir(cwd)
 
+    # the line on the chart is the bundle's own actuator limit, not a datasheet guess typed here
+    if compiled.nu:
+        limits = [abs(float(compiled.actuator_forcerange[a][1])) for a in range(compiled.nu)
+                  if compiled.actuator_forcelimited[a]]
+        if limits:
+            args.rated = min(limits)
+
     if compiled.njnt != official.njnt:
         raise SystemExit(f"joint count differs: official {official.njnt}, compiled {compiled.njnt}")
 
