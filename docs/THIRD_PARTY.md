@@ -70,3 +70,10 @@ before any document mentions it.
 Third-party robot CAD and meshes used for case studies are not redistributed unless their licence
 allows it and Satyam has approved publishing the derived model. Each case study names the upstream
 project, its licence, and what was derived from it.
+
+| Case study | Upstream | Licence | What ships here |
+|---|---|---|---|
+| SO-101 | TheRobotStudio/SO-ARM100, `STEP/SO101/SO101 Assembly.step`, pinned `a758567c3978dfeefe282ede0500085a48fe8f78` | Apache-2.0 | `docs/twin/so101/`: link groups and joint axes inferred from the geometry, and the notice that says so. No upstream geometry, mesh or binary is redistributed. |
+
+The SO-101 directory ships on Satyam's direct authorisation (2026-11-13), recorded in
+`docs/DECISIONS.md` with the reasoning and the pinned revision.

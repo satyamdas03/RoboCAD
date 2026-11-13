@@ -1,0 +1,657 @@
+# RoboCAD twin joint skeleton, derived from CAD geometry.
+# Axes and origins come from the servo output shafts and drive-horn placements in the CAD.
+# Joint limits are UNKNOWN: the CAD carries no travel limits. Supply them from a datasheet
+# or a measurement before simulating motion this file describes.
+# Topology order is taken from the CAD's own assembly names, not from geometry.
+schema: robocad.twin.joints/1
+source:
+  file: so101.step
+  parts: 83
+  instances: 259
+  units: mm
+bodies:
+- body_id: base_so101
+  name: Base_SO101
+  role: link
+  instance_ids:
+  - inst_001
+  - inst_011
+  - inst_012
+  - inst_013
+  - inst_014
+  - inst_015
+  - inst_016
+  - inst_067
+  - inst_068
+  - inst_069
+  - inst_070
+  - inst_071
+  - inst_072
+  - inst_073
+  - inst_074
+  - inst_005
+  - inst_079
+  - inst_080
+  - inst_081
+  - inst_082
+  - inst_083
+  - inst_084
+  - inst_085
+  - inst_086
+  - inst_087
+  - inst_088
+  - inst_089
+  - inst_090
+  - inst_091
+  - inst_092
+  - inst_093
+  - inst_094
+  - inst_095
+  - inst_096
+  - inst_097
+  - inst_098
+  - inst_099
+  - inst_100
+  - inst_101
+  - inst_102
+  - inst_103
+  - inst_104
+  - inst_105
+  - inst_106
+  - inst_107
+  - inst_108
+  - inst_109
+  - inst_110
+  - inst_111
+  - inst_112
+  - inst_113
+  - inst_114
+  - inst_115
+  - inst_116
+  - inst_117
+  - inst_118
+  - inst_119
+  - inst_120
+  - inst_121
+  - inst_122
+  - inst_123
+  - inst_124
+  - inst_125
+  - inst_126
+  - inst_127
+  - inst_128
+  - inst_129
+  - inst_130
+  - inst_131
+  - inst_132
+  - inst_133
+  - inst_134
+  - inst_135
+  - inst_136
+  - inst_137
+  - inst_138
+  - inst_139
+  - inst_140
+  - inst_141
+  - inst_142
+  - inst_143
+  - inst_144
+  - inst_145
+  - inst_146
+  - inst_147
+  - inst_148
+  - inst_149
+  - inst_150
+  - inst_151
+  - inst_152
+  - inst_153
+  - inst_154
+  - inst_155
+  - inst_156
+  - inst_157
+  - inst_158
+  - inst_159
+  - inst_160
+  - inst_161
+  - inst_162
+  - inst_163
+  - inst_164
+  - inst_165
+  - inst_166
+  - inst_167
+  - inst_168
+  - inst_169
+  - inst_170
+  - inst_171
+  - inst_172
+  - inst_173
+  - inst_174
+  - inst_175
+  - inst_176
+  - inst_177
+  - inst_178
+  - inst_179
+  - inst_180
+  - inst_181
+  - inst_182
+  - inst_183
+  - inst_184
+  - inst_185
+  - inst_186
+  - inst_187
+  - inst_188
+  - inst_189
+  - inst_190
+  - inst_191
+  - inst_192
+  - inst_193
+  - inst_194
+  - inst_195
+  - inst_196
+  - inst_197
+  - inst_198
+  - inst_199
+  - inst_200
+  - inst_203
+  - inst_204
+  - inst_205
+  - inst_206
+  - inst_207
+  - inst_208
+  - inst_209
+  - inst_210
+  - inst_211
+  - inst_212
+  - inst_258
+  - inst_259
+  part_ids:
+  - part_001
+  - part_011
+  - part_012
+  - part_013
+  - part_005
+  - part_014
+  - part_015
+  - part_016
+  - part_017
+  - part_018
+  - part_019
+  - part_020
+  - part_021
+  - part_022
+  - part_023
+  - part_024
+  - part_025
+  - part_026
+  - part_027
+  - part_028
+  - part_029
+  - part_030
+  - part_031
+  - part_032
+  - part_033
+  - part_034
+  - part_035
+  - part_036
+  - part_037
+  - part_038
+  - part_039
+  - part_040
+  - part_041
+  - part_042
+  - part_043
+  - part_044
+  - part_045
+  - part_046
+  - part_047
+  - part_048
+  - part_049
+  - part_050
+  - part_051
+  - part_052
+  - part_053
+  - part_054
+  - part_055
+  - part_056
+  - part_057
+  - part_058
+  - part_059
+  - part_060
+  - part_061
+  - part_062
+  - part_063
+  - part_064
+  - part_065
+  - part_066
+  - part_068
+  - part_069
+  - part_070
+  - part_071
+  - part_072
+  - part_073
+  - part_074
+  - part_075
+  - part_076
+  - part_082
+  - part_083
+  attached_groups:
+    base_08p: 1
+    bus_servo_adapter_a: 122
+    '050375033': 1
+    '050375033_2': 1
+    st3215_servo: 8
+    waveshare_mounting_plate_so101: 1
+    component7_1: 1
+- body_id: rotation_pitch_so101
+  name: Rotation_Pitch_SO101
+  role: link
+  instance_ids:
+  - inst_002
+  - inst_017
+  - inst_018
+  - inst_019
+  - inst_020
+  - inst_006
+  - inst_213
+  - inst_214
+  - inst_215
+  - inst_216
+  - inst_217
+  - inst_218
+  - inst_219
+  - inst_220
+  - inst_252
+  part_ids:
+  - part_002
+  - part_011
+  - part_006
+  - part_069
+  - part_070
+  - part_071
+  - part_072
+  - part_073
+  - part_074
+  - part_075
+  - part_076
+  - part_077
+  attached_groups:
+    motor_holder_so101_base: 1
+    st3215_servo_2: 8
+    component1_1: 1
+- body_id: upper_arm_so101
+  name: Upper_arm_SO101
+  role: link
+  instance_ids:
+  - inst_003
+  - inst_021
+  - inst_022
+  - inst_023
+  - inst_024
+  - inst_051
+  - inst_052
+  - inst_053
+  - inst_054
+  - inst_059
+  - inst_060
+  - inst_061
+  - inst_062
+  - inst_253
+  part_ids:
+  - part_003
+  - part_011
+  - part_013
+  - part_078
+  attached_groups:
+    component2_1: 1
+- body_id: under_arm_so101
+  name: Under_arm_SO101
+  role: link
+  instance_ids:
+  - inst_004
+  - inst_025
+  - inst_026
+  - inst_027
+  - inst_028
+  - inst_047
+  - inst_048
+  - inst_049
+  - inst_050
+  - inst_055
+  - inst_056
+  - inst_057
+  - inst_058
+  - inst_007
+  - inst_221
+  - inst_222
+  - inst_223
+  - inst_224
+  - inst_225
+  - inst_226
+  - inst_227
+  - inst_228
+  - inst_254
+  part_ids:
+  - part_004
+  - part_011
+  - part_013
+  - part_007
+  - part_069
+  - part_070
+  - part_071
+  - part_072
+  - part_073
+  - part_074
+  - part_075
+  - part_076
+  - part_079
+  attached_groups:
+    motor_holder_so101_wrist: 1
+    st3215_servo_3: 8
+    component3_1: 1
+- body_id: wrist_roll_pitch_so100
+  name: Wrist_Roll_Pitch_SO100
+  role: link
+  instance_ids:
+  - inst_008
+  - inst_029
+  - inst_030
+  - inst_031
+  - inst_032
+  - inst_033
+  - inst_034
+  - inst_035
+  - inst_036
+  - inst_037
+  - inst_038
+  - inst_039
+  - inst_040
+  - inst_041
+  - inst_042
+  - inst_043
+  - inst_044
+  - inst_045
+  - inst_046
+  - inst_063
+  - inst_064
+  - inst_065
+  - inst_066
+  - inst_075
+  - inst_076
+  - inst_077
+  - inst_078
+  - inst_201
+  - inst_202
+  - inst_257
+  - inst_229
+  - inst_230
+  - inst_231
+  - inst_232
+  - inst_233
+  - inst_234
+  - inst_235
+  - inst_236
+  - inst_237
+  - inst_238
+  - inst_239
+  - inst_240
+  - inst_241
+  - inst_242
+  - inst_243
+  - inst_255
+  - inst_256
+  part_ids:
+  - part_008
+  - part_011
+  - part_013
+  - part_067
+  - part_069
+  - part_070
+  - part_071
+  - part_072
+  - part_073
+  - part_074
+  - part_075
+  - part_076
+  - part_080
+  - part_081
+  attached_groups:
+    st3215_servo_4: 8
+    st3215_servo_5: 7
+    component4_1: 1
+    component6_1: 1
+- body_id: wrist_roll_follower_so101
+  name: Wrist_Roll_Follower_SO101
+  role: link
+  instance_ids:
+  - inst_009
+  - inst_244
+  - inst_245
+  - inst_246
+  - inst_247
+  - inst_248
+  - inst_249
+  - inst_250
+  - inst_251
+  part_ids:
+  - part_009
+  - part_069
+  - part_070
+  - part_071
+  - part_072
+  - part_073
+  - part_074
+  - part_075
+  - part_076
+  attached_groups:
+    st3215_servo_6: 8
+- body_id: moving_jaw_so101
+  name: Moving_Jaw_SO101
+  role: link
+  instance_ids:
+  - inst_010
+  part_ids:
+  - part_010
+  attached_groups: {}
+joints:
+- joint_id: joint_1
+  parent_body: base_so101
+  child_body: rotation_pitch_so101
+  joint_type: revolute
+  axis_point:
+  - -9.943246979518915e-05
+  - -0.007552839223757381
+  - 0.06353147903307246
+  axis_dir:
+  - 3.4694469519536134e-18
+  - 0.008726535498374356
+  - -0.9999619230641713
+  limits: null
+  servo: st3215_servo
+  horn_instance: inst_211
+  evidence:
+    servo_radii_m:
+    - 0.008525
+    - 0.0087
+    - 0.0088
+    - 0.00965
+    - 0.0098
+    servo_cylinder_faces: 10
+    servo_axis_point_m:
+    - -1.2500994324697952
+    - 0.03720870794671498
+    - -2.1435119451874187
+    servo_to_joint_distance_m: 0.014567
+    source: servo output-shaft axis and drive-horn placement, both from the CAD B-rep;
+      topology order from the CAD assembly names
+  review_required: true
+- joint_id: joint_2
+  parent_body: rotation_pitch_so101
+  child_body: upper_arm_so101
+  joint_type: revolute
+  axis_point:
+  - -0.014756250673518746
+  - -0.0388697664877171
+  - 0.11975728484641494
+  axis_dir:
+  - 0.9999619230641714
+  - 0.008726203218642077
+  - 7.61524218171241e-05
+  limits: null
+  servo: st3215_servo_2
+  horn_instance: inst_219
+  evidence:
+    servo_radii_m:
+    - 0.008525
+    - 0.0087
+    - 0.0088
+    - 0.00965
+    - 0.0098
+    servo_cylinder_faces: 10
+    servo_axis_point_m:
+    - 2.2034178695751487
+    - -1.2692902646305837
+    - 0.08351859683327434
+    servo_to_joint_distance_m: 0.048986
+    source: servo output-shaft axis and drive-horn placement, both from the CAD B-rep;
+      topology order from the CAD assembly names
+  review_required: true
+- joint_id: joint_3
+  parent_body: upper_arm_so101
+  child_body: under_arm_so101
+  joint_type: revolute
+  axis_point:
+  - -0.013244911113251753
+  - 0.07357146555251139
+  - 0.1484636557286717
+  axis_dir:
+  - 0.9999238475781956
+  - 0.008649718529758195
+  - 0.008802352740800962
+  limits: null
+  servo: st3215_servo_3
+  horn_instance: inst_227
+  evidence:
+    servo_radii_m:
+    - 0.008525
+    - 0.0087
+    - 0.0088
+    - 0.00965
+    - 0.0098
+    servo_cylinder_faces: 10
+    servo_axis_point_m:
+    - 2.205067681393523
+    - -1.1570159277286816
+    - 0.1314877338604768
+    servo_to_joint_distance_m: 0.057826
+    source: servo output-shaft axis and drive-horn placement, both from the CAD B-rep;
+      topology order from the CAD assembly names
+  review_required: true
+- joint_id: joint_4
+  parent_body: under_arm_so101
+  child_body: wrist_roll_pitch_so100
+  joint_type: revolute
+  axis_point:
+  - -0.011162663763622438
+  - -0.06057694392071616
+  - 0.1522762187709546
+  axis_dir:
+  - 0.999847700955417
+  - -0.0001529606664389411
+  - 0.017451403874803297
+  limits: null
+  servo: st3215_servo_4
+  horn_instance: inst_235
+  evidence:
+    servo_radii_m:
+    - 0.008525
+    - 0.0087
+    - 0.0088
+    - 0.00965
+    - 0.0098
+    servo_cylinder_faces: 10
+    servo_axis_point_m:
+    - 2.217666234739398
+    - -0.024413878313048764
+    - -1.0587391594896474
+    servo_to_joint_distance_m: 0.034789
+    source: servo output-shaft axis and drive-horn placement, both from the CAD B-rep;
+      topology order from the CAD assembly names
+  review_required: true
+- joint_id: joint_5
+  parent_body: wrist_roll_pitch_so100
+  child_body: wrist_roll_follower_so101
+  joint_type: revolute
+  axis_point:
+  - 0.007061806223549176
+  - -0.11987743442570112
+  - 0.15207231002956853
+  axis_dir:
+  - 6.645215740348764e-07
+  - -0.9999612556431758
+  - -0.008802682095902807
+  limits: null
+  servo: st3215_servo_5
+  horn_instance: inst_243
+  evidence:
+    servo_radii_m:
+    - 0.008525
+    - 0.0087
+    - 0.0088
+    - 0.00965
+    - 0.0098
+    servo_cylinder_faces: 10
+    servo_axis_point_m:
+    - 0.0107413604073326
+    - 2.0763814514053696
+    - 1.4217091241575592
+    servo_to_joint_distance_m: 0.023462
+    source: servo output-shaft axis and drive-horn placement, both from the CAD B-rep;
+      topology order from the CAD assembly names
+  review_required: true
+- joint_id: joint_6
+  parent_body: wrist_roll_follower_so101
+  child_body: moving_jaw_so101
+  joint_type: revolute
+  axis_point:
+  - 0.02386684127599598
+  - -0.14570442337262066
+  - 0.17206615534103112
+  axis_dir:
+  - 0.9999619259454086
+  - -7.614954071793674e-05
+  - 0.008725873067878448
+  limits: null
+  servo: st3215_servo_6
+  horn_instance: inst_250
+  evidence:
+    servo_radii_m:
+    - 0.008525
+    - 0.0087
+    - 0.0088
+    - 0.00965
+    - 0.0098
+    servo_cylinder_faces: 10
+    servo_axis_point_m:
+    - -2.1831774283761716
+    - 1.104639694864939
+    - 0.13831041087769333
+    servo_to_joint_distance_m: 0.02078
+    source: servo output-shaft axis and drive-horn placement, both from the CAD B-rep;
+      topology order from the CAD assembly names
+  review_required: true
+warnings: []
+summary:
+  bodies: 7
+  joints: 6
+  instances_assigned: 259
+  parts_assigned: 83
+  servos:
+  - st3215_servo
+  - st3215_servo_2
+  - st3215_servo_3
+  - st3215_servo_4
+  - st3215_servo_5
+  - st3215_servo_6
+  limits: unknown; the CAD carries no travel limits
+  topology_source: CAD assembly names, not geometry
+status: derived
