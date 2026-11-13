@@ -154,7 +154,9 @@
   (function(){ const line = document.getElementById('srcline');
     line.textContent = 'source: ';
     line.appendChild(mk('b', null, META.source || 'unknown'));
-    line.appendChild(document.createTextNode(' · official SO-101 model, not the compiled bundle')); })();
+    line.appendChild(document.createTextNode(window.SO101_REPORT
+      ? ' · masses, checks and torques from the compiled bundle; 3D shapes from the published meshes'
+      : ' · official SO-101 model')); })();
   document.getElementById('p-source').textContent = META.source || 'unknown';
   document.getElementById('p-synth').textContent = META.synthetic ? 'yes' : 'no';
   document.getElementById('m-total').textContent = META.total_mass_kg.toFixed(3) + ' kg';
@@ -243,7 +245,7 @@
     for (let j=0;j<nq;j++){
       const el = jEls[j]; if(!el) continue;
       el.angle.textContent = (qpos[q0+j]).toFixed(3) + ' rad';
-      el.torque.textContent = (qfrc[q0+j]).toFixed(3) + ' N·m';
+      el.torque.textContent = window.SO101_TORQUE ? 'see torque panel' : 'n/a (no actuators)';
     }
     hudEl.textContent = 't = ' + (f/META.hz).toFixed(2) + ' s  ·  frame ' + f + '/' + frames;
   }
@@ -272,7 +274,7 @@
   const jEls = META.joints.map(j=>{
     const row = document.createElement('div');
     const nameRow = dataRow(j.name, '');
-    const torqueRow = dataRow('torque', '');
+    const torqueRow = dataRow('actuator', '');
     torqueRow.style.paddingTop = '0'; torqueRow.style.color = '#8b97a8';
     row.appendChild(nameRow); row.appendChild(torqueRow);
     jointsEl.appendChild(row);
@@ -438,7 +440,7 @@
       line.textContent = 'source: ';
       line.appendChild(mk('b', null, R.name || 'compiled bundle'));
       line.appendChild(document.createTextNode(
-        ' · masses and checks from the compiled bundle, 3D meshes from the official model · checks: ' +
+        ' · compiled from STEP: masses, checks and collision hulls · checks: ' +
         R.worst_check + ' (' + R.checks.filter(c=>c.status==='pass').length + ' of ' +
         R.checks.length + ' pass)')); })();
     document.getElementById('p-source').textContent = 'compiled bundle (masses, checks)';
