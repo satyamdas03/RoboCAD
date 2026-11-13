@@ -482,9 +482,11 @@
       document.getElementById('m-total').textContent = totals.total_mass_kg.toFixed(3) + ' kg';
     }
     const warns = (R.warnings || []);
+    const assemblyWarns = (R.assembly_warnings || []);
     if (warns.length) {
       const oversize = warns.filter(w => String(w).includes('hulls cover'));
-      const row = dataRow('model warnings', warns.length);
+      const row = dataRow('report warnings', warns.length +
+        (assemblyWarns.length ? ' + ' + assemblyWarns.length + ' assembly' : ''));
       document.getElementById('m-frames').parentElement.parentElement.appendChild(row);
       if (oversize.length) {
         const worst = oversize.map(w => {
@@ -535,19 +537,30 @@
     if (!R || !R.links || !R.links.length) return;
     document.getElementById('rev-grp').style.display = '';
     const box = document.getElementById('rev');
-    const changed = R.links.filter(l => l.status !== 'unchanged');
+    const changed = R.links.filter(l => l.status ? l.status !== 'unchanged'
+                                              : (l.mass_delta_percent || 0) !== 0);
     changed.slice(0, 8).forEach(l => {
       const delta = l.mass_delta_percent;
       const label = l.name + ' ' + (delta != null ? (delta >= 0 ? '+' : '') + delta.toFixed(1) + ' %' : l.status);
       box.appendChild(dataRow(label, l.mass_after_kg != null ? l.mass_after_kg.toFixed(3) + ' kg' : '—'));
     });
-    if (R.totals && R.totals.before_kg && R.totals.after_kg) {
-      box.appendChild(dataRow('total',
-        R.totals.before_kg.toFixed(3) + ' -> ' + R.totals.after_kg.toFixed(3) + ' kg'));
+    const t = R.totals || {};
+    if (t.printed_mass_before_kg != null && t.printed_mass_after_kg != null) {
+      box.appendChild(dataRow('printed total',
+        t.printed_mass_before_kg.toFixed(3) + ' -> ' + t.printed_mass_after_kg.toFixed(3) + ' kg'));
     }
+    if (R.effort && R.effort.before && R.effort.after) {
+      const eb = R.effort.before, ea = R.effort.after;
+      const fmt = e => (typeof e === 'number' ? e.toFixed(3) + ' N·m'
+                        : (e.demand_nm != null ? e.demand_nm.toFixed(3) + ' N·m' : '—'));
+      box.appendChild(dataRow('effort demand', fmt(eb) + ' -> ' + fmt(ea) +
+        (eb.percent != null && ea.percent != null ? ' (' + eb.percent + '% -> ' + ea.percent + '% of limit)' : '')));
+    }
+    const zeroNet = (R.added || []).length === 0 && (R.removed || []).length === 0;
     box.appendChild(mk('div', 'hint',
-      changed.length + ' of ' + R.links.length + ' links changed; diff keyed on the link names from ' +
-      'robot.joints.yaml, so a link cannot appear as removed and re-added.'));
+      changed.length + ' of ' + R.links.length + ' links changed' +
+      (R.before && R.after ? ', ' + R.before + ' -> ' + R.after : '') +
+      (zeroNet && R.keyed_on ? '; keyed on ' + R.keyed_on + ', with no links added or removed' : '') + '.'));
   })();
 
   // ---- torque panel and kinematics row: what the mass and geometry difference does to the motors ----

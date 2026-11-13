@@ -131,7 +131,11 @@ def main() -> int:
         "worst_check": worst,
         "checks": checks,
         "bodies": _bodies(report),
-        "warnings": report.get("warnings", []) + bundle.get("warnings", []),
+        # kept apart: one list concatenated onto the other reads as a doubled count, and a reader
+        # has no way to tell which warnings belong to the report and which to the assembly import
+        "warnings": report.get("warnings", []),
+        "assembly_warnings": bundle.get("warnings", []),
+        "warnings_total": len(report.get("warnings", [])) + len(bundle.get("warnings", [])),
         "notes": report.get("notes", []),
         "comparison": _comparison(report.get("comparison")),
         "revision": _revision(report.get("revision")),
