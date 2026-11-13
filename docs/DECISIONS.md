@@ -383,3 +383,49 @@ vertices_in 16 hull_verts [40, 68]
 
 vhacdx is not installed and no longer needed. Primitive fitting stays as the fallback for links
 where decomposition is slower than it is worth, and the choice is recorded per link in the report.
+
+## 2026-11-14 P0-a verdict: the compiled chain is the same robot, and the bundle omits three conventions
+
+Decided: the compiled SO-101 chain reproduces the published URDF chain. The large pointwise
+disagreement between `docs/twin/so101/bundle/model.mjcf` and `so101_new_calib.urdf` is a missing
+convention, not a wrong robot. The bundle must state, and the compiler must emit:
+
+1. **Per-joint zero offsets.** Applying five constant offsets makes the five upstream joints agree
+   to 2.50 mm median (p90 5.95, max 11.25) over 500 joint positions. The fitted offsets, base first,
+   are -88.17, +90.28, -90.31, -0.15, 0.00 degrees.
+2. **A base-frame translation.** With a pure translation of (38.74, 6.63, -2.86) mm, |t| = 39.40 mm,
+   and **no rotation at all**. Forcing a rotation makes the fit worse, not better.
+3. **The jaw frame definition.** The compiled jaw origin is placed differently from the published
+   jaw link origin: 5.74 mm apart at rest, and no gripper zero offset reduces that (the best scan
+   still leaves 40.21 mm across pose). The jaw-to-wrist spacing itself matches, 36.73 mm against
+   36.18 mm, so the arm is right and the jaw's own frame is the outlier.
+
+Why this is the answer and not a fit artifact. Three measurements that use no registration at all:
+
+- Consecutive joint-origin spacing is a link length, constant in q and invariant under any rigid
+  transform. Official against compiled, mm: 64.775 / 66.007, 116.000 / 116.058, 135.000 / 134.219,
+  63.725 / 62.038, 36.181 / 36.731. Worst disagreement 1.69 mm. Spread within each model is 0.000 um.
+- Joint sense, from a frame-free triple product, agrees on all six joints: the compiled joint turns
+  the way the published joint turns.
+- The angle between consecutive joint axes agrees to 0.00, 0.50, 0.71, 0.00, 0.00 degrees.
+
+A fit residual of 2.50 mm is inside those measurement errors. The link error alone is 1.7 mm, and
+0.7 degrees of axis error over a 0.35 m reach is about 4 mm.
+
+Rejected: the 10.303 degree base rotation from the ICP registration in the earlier note. That
+registration fitted convex hulls of a mostly planar base to the published base meshes, so it could
+not constrain rotation about the plane normal, and it reported 4.000 mm median / 9.927 mm rms on
+its own data. Pinning the frame to that rotation gives a 13.61 mm fit residual; pinning it to
+identity gives 2.50 mm. Identity is the better model of the frame, so the ICP rotation is a
+registration bias, not a measurement of the bundle.
+
+What this does **not** establish. The comparison is of joint origins to 2.50 mm. It says nothing
+about collision geometry, mass, inertia or contact behaviour, which is P0-b's subject and where the
+`self_collision` fail and the 13 oversized hulls live. It is also one robot from one CAD source;
+generalisation to another third-party model is untested.
+
+Consequence for the page and the report: the sentence "the compiled robot moves wrongly by roughly
+seven centimetres" is not supportable and is withdrawn. The supportable statement is that the
+compiled model reproduces the published kinematics within its own link-length and axis-direction
+error once its zero pose and base translation are applied, and that the bundle does not currently
+state either, so a naive comparison against the published model is meaningless.
