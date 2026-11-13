@@ -29,6 +29,12 @@ def test_find_pyinstaller_returns_string_or_none():
 
 
 def test_main_without_pyinstaller_exits_with_message(tmp_path: Path, monkeypatch, capsys):
+    # ``main`` builds the frontend before it looks for PyInstaller, so this test used to run a real
+    # ``npm run build`` on every default-tier run and failed outright in a fresh worktree, where
+    # node_modules is gitignored. The subject is the missing-PyInstaller message, so the frontend
+    # step is stubbed. (Reported: checking for PyInstaller before building the frontend would be
+    # better product behaviour, but that is a change to scripts/ and not this test's call.)
+    monkeypatch.setattr(build_installer, "_build_frontend", lambda: None)
     monkeypatch.setattr(build_installer, "DIST_DIR", tmp_path / "dist")
     monkeypatch.setattr(build_installer, "_find_pyinstaller", lambda: None)
     monkeypatch.setattr(build_installer, "SPEC_PATH", tmp_path / "robocad.spec")

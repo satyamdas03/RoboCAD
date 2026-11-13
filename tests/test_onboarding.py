@@ -45,8 +45,19 @@ def test_setup_solvers_script_exists() -> None:
     assert (REPO_ROOT / "scripts" / "setup_solvers.py").is_file()
 
 
-def test_backend_health_endpoint() -> None:
+def test_backend_health_reports_ok_when_the_required_key_is_set(monkeypatch) -> None:
+    # The key is set to a placeholder, never a real one: the endpoint checks presence, and a test
+    # must not depend on the developer's .env existing. A fresh clone has no .env, and this test
+    # failing there was the test's fault, not the endpoint's.
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-placeholder-not-a-real-key")
     response = client.get("/health")
     assert response.status_code == 200
-    data = response.json()
-    assert data.get("status") in {"ok", "healthy"}
+    assert response.json()["status"] == "ok"
+
+
+def test_backend_health_reports_degraded_without_the_required_key(monkeypatch) -> None:
+    # Degraded is a correct answer, not a failure: the service is up and says what it is missing.
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json()["status"] == "degraded"
