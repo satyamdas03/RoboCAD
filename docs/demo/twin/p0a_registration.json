@@ -1,0 +1,69 @@
+{
+  "registration": {
+    "mode": "joint_axes_sense_search",
+    "axis_fit_rms_deg": 1.054,
+    "senses": [
+      1,
+      1,
+      1,
+      1,
+      -1,
+      -1
+    ],
+    "axis_residual_deg": [
+      0.16,
+      0.34,
+      0.72,
+      1.17,
+      0.2,
+      2.14
+    ],
+    "base_body_compiled": "base_so101",
+    "base_body_official": "base",
+    "rotation_det": 1.0,
+    "translation_m": [
+      0.1259,
+      -0.0043,
+      0.0536
+    ]
+  },
+  "joints": [
+    {
+      "joint": 1,
+      "angle_deg": 0.16,
+      "line_distance_mm": 94.2
+    },
+    {
+      "joint": 2,
+      "angle_deg": 0.34,
+      "line_distance_mm": 94.5
+    },
+    {
+      "joint": 3,
+      "angle_deg": 0.72,
+      "line_distance_mm": 53.6
+    },
+    {
+      "joint": 4,
+      "angle_deg": 1.17,
+      "line_distance_mm": 41.6
+    },
+    {
+      "joint": 5,
+      "angle_deg": 0.2,
+      "line_distance_mm": 27.6
+    },
+    {
+      "joint": 6,
+      "angle_deg": 2.14,
+      "line_distance_mm": 48.9
+    }
+  ],
+  "tip_body_compiled": "moving_jaw_so101",
+  "tip_body_official": "moving_jaw_so101_v1",
+  "fk_tip_error_mm": {
+    "max": 95.63,
+    "median": 69.1,
+    "samples": 50
+  }
+}
