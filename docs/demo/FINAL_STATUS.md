@@ -132,3 +132,20 @@ regenerated". The bundle then landed and the line was shortened to drop the last
 and the page therefore differ by those two words and nothing else. Re-recording costs ten minutes and
 is the sprints own cut item, so it is left, and this line exists so nobody discovers it and wonders
 what else drifted.
+
+## Security review findings that change what the demo claims
+
+Three of five findings affect what an artifact says rather than what an attacker can do. All three were
+verified in the source, not taken from the report.
+
+1. **Assumed-density disclosure is silently suppressed in the comparison.** `bundle.json` bodies carry
+   `rests_on_an_assumed_density`; `compare.py` reads `assumed_density`, so every body reads False. The
+   report and the page read the short key and are correct; the comparison is the surface losing the
+   flag. Until it is fixed the page's comparison note states the flags are missing and that every
+   printed body should be treated as assumed. `verified-ran`
+2. **`limits_and_effort` passes on provenance, not on measurement.** The check ends with
+   `status = "pass" if source else "warn"`, so it reports pass when a source string exists, without
+   comparing the ranges or requiring an actuator force range. The page still shows 5 of 7 pass because
+   that is what the report says; this line is the qualification. `verified-ran`
+3. **The limits provenance stamps a pinned revision it never verified.** `scripts/demo_so101_twin.py`
+   writes `a758567...` into the provenance without hashing the URDF it was handed. `verified-read`

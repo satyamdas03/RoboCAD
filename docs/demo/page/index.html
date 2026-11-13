@@ -431,7 +431,9 @@
       ];
       rows.forEach(([k, v]) => el.appendChild(dataRow(k, v)));
       const note = document.createElement('div'); note.className = 'hint';
-      note.textContent = 'masses are at the density stated in the report; printed parts are an upper bound.';
+      note.textContent = 'masses are at the density stated in the report; printed parts are an upper bound. ' +
+        'per-body assumed-density flags are missing from this comparison because of a producer/consumer ' +
+        'key mismatch under review, so treat every printed body as assumed regardless of what it shows.';
       el.appendChild(note);
     }
 
