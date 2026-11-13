@@ -72,3 +72,31 @@ Done since the last entry, all `verified-ran`:
   apart. Both cannot be right on the same MJCF. Asked which file and sha they measured.
 
 Next: resolve the kinematics disagreement, re-record the film once the page settles, live viewer.
+
+### 2026-11-14 10:40 Sydney, monitor session, Lane B final
+
+Done, `verified-ran`:
+
+- Page bound to `demo-bundle-v1` and rendering the bundle's own 259 visual meshes, decimated to
+  128k of its 620k triangles (stated in the provenance line, because "renders the bundle's meshes"
+  without that would overstate it). 54 to 56 fps, zero network requests, zero console errors.
+- Comparison panel: solid upper bound 1.332 kg, print model 0.902 kg, published 0.632 kg, +42.7
+  percent, with the conventions note and the 1.69 mm frame-free link-length agreement underneath.
+- Torque panel reads its limit from the bundle's actuators, 2.94 N m, unsaturated: peak 1.26 N m
+  official against 0.63 N m compiled.
+- Revision panel wired and waiting only for `diff.json`; it stays hidden rather than showing the old
+  broken diff.
+- M2 cross-review: PASS, 4 of 4, run by this lane against the committed files, with the official
+  URDF's sha256 verified against the pinned digest before the check ran. Recorded in JOINT_REVIEW.md.
+- Package `docs/demo/so101_demo.zip`, sha256 `9afc087707d971f93bdfa4862939cbc775663d525fc0b459fffd8f68250a0362`, built and tested by extracting into a fresh
+  temporary directory and opening that copy from `file://` with the network off: seven checks, seven
+  link rows, comparison and torque panels populated, five identification rungs, zero page errors,
+  zero external requests, no missing relative links.
+- Packaging hardened after a review finding: it now refuses symlinks and any path resolving outside
+  the repository, because an archive someone emails is a publishing surface.
+
+Two package defects caught by that test and fixed, both worth recording because neither was visible
+in the repo copy: rewriting the page header removed the provenance element the script reads, and the
+page asked for a `diff.js` that the package did not contain.
+
+Open: `diff.json` from Lane A's 0.30 infill run, the film re-record, and the final zip rebuild.
