@@ -43,8 +43,10 @@ Owner of this file: monitor session (Lane B). Updated 2026-11-14. Every claim ca
   do not interfere. `verified-read` from Lane A, corrected after their unit bug
 - Identification rungs 0, 1, 2 and 4 recover (0.57, 1.6/0.86, latency exact, 0.12/0.56 percent).
   Rung 3 is blocked. `verified-ran`
-- Default test tier at `c7a6544`: 520 of 808 collected, measured in an isolated worktree.
-  `verified-ran`. Not re-run at the final commit; the sprint stopped that work by instruction.
+- Default test tier: `664 passed, 298 deselected, 3 warnings in 863.19 s`, exit 0, run at `af75fdd`
+  with three Lane A files modified but uncommitted in the same tree. `verified-ran`. The collected
+  count measured afterwards is 668 of 968, and the difference is those edits landing mid-run, so the
+  row is recorded as "commit plus in-flight edits", not as a clean artifact.
 
 ## Cross-verification of Lane A's published bundle
 

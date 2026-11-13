@@ -98,6 +98,13 @@ measured yet. It is the first thing to measure before any demo timing appears in
 | `302d065` | 803 | 288 |
 | `c7a6544` | 808 | 288 |
 | `33e30d1` | 809 | 288 |
+| `af75fdd` plus in-flight edits | 968 | 300 |
+
+The `af75fdd` run is labelled with that caveat on purpose. It ran while Lane A had three files modified
+but uncommitted in the same tree, so it measures the commit plus those edits, not the commit alone. The
+collected count measured afterwards is 668 of 968, against 664 passed and 298 deselected during the run,
+and the difference is those edits landing mid-run. A clean single-command run of exactly `af75fdd` has
+not been done, and pretending otherwise would be the drift this file exists to prevent.
 
 Each of these was read with `python -m pytest --collect-only -q -p no:cacheprovider` at the commit,
 not derived by arithmetic from the row above.
