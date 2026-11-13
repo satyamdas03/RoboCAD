@@ -1,15 +1,27 @@
 name: LearningRobotics handshake
 
+# Nightly cross-repo contract check against the latest LearningRobotics main.
+#
+# Two defects made this workflow unable to pass as written, both fixed here:
+#   1. pytest.ini sets --timeout=180, but the workflow installed requirements.txt only,
+#      which has no pytest-timeout, so pytest exited 4 (unrecognized argument).
+#   2. Even with the plugin installed, the addopts -m filter deselects the handshake
+#      tests (they are marked mujoco and heavy), so pytest exited 5 (no tests ran).
+# The test step now clears addopts and names the file explicitly.
+
 on:
-  # Nightly check against the latest LearningRobotics main.
   schedule:
     - cron: '0 6 * * *'
-  # Manual trigger for debugging.
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   handshake:
+    name: bundle handshake
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout RoboCAD
         uses: actions/checkout@v4
@@ -27,18 +39,21 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.14'
+          cache: pip
+          cache-dependency-path: RoboCAD/requirements*.txt
 
-      - name: Install RoboCAD + MuJoCo
+      - name: Install RoboCAD, test dependencies and MuJoCo
+        working-directory: RoboCAD
         run: |
-          cd RoboCAD
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install mujoco>=3.0.0
+          pip install -r requirements.txt -r requirements-dev.txt
+          # Quoted: unquoted "mujoco>=3.0.0" is a shell redirect to a file named "=3.0.0".
+          pip install "mujoco>=3.0.0"
 
       - name: Install LearningRobotics (if installable)
+        working-directory: LearningRobotics
         run: |
-          cd LearningRobotics
           if [ -f requirements.txt ]; then
             pip install -r requirements.txt
           fi
@@ -46,10 +61,11 @@ jobs:
             pip install -e .
           fi
 
-      - name: Run RoboCAD → LearningRobotics handshake
+      - name: Run RoboCAD to LearningRobotics handshake
+        working-directory: RoboCAD
         run: |
-          cd RoboCAD
-          python -m pytest tests/test_learningrobotics_handshake.py -v
+          python -m pytest tests/test_learningrobotics_handshake.py -v \
+            -o addopts="--timeout=600 --tb=short"
 
       - name: Upload handshake artifacts on failure
         if: failure()

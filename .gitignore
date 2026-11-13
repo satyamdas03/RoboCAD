@@ -44,6 +44,10 @@ secrets/
 node_modules/
 dist/
 
+# Python build output (wheel/sdist staging, setuptools build/)
+build/
+*.egg-info/
+
 # Editor
 .vscode/
 .idea/

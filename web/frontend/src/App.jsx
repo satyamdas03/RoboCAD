@@ -35,6 +35,7 @@ import HermesPanel from './components/HermesPanel.jsx'
 import MarketplacePanel from './components/MarketplacePanel.jsx'
 import MorphologyPanel from './components/MorphologyPanel.jsx'
 import WelcomePanel from './components/WelcomePanel.jsx'
+import LABS from './labs.js'
 import {
   checkHealth,
   generateDesign,
@@ -333,14 +334,14 @@ export default function App() {
               />
 
               <div className="kp-panels-grid">
-                <DecomposePanel prompt={result?.prompt} decomposition={decomposition} />
+                {LABS && <DecomposePanel prompt={result?.prompt} decomposition={decomposition} />}
                 <AssemblyPanel designId={selectedId} />
-                <AssemblyReplayPanel designId={selectedId} />
-                <AssemblyCollisionPanel designId={selectedId} />
+                {LABS && <AssemblyReplayPanel designId={selectedId} />}
+                {LABS && <AssemblyCollisionPanel designId={selectedId} />}
                 <SimulatePanel designId={selectedId} />
-                <SceneTemplatePanel designId={selectedId} />
-                <WorldBuilderPanel designId={selectedId} />
-                <CapabilitiesPanel designId={selectedId} />
+                {LABS && <SceneTemplatePanel designId={selectedId} />}
+                {LABS && <WorldBuilderPanel designId={selectedId} />}
+                {LABS && <CapabilitiesPanel designId={selectedId} />}
                 <FeatureTreePanel
                   designId={selectedId}
                   parameters={result?.parameters}
@@ -351,29 +352,38 @@ export default function App() {
                 <DFMReport designId={selectedId} />
                 <ToleranceReport designId={selectedId} designs={designs} />
                 <FEAPanel designId={selectedId} />
-                {(result?.domain === 'aero' || result?.domain === 'multi') && (
+                {LABS && (result?.domain === 'aero' || result?.domain === 'multi') && (
                   <AeroPanel designId={selectedId} />
                 )}
-                {(result?.domain === 'thermal' || result?.domain === 'multi') && (
+                {LABS && (result?.domain === 'thermal' || result?.domain === 'multi') && (
                   <ThermalPanel designId={selectedId} />
                 )}
-                {(result?.domain === 'electronics' || result?.domain === 'multi') && (
+                {LABS && (result?.domain === 'electronics' || result?.domain === 'multi') && (
                   <ElectronicsPanel designId={selectedId} />
                 )}
                 <VerificationPanel designId={selectedId} onFieldLoaded={setVerificationField} />
-                <CertificationPanel designId={selectedId} />
-                <HumanoidPanel designId={selectedId} onDesignCreated={handleSelect} />
-                <BrainTrainingPanel designId={selectedId} />
-                <HermesPanel designId={selectedId} onDesignCreated={handleSelect} focus={hermesFocus} onFocusAck={() => setHermesFocus(false)} />
-                <MarketplacePanel designId={selectedId} onDesignCreated={handleSelect} />
-                <MorphologyPanel />
-                <OnshapeUpload designId={selectedId} prompt={result?.prompt} />
+                {LABS && <CertificationPanel designId={selectedId} />}
+                {LABS && <HumanoidPanel designId={selectedId} onDesignCreated={handleSelect} />}
+                {LABS && <BrainTrainingPanel designId={selectedId} />}
+                {LABS && <HermesPanel designId={selectedId} onDesignCreated={handleSelect} focus={hermesFocus} onFocusAck={() => setHermesFocus(false)} />}
+                {LABS && <MarketplacePanel designId={selectedId} onDesignCreated={handleSelect} />}
+                {LABS && <MorphologyPanel />}
+                {LABS && <OnshapeUpload designId={selectedId} prompt={result?.prompt} />}
                 <TagEditor tags={result?.tags || []} onUpdate={handleUpdateTags} />
                 <RemixPanel designId={selectedId} onRemix={handleRemix} loading={loading} />
               </div>
             </>
-          ) : (
+          ) : LABS ? (
             <WelcomePanel onGenerate={handleGenerate} onOpenHermes={handleOpenHermes} loading={loading} />
+          ) : (
+            <section className="kp-panel" aria-label="Start">
+              <div className="kp-panel-header">
+                <h3 className="kp-panel-title">Start</h3>
+              </div>
+              <p style={{ margin: 0, color: 'var(--kp-on-surface-variant)' }}>
+                Describe the part you want, or pick a design from the history panel.
+              </p>
+            </section>
           )}
         </main>
 

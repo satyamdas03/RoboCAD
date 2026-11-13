@@ -805,9 +805,11 @@ def health(verbose: bool = False) -> dict[str, Any]:
 
     all_ok = all(c["ok"] for c in checks if c.get("required"))
     status = "ok" if all_ok else "degraded"
+    from robocad.labs import labs_enabled
+
     if not verbose:
-        return {"status": status}
-    return {"status": status, "service": "robocad", "checks": checks}
+        return {"status": status, "labs": labs_enabled()}
+    return {"status": status, "service": "robocad", "labs": labs_enabled(), "checks": checks}
 
 
 @app.post("/classify-domain")

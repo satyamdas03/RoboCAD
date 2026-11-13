@@ -1,0 +1,16 @@
+Copyright (c) 2026 Satyam Das. All rights reserved.
+
+This directory and everything in it, the RoboCAD calibration engine, is proprietary and
+confidential. It is not covered by the Apache-2.0 licence that applies to the rest of this
+repository.
+
+Permission to read this source is granted for evaluation and contribution only. No licence is
+granted to use, copy, modify, distribute, sublicense or sell it, in source or binary form, without
+a written agreement.
+
+This restriction is deliberate and temporary. It is reviewed at the customer-interview gate
+recorded in `docs/DECISIONS.md`; until that gate clears, the compile layer is open and this engine
+is not.
+
+Third-party components used by this directory keep their own licences, listed in
+`docs/THIRD_PARTY.md`.

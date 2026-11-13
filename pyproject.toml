@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "robocad"
+version = "0.1.0"
+description = "RoboCAD Twin: compile STEP assemblies into verified sim models, then keep them true on every revision."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "Satyam Das" }]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Scientific/Engineering",
+]
+dependencies = [
+  "build123d>=0.9.0",
+  "pydantic>=2.0.0",
+  "numpy>=1.26.0",
+  "trimesh>=4.0.0",
+  "manifold3d>=2.0.0",
+  "rtree>=1.2.0",
+  "httpx>=0.27.0",
+  "coacd>=1.0.14",
+]
+
+[project.optional-dependencies]
+# Backend and frontend serving. The Twin CLI does not need these.
+web = [
+  "fastapi>=0.110.0",
+  "uvicorn>=0.29.0",
+  "python-multipart>=0.0.9",
+  "python-dotenv>=1.0.0",
+]
+# LLM generation path. Absent, the deterministic rule layer still works.
+ai = ["anthropic>=0.30.0"]
+voice = ["livekit-agents>=0.12.0", "livekit-api>=0.8.0"]
+# Physics. Required for every check that loads a bundle.
+sim = ["mujoco>=3.1.0"]
+dev = ["pytest>=8.0.0", "pytest-timeout>=2.3.0", "playwright>=1.40.0"]
+
+[project.scripts]
+robocad = "robocad.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["ai_cad*", "robocad*"]
+# The calibration engine is proprietary (ai_cad/twin/LICENSE) and must never ship inside a wheel
+# or sdist whose metadata says Apache-2.0. A notice file is not a distribution control, so the
+# package is excluded from the build rather than described in prose.
+exclude = ["ai_cad.twin", "ai_cad.twin.*"]
+
+# Test configuration stays in pytest.ini only. Two copies of addopts would drift, and the
+# silent one would win depending on which file pytest finds first.

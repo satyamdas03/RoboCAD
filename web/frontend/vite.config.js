@@ -4,6 +4,11 @@ import react from '@vitejs/plugin-react'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  define: {
+    // One env var drives the Labs flag for both backend and frontend. It is injected at build
+    // time because the frontend has no runtime config endpoint; default off.
+    __ROBOCAD_LABS__: JSON.stringify(process.env.ROBOCAD_LABS ?? '0'),
+  },
   server: {
     port: 5173,
     proxy: {

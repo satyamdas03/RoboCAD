@@ -1,0 +1,62 @@
+name: CI
+
+# Runs the default pytest tier and the frontend build on every push and pull request.
+# The default tier is defined by addopts in pytest.ini; heavy, slow, mujoco and benchmark
+# tests stay deselected here on purpose. A weekly heavy-tier job is deferred until the
+# demo slice ships (see docs/DECISIONS.md).
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: default pytest tier
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Run default test tier
+        # No -m override: pytest.ini owns the tier selection and the --timeout value.
+        run: python -m pytest -q
+
+  frontend:
+    name: frontend build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: web/frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: web/frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: web/frontend
+        run: npm run build
