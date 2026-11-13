@@ -13,9 +13,22 @@ The bundle is never modified. Nothing here talks to hardware.
 from __future__ import annotations
 
 import argparse
+import collections
 import math
 import pathlib
 import time
+
+from robocad.joints_cli import _safe
+
+# A headless run steps a fixed count so the numbers are repeatable, but a fixed count on a hostile or
+# enormous model is an unbounded amount of work. Both bounds apply: the step cap from --seconds, and a
+# wall-clock deadline a run may not outlive.
+MAX_SECONDS = 600.0
+WALL_CLOCK_FACTOR = 20.0
+
+# The steady state is measured over the last 200 steps, so that is all that is kept. Holding every
+# sample made the memory of a long run grow with its length for no gain: nothing read the earlier ones.
+WINDOW = 200
 
 
 def _load(path: pathlib.Path):
@@ -33,6 +46,18 @@ def _load(path: pathlib.Path):
         import os
 
         os.chdir(cwd)
+
+
+def _headless_steps(seconds: float) -> int:
+    """How many 1 ms model steps a headless run takes, from a validated duration.
+
+    A non-finite or negative ``--seconds`` used to reach ``int(round(...))`` unguarded, and a very
+    large one asked for an unbounded amount of work before anything was printed. The clamp is the fix
+    and it is applied here rather than at three call sites.
+    """
+    if not math.isfinite(seconds) or seconds <= 0.0:
+        raise SystemExit("--seconds must be a finite number greater than zero")
+    return int(round(min(seconds, MAX_SECONDS) * 1000.0))
 
 
 def _replay(mujoco, model, seconds: float, hz: float, live: bool = True) -> int:
@@ -74,7 +99,7 @@ def _replay(mujoco, model, seconds: float, hz: float, live: bool = True) -> int:
             mujoco.mj_forward(model, data)
 
     if not live:
-        steps = int(round(seconds * 1000.0))
+        steps = _headless_steps(seconds)
         for _ in range(steps):
             pose_and_step()
         print(f"replay: {steps} step(s) headless, no window")
@@ -104,8 +129,11 @@ def _hold(mujoco, model, seconds: float, live: bool = False) -> int:
     for a in range(model.nu):
         data.ctrl[a] = target[int(model.actuator_trnid[a, 0])]
 
-    errors = []
-    per_joint = [[] for _ in range(model.nq)]
+    # Rolling windows, not full histories: the steady state is read from the last WINDOW steps, and
+    # keeping every sample made a long run's memory grow with its length while nothing read them.
+    errors: collections.deque[float] = collections.deque(maxlen=WINDOW)
+    per_joint = [collections.deque(maxlen=WINDOW) for _ in range(model.nq)]
+    peak = 0.0
     saturated = 0
 
     def step() -> None:
@@ -113,11 +141,13 @@ def _hold(mujoco, model, seconds: float, live: bool = False) -> int:
         # drive it. Saturation is counted from the actuator force against its own forcerange, because
         # an actuator that is pinned at its limit is holding the arm with everything it has and the
         # steady error is then a torque shortfall rather than a mass error.
-        nonlocal saturated
+        nonlocal saturated, peak
         for a in range(model.nu):
             data.ctrl[a] = target[int(model.actuator_trnid[a, 0])]
         mujoco.mj_step(model, data)
-        errors.append(float(abs(data.qpos - target).max()))
+        worst = float(abs(data.qpos - target).max())
+        errors.append(worst)
+        peak = max(peak, worst)
         for j in range(model.nq):
             per_joint[j].append(abs(float(data.qpos[j] - target[j])))
         for a in range(model.nu):
@@ -135,22 +165,24 @@ def _hold(mujoco, model, seconds: float, live: bool = False) -> int:
             while viewer.is_running() and (time.time() - t0) < seconds:
                 step()
                 viewer.sync()
+        steps = None
     else:
-        t0 = time.time()
-        steps = int(round(seconds * 1000.0))  # a 1 kHz model step, not wall clock: repeatable
-        while len(errors) < steps:
+        steps = _headless_steps(seconds)  # a 1 kHz model step, not wall clock: repeatable
+        deadline = time.monotonic() + max(1.0, seconds * WALL_CLOCK_FACTOR)
+        ran = 0
+        while ran < steps and time.monotonic() < deadline:
             step()
-        del t0
-    steady = sum(errors[-200:]) / max(1, len(errors[-200:]))
+            ran += 1
+    steady = sum(errors) / max(1, len(errors))
 
     print(f"hold: commanded an extended pose for {seconds:.0f} s"
-          + ("" if live else f" ({len(errors)} steps, headless)"))
+          + ("" if live else f" ({steps} steps, headless)"))
     print(f"steady-state joint error {steady*1000:.2f} mrad "
-          f"(peak {max(errors)*1000:.2f} mrad)")
+          f"(peak {peak*1000:.2f} mrad)")
     print("per joint, mean error over the last 200 steps:")
     for j in range(model.nq):
-        window = per_joint[j][-200:]
-        name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_JOINT, j) or f"joint {j}"
+        window = per_joint[j]
+        name = _safe(mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_JOINT, j) or f"joint {j}", 64)
         print(f"  {name:24s} {sum(window) / max(1, len(window)) * 1000:8.2f} mrad")
     print(f"actuator saturation: {saturated} step-instances at or above 99.9% of forcerange")
     print("a large steady error at a held pose is what a mass error looks like to a real controller")
