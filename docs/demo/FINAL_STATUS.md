@@ -35,8 +35,15 @@ Owner of this file: monitor session (Lane B). Updated 2026-11-14. Every claim ca
   `free_base_stand` skipped. `verified-read` from `report.json`
 - Joint axes agree with the published model within **2.14 degrees** (rms 1.05) after a
   sense-searched datum fit over all 64 sense combinations. `verified-ran`
-- Joint **origins** do not agree: perpendicular offsets **94.2, 110.3, 54.0, 54.7, 27.7, 54.5 mm**.
-  The repeating ~54 mm is unattributed and is the open question in the comparison. `verified-ran`
+- Joint **origins** do not agree. Bounded metric, anchor to the other joint's axis: **94.2, 110.3,
+  54.0, 54.7, 27.7, 54.5 mm**. `verified-ran`. The infinite-line minimum is NOT used: five of six
+  joints attain it more than 250 mm along the axis and one at 9.64 m, which is meaningless for a
+  robot. No clustering claim is made; the offsets sit between 28 and 110 mm.
+- Joint frames in use: at the same joint vector the tip differs by **median 168 mm**. After fitting
+  six constant joint offsets and a base translation, **median 38 mm** remains across 60 poses and
+  four restarts. So the models are the same mechanism with offset joint frames, not a different
+  robot, and the residual after nine free parameters is the part that a stated base transform and
+  zero pose would not fix. `verified-ran`
 - Self-collision: hulls overlap **7.9 mm** at rest. The B-rep solids touch and share **0.52 mm³**
   across 47 of 47 shape pairs, which is contact-scale, not a statement that the parts fit together,
   against a 32.27 cm³ wrist and 20.69 cm³ jaw. Hull overlap is real for the simulator; the solids
@@ -139,6 +146,11 @@ what else drifted.
 
 Three of five findings affect what an artifact says rather than what an attacker can do. All three were
 verified in the source, not taken from the report.
+
+(The earlier sentence "the compiled robot moves wrongly by seven centimetres" is withdrawn. It
+described the same-q difference without first removing the zero-pose and base-frame difference, and
+Lane A's reachable-set comparison is the reason to doubt the strong reading: the reachable shapes
+agree to 15 mm at the 99th percentile.)
 
 1. **Assumed-density disclosure is silently suppressed in the comparison.** `bundle.json` bodies carry
    `rests_on_an_assumed_density`; `compare.py` reads `assumed_density`, so every body reads False. The
