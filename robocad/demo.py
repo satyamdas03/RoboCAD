@@ -35,7 +35,7 @@ def _load(path: pathlib.Path):
         os.chdir(cwd)
 
 
-def _replay(mujoco, model, seconds: float, hz: float) -> int:
+def _replay(mujoco, model, seconds: float, hz: float, live: bool = True) -> int:
     import mujoco.viewer
 
     data = mujoco.MjData(model)
@@ -56,29 +56,38 @@ def _replay(mujoco, model, seconds: float, hz: float) -> int:
           f"{'driving actuators' if has_actuators else 'posing kinematically (bundle has no actuators)'}")
 
     t0 = time.time()
+
+    def pose_and_step() -> None:
+        t = time.time() - t0
+        for j in range(model.njnt):
+            w = 2.0 * math.pi * (0.18 + 0.05 * j)
+            value = centres[j] + spans[j] * 0.3 * math.sin(w * t)
+            if has_actuators:
+                for a in range(model.nu):
+                    if int(model.actuator_trnid[a, 0]) == j:
+                        data.ctrl[a] = value
+            else:
+                data.qpos[j] = value
+        if has_actuators:
+            mujoco.mj_step(model, data)
+        else:
+            mujoco.mj_forward(model, data)
+
+    if not live:
+        steps = int(round(seconds * 1000.0))
+        for _ in range(steps):
+            pose_and_step()
+        print(f"replay: {steps} step(s) headless, no window")
+        return 0
+
     with mujoco.viewer.launch_passive(model, data) as viewer:
         while viewer.is_running() and (time.time() - t0) < seconds:
-            t = time.time() - t0
-            for j in range(model.njnt):
-                w = 2.0 * math.pi * (0.18 + 0.05 * j)
-                value = centres[j] + spans[j] * 0.3 * math.sin(w * t)
-                if has_actuators:
-                    for a in range(model.nu):
-                        if int(model.actuator_trnid[a, 0]) == j:
-                            data.ctrl[a] = value
-                else:
-                    data.qpos[j] = value
-            if has_actuators:
-                mujoco.mj_step(model, data)
-            else:
-                mujoco.mj_forward(model, data)
+            pose_and_step()
             viewer.sync()
     return 0
 
 
-def _hold(mujoco, model, seconds: float) -> int:
-    import mujoco.viewer
-
+def _hold(mujoco, model, seconds: float, live: bool = False) -> int:
     if model.nu == 0:
         print("hold mode needs actuators, and this bundle has none. Use replay, or compile a bundle "
               "with actuators.")
@@ -96,19 +105,54 @@ def _hold(mujoco, model, seconds: float) -> int:
         data.ctrl[a] = target[int(model.actuator_trnid[a, 0])]
 
     errors = []
-    with mujoco.viewer.launch_passive(model, data) as viewer:
-        t0 = time.time()
-        while viewer.is_running() and (time.time() - t0) < seconds:
-            for a in range(model.nu):
-                data.ctrl[a] = target[int(model.actuator_trnid[a, 0])]
-            mujoco.mj_step(model, data)
-            viewer.sync()
-            errors.append(float(abs(data.qpos - target).max()))
-        steady = sum(errors[-200:]) / max(1, len(errors[-200:]))
+    per_joint = [[] for _ in range(model.nq)]
+    saturated = 0
 
-    print(f"hold: commanded an extended pose for {seconds:.0f} s")
+    def step() -> None:
+        # The controller is the same with or without a window: the viewer draws the run, it does not
+        # drive it. Saturation is counted from the actuator force against its own forcerange, because
+        # an actuator that is pinned at its limit is holding the arm with everything it has and the
+        # steady error is then a torque shortfall rather than a mass error.
+        nonlocal saturated
+        for a in range(model.nu):
+            data.ctrl[a] = target[int(model.actuator_trnid[a, 0])]
+        mujoco.mj_step(model, data)
+        errors.append(float(abs(data.qpos - target).max()))
+        for j in range(model.nq):
+            per_joint[j].append(abs(float(data.qpos[j] - target[j])))
+        for a in range(model.nu):
+            lo, hi = model.actuator_forcerange[a]
+            force = abs(float(data.actuator_force[a]))
+            limit = max(abs(lo), abs(hi))
+            if limit > 0.0 and force >= 0.999 * limit:
+                saturated += 1
+
+    if live:
+        import mujoco.viewer
+
+        with mujoco.viewer.launch_passive(model, data) as viewer:
+            t0 = time.time()
+            while viewer.is_running() and (time.time() - t0) < seconds:
+                step()
+                viewer.sync()
+    else:
+        t0 = time.time()
+        steps = int(round(seconds * 1000.0))  # a 1 kHz model step, not wall clock: repeatable
+        while len(errors) < steps:
+            step()
+        del t0
+    steady = sum(errors[-200:]) / max(1, len(errors[-200:]))
+
+    print(f"hold: commanded an extended pose for {seconds:.0f} s"
+          + ("" if live else f" ({len(errors)} steps, headless)"))
     print(f"steady-state joint error {steady*1000:.2f} mrad "
           f"(peak {max(errors)*1000:.2f} mrad)")
+    print("per joint, mean error over the last 200 steps:")
+    for j in range(model.nq):
+        window = per_joint[j][-200:]
+        name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_JOINT, j) or f"joint {j}"
+        print(f"  {name:24s} {sum(window) / max(1, len(window)) * 1000:8.2f} mrad")
+    print(f"actuator saturation: {saturated} step-instances at or above 99.9% of forcerange")
     print("a large steady error at a held pose is what a mass error looks like to a real controller")
     return 0
 
@@ -129,16 +173,15 @@ def main(argv: list[str] | None = None) -> int:
     if not path.exists():
         print(f"no MJCF at {path}")
         return 2
-    if not args.live:
-        print("this command is for a live viewer; pass --live. Nothing else is implemented yet.")
-        return 0
-
+    # Without a window the run still happens and still prints its numbers. The window draws the run;
+    # it is not what produces the measurement, and a demo that could only be measured on a machine
+    # with a display could not be measured in CI.
     import mujoco
 
     model = _load(path)
     if args.mode == "hold":
-        return _hold(mujoco, model, args.seconds)
-    return _replay(mujoco, model, args.seconds, args.hz)
+        return _hold(mujoco, model, args.seconds, live=args.live)
+    return _replay(mujoco, model, args.seconds, args.hz, live=args.live)
 
 
 if __name__ == "__main__":
