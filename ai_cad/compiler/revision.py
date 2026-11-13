@@ -123,8 +123,11 @@ def diff_links(
 ) -> Revision:
     """Compare two link tables by name. A link absent from one side is named, not dropped.
 
-    Refuses, with ``comparable=False``, when the two sides mostly do not share link ids: that is two
-    identity schemes, not a revision.
+    Refuses, with ``comparable=False``, when the two sides are not the same kind of document: a
+    link table that records its scheme (see ``LinkTable``) is compared only with a table of the same
+    scheme, and plain dictionaries are compared only when at least half of the smaller side's ids
+    appear on both. Either way the refusal is returned, not raised, so a report can carry the reason
+    instead of a table.
     """
     shared = set(before) & set(after)
     smaller = min(len(before), len(after))

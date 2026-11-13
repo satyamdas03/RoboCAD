@@ -25,7 +25,8 @@ Generated 2026-11-13T11:48:24+00:00 from `so101.step`.
 - Joint limits come from SO-ARM100 so101_new_calib.urdf at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits.
 - Every mass rests on an assumed density unless a part was weighed; the per-body flag says which, and the report never presents an assumed mass as a measurement.
 - The printed/actuator/fastener split comes from the CAD part names. On this file 13 parts carry generic names (SOLID, Component1..7) and cannot be placed by name, so they are counted as unclassified and their volume is reported separately rather than folded into either side of the split.
-- No actuator mass is carried. A servo's mass comes from a datasheet or a scale, and this run has neither, so the all-parts mass treats every actuator as its own solid volume of PLA. That number is labelled as an assumption wherever it appears; it is not a weigh-in.
+- The bundle's own mass model carries no actuator mass. A servo's mass comes from a datasheet or a scale, and this model has neither, so the all-parts mass treats every actuator as its own solid volume of PLA. That number is labelled as an assumption wherever it appears; it is not a weigh-in. A comparison that adds a catalogue actuator mass does so beside this model, states the figure and its source, and does not change these masses.
+
 ## Mass: RoboCAD against SO-ARM100 so101_new_calib.urdf
 
 | body (ours) | body (theirs) | ours kg | printed only (ub) kg | theirs kg | delta g | delta % | fill vs whole mass | printed fill |

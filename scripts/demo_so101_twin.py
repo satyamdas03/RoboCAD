@@ -179,7 +179,9 @@ def _header(report, limits_source: str | None) -> str:
     lines.append("## Notes")
     lines.append("")
     lines.extend(f"- {note}" for note in report.notes)
-    lines.append("")
+    # Two blanks: the comparison's markdown is appended straight after this, and one blank line runs
+    # the last note into the next heading.
+    lines.extend(["", ""])
     return "\n".join(lines)
 
 
