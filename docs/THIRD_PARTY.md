@@ -73,7 +73,7 @@ project, its licence, and what was derived from it.
 
 | Case study | Upstream | Licence | What ships here |
 |---|---|---|---|
-| SO-101 | TheRobotStudio/SO-ARM100, `STEP/SO101/SO101 Assembly.step`, pinned `a758567c3978dfeefe282ede0500085a48fe8f78` | Apache-2.0 | `docs/twin/so101/`: link groups and joint axes inferred from the geometry, and the notice that says so. No upstream geometry, mesh or binary is redistributed. |
+| SO-101 | TheRobotStudio/SO-ARM100, `STEP/SO101/SO101 Assembly.step`, pinned `a758567c3978dfeefe282ede0500085a48fe8f78` | Apache-2.0 | `docs/twin/so101/`: the generated MJCF and URDF, the check report, the inferred link groups and joint axes, and 433 convex collision hulls derived from the CAD (2.4 MB of OBJ). The upstream STEP file is not shipped and no upstream file is modified; the derived assets carry the notice beside them, as section 4 of the licence asks. |
 
 The SO-101 directory ships on Satyam's direct authorisation (2026-11-13), recorded in
 `docs/DECISIONS.md` with the reasoning and the pinned revision.

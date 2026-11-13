@@ -3,6 +3,24 @@
 Newest first. One entry per decision, with the date, what was decided, why, and what it rules out.
 A decision without a reason is a preference; it does not belong here.
 
+## 2026-11-13 A revision diff refuses two link identity schemes instead of inventing removals
+
+Decided: `ai_cad/compiler/revision.py` returns `comparable=False` with a reason, and no link rows,
+when the two documents do not name their links the same way. `from_joints_yaml` and `from_bundle`
+return a `LinkTable` that records its scheme — part family or body — and `diff_links` refuses a
+mismatch. As a backstop for plain dictionaries, it also refuses when fewer than half of the smaller
+side's link ids appear on both. The renderers print the refusal as text, never a table.
+
+Why: the published SO-101 bundle carried a `revision.json` comparing `robot.joints.proposed.yaml`
+(26 part families) with the compiled bundle (7 merged bodies). Seven names coincide — `base_so101`
+is a family of four parts on one side and a body of 150 instances on the other — and by name the
+diff reported nineteen links removed, none of which had gone anywhere. A peer caught it. Name-only
+overlap is not enough to detect the mismatch: the overlap there was 7 of 7. The scheme is.
+
+Rules out: putting a link-by-link table on a page unless both sides are the same kind of document,
+and answering "what changed" by diffing a proposal against a compile. This bundle ships without a
+revision diff and its NOTICE says why.
+
 ## 2026-11-13 B-rep measurement converts shapes to metres before placing them
 
 Decided: `bundle_checks._placed_solids` scales each distinct part shape from millimetres to metres
@@ -109,9 +127,11 @@ into the printed figure.
 Why: on the pinned SO-101 file the servos are named `SOLID`, `ZK_122`, `XG-ZIJI_16` and `SG-ZIJI_15`,
 so the name classifier cannot place them. Folding that volume into "printed" would count bought
 actuators as printed plastic and inflate the one column that exists to isolate printed plastic. 64 of
-83 parts classify as links, 13 as unclassified, 5 as fasteners, 1 as an actuator. No actuator mass is
-carried at all (`actuator_mass_kg: null`): a servo's mass needs a datasheet or a scale, and this run
-has neither.
+83 parts classify as links, 13 as unclassified, 5 as fasteners, 1 as an actuator. The compile carries
+no actuator mass at all (`actuator_mass_kg: null`): that field is for a weighed servo, and the compile
+does not read documentation. The comparison beside it does add one from a catalogue — the Feetech
+STS3215 specification, 55 +/- 1 g — states the figure and the source next to it, and leaves the
+bundle's own masses untouched.
 
 Rules out: presenting the printed-only column as a measurement of printed mass. It is printed
 plastic at an assumed density, at 100% fill, over the parts the names could place.
@@ -192,12 +212,23 @@ one line of reasoning, as the sprint rule requires.
 
    **Unblocked 2026-11-13, same session: Satyam answered "go ahead from me" in direct reply to the
    question above.** That is the authorisation, heard here rather than relayed, so it satisfies the
-   standing instruction. What ships: `docs/twin/so101/` with the existing `NOTICE.txt` — that name,
-   not `NOTICE.md`, because `compile_bundle` reads `out/NOTICE.txt` and carries it into the header
-   of `robot.joints.yaml`; a second notice under a second name is a file that can drift from the one
-   the pipeline actually uses. The notice already names the SO-101 project, Apache-2.0, the pinned
-   commit `a758567c3978dfeefe282ede0500085a48fe8f78`, and the changes made. The peer's report is
-   recorded above because it was real input, not because it was the authorisation.
+   standing instruction. What ships: `docs/twin/so101/` with a single notice, `NOTICE.md` — richer
+   than the `NOTICE.txt` it replaces, carrying the upstream URL, the blob sha and size of the input
+   STEP, and the bullet list of what RoboCAD changed, which is what makes it satisfy Apache-2.0
+   section 4 rather than gesture at it. `NOTICE.txt` is deleted: two notices describing one derived
+   work are two documents that drift, and the one a recipient forwards is the one they happened to
+   open. So the pipeline reads the same file a reader does — `compile.read_notice()` prefers
+   `NOTICE.md` and falls back to `NOTICE.txt`, and the text it takes is the text carried into the
+   header of `robot.joints.yaml`. The peer's report is recorded above because it was real input, not
+   because it was the authorisation.
+
+   **The first published bundle was stale and had to be replaced.** Peer commit `cbf869d` added a
+   bundle compiled at 09:23Z, before the unit fix, together with a notice quoting the corrected
+   0.52 mm3 that the report beside it did not contain. A notice describing a different artifact
+   from the one in its own directory is the failure this file exists to prevent. `docs/twin/so101/
+   bundle/` was regenerated from the fixed code (report generated 11:48Z), its `robot.joints.yaml`
+   re-emitted with the notice in its header because the scratch run directory had none, and the
+   notice re-read against the new report before it was committed.
 2. **M2 YAML is cross-reviewed, not auto-inferred.** The session that did not write
    `robot.joints.yaml` checks it against the written criteria (every instance assigned exactly once,
    six revolute joints within 1 degree of the servo shaft axis, limits sourced and stated, tree

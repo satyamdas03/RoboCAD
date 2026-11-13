@@ -713,7 +713,7 @@
       <geom name="base_so101_148_h0" type="mesh" mesh="base_so101_148_h0"/>
       <geom name="base_so101_149_h0" type="mesh" mesh="base_so101_149_h0"/>
       <body name="rotation_pitch_so101" pos="-0.000099432 -0.007552839 0.063531479">
-        <joint name="joint_1" type="hinge" axis="0.000000000 0.008726535 -0.999961923" pos="0 0 0" damping="0" armature="0"/>
+        <joint name="joint_1" type="hinge" axis="0.000000000 0.008726535 -0.999961923" pos="0 0 0" damping="0" armature="0" range="-1.919860000 1.919860000"/>
         <inertial pos="0.000632264 -0.031039214 0.014196123" mass="0.155927846" fullinertia="0.000156318007261 0.000153067068523 4.35734141229e-05 -6.73989097985e-07 -2.32394358263e-06 6.73752745759e-06"/>
         <geom name="rotation_pitch_so101_000_h0" type="mesh" mesh="rotation_pitch_so101_000_h0"/>
         <geom name="rotation_pitch_so101_001_h0" type="mesh" mesh="rotation_pitch_so101_001_h0"/>
@@ -741,7 +741,7 @@
         <geom name="rotation_pitch_so101_013_h0" type="mesh" mesh="rotation_pitch_so101_013_h0"/>
         <geom name="rotation_pitch_so101_014_h0" type="mesh" mesh="rotation_pitch_so101_014_h0"/>
         <body name="upper_arm_so101" pos="-0.014656818 -0.031316927 0.056225806">
-          <joint name="joint_2" type="hinge" axis="0.999961923 0.008726203 0.000076152" pos="0 0 0" damping="0" armature="0"/>
+          <joint name="joint_2" type="hinge" axis="0.999961923 0.008726203 0.000076152" pos="0 0 0" damping="0" armature="0" range="-1.745330000 1.745330000"/>
           <inertial pos="0.016453233 0.060295864 0.000127774" mass="0.147401041" fullinertia="0.000183685017384 6.48605858151e-05 0.000234897364264 3.20764284407e-06 7.03179839094e-08 8.39623455698e-07"/>
           <geom name="upper_arm_so101_000_h0" type="mesh" mesh="upper_arm_so101_000_h0"/>
           <geom name="upper_arm_so101_001_h0" type="mesh" mesh="upper_arm_so101_001_h0"/>
@@ -758,7 +758,7 @@
           <geom name="upper_arm_so101_012_h0" type="mesh" mesh="upper_arm_so101_012_h0"/>
           <geom name="upper_arm_so101_013_h0" type="mesh" mesh="upper_arm_so101_013_h0"/>
           <body name="under_arm_so101" pos="0.001511340 0.112441232 0.028706371">
-            <joint name="joint_3" type="hinge" axis="0.999923848 0.008649719 0.008802353" pos="0 0 0" damping="0" armature="0"/>
+            <joint name="joint_3" type="hinge" axis="0.999923848 0.008649719 0.008802353" pos="0 0 0" damping="0" armature="0" range="-1.690000000 1.690000000"/>
             <inertial pos="0.017080157 -0.044403134 -0.003924071" mass="0.186941495" fullinertia="0.000320173840235 7.64514785038e-05 0.000348144949836 2.86195159517e-06 -1.69610523845e-07 3.16641914016e-05"/>
             <geom name="under_arm_so101_000_h0" type="mesh" mesh="under_arm_so101_000_h0"/>
             <geom name="under_arm_so101_001_h0" type="mesh" mesh="under_arm_so101_001_h0"/>
@@ -794,7 +794,7 @@
             <geom name="under_arm_so101_021_h0" type="mesh" mesh="under_arm_so101_021_h0"/>
             <geom name="under_arm_so101_022_h0" type="mesh" mesh="under_arm_so101_022_h0"/>
             <body name="wrist_roll_pitch_so100" pos="0.002082247 -0.134148409 0.003812563">
-              <joint name="joint_4" type="hinge" axis="0.999847701 -0.000152961 0.017451404" pos="0 0 0" damping="0" armature="0"/>
+              <joint name="joint_4" type="hinge" axis="0.999847701 -0.000152961 0.017451404" pos="0 0 0" damping="0" armature="0" range="-1.658060000 1.658060000"/>
               <inertial pos="0.022715910 -0.018471853 0.000453993" mass="0.148535826" fullinertia="0.000130913281014 4.73085197331e-05 0.000160599893073 2.17365116185e-05 -2.42166704282e-07 1.4076482708e-06"/>
               <geom name="wrist_roll_pitch_so100_000_h0" type="mesh" mesh="wrist_roll_pitch_so100_000_h0"/>
               <geom name="wrist_roll_pitch_so100_001_h0" type="mesh" mesh="wrist_roll_pitch_so100_001_h0"/>
@@ -864,7 +864,7 @@
               <geom name="wrist_roll_pitch_so100_045_h0" type="mesh" mesh="wrist_roll_pitch_so100_045_h0"/>
               <geom name="wrist_roll_pitch_so100_046_h0" type="mesh" mesh="wrist_roll_pitch_so100_046_h0"/>
               <body name="wrist_roll_follower_so101" pos="0.018224470 -0.059300491 -0.000203909">
-                <joint name="joint_5" type="hinge" axis="0.000000665 -0.999961256 -0.008802682" pos="0 0 0" damping="0" armature="0"/>
+                <joint name="joint_5" type="hinge" axis="0.000000665 -0.999961256 -0.008802682" pos="0 0 0" damping="0" armature="0" range="-2.743850000 2.841210000"/>
                 <inertial pos="0.000395192 -0.028591069 -0.005588729" mass="0.123007928" fullinertia="7.6139754497e-05 5.12702286602e-05 5.27801460069e-05 7.98588967909e-08 -4.55376074577e-07 -1.18034190396e-05"/>
                 <geom name="wrist_roll_follower_so101_000_h0" type="mesh" mesh="wrist_roll_follower_so101_000_h0"/>
                 <geom name="wrist_roll_follower_so101_001_h0" type="mesh" mesh="wrist_roll_follower_so101_001_h0"/>
@@ -886,7 +886,7 @@
                 <geom name="wrist_roll_follower_so101_007_h0" type="mesh" mesh="wrist_roll_follower_so101_007_h0"/>
                 <geom name="wrist_roll_follower_so101_008_h0" type="mesh" mesh="wrist_roll_follower_so101_008_h0"/>
                 <body name="moving_jaw_so101" pos="0.016805035 -0.025826989 0.019993845">
-                  <joint name="joint_6" type="hinge" axis="0.999961926 -0.000076150 0.008725873" pos="0 0 0" damping="0" armature="0"/>
+                  <joint name="joint_6" type="hinge" axis="0.999961926 -0.000076150 0.008725873" pos="0 0 0" damping="0" armature="0" range="-0.174533000 1.745330000"/>
                   <inertial pos="-0.018136940 -0.001837155 0.029848708" mass="0.025657406" fullinertia="1.1305665044e-05 1.4126658123e-05 4.05125615866e-06 8.17781642919e-09 -1.71623985126e-07 7.72173223176e-07"/>
                   <geom name="moving_jaw_so101_000_h0" type="mesh" mesh="moving_jaw_so101_000_h0"/>
                 </body>

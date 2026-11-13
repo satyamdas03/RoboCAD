@@ -32,13 +32,23 @@ RoboCAD did not modify the upstream CAD. It read the assembly and produced a sim
 
 The check report in this directory is the authority for this artifact. At this revision it records
 `self_collision` as **fail**: two convex hulls overlap by 7.9 mm at rest, so MuJoCo will act on a
-contact the CAD does not have. The other checks pass or are skipped as recorded in `report.json`.
+contact the CAD does not have. Beside that, the same report carries the B-rep measurement: the CAD
+solids of the two bodies touch and share 0.52 mm^3 over 47 of 47 shape pairs, which is contact
+scale rather than interference between two parts occupying the same space. The other checks pass or
+are skipped as recorded in `report.json`.
 
-A later re-measurement of the B-rep solids, after a units defect was fixed in the measuring code,
-found the solids touching and sharing 0.52 mm^3, which is contact scale rather than interference.
-That measurement is **not** in the `report.json` sitting beside this notice; this directory is
-scheduled to be regenerated with it. Until then, the notice and the report disagree by exactly that
-one sentence, and the report is the older of the two.
+An earlier copy of this notice described a report that did not contain that B-rep measurement,
+because the directory then held a bundle compiled before a units defect in the measuring code was
+fixed. This directory has since been regenerated from the fixed code; the numbers above are read
+from the `report.json` sitting beside this notice.
+
+This bundle carries no revision diff. There is no earlier compile of this robot to diff against, and
+the one comparison on hand -- the part-family proposal against the compiled bodies -- is not a
+revision: the proposal names 26 part families, the bundle names 7 merged bodies, and seven of those
+names are the same word on both sides while covering different sets of parts. Diffed by name that
+pair reports nineteen links removed that never moved, so `ai_cad/compiler/revision.py` refuses it and
+says so instead of writing the table. `tests/test_revision.py::TestComparability` covers the
+refusal.
 
 This directory is published because Satyam Das authorised it directly on 2026-11-13. The reasoning
 and the pinned revision are recorded in `docs/DECISIONS.md` and in `docs/THIRD_PARTY.md`.

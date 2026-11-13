@@ -1,6 +1,110 @@
 {
   "schema_version": "robocad.twin.bundle/1",
   "name": "so101",
+  "total_mass_kg": 1.0413389850742334,
+  "warnings": [
+    "1 of 1 part(s) in moving_jaw_so101 use an assumed density (1240 kg/m3); mass and inertia scale linearly with it",
+    "1 part(s) in base_so101 are valid solids wound inside-out in the source CAD (part_060); volume and inertia taken as magnitudes, and their meshes' face normals point inward",
+    "14 of 14 part(s) in upper_arm_so101 use an assumed density (1240 kg/m3); mass and inertia scale linearly with it",
+    "15 of 15 part(s) in rotation_pitch_so101 use an assumed density (1240 kg/m3); mass and inertia scale linearly with it",
+    "150 of 150 part(s) in base_so101 use an assumed density (1240 kg/m3); mass and inertia scale linearly with it",
+    "23 of 23 part(s) in under_arm_so101 use an assumed density (1240 kg/m3); mass and inertia scale linearly with it",
+    "47 of 47 part(s) in wrist_roll_pitch_so100 use an assumed density (1240 kg/m3); mass and inertia scale linearly with it",
+    "9 of 9 part(s) in wrist_roll_follower_so101 use an assumed density (1240 kg/m3); mass and inertia scale linearly with it",
+    "part_001: 451808 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_001: hulls cover 3.07x the part's volume (0.3 to 3.0 is expected); check the tessellation",
+    "part_001: the tessellation puts 225766 points on the hull, so it was snapped to a 2.47 mm grid to stay under 96 vertices; every hull vertex is within 1.24 mm of the true surface",
+    "part_002: 388664 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_002: the tessellation puts 194296 points on the hull, so it was snapped to a 1.77 mm grid to stay under 96 vertices; every hull vertex is within 0.88 mm of the true surface",
+    "part_003: 654278 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_003: the tessellation puts 327081 points on the hull, so it was snapped to a 2.49 mm grid to stay under 96 vertices; every hull vertex is within 1.24 mm of the true surface",
+    "part_004: 781846 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_004: the tessellation puts 390885 points on the hull, so it was snapped to a 2.31 mm grid to stay under 96 vertices; every hull vertex is within 1.15 mm of the true surface",
+    "part_005: 257678 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_005: hulls cover 4.06x the part's volume (0.3 to 3.0 is expected); check the tessellation",
+    "part_005: the tessellation puts 128835 points on the hull, so it was snapped to a 1.54 mm grid to stay under 96 vertices; every hull vertex is within 0.77 mm of the true surface",
+    "part_006: 241391 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_006: hulls cover 3.83x the part's volume (0.3 to 3.0 is expected); check the tessellation",
+    "part_006: the tessellation is not a closed surface, so the decomposition is a convex cover of an open mesh",
+    "part_006: the tessellation puts 120659 points on the hull, so it was snapped to a 1.13 mm grid to stay under 96 vertices; every hull vertex is within 0.57 mm of the true surface",
+    "part_007: 214010 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_007: hulls cover 3.72x the part's volume (0.3 to 3.0 is expected); check the tessellation",
+    "part_007: the tessellation puts 106965 points on the hull, so it was snapped to a 1.14 mm grid to stay under 96 vertices; every hull vertex is within 0.57 mm of the true surface",
+    "part_008: 653618 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_008: hulls cover 3.67x the part's volume (0.3 to 3.0 is expected); check the tessellation",
+    "part_008: the tessellation is not a closed surface, so the decomposition is a convex cover of an open mesh",
+    "part_008: the tessellation puts 326825 points on the hull, so it was snapped to a 1.65 mm grid to stay under 96 vertices; every hull vertex is within 0.83 mm of the true surface",
+    "part_009: 788432 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_009: the tessellation puts 394172 points on the hull, so it was snapped to a 2.10 mm grid to stay under 96 vertices; every hull vertex is within 1.05 mm of the true surface",
+    "part_010: 320760 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_010: the tessellation puts 160348 points on the hull, so it was snapped to a 1.66 mm grid to stay under 96 vertices; every hull vertex is within 0.83 mm of the true surface",
+    "part_011: 8412 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_011: the tessellation puts 4208 points on the hull, so it was snapped to a 0.20 mm grid to stay under 96 vertices; every hull vertex is within 0.10 mm of the true surface",
+    "part_012: 7252 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_012: the tessellation puts 3628 points on the hull, so it was snapped to a 0.11 mm grid to stay under 96 vertices; every hull vertex is within 0.06 mm of the true surface",
+    "part_013: 74752 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_013: the tessellation puts 37378 points on the hull, so it was snapped to a 0.31 mm grid to stay under 96 vertices; every hull vertex is within 0.15 mm of the true surface",
+    "part_015: the tessellation puts 1330 points on the hull, so it was snapped to a 0.03 mm grid to stay under 96 vertices; every hull vertex is within 0.01 mm of the true surface",
+    "part_016: the tessellation puts 508 points on the hull, so it was snapped to a 0.02 mm grid to stay under 96 vertices; every hull vertex is within 0.01 mm of the true surface",
+    "part_018: the tessellation puts 1438 points on the hull, so it was snapped to a 0.02 mm grid to stay under 96 vertices; every hull vertex is within 0.01 mm of the true surface",
+    "part_019: the tessellation puts 4397 points on the hull, so it was snapped to a 0.05 mm grid to stay under 96 vertices; every hull vertex is within 0.02 mm of the true surface",
+    "part_020: 103112 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_020: the tessellation puts 51552 points on the hull, so it was snapped to a 0.35 mm grid to stay under 96 vertices; every hull vertex is within 0.17 mm of the true surface",
+    "part_021: 10322 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_021: the tessellation puts 5169 points on the hull, so it was snapped to a 0.25 mm grid to stay under 96 vertices; every hull vertex is within 0.12 mm of the true surface",
+    "part_022: 12972 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_022: the tessellation puts 6488 points on the hull, so it was snapped to a 0.23 mm grid to stay under 96 vertices; every hull vertex is within 0.11 mm of the true surface",
+    "part_026: 17457 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_026: the tessellation is not a closed surface, so the decomposition is a convex cover of an open mesh",
+    "part_026: the tessellation puts 8830 points on the hull, so it was snapped to a 0.18 mm grid to stay under 96 vertices; every hull vertex is within 0.09 mm of the true surface",
+    "part_047: 23476 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_047: hulls cover 5.66x the part's volume (0.3 to 3.0 is expected); check the tessellation",
+    "part_047: the tessellation puts 11714 points on the hull, so it was snapped to a 0.20 mm grid to stay under 96 vertices; every hull vertex is within 0.10 mm of the true surface",
+    "part_054: 10342 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_055: 6880 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_055: the tessellation puts 3442 points on the hull, so it was snapped to a 0.07 mm grid to stay under 96 vertices; every hull vertex is within 0.03 mm of the true surface",
+    "part_060: the tessellation is not a closed surface, so the decomposition is a convex cover of an open mesh",
+    "part_065: 8900 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_065: the tessellation puts 4450 points on the hull, so it was snapped to a 0.15 mm grid to stay under 96 vertices; every hull vertex is within 0.08 mm of the true surface",
+    "part_066: 61552 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_066: the tessellation puts 30778 points on the hull, so it was snapped to a 0.42 mm grid to stay under 96 vertices; every hull vertex is within 0.21 mm of the true surface",
+    "part_067: 11376 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_067: the tessellation puts 5688 points on the hull, so it was snapped to a 0.14 mm grid to stay under 96 vertices; every hull vertex is within 0.07 mm of the true surface",
+    "part_068: 14076 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_068: the tessellation puts 7044 points on the hull, so it was snapped to a 0.22 mm grid to stay under 96 vertices; every hull vertex is within 0.11 mm of the true surface",
+    "part_069: the tessellation puts 8926 points on the hull, so it was snapped to a 0.83 mm grid to stay under 96 vertices; every hull vertex is within 0.42 mm of the true surface",
+    "part_070: the tessellation puts 32691 points on the hull, so it was snapped to a 0.81 mm grid to stay under 96 vertices; every hull vertex is within 0.41 mm of the true surface",
+    "part_071: 70226 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_071: the tessellation puts 35127 points on the hull, so it was snapped to a 0.83 mm grid to stay under 96 vertices; every hull vertex is within 0.42 mm of the true surface",
+    "part_072: the tessellation puts 82689 points on the hull, so it was snapped to a 0.61 mm grid to stay under 96 vertices; every hull vertex is within 0.30 mm of the true surface",
+    "part_074: 122986 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_074: hulls cover 3.10x the part's volume (0.3 to 3.0 is expected); check the tessellation",
+    "part_074: the tessellation puts 61495 points on the hull, so it was snapped to a 0.48 mm grid to stay under 96 vertices; every hull vertex is within 0.24 mm of the true surface",
+    "part_075: 23994 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_075: the tessellation puts 11989 points on the hull, so it was snapped to a 0.73 mm grid to stay under 96 vertices; every hull vertex is within 0.37 mm of the true surface",
+    "part_076: 19346 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_076: the tessellation puts 9665 points on the hull, so it was snapped to a 0.43 mm grid to stay under 96 vertices; every hull vertex is within 0.21 mm of the true surface",
+    "part_077: 212318 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_077: hulls cover 24.43x the part's volume (0.3 to 3.0 is expected); check the tessellation",
+    "part_077: the tessellation puts 106161 points on the hull, so it was snapped to a 1.60 mm grid to stay under 96 vertices; every hull vertex is within 0.80 mm of the true surface",
+    "part_078: 247628 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_078: hulls cover 26.06x the part's volume (0.3 to 3.0 is expected); check the tessellation",
+    "part_078: the tessellation puts 123816 points on the hull, so it was snapped to a 2.01 mm grid to stay under 96 vertices; every hull vertex is within 1.00 mm of the true surface",
+    "part_079: 168878 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_079: hulls cover 25.68x the part's volume (0.3 to 3.0 is expected); check the tessellation",
+    "part_079: the tessellation puts 84441 points on the hull, so it was snapped to a 2.13 mm grid to stay under 96 vertices; every hull vertex is within 1.07 mm of the true surface",
+    "part_080: 156350 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_080: hulls cover 16.86x the part's volume (0.3 to 3.0 is expected); check the tessellation",
+    "part_080: the tessellation puts 78177 points on the hull, so it was snapped to a 0.97 mm grid to stay under 96 vertices; every hull vertex is within 0.49 mm of the true surface",
+    "part_081: 153950 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_081: hulls cover 28.86x the part's volume (0.3 to 3.0 is expected); check the tessellation",
+    "part_081: the tessellation puts 76977 points on the hull, so it was snapped to a 1.25 mm grid to stay under 96 vertices; every hull vertex is within 0.63 mm of the true surface",
+    "part_082: 6656 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_082: the tessellation puts 3322 points on the hull, so it was snapped to a 1.04 mm grid to stay under 96 vertices; every hull vertex is within 0.52 mm of the true surface",
+    "part_083: 143062 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_083: hulls cover 22.12x the part's volume (0.3 to 3.0 is expected); check the tessellation",
+    "part_083: the tessellation puts 71533 points on the hull, so it was snapped to a 1.54 mm grid to stay under 96 vertices; every hull vertex is within 0.77 mm of the true surface"
+  ],
   "bodies": [
     {
       "body_id": "base_so101",
@@ -17,9 +121,11 @@
         0.0,
         0.0
       ],
+      "limits": null,
+      "limits_source": null,
       "mass_kg": 0.2538674437334641,
       "com_m": [
-        -5.616737721760132e-6,
+        -5.616737721760132e-06,
         0.022514505645519423,
         0.03268213379513402
       ],
@@ -27,9 +133,9 @@
         0.00026705262740461946,
         0.00023711492256055128,
         0.00026823190867896574,
-        -5.816626914701281e-7,
-        -7.602402045872246e-8,
-        -0.000027189142206722834
+        -5.816626914701281e-07,
+        -7.602402045872246e-08,
+        -2.7189142206722834e-05
       ],
       "hull_files": [
         "base_so101_000_h0.obj",
@@ -310,7 +416,14 @@
       "hull_count": 274,
       "part_count": 69,
       "instance_count": 150,
-      "rests_on_an_assumed_density": true
+      "rests_on_an_assumed_density": true,
+      "solid_volume_m3": 0.000204731809462,
+      "role_volume_m3": {
+        "link": 0.00019772463808,
+        "fastener": 9.7201886e-07,
+        "unclassified": 7.49320235e-07,
+        "actuator": 5.285832288e-06
+      }
     },
     {
       "body_id": "rotation_pitch_so101",
@@ -323,10 +436,17 @@
         -0.9999619230641713
       ],
       "origin_m": [
-        -0.00009943246979518915,
+        -9.943246979518915e-05,
         -0.007552839223757381,
         0.06353147903307246
       ],
+      "limits": {
+        "lower": -1.91986,
+        "upper": 1.91986,
+        "effort": 10.0,
+        "velocity": 10.0
+      },
+      "limits_source": "SO-ARM100 so101_new_calib.urdf at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits.",
       "mass_kg": 0.15592784560814818,
       "com_m": [
         0.0005328315286854383,
@@ -336,10 +456,10 @@
       "inertia_6": [
         0.00015631800726090606,
         0.00015306706852331956,
-        0.00004357341412291789,
-        -6.739890979845828e-7,
-        -2.3239435826283627e-6,
-        6.737527457587355e-6
+        4.357341412291789e-05,
+        -6.739890979845828e-07,
+        -2.3239435826283627e-06,
+        6.737527457587355e-06
       ],
       "hull_files": [
         "rotation_pitch_so101_000_h0.obj",
@@ -371,7 +491,14 @@
       "hull_count": 25,
       "part_count": 12,
       "instance_count": 15,
-      "rests_on_an_assumed_density": true
+      "rests_on_an_assumed_density": true,
+      "solid_volume_m3": 0.000125748262587,
+      "role_volume_m3": {
+        "link": 0.000106106054399,
+        "fastener": 7.5539028e-08,
+        "unclassified": 1.4280836872e-05,
+        "actuator": 5.285832288e-06
+      }
     },
     {
       "body_id": "upper_arm_so101",
@@ -381,13 +508,20 @@
       "axis_dir": [
         0.9999619230641714,
         0.008726203218642077,
-        0.0000761524218171241
+        7.61524218171241e-05
       ],
       "origin_m": [
         -0.014756250673518746,
         -0.0388697664877171,
         0.11975728484641494
       ],
+      "limits": {
+        "lower": -1.74533,
+        "upper": 1.74533,
+        "effort": 10.0,
+        "velocity": 10.0
+      },
+      "limits_source": "SO-ARM100 so101_new_calib.urdf at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits.",
       "mass_kg": 0.14740104136097618,
       "com_m": [
         0.0016969824124334681,
@@ -396,11 +530,11 @@
       ],
       "inertia_6": [
         0.00018368501738424994,
-        0.00006486058581508841,
+        6.486058581508841e-05,
         0.00023489736426353017,
-        3.207642844071865e-6,
-        7.031798390942313e-8,
-        8.396234556978507e-7
+        3.207642844071865e-06,
+        7.031798390942313e-08,
+        8.396234556978507e-07
       ],
       "hull_files": [
         "upper_arm_so101_000_h0.obj",
@@ -421,7 +555,12 @@
       "hull_count": 14,
       "part_count": 4,
       "instance_count": 14,
-      "rests_on_an_assumed_density": true
+      "rests_on_an_assumed_density": true,
+      "solid_volume_m3": 0.000118871807549,
+      "role_volume_m3": {
+        "unclassified": 0.000118116796711,
+        "fastener": 7.55010838e-07
+      }
     },
     {
       "body_id": "under_arm_so101",
@@ -438,6 +577,13 @@
         0.07357146555251139,
         0.1484636557286717
       ],
+      "limits": {
+        "lower": -1.69,
+        "upper": 1.69,
+        "effort": 10.0,
+        "velocity": 10.0
+      },
+      "limits_source": "SO-ARM100 so101_new_calib.urdf at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits.",
       "mass_kg": 0.18694149460084683,
       "com_m": [
         0.003835245990369159,
@@ -446,11 +592,11 @@
       ],
       "inertia_6": [
         0.00032017384023467365,
-        0.00007645147850383698,
+        7.645147850383698e-05,
         0.00034814494983610326,
-        2.8619515951720164e-6,
-        -1.6961052384520284e-7,
-        0.00003166419140161257
+        2.8619515951720164e-06,
+        -1.6961052384520284e-07,
+        3.166419140161257e-05
       ],
       "hull_files": [
         "under_arm_so101_000_h0.obj",
@@ -490,7 +636,14 @@
       "hull_count": 33,
       "part_count": 13,
       "instance_count": 23,
-      "rests_on_an_assumed_density": true
+      "rests_on_an_assumed_density": true,
+      "solid_volume_m3": 0.000150759269839,
+      "role_volume_m3": {
+        "unclassified": 0.000107423866806,
+        "fastener": 7.55010838e-07,
+        "link": 3.7294559907e-05,
+        "actuator": 5.285832288e-06
+      }
     },
     {
       "body_id": "wrist_roll_pitch_so100",
@@ -507,6 +660,13 @@
         -0.06057694392071616,
         0.1522762187709546
       ],
+      "limits": {
+        "lower": -1.65806,
+        "upper": 1.65806,
+        "effort": 10.0,
+        "velocity": 10.0
+      },
+      "limits_source": "SO-ARM100 so101_new_calib.urdf at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits.",
       "mass_kg": 0.14853582573626067,
       "com_m": [
         0.011553245740393146,
@@ -515,11 +675,11 @@
       ],
       "inertia_6": [
         0.00013091328101361952,
-        0.000047308519733096155,
+        4.7308519733096155e-05,
         0.00016059989307317635,
-        0.000021736511618493136,
-        -2.4216670428249826e-7,
-        1.4076482708048654e-6
+        2.1736511618493136e-05,
+        -2.4216670428249826e-07,
+        1.4076482708048654e-06
       ],
       "hull_files": [
         "wrist_roll_pitch_so100_000_h0.obj",
@@ -593,7 +753,14 @@
       "hull_count": 67,
       "part_count": 14,
       "instance_count": 47,
-      "rests_on_an_assumed_density": true
+      "rests_on_an_assumed_density": true,
+      "solid_volume_m3": 0.000119786956239,
+      "role_volume_m3": {
+        "unclassified": 3.3196376511e-05,
+        "fastener": 1.995843851e-06,
+        "link": 7.40230713e-05,
+        "actuator": 1.0571664576e-05
+      }
     },
     {
       "body_id": "wrist_roll_follower_so101",
@@ -601,7 +768,7 @@
       "parent": "wrist_roll_pitch_so100",
       "joint_id": "joint_5",
       "axis_dir": [
-        6.645215740348764e-7,
+        6.645215740348764e-07,
         -0.9999612556431758,
         -0.008802682095902807
       ],
@@ -610,6 +777,13 @@
         -0.11987743442570112,
         0.15207231002956853
       ],
+      "limits": {
+        "lower": -2.74385,
+        "upper": 2.84121,
+        "effort": 10.0,
+        "velocity": 10.0
+      },
+      "limits_source": "SO-ARM100 so101_new_calib.urdf at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits.",
       "mass_kg": 0.12300792769891758,
       "com_m": [
         0.007456997749349984,
@@ -617,12 +791,12 @@
         0.14648358122731697
       ],
       "inertia_6": [
-        0.00007613975449698984,
-        0.00005127022866019483,
-        0.00005278014600694337,
-        7.985889679088964e-8,
-        -4.5537607457673996e-7,
-        -0.000011803419039558456
+        7.613975449698984e-05,
+        5.127022866019483e-05,
+        5.278014600694337e-05,
+        7.985889679088964e-08,
+        -4.5537607457673996e-07,
+        -1.1803419039558456e-05
       ],
       "hull_files": [
         "wrist_roll_follower_so101_000_h0.obj",
@@ -648,7 +822,13 @@
       "hull_count": 19,
       "part_count": 9,
       "instance_count": 9,
-      "rests_on_an_assumed_density": true
+      "rests_on_an_assumed_density": true,
+      "solid_volume_m3": 9.9199941693e-05,
+      "role_volume_m3": {
+        "unclassified": 5.6619549498e-05,
+        "link": 3.7294559907e-05,
+        "actuator": 5.285832288e-06
+      }
     },
     {
       "body_id": "moving_jaw_so101",
@@ -657,7 +837,7 @@
       "joint_id": "joint_6",
       "axis_dir": [
         0.9999619259454086,
-        -0.00007614954071793674,
+        -7.614954071793674e-05,
         0.008725873067878448
       ],
       "origin_m": [
@@ -665,6 +845,13 @@
         -0.14570442337262066,
         0.17206615534103112
       ],
+      "limits": {
+        "lower": -0.174533,
+        "upper": 1.74533,
+        "effort": 10.0,
+        "velocity": 10.0
+      },
+      "limits_source": "SO-ARM100 so101_new_calib.urdf at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits.",
       "mass_kg": 0.02565740633561982,
       "com_m": [
         0.005729901070553589,
@@ -672,12 +859,12 @@
         0.20191486314891205
       ],
       "inertia_6": [
-        0.000011305665044036587,
-        0.000014126658122962307,
-        4.051256158659659e-6,
-        8.177816429188606e-9,
-        -1.7162398512570673e-7,
-        7.721732231761641e-7
+        1.1305665044036587e-05,
+        1.4126658122962307e-05,
+        4.051256158659659e-06,
+        8.177816429188606e-09,
+        -1.7162398512570673e-07,
+        7.721732231761641e-07
       ],
       "hull_files": [
         "moving_jaw_so101_000_h0.obj"
@@ -685,111 +872,151 @@
       "hull_count": 1,
       "part_count": 1,
       "instance_count": 1,
-      "rests_on_an_assumed_density": true
+      "rests_on_an_assumed_density": true,
+      "solid_volume_m3": 2.0691456722e-05,
+      "role_volume_m3": {
+        "link": 2.0691456722e-05
+      }
     }
   ],
-  "total_mass_kg": 1.0413389850742334,
-  "warnings": [
-    "1 of 1 part(s) in moving_jaw_so101 use an assumed density (1240 kg/m3); mass and inertia scale linearly with it",
-    "1 part(s) in base_so101 are valid solids wound inside-out in the source CAD (part_060); volume and inertia taken as magnitudes, and their meshes' face normals point inward",
-    "14 of 14 part(s) in upper_arm_so101 use an assumed density (1240 kg/m3); mass and inertia scale linearly with it",
-    "15 of 15 part(s) in rotation_pitch_so101 use an assumed density (1240 kg/m3); mass and inertia scale linearly with it",
-    "150 of 150 part(s) in base_so101 use an assumed density (1240 kg/m3); mass and inertia scale linearly with it",
-    "23 of 23 part(s) in under_arm_so101 use an assumed density (1240 kg/m3); mass and inertia scale linearly with it",
-    "47 of 47 part(s) in wrist_roll_pitch_so100 use an assumed density (1240 kg/m3); mass and inertia scale linearly with it",
-    "9 of 9 part(s) in wrist_roll_follower_so101 use an assumed density (1240 kg/m3); mass and inertia scale linearly with it",
-    "part_001: 451808 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
-    "part_001: hulls cover 3.07x the part's volume (0.3 to 3.0 is expected); check the tessellation",
-    "part_001: the tessellation puts 225766 points on the hull, so it was snapped to a 2.47 mm grid to stay under 96 vertices; every hull vertex is within 1.24 mm of the true surface",
-    "part_002: 388664 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
-    "part_002: the tessellation puts 194296 points on the hull, so it was snapped to a 1.77 mm grid to stay under 96 vertices; every hull vertex is within 0.88 mm of the true surface",
-    "part_003: 654278 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
-    "part_003: the tessellation puts 327081 points on the hull, so it was snapped to a 2.49 mm grid to stay under 96 vertices; every hull vertex is within 1.24 mm of the true surface",
-    "part_004: 781846 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
-    "part_004: the tessellation puts 390885 points on the hull, so it was snapped to a 2.31 mm grid to stay under 96 vertices; every hull vertex is within 1.15 mm of the true surface",
-    "part_005: 257678 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
-    "part_005: hulls cover 4.06x the part's volume (0.3 to 3.0 is expected); check the tessellation",
-    "part_005: the tessellation puts 128835 points on the hull, so it was snapped to a 1.54 mm grid to stay under 96 vertices; every hull vertex is within 0.77 mm of the true surface",
-    "part_006: 241391 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
-    "part_006: hulls cover 3.83x the part's volume (0.3 to 3.0 is expected); check the tessellation",
-    "part_006: the tessellation is not a closed surface, so the decomposition is a convex cover of an open mesh",
-    "part_006: the tessellation puts 120659 points on the hull, so it was snapped to a 1.13 mm grid to stay under 96 vertices; every hull vertex is within 0.57 mm of the true surface",
-    "part_007: 214010 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
-    "part_007: hulls cover 3.72x the part's volume (0.3 to 3.0 is expected); check the tessellation",
-    "part_007: the tessellation puts 106965 points on the hull, so it was snapped to a 1.14 mm grid to stay under 96 vertices; every hull vertex is within 0.57 mm of the true surface",
-    "part_008: 653618 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
-    "part_008: hulls cover 3.67x the part's volume (0.3 to 3.0 is expected); check the tessellation",
-    "part_008: the tessellation is not a closed surface, so the decomposition is a convex cover of an open mesh",
-    "part_008: the tessellation puts 326825 points on the hull, so it was snapped to a 1.65 mm grid to stay under 96 vertices; every hull vertex is within 0.83 mm of the true surface",
-    "part_009: 788432 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
-    "part_009: the tessellation puts 394172 points on the hull, so it was snapped to a 2.10 mm grid to stay under 96 vertices; every hull vertex is within 1.05 mm of the true surface",
-    "part_010: 320760 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
-    "part_010: the tessellation puts 160348 points on the hull, so it was snapped to a 1.66 mm grid to stay under 96 vertices; every hull vertex is within 0.83 mm of the true surface",
-    "part_011: 8412 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
-    "part_011: the tessellation puts 4208 points on the hull, so it was snapped to a 0.20 mm grid to stay under 96 vertices; every hull vertex is within 0.10 mm of the true surface",
-    "part_012: 7252 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
-    "part_012: the tessellation puts 3628 points on the hull, so it was snapped to a 0.11 mm grid to stay under 96 vertices; every hull vertex is within 0.06 mm of the true surface",
-    "part_013: 74752 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
-    "part_013: the tessellation puts 37378 points on the hull, so it was snapped to a 0.31 mm grid to stay under 96 vertices; every hull vertex is within 0.15 mm of the true surface",
-    "part_015: the tessellation puts 1330 points on the hull, so it was snapped to a 0.03 mm grid to stay under 96 vertices; every hull vertex is within 0.01 mm of the true surface",
-    "part_016: the tessellation puts 508 points on the hull, so it was snapped to a 0.02 mm grid to stay under 96 vertices; every hull vertex is within 0.01 mm of the true surface",
-    "part_018: the tessellation puts 1438 points on the hull, so it was snapped to a 0.02 mm grid to stay under 96 vertices; every hull vertex is within 0.01 mm of the true surface",
-    "part_019: the tessellation puts 4397 points on the hull, so it was snapped to a 0.05 mm grid to stay under 96 vertices; every hull vertex is within 0.02 mm of the true surface",
-    "part_020: 103112 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
-    "part_020: the tessellation puts 51552 points on the hull, so it was snapped to a 0.35 mm grid to stay under 96 vertices; every hull vertex is within 0.17 mm of the true surface",
-    "part_021: 10322 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
-    "part_021: the tessellation puts 5169 points on the hull, so it was snapped to a 0.25 mm grid to stay under 96 vertices; every hull vertex is within 0.12 mm of the true surface",
-    "part_022: 12972 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
-    "part_022: the tessellation puts 6488 points on the hull, so it was snapped to a 0.23 mm grid to stay under 96 vertices; every hull vertex is within 0.11 mm of the true surface",
-    "part_026: 17457 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
-    "part_026: the tessellation is not a closed surface, so the decomposition is a convex cover of an open mesh",
-    "part_026: the tessellation puts 8830 points on the hull, so it was snapped to a 0.18 mm grid to stay under 96 vertices; every hull vertex is within 0.09 mm of the true surface",
-    "part_047: 23476 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
-    "part_047: hulls cover 5.66x the part's volume (0.3 to 3.0 is expected); check the tessellation",
-    "part_047: the tessellation puts 11714 points on the hull, so it was snapped to a 0.20 mm grid to stay under 96 vertices; every hull vertex is within 0.10 mm of the true surface",
-    "part_054: 10342 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
-    "part_055: 6880 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
-    "part_055: the tessellation puts 3442 points on the hull, so it was snapped to a 0.07 mm grid to stay under 96 vertices; every hull vertex is within 0.03 mm of the true surface",
-    "part_060: the tessellation is not a closed surface, so the decomposition is a convex cover of an open mesh",
-    "part_065: 8900 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
-    "part_065: the tessellation puts 4450 points on the hull, so it was snapped to a 0.15 mm grid to stay under 96 vertices; every hull vertex is within 0.08 mm of the true surface",
-    "part_066: 61552 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
-    "part_066: the tessellation puts 30778 points on the hull, so it was snapped to a 0.42 mm grid to stay under 96 vertices; every hull vertex is within 0.21 mm of the true surface",
-    "part_067: 11376 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
-    "part_067: the tessellation puts 5688 points on the hull, so it was snapped to a 0.14 mm grid to stay under 96 vertices; every hull vertex is within 0.07 mm of the true surface",
-    "part_068: 14076 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
-    "part_068: the tessellation puts 7044 points on the hull, so it was snapped to a 0.22 mm grid to stay under 96 vertices; every hull vertex is within 0.11 mm of the true surface",
-    "part_069: the tessellation puts 8926 points on the hull, so it was snapped to a 0.83 mm grid to stay under 96 vertices; every hull vertex is within 0.42 mm of the true surface",
-    "part_070: the tessellation puts 32691 points on the hull, so it was snapped to a 0.81 mm grid to stay under 96 vertices; every hull vertex is within 0.41 mm of the true surface",
-    "part_071: 70226 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
-    "part_071: the tessellation puts 35127 points on the hull, so it was snapped to a 0.83 mm grid to stay under 96 vertices; every hull vertex is within 0.42 mm of the true surface",
-    "part_072: the tessellation puts 82689 points on the hull, so it was snapped to a 0.61 mm grid to stay under 96 vertices; every hull vertex is within 0.30 mm of the true surface",
-    "part_074: 122986 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
-    "part_074: hulls cover 3.10x the part's volume (0.3 to 3.0 is expected); check the tessellation",
-    "part_074: the tessellation puts 61495 points on the hull, so it was snapped to a 0.48 mm grid to stay under 96 vertices; every hull vertex is within 0.24 mm of the true surface",
-    "part_075: 23994 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
-    "part_075: the tessellation puts 11989 points on the hull, so it was snapped to a 0.73 mm grid to stay under 96 vertices; every hull vertex is within 0.37 mm of the true surface",
-    "part_076: 19346 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
-    "part_076: the tessellation puts 9665 points on the hull, so it was snapped to a 0.43 mm grid to stay under 96 vertices; every hull vertex is within 0.21 mm of the true surface",
-    "part_077: 212318 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
-    "part_077: hulls cover 24.43x the part's volume (0.3 to 3.0 is expected); check the tessellation",
-    "part_077: the tessellation puts 106161 points on the hull, so it was snapped to a 1.60 mm grid to stay under 96 vertices; every hull vertex is within 0.80 mm of the true surface",
-    "part_078: 247628 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
-    "part_078: hulls cover 26.06x the part's volume (0.3 to 3.0 is expected); check the tessellation",
-    "part_078: the tessellation puts 123816 points on the hull, so it was snapped to a 2.01 mm grid to stay under 96 vertices; every hull vertex is within 1.00 mm of the true surface",
-    "part_079: 168878 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
-    "part_079: hulls cover 25.68x the part's volume (0.3 to 3.0 is expected); check the tessellation",
-    "part_079: the tessellation puts 84441 points on the hull, so it was snapped to a 2.13 mm grid to stay under 96 vertices; every hull vertex is within 1.07 mm of the true surface",
-    "part_080: 156350 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
-    "part_080: hulls cover 16.86x the part's volume (0.3 to 3.0 is expected); check the tessellation",
-    "part_080: the tessellation puts 78177 points on the hull, so it was snapped to a 0.97 mm grid to stay under 96 vertices; every hull vertex is within 0.49 mm of the true surface",
-    "part_081: 153950 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
-    "part_081: hulls cover 28.86x the part's volume (0.3 to 3.0 is expected); check the tessellation",
-    "part_081: the tessellation puts 76977 points on the hull, so it was snapped to a 1.25 mm grid to stay under 96 vertices; every hull vertex is within 0.63 mm of the true surface",
-    "part_082: 6656 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
-    "part_082: the tessellation puts 3322 points on the hull, so it was snapped to a 1.04 mm grid to stay under 96 vertices; every hull vertex is within 0.52 mm of the true surface",
-    "part_083: 143062 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
-    "part_083: hulls cover 22.12x the part's volume (0.3 to 3.0 is expected); check the tessellation",
-    "part_083: the tessellation puts 71533 points on the hull, so it was snapped to a 1.54 mm grid to stay under 96 vertices; every hull vertex is within 0.77 mm of the true surface"
+  "joints": [
+    {
+      "joint_id": "joint_1",
+      "parent_body": "base_so101",
+      "child_body": "rotation_pitch_so101",
+      "axis_dir": [
+        3.4694469519536134e-18,
+        0.008726535498374356,
+        -0.9999619230641713
+      ],
+      "axis_point": [
+        -9.943246979518915e-05,
+        -0.007552839223757381,
+        0.06353147903307246
+      ],
+      "limits": {
+        "lower": -1.91986,
+        "upper": 1.91986,
+        "effort": 10.0,
+        "velocity": 10.0
+      },
+      "servo": "st3215_servo",
+      "review_required": true
+    },
+    {
+      "joint_id": "joint_2",
+      "parent_body": "rotation_pitch_so101",
+      "child_body": "upper_arm_so101",
+      "axis_dir": [
+        0.9999619230641714,
+        0.008726203218642077,
+        7.61524218171241e-05
+      ],
+      "axis_point": [
+        -0.014756250673518746,
+        -0.0388697664877171,
+        0.11975728484641494
+      ],
+      "limits": {
+        "lower": -1.74533,
+        "upper": 1.74533,
+        "effort": 10.0,
+        "velocity": 10.0
+      },
+      "servo": "st3215_servo_2",
+      "review_required": true
+    },
+    {
+      "joint_id": "joint_3",
+      "parent_body": "upper_arm_so101",
+      "child_body": "under_arm_so101",
+      "axis_dir": [
+        0.9999238475781956,
+        0.008649718529758195,
+        0.008802352740800962
+      ],
+      "axis_point": [
+        -0.013244911113251753,
+        0.07357146555251139,
+        0.1484636557286717
+      ],
+      "limits": {
+        "lower": -1.69,
+        "upper": 1.69,
+        "effort": 10.0,
+        "velocity": 10.0
+      },
+      "servo": "st3215_servo_3",
+      "review_required": true
+    },
+    {
+      "joint_id": "joint_4",
+      "parent_body": "under_arm_so101",
+      "child_body": "wrist_roll_pitch_so100",
+      "axis_dir": [
+        0.999847700955417,
+        -0.0001529606664389411,
+        0.017451403874803297
+      ],
+      "axis_point": [
+        -0.011162663763622438,
+        -0.06057694392071616,
+        0.1522762187709546
+      ],
+      "limits": {
+        "lower": -1.65806,
+        "upper": 1.65806,
+        "effort": 10.0,
+        "velocity": 10.0
+      },
+      "servo": "st3215_servo_4",
+      "review_required": true
+    },
+    {
+      "joint_id": "joint_5",
+      "parent_body": "wrist_roll_pitch_so100",
+      "child_body": "wrist_roll_follower_so101",
+      "axis_dir": [
+        6.645215740348764e-07,
+        -0.9999612556431758,
+        -0.008802682095902807
+      ],
+      "axis_point": [
+        0.007061806223549176,
+        -0.11987743442570112,
+        0.15207231002956853
+      ],
+      "limits": {
+        "lower": -2.74385,
+        "upper": 2.84121,
+        "effort": 10.0,
+        "velocity": 10.0
+      },
+      "servo": "st3215_servo_5",
+      "review_required": true
+    },
+    {
+      "joint_id": "joint_6",
+      "parent_body": "wrist_roll_follower_so101",
+      "child_body": "moving_jaw_so101",
+      "axis_dir": [
+        0.9999619259454086,
+        -7.614954071793674e-05,
+        0.008725873067878448
+      ],
+      "axis_point": [
+        0.02386684127599598,
+        -0.14570442337262066,
+        0.17206615534103112
+      ],
+      "limits": {
+        "lower": -0.174533,
+        "upper": 1.74533,
+        "effort": 10.0,
+        "velocity": 10.0
+      },
+      "servo": "st3215_servo_6",
+      "review_required": true
+    }
   ]
 }

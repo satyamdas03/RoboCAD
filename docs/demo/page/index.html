@@ -440,7 +440,7 @@
       line.textContent = 'source: ';
       line.appendChild(mk('b', null, R.name || 'compiled bundle'));
       line.appendChild(document.createTextNode(
-        ' · compiled bundle at docs/twin/so101/bundle, being regenerated · published meshes for 3D · checks: ' +
+        ' · compiled bundle at docs/twin/so101/bundle · published meshes for 3D · checks: ' +
         R.worst_check + ' (' + R.checks.filter(c=>c.status==='pass').length + ' of ' +
         R.checks.length + ' pass)')); })();
     document.getElementById('p-source').textContent = 'compiled bundle (masses, checks)';

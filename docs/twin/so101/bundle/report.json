@@ -1,7 +1,7 @@
 {
   "schema_version": "robocad.twin.report/1",
   "name": "so101",
-  "generated_at": "2026-11-13T09:23:25+00:00",
+  "generated_at": "2026-11-13T11:48:24+00:00",
   "source": {
     "file": "so101.step",
     "parts": 83,
@@ -23,7 +23,17 @@
       "wrist_roll_pitch_so100",
       "wrist_roll_follower_so101",
       "moving_jaw_so101"
-    ]
+    ],
+    "printed_mass_upper_bound_kg": 0.586686582,
+    "printed_volume_m3": 0.000473134340315,
+    "unclassified_volume_m3": 0.000330386746633,
+    "volume_by_role_m3": {
+      "actuator": 0.000031714993728,
+      "fastener": 4.553423415e-6,
+      "link": 0.000473134340315,
+      "unclassified": 0.000330386746633
+    },
+    "actuator_mass_kg": null
   },
   "checks": [
     {
@@ -98,32 +108,81 @@
           ]
         ],
         "deepest_m": -0.007938773299899294,
-        "contacts_total": 110
+        "contacts_total": 110,
+        "body_fill": {
+          "wrist_roll_pitch_so100": 2.054,
+          "moving_jaw_so101": 2.448
+        },
+        "brep_distance_m": {
+          "wrist_roll_pitch_so100|moving_jaw_so101": {
+            "distance_m": 0.0,
+            "shape_pairs": 47,
+            "shape_pairs_total": 47,
+            "intersection_m3": 5.176158652625038e-10
+          }
+        }
       },
       "threshold": {
         "depth_m": 0.0001
       },
-      "explanation": "1 non-adjacent pair(s) overlap, deepest -7.939e-03 m."
+      "explanation": "1 non-adjacent pair(s) overlap, deepest -7.939e-03 m. The CAD solids of wrist_roll_pitch_so100 and moving_jaw_so101 intersect and share 0.52 mm3 of material, so part of that overlap is real and part of it may be the hull; this measurement does not split the two. The status stays fail either way: MuJoCo collides the hulls, so the simulator will act on the overlap whatever the B-rep says. MuJoCo collides the convex hulls, and this overlap is an overlap of those hulls, so any torque read from inverse dynamics on this model includes the contact forces the simulator applies to push them apart. A posed inverse-dynamics torque is therefore not the actuator load and is not reported as one."
     },
     {
       "id": "limits_and_effort",
-      "status": "warn",
+      "status": "pass",
       "measured": {
-        "no_limit": [
-          "joint_1",
-          "joint_2",
-          "joint_3",
-          "joint_4",
-          "joint_5",
-          "joint_6"
-        ],
-        "with_limit": {},
-        "actuators": {}
+        "no_limit": [],
+        "with_limit": {
+          "joint_1": {
+            "range_rad": [
+              -1.91986,
+              1.91986
+            ],
+            "limited": true
+          },
+          "joint_2": {
+            "range_rad": [
+              -1.74533,
+              1.74533
+            ],
+            "limited": true
+          },
+          "joint_3": {
+            "range_rad": [
+              -1.69,
+              1.69
+            ],
+            "limited": true
+          },
+          "joint_4": {
+            "range_rad": [
+              -1.65806,
+              1.65806
+            ],
+            "limited": true
+          },
+          "joint_5": {
+            "range_rad": [
+              -2.74385,
+              2.84121
+            ],
+            "limited": true
+          },
+          "joint_6": {
+            "range_rad": [
+              -0.174533,
+              1.74533
+            ],
+            "limited": true
+          }
+        },
+        "actuators": {},
+        "limits_source": "SO-ARM100 so101_new_calib.urdf at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits."
       },
       "threshold": {
         "rule": "every joint limited, effort stated with its source"
       },
-      "explanation": "6 of 6 joints ship without a travel limit (joint_1, joint_2, joint_3, joint_4, joint_5, joint_6). The CAD carries none, so none were written. Supply limits from a datasheet or a measurement before commanding motion."
+      "explanation": "6 joint(s) carry a travel limit, from SO-ARM100 so101_new_calib.urdf at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits."
     },
     {
       "id": "free_base_stand",
@@ -166,7 +225,14 @@
       "hulls": 274,
       "parts": 69,
       "instances": 150,
-      "assumed_density": true
+      "assumed_density": true,
+      "solid_volume_m3": 0.000204731809462,
+      "role_volume_m3": {
+        "link": 0.00019772463808,
+        "fastener": 9.7201886e-7,
+        "unclassified": 7.49320235e-7,
+        "actuator": 5.285832288e-6
+      }
     },
     {
       "body_id": "rotation_pitch_so101",
@@ -200,7 +266,14 @@
       "hulls": 25,
       "parts": 12,
       "instances": 15,
-      "assumed_density": true
+      "assumed_density": true,
+      "solid_volume_m3": 0.000125748262587,
+      "role_volume_m3": {
+        "link": 0.000106106054399,
+        "fastener": 7.5539028e-8,
+        "unclassified": 0.000014280836872,
+        "actuator": 5.285832288e-6
+      }
     },
     {
       "body_id": "upper_arm_so101",
@@ -234,7 +307,12 @@
       "hulls": 14,
       "parts": 4,
       "instances": 14,
-      "assumed_density": true
+      "assumed_density": true,
+      "solid_volume_m3": 0.000118871807549,
+      "role_volume_m3": {
+        "unclassified": 0.000118116796711,
+        "fastener": 7.55010838e-7
+      }
     },
     {
       "body_id": "under_arm_so101",
@@ -268,7 +346,14 @@
       "hulls": 33,
       "parts": 13,
       "instances": 23,
-      "assumed_density": true
+      "assumed_density": true,
+      "solid_volume_m3": 0.000150759269839,
+      "role_volume_m3": {
+        "unclassified": 0.000107423866806,
+        "fastener": 7.55010838e-7,
+        "link": 0.000037294559907,
+        "actuator": 5.285832288e-6
+      }
     },
     {
       "body_id": "wrist_roll_pitch_so100",
@@ -302,7 +387,14 @@
       "hulls": 67,
       "parts": 14,
       "instances": 47,
-      "assumed_density": true
+      "assumed_density": true,
+      "solid_volume_m3": 0.000119786956239,
+      "role_volume_m3": {
+        "unclassified": 0.000033196376511,
+        "fastener": 1.995843851e-6,
+        "link": 0.0000740230713,
+        "actuator": 0.000010571664576
+      }
     },
     {
       "body_id": "wrist_roll_follower_so101",
@@ -336,7 +428,13 @@
       "hulls": 19,
       "parts": 9,
       "instances": 9,
-      "assumed_density": true
+      "assumed_density": true,
+      "solid_volume_m3": 0.000099199941693,
+      "role_volume_m3": {
+        "unclassified": 0.000056619549498,
+        "link": 0.000037294559907,
+        "actuator": 5.285832288e-6
+      }
     },
     {
       "body_id": "moving_jaw_so101",
@@ -370,7 +468,11 @@
       "hulls": 1,
       "parts": 1,
       "instances": 1,
-      "assumed_density": true
+      "assumed_density": true,
+      "solid_volume_m3": 0.000020691456722,
+      "role_volume_m3": {
+        "link": 0.000020691456722
+      }
     }
   ],
   "warnings": [
@@ -479,6 +581,465 @@
   "notes": [
     "Axes and origins come from the servos' output shafts and drive-horn placements in the CAD.",
     "Topology order comes from the CAD assembly names, not from geometry.",
-    "Joint limits are UNKNOWN: the CAD carries no travel limits."
-  ]
+    "Joint limits come from SO-ARM100 so101_new_calib.urdf at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits.",
+    "Every mass rests on an assumed density unless a part was weighed; the per-body flag says which, and the report never presents an assumed mass as a measurement.",
+    "The printed/actuator/fastener split comes from the CAD part names. On this file 13 parts carry generic names (SOLID, Component1..7) and cannot be placed by name, so they are counted as unclassified and their volume is reported separately rather than folded into either side of the split.",
+    "The bundle's own mass model carries no actuator mass. A servo's mass comes from a datasheet or a scale, and this model has neither, so the all-parts mass treats every actuator as its own solid volume of PLA. That number is labelled as an assumption wherever it appears; it is not a weigh-in. A comparison that adds a catalogue actuator mass does so beside this model, states the figure and its source, and does not change these masses."
+  ],
+  "comparison": {
+    "schema_version": "robocad.twin.comparison/1",
+    "ours": "RoboCAD",
+    "theirs": "SO-ARM100 so101_new_calib.urdf",
+    "ours_total_kg": 1.0413389850742334,
+    "theirs_total_kg": 0.6320060009999999,
+    "delta_kg": 0.40933298407423346,
+    "delta_percent": 64.76726224538388,
+    "bodies": [
+      {
+        "ours": "base_so101",
+        "theirs": "base_link",
+        "ours_kg": 0.2538674437334641,
+        "theirs_kg": 0.147,
+        "delta_kg": 0.1068674437334641,
+        "delta_percent": 72.69894131528171,
+        "ours_parts": 69,
+        "ours_instances": 150,
+        "assumed_density": false,
+        "ours_solid_volume_m3": 0.000204731809462,
+        "ours_printed_upper_kg": 0.2451785512192,
+        "implied_fill": 0.5790423452432671,
+        "ours_unclassified_volume_m3": 7.49320235e-7,
+        "servos_on_body": 1,
+        "printed_fill": 0.3752367388685159
+      },
+      {
+        "ours": "rotation_pitch_so101",
+        "theirs": "shoulder_link",
+        "ours_kg": 0.15592784560814818,
+        "theirs_kg": 0.100006,
+        "delta_kg": 0.05592184560814818,
+        "delta_percent": 55.91849049871826,
+        "ours_parts": 12,
+        "ours_instances": 15,
+        "assumed_density": false,
+        "ours_solid_volume_m3": 0.000125748262587,
+        "ours_printed_upper_kg": 0.13157150745475998,
+        "implied_fill": 0.6413607499682281,
+        "ours_unclassified_volume_m3": 0.000014280836872,
+        "servos_on_body": 1,
+        "printed_fill": 0.34206494149559713
+      },
+      {
+        "ours": "upper_arm_so101",
+        "theirs": "upper_arm_link",
+        "ours_kg": 0.14740104136097618,
+        "theirs_kg": 0.103,
+        "delta_kg": 0.04440104136097618,
+        "delta_percent": 43.10780714657882,
+        "ours_parts": 4,
+        "ours_instances": 14,
+        "assumed_density": false,
+        "ours_solid_volume_m3": 0.000118871807549,
+        "ours_printed_upper_kg": 0.0,
+        "implied_fill": 0.6987738963655645,
+        "ours_unclassified_volume_m3": 0.000118116796711,
+        "servos_on_body": 1,
+        "printed_fill": null
+      },
+      {
+        "ours": "under_arm_so101",
+        "theirs": "lower_arm_link",
+        "ours_kg": 0.18694149460084683,
+        "theirs_kg": 0.104,
+        "delta_kg": 0.08294149460084684,
+        "delta_percent": 79.75143711619889,
+        "ours_parts": 13,
+        "ours_instances": 23,
+        "assumed_density": false,
+        "ours_solid_volume_m3": 0.000150759269839,
+        "ours_printed_upper_kg": 0.04624525428468,
+        "implied_fill": 0.5563237858043728,
+        "ours_unclassified_volume_m3": 0.000107423866806,
+        "servos_on_body": 1,
+        "printed_fill": 1.0595681818152003
+      },
+      {
+        "ours": "wrist_roll_pitch_so100",
+        "theirs": "wrist_link",
+        "ours_kg": 0.14853582573626067,
+        "theirs_kg": 0.079,
+        "delta_kg": 0.06953582573626067,
+        "delta_percent": 88.02003257754515,
+        "ours_parts": 14,
+        "ours_instances": 47,
+        "assumed_density": false,
+        "ours_solid_volume_m3": 0.000119786956239,
+        "ours_printed_upper_kg": 0.091788608412,
+        "implied_fill": 0.5318582207919259,
+        "ours_unclassified_volume_m3": 0.000033196376511,
+        "servos_on_body": 1,
+        "printed_fill": 0.26147035471192914
+      },
+      {
+        "ours": "wrist_roll_follower_so101",
+        "theirs": "gripper_link",
+        "ours_kg": 0.12300792769891758,
+        "theirs_kg": 0.087,
+        "delta_kg": 0.036007927698917586,
+        "delta_percent": 41.38842264243401,
+        "ours_parts": 9,
+        "ours_instances": 9,
+        "assumed_density": false,
+        "ours_solid_volume_m3": 0.000099199941693,
+        "ours_printed_upper_kg": 0.04624525428468,
+        "implied_fill": 0.7072714875147104,
+        "ours_unclassified_volume_m3": 0.000056619549498,
+        "servos_on_body": 1,
+        "printed_fill": 0.6919628942466615
+      },
+      {
+        "ours": "moving_jaw_so101",
+        "theirs": "moving_jaw_so101_v1_link",
+        "ours_kg": 0.02565740633561982,
+        "theirs_kg": 0.012,
+        "delta_kg": 0.01365740633561982,
+        "delta_percent": 113.8117194634985,
+        "ours_parts": 1,
+        "ours_instances": 1,
+        "assumed_density": false,
+        "ours_solid_volume_m3": 0.000020691456722,
+        "ours_printed_upper_kg": 0.025657406335280002,
+        "implied_fill": 0.4677012104493002,
+        "ours_unclassified_volume_m3": 0.0,
+        "servos_on_body": 0,
+        "printed_fill": 0.4677012104493002
+      }
+    ],
+    "joints": [
+      {
+        "ours": "joint_1",
+        "theirs": "shoulder_pan",
+        "ours_axis": [
+          3.4694469519536134e-18,
+          0.008726535498374356,
+          -0.9999619230641713
+        ],
+        "theirs_axis": [
+          -7.0414969660857844e-12,
+          2.653589793343387e-6,
+          -0.9999999999964793
+        ],
+        "theirs_axis_local": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "ours_axis_in_theirs": [
+          0.0001310442090220499,
+          0.002756027037184018,
+          -0.9999961935639482
+        ],
+        "axis_angle_deg": 0.1579354522436942,
+        "anchor_delta_m": 0.1089642363630105,
+        "anchor_along_axis_m": -0.054798107820759036,
+        "anchor_perpendicular_m": 0.09418265331492041,
+        "ours_limits": {
+          "lower": -1.91986,
+          "upper": 1.91986,
+          "effort": 10.0,
+          "velocity": 10.0
+        },
+        "theirs_limits": {
+          "lower": -1.91986,
+          "upper": 1.91986,
+          "effort": 10.0,
+          "velocity": 10.0
+        }
+      },
+      {
+        "ours": "joint_2",
+        "theirs": "shoulder_lift",
+        "ours_axis": [
+          0.9999619230641714,
+          0.008726203218642077,
+          0.0000761524218171241
+        ],
+        "theirs_axis": [
+          -6.326794896704957e-6,
+          0.999999999976465,
+          2.653576300915006e-6
+        ],
+        "theirs_axis_local": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "ours_axis_in_theirs": [
+          -0.005242753348989567,
+          0.999982460769869,
+          0.002755302154020031
+        ],
+        "axis_angle_deg": 0.33895500824761154,
+        "anchor_delta_m": 0.11034315850965193,
+        "anchor_along_axis_m": -0.0012423442235068541,
+        "anchor_perpendicular_m": 0.1103361645641015,
+        "ours_limits": {
+          "lower": -1.74533,
+          "upper": 1.74533,
+          "effort": 10.0,
+          "velocity": 10.0
+        },
+        "theirs_limits": {
+          "lower": -1.74533,
+          "upper": 1.74533,
+          "effort": 10.0,
+          "velocity": 10.0
+        }
+      },
+      {
+        "ours": "joint_3",
+        "theirs": "elbow_flex",
+        "ours_axis": [
+          0.9999238475781956,
+          0.008649718529758195,
+          0.008802352740800962
+        ],
+        "theirs_axis": [
+          -6.326794897568707e-6,
+          0.9999999999764648,
+          2.6535763014701175e-6
+        ],
+        "theirs_axis_local": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "ours_axis_in_theirs": [
+          -0.005243697282949043,
+          0.9999203339341058,
+          0.011481699521924287
+        ],
+        "axis_angle_deg": 0.7229424353770522,
+        "anchor_delta_m": 0.05396158951909373,
+        "anchor_along_axis_m": 0.000585985391714,
+        "anchor_perpendicular_m": 0.05395840772806277,
+        "ours_limits": {
+          "lower": -1.69,
+          "upper": 1.69,
+          "effort": 10.0,
+          "velocity": 10.0
+        },
+        "theirs_limits": {
+          "lower": -1.69,
+          "upper": 1.69,
+          "effort": 10.0,
+          "velocity": 10.0
+        }
+      },
+      {
+        "ours": "joint_4",
+        "theirs": "wrist_flex",
+        "ours_axis": [
+          0.999847700955417,
+          -0.0001529606664389411,
+          0.017451403874803297
+        ],
+        "theirs_axis": [
+          -6.326794893540821e-6,
+          0.9999999999764647,
+          2.6535763008039837e-6
+        ],
+        "theirs_axis_local": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "ours_axis_in_theirs": [
+          0.0034817087314567576,
+          0.99978973400459,
+          0.020208054912354542
+        ],
+        "axis_angle_deg": 1.1748898535173995,
+        "anchor_delta_m": 0.05477510072866396,
+        "anchor_along_axis_m": 0.0021863760052538805,
+        "anchor_perpendicular_m": 0.054731448179259186,
+        "ours_limits": {
+          "lower": -1.65806,
+          "upper": 1.65806,
+          "effort": 10.0,
+          "velocity": 10.0
+        },
+        "theirs_limits": {
+          "lower": -1.65806,
+          "upper": 1.65806,
+          "effort": 10.0,
+          "velocity": 10.0
+        }
+      },
+      {
+        "ours": "joint_5",
+        "theirs": "wrist_roll",
+        "ours_axis": [
+          6.645215740348764e-7,
+          -0.9999612556431758,
+          -0.008802682095902807
+        ],
+        "theirs_axis": [
+          -0.9999999999288824,
+          -9.99563140747367e-6,
+          -6.505553554525534e-6
+        ],
+        "theirs_axis_local": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "ours_axis_in_theirs": [
+          0.9999939321432998,
+          -0.0034833353334800875,
+          0.00004529389754218608
+        ],
+        "axis_angle_deg": 0.20016586235625436,
+        "anchor_delta_m": 0.056086698469961546,
+        "anchor_along_axis_m": 0.048768416111072105,
+        "anchor_perpendicular_m": 0.027701251511036626,
+        "ours_limits": {
+          "lower": -2.74385,
+          "upper": 2.84121,
+          "effort": 10.0,
+          "velocity": 10.0
+        },
+        "theirs_limits": {
+          "lower": -2.74385,
+          "upper": 2.84121,
+          "effort": 10.0,
+          "velocity": 10.0
+        }
+      },
+      {
+        "ours": "joint_6",
+        "theirs": "gripper",
+        "ours_axis": [
+          0.9999619259454086,
+          -0.00007614954071793674,
+          0.008725873067878448
+        ],
+        "theirs_axis": [
+          0.00001397357354226969,
+          -0.9988152578757736,
+          -0.04866292674398309
+        ],
+        "theirs_axis_local": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "ours_axis_in_theirs": [
+          0.0034825856074942175,
+          0.9999280089133603,
+          0.011482534043050482
+        ],
+        "axis_angle_deg": 2.140753227309615,
+        "anchor_delta_m": 0.05448523788876757,
+        "anchor_along_axis_m": 0.0004173279507986652,
+        "anchor_perpendicular_m": 0.0544836396102268,
+        "ours_limits": {
+          "lower": -0.174533,
+          "upper": 1.74533,
+          "effort": 10.0,
+          "velocity": 10.0
+        },
+        "theirs_limits": {
+          "lower": -0.174533,
+          "upper": 1.74533,
+          "effort": 10.0,
+          "velocity": 10.0
+        }
+      }
+    ],
+    "link_spacings": [
+      {
+        "from_joint": "joint_1",
+        "to_joint": "joint_2",
+        "ours_m": 0.06600692003474214,
+        "theirs_m": 0.06477522160116474,
+        "delta_m": 0.0012316984335773995,
+        "delta_percent": 1.9014962869000083
+      },
+      {
+        "from_joint": "joint_2",
+        "to_joint": "joint_3",
+        "ours_m": 0.11605761732527776,
+        "theirs_m": 0.11600002112068773,
+        "delta_m": 0.00005759620459003245,
+        "delta_percent": 0.049651891468285775
+      },
+      {
+        "from_joint": "joint_3",
+        "to_joint": "joint_4",
+        "ours_m": 0.1342187287794559,
+        "theirs_m": 0.13500018518505813,
+        "delta_m": -0.0007814564056022322,
+        "delta_percent": -0.5788558027020574
+      },
+      {
+        "from_joint": "joint_4",
+        "to_joint": "joint_5",
+        "ours_m": 0.062038061375416495,
+        "theirs_m": 0.0637245635528404,
+        "delta_m": -0.0016865021774239014,
+        "delta_percent": -2.6465495931179728
+      },
+      {
+        "from_joint": "joint_5",
+        "to_joint": "joint_6",
+        "ours_m": 0.036731409059781034,
+        "theirs_m": 0.03618065781602099,
+        "delta_m": 0.000550751243760042,
+        "delta_percent": 1.5222256227640127
+      }
+    ],
+    "alignment": {
+      "method": "rotation fitted to the joint axis directions (with a search over axis senses), translation from the anchor centroid",
+      "rotation_deg": [
+        -0.2749012332602332,
+        -0.5214766001239246,
+        89.79898918028806
+      ],
+      "translation_m": [
+        0.1259161402043356,
+        -0.004300904597678813,
+        0.05360279183426081
+      ],
+      "joints_used": 6,
+      "axis_signs": [
+        1,
+        1,
+        1,
+        1,
+        -1,
+        -1
+      ],
+      "rotations_tied": 4,
+      "rms_axis_deg": 1.0540190376324756,
+      "worst_axis_deg": 2.140753227309615,
+      "rms_point_m": 0.07754067871379794,
+      "worst_point_m": 0.11034315850965191
+    },
+    "notes": [
+      "Ours is measured from the CAD B-rep at a stated density. Theirs is the value published in the official model. Neither is adjusted to match the other.",
+      "The body correspondence is a judgement from the two naming schemes and is printed beside the numbers so it can be disputed.",
+      "The official model accounts for 0.6320 kg. Our joints imply 6 actuators, and at Feetech STS3215 product specification (STS3215-PRODUCT_SPECIFICATION.pdf, feetech.cn): weight 55 +/- 1 g, both the 7.4 V and the 12 V variant they weigh 330 g, which is 52% of their total. That leaves 302 g for every printed link and fastener. Our printed parts alone are 587 g at 100% solid, so the arithmetic is consistent with their masses being whole-body masses that include the servos, at a fill fraction well under solid. That is a reading of the numbers, not a statement of their method.",
+      "The printed-only column counts parts whose CAD names classify them as links. Parts with generic names (SOLID, Component1..7) are left out of it rather than guessed into it, so it is a lower bound on printed plastic, not a total; a body marked with an asterisk carries such parts, and a printed-only figure of 0 for that body means only that no part on it could be identified as printed.",
+      "The fill column is derived, not assumed: the official mass divided by the mass our geometry would have as 100% solid PLA (1240 kg/m3). Read against a body's whole published mass it can exceed a real fill fraction, because a servo is not plastic.",
+      "The printed-fill column removes one actuator per joint from their body mass and divides what is left by our printed-only upper bound. It assumes their link masses include the servo that link carries, which is the common convention and is stated here rather than silently applied.",
+      "The joint-to-joint spacings are printed before the frame alignment because no change of frame can alter them: a rotation and a translation move both ends of a segment by the same amount, so their agreement is not a consequence of the fit. The largest difference is 1.7 mm between joint_4 and joint_5. A difference in the pose the two files were stored in would show up here too, so agreement means the links are the same length and both files are in much the same configuration.",
+      "Our world datum and theirs are different choices of origin and axes, so one rigid transform is fitted over the 6 joints both files place and ours is carried into their frame before any angle is computed. The rotation is fitted to the axis directions and the translation to the anchor centroid. It is a change of frame, not a correction of the robot: the axis angles and anchor distances below are the residual after it.",
+      "The rotation is fitted to the axis directions rather than to the anchor positions. An anchor is a poor constraint on a rotation: a revolute joint's origin is free to sit anywhere along its own axis, and a difference in the pose the two files were stored in moves every anchor at once. Fitting the rotation to anchors spends both of those on the rotation and reports the robot as worse than it is.",
+      "4 sense combinations fitted the axis directions within 0.25 degrees of each other, so the directions alone did not decide the datum. The anchors chose between them, and the rotation printed above is the one they chose. A reader who disagrees with that tie-break should know the axis agreement would look the same under the others.",
+      "2 of 6 of our axes had to be reversed to agree with theirs. A revolute axis has no natural sense, so a reversed axis is a convention both files are free to choose differently; the per-joint signs are in the frame alignment table so the choice is visible rather than assumed.",
+      "The anchor distance is split along their joint's own axis and perpendicular to it. Only the perpendicular part is a statement about where the joint is: an along-axis difference is the freedom every revolute joint has to put its origin anywhere on its axis line. A perpendicular difference is real, and it can come from the pose each file was stored in as well as from the geometry, so this comparison reports it without attributing it."
+    ]
+  },
+  "revision": null
 }

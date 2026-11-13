@@ -209,6 +209,11 @@ def _classify(name: str) -> str:
     return "link"
 
 
+# Public name for the same rule. The audit script classifies a part by its own name, outside the
+# grouping algorithm, and duplicating the patterns there would let the two drift apart.
+classify_part = _classify
+
+
 def _group_bbox(instances: dict[str, object], parts, group: LinkGroup):
     """World-space bounding box of a group, computed from the placed corners of each part.
 

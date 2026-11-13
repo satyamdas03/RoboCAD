@@ -60,11 +60,14 @@ Three targets were named before computing them, so the choice could not flatter 
    implies exactly 1240.0 kg/m3, and the body masses sum to the reported 1.04134 kg total.
    `verified-ran`
 
-**Not verified, and not shown**: the revision diff. The published `revision.json` compares
-`robot.joints.proposed.yaml` against `so101_demo` and reports **19 links removed, 7 changed, 0
-added**, which is an artefact of two different link identity schemes rather than a revision. It is
-excluded from the page and flagged to Lane A. A diff that reports deletions that never happened is
-worse than a missing panel.
+**Not verified, and not shown**: the revision diff. The `revision.json` that was published with the
+bundle compared `robot.joints.proposed.yaml` against `so101_demo` and reported **19 links removed, 7
+changed, 0 added**, an artefact of two different link identity schemes rather than a revision. It was
+excluded from the page and flagged to Lane A. Lane A then made the diff refuse that comparison:
+`ai_cad/compiler/revision.py` records each document's link scheme and returns `comparable=False`
+with a reason instead of a table, and the two revision files were removed from the published bundle.
+`docs/twin/so101/NOTICE.md` says the bundle carries no revision diff and why. A diff that reports
+deletions that never happened is worse than a missing panel.
 
 ## Identification: the rung reached and why it stopped
 
@@ -121,3 +124,11 @@ same mistake will be made again.
 3. Widen the identification to a real torque or current channel so a partner's bench log can be
    identified at 62 Hz, which is the only way the Twin's central claim becomes checkable outside
    this machine.
+
+## One known film/page difference
+
+The film was recorded while the provenance line read "bundle at docs/twin/so101/bundle, being
+regenerated". The bundle then landed and the line was shortened to drop the last two words. The film
+and the page therefore differ by those two words and nothing else. Re-recording costs ten minutes and
+is the sprints own cut item, so it is left, and this line exists so nobody discovers it and wonders
+what else drifted.
