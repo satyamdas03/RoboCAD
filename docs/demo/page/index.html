@@ -431,9 +431,10 @@
       ];
       rows.forEach(([k, v]) => el.appendChild(dataRow(k, v)));
       const note = document.createElement('div'); note.className = 'hint';
-      note.textContent = 'masses are at the density stated in the report; printed parts are an upper bound. ' +
-        'per-body assumed-density flags are missing from this comparison because of a producer/consumer ' +
-        'key mismatch under review, so treat every printed body as assumed regardless of what it shows.';
+      const flagged = (cmp.bodies || []).filter(b => b.assumed_density).length;
+      note.textContent = 'masses are at the density stated in the report; ' + flagged + ' of ' +
+        (cmp.bodies || []).length + ' bodies are flagged as resting on an assumed density, which makes ' +
+        'their mass an estimate rather than a measurement.';
       el.appendChild(note);
     }
 
@@ -449,6 +450,22 @@
     const totals = R.totals || {};
     if (totals.total_mass_kg) {
       document.getElementById('m-total').textContent = totals.total_mass_kg.toFixed(3) + ' kg';
+    }
+    const warns = (R.warnings || []);
+    if (warns.length) {
+      const oversize = warns.filter(w => String(w).includes('hulls cover'));
+      const row = dataRow('model warnings', warns.length);
+      document.getElementById('m-frames').parentElement.parentElement.appendChild(row);
+      if (oversize.length) {
+        const worst = oversize.map(w => {
+          const m = String(w).match(/cover ([0-9.]+)x/);
+          return { w, x: m ? parseFloat(m[1]) : 0 };
+        }).sort((a, b) => b.x - a.x)[0];
+        const detail = mk('div', 'check-detail',
+          oversize.length + ' parts have collision hulls larger than 3x their own volume; worst is ' +
+          worst.x.toFixed(1) + 'x. Hulls that big create contacts the CAD does not have.');
+        document.getElementById('m-frames').parentElement.parentElement.appendChild(detail);
+      }
     }
     if (totals.bodies) {
       document.getElementById('m-bodies').textContent = totals.bodies;
@@ -552,6 +569,11 @@
     const summary = mk('div', 'hint',
       'method validation, not a robot result: ' + D.rungs.filter(r=>r.reached).length +
       ' of ' + D.rungs.length + ' rungs recovered, stopped at rung ' + D.stopped_at + '.');
+    box.appendChild(summary);
+    const need = mk('div', 'check-detail',
+      'What would identify friction: signal to noise is 0.10 with 62 Hz position logs. A torque or ' +
+      'current channel at 1 percent noise reaches 4.48; a 20-bit encoder reaches 25.1 at 62 Hz; ' +
+      'raising the rate to 1 kHz alone only reaches 0.39. See docs/twin/so101/identifiability.md.');
     box.appendChild(summary);
   })();
 
