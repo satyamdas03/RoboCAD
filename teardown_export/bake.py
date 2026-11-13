@@ -29,7 +29,7 @@ def _simulate(model, data, mujoco, seconds: float, hz: int) -> dict:
             joint = model.actuator_trnid[act, 0]
             lo, hi = model.jnt_range[joint]
             centre, span = (lo + hi) / 2.0, (hi - lo) / 2.0
-            phase = 0.55 * np.sin(2.0 * np.pi * (0.18 * t + 0.09 * act))
+            phase = 0.32 * np.sin(2.0 * np.pi * (0.18 * t + 0.09 * act))
             data.ctrl[act] = centre + span * phase
         for _ in range(steps_per_frame):
             mujoco.mj_step(model, data)

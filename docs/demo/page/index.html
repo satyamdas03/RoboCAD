@@ -29,6 +29,8 @@
   button:hover{border-color:#2f3d51} button[aria-pressed="true"]{background:#1f3a2f;border-color:#2f6a53;color:#bff3dc}
   .btns{display:flex;flex-wrap:wrap;gap:6px}
   .hint{color:var(--dim);font-size:12px;margin-top:8px}
+  .synth{background:#3a2a12;color:#f2b45c;border:1px solid #6b4a1c;border-radius:4px;padding:1px 5px;font-size:10px;letter-spacing:.08em}
+  #twin-chart{width:100%;height:auto;background:#0d1219;border:1px solid var(--line);border-radius:6px;margin-bottom:8px}
   #hud{position:absolute;left:14px;bottom:12px;font-family:var(--mono);font-size:12px;color:var(--dim)}
   #load{position:absolute;inset:0;display:grid;place-items:center;color:var(--dim);font-family:var(--mono);font-size:12px}
 </style>
@@ -66,6 +68,13 @@
       </div>
       <div class="hint">drag to orbit · wheel to zoom · numbers above are read from the baked MuJoCo model</div>
     </div>
+    <div class="grp" id="twin-grp">
+      <h2>Twin preview <span class="synth">SYNTHETIC</span></h2>
+      <canvas id="twin-chart" width="296" height="118"></canvas>
+      <div class="row"><span>params identified</span><span id="t-ident">–</span></div>
+      <div class="row"><span>joint 1 RMSE</span><span id="t-rmse">–</span></div>
+      <div class="hint" id="t-note"></div>
+    </div>
     <div class="grp">
       <h2>Provenance</h2>
       <div class="row"><span>source</span><span id="p-source">–</span></div>
@@ -78,6 +87,7 @@
 <script src="trajectory.js"></script>
 <script src="meshes.js"></script>
 <script src="three.min.js"></script>
+<script src="twin.js"></script>
 <script>
 (function(){
   "use strict";
@@ -320,6 +330,44 @@
   }
   applyFrame(frame);
   requestAnimationFrame(loop);
+
+  // ---- synthetic twin panel: measured versus uncalibrated versus calibrated, labelled ----
+  (function twinPanel(){
+    const D = window.SO101_SYNTHETIC;
+    if (!D || !D.measured || !D.measured.length) return;
+    const frames = D.frames, nq = D.joints.length;
+    const measured = D.measured, uncal = D.uncalibrated, cal = D.calibrated;
+    const joint = 1 % nq; // second joint reads best: it moves most under gravity
+    const series = [measured, uncal, cal].map(arr => {
+      const out = [];
+      for (let f=0; f<Math.min(frames, arr.length); f++) out.push(arr[f][joint]);
+      return out;
+    });
+    const c = document.getElementById('twin-chart');
+    const ctx = c.getContext('2d');
+    const lo = Math.min(...series.flat()), hi = Math.max(...series.flat());
+    const pad = 6, w = c.width, h = c.height;
+    ctx.clearRect(0,0,w,h);
+    const colours = ['#e6ebf2', '#8b97a8', '#57d3a0'];
+    series.forEach((s, i) => {
+      ctx.beginPath(); ctx.strokeStyle = colours[i]; ctx.lineWidth = i === 0 ? 2 : 1.4;
+      s.forEach((v, f) => {
+        const x = pad + (w-2*pad) * f / Math.max(1, s.length-1);
+        const y = h - pad - (h-2*pad) * ((v-lo)/(hi-lo || 1));
+        f ? ctx.lineTo(x,y) : ctx.moveTo(x,y);
+      });
+      ctx.stroke();
+    });
+    ctx.fillStyle = 'rgba(242,180,92,0.9)';
+    ctx.font = '10px ui-monospace, monospace';
+    ctx.fillText('SYNTHETIC', w-74, 14);
+    document.getElementById('t-ident').textContent = D.identified + ' of ' + D.total;
+    const un = D.trajectory_rmse_mrad_uncalibrated, ca = D.trajectory_rmse_mrad_calibrated;
+    document.getElementById('t-rmse').textContent = un.toFixed(0) + ' -> ' + ca.toFixed(0) + ' mrad';
+    document.getElementById('t-note').textContent =
+      'planted parameters were not recovered, so each is reported as not identifiable. ' +
+      'the curves are a fit, not a calibration.';
+  })();
 
   // expose a tiny hook so the film recorder and the verifier can drive frames deterministically
   window.SO101_PAGE = {
