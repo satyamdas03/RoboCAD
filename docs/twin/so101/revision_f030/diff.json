@@ -1,0 +1,397 @@
+{
+  "schema_version": "robocad.twin.revision_demo/1",
+  "before": "docs\\twin\\so101\\bundle",
+  "after": "docs\\twin\\so101\\revision_f030\\bundle",
+  "keyed_on": "docs\\twin\\so101\\bundle\\robot.joints.yaml",
+  "added": [],
+  "removed": [],
+  "sanity": [
+    "zero links added",
+    "zero links removed",
+    "every link with printed parts is heavier",
+    "links with no printed parts are unchanged",
+    "servos unchanged: actuator and joint blocks identical"
+  ],
+  "sanity_failures": [],
+  "comparable": true,
+  "totals": {
+    "mass_before_kg": 0.9016588355893798,
+    "mass_after_kg": 0.9554530302470398,
+    "solid_mass_before_kg": 1.3320123928506593,
+    "solid_mass_after_kg": 1.3320123928506593,
+    "print_model_before": "1.20 mm wall over 20% infill",
+    "print_model_after": "1.20 mm wall over 30% infill",
+    "mass_delta_kg": 0.05379419465766,
+    "mass_delta_percent": 5.966136251800473
+  },
+  "unchanged": {
+    "actuators_identical": true,
+    "joints_identical": true,
+    "actuators_before": 6,
+    "actuators_after": 6
+  },
+  "effort": {
+    "before": {
+      "demand_nm": 0.652,
+      "joint": "joint_2",
+      "percent": 22
+    },
+    "after": {
+      "demand_nm": 0.687,
+      "joint": "joint_2",
+      "percent": 23
+    }
+  },
+  "links": [
+    {
+      "link_id": "base_so101",
+      "name": "Base_SO101",
+      "printed_parts": 149,
+      "bought_in_parts": 1,
+      "print_model_before": "1.20 mm wall over 20% infill",
+      "print_model_after": "1.20 mm wall over 30% infill",
+      "mass_before_kg": 0.2115523629670133,
+      "mass_after_kg": 0.22289744405816186,
+      "mass_delta_kg": 0.011345081091148568,
+      "mass_delta_percent": 5.362776823682925,
+      "solid_mass_before_kg": 0.3023130116962018,
+      "solid_mass_after_kg": 0.3023130116962018,
+      "com_before_m": [
+        -0.00030238288667935897,
+        0.022224584383155756,
+        0.03660885197222376
+      ],
+      "com_after_m": [
+        -0.0002885792560526639,
+        0.02215407620221745,
+        0.03627713228132201
+      ],
+      "com_delta_mm": [
+        0.013803630626695073,
+        -0.07050818093830638,
+        -0.3317196909017467
+      ],
+      "inertia_before_6": [
+        0.00018390988454967226,
+        0.0001539420451304672,
+        0.0001757595803585944,
+        -9.225755792403597e-07,
+        4.4391893023344414e-07,
+        -1.654734165987338e-05
+      ],
+      "inertia_after_6": [
+        0.00019567713020293877,
+        0.000165618364896748,
+        0.00018764938706679148,
+        -9.089973047898312e-07,
+        4.679376465894854e-07,
+        -1.7626315197839865e-05
+      ],
+      "inertia_diagonal_delta_percent": [
+        6.398375857872007,
+        7.584880242681599,
+        6.764812867633637
+      ]
+    },
+    {
+      "link_id": "rotation_pitch_so101",
+      "name": "Rotation_Pitch_SO101",
+      "printed_parts": 14,
+      "bought_in_parts": 1,
+      "print_model_before": "1.20 mm wall over 20% infill",
+      "print_model_after": "1.20 mm wall over 30% infill",
+      "mass_before_kg": 0.13913132120016905,
+      "mass_after_kg": 0.14728658274650863,
+      "mass_delta_kg": 0.008155261546339582,
+      "mass_delta_percent": 5.861556891712801,
+      "solid_mass_before_kg": 0.20437341357088584,
+      "solid_mass_after_kg": 0.20437341357088584,
+      "com_before_m": [
+        0.0018747974997107854,
+        -0.03890393769006719,
+        0.08632010855127681
+      ],
+      "com_after_m": [
+        0.001785931859678368,
+        -0.03889676319162222,
+        0.08550901788867829
+      ],
+      "com_delta_mm": [
+        -0.08886564003241751,
+        0.007174498444971478,
+        -0.8110906625985181
+      ],
+      "inertia_before_6": [
+        9.077945742939238e-05,
+        9.214862363121232e-05,
+        3.0286014894190964e-05,
+        -5.398790344679968e-07,
+        -2.3825565948173874e-06,
+        4.230930882606978e-06
+      ],
+      "inertia_after_6": [
+        0.00010091795715390898,
+        0.00010192998231245034,
+        3.2396734347646446e-05,
+        -5.39175347705048e-07,
+        -2.69298197330729e-06,
+        4.635451113927379e-06
+      ],
+      "inertia_diagonal_delta_percent": [
+        11.168275303255973,
+        10.614763732537087,
+        6.969287510521334
+      ]
+    },
+    {
+      "link_id": "upper_arm_so101",
+      "name": "Upper_arm_SO101",
+      "printed_parts": 14,
+      "bought_in_parts": 0,
+      "print_model_before": "1.20 mm wall over 20% infill",
+      "print_model_after": "1.20 mm wall over 30% infill",
+      "mass_before_kg": 0.06416024691193754,
+      "mass_after_kg": 0.07456534621806737,
+      "mass_delta_kg": 0.01040509930612983,
+      "mass_delta_percent": 16.217361695024707,
+      "solid_mass_before_kg": 0.14740104136097618,
+      "solid_mass_after_kg": 0.14740104136097618,
+      "com_before_m": [
+        0.001936648520918049,
+        0.02089484772449977,
+        0.1198873853536762
+      ],
+      "com_after_m": [
+        0.0018774269190591814,
+        0.021026119775887794,
+        0.11988681035335959
+      ],
+      "com_delta_mm": [
+        -0.05922160185886757,
+        0.13127205138802403,
+        -0.0005750003166105078
+      ],
+      "inertia_before_6": [
+        8.153242991406674e-05,
+        2.8528048028631333e-05,
+        0.00010412614921428391,
+        1.6296294530713621e-06,
+        2.1624458227078905e-08,
+        2.1696472562060579e-07
+      ],
+      "inertia_after_6": [
+        9.430541854313396e-05,
+        3.3070412148207104e-05,
+        0.00012047726303676916,
+        1.8286473802039497e-06,
+        2.7703412361524044e-08,
+        2.948142159635417e-07
+      ],
+      "inertia_diagonal_delta_percent": [
+        15.666144922369725,
+        15.922449776504024,
+        15.703177295873932
+      ]
+    },
+    {
+      "link_id": "under_arm_so101",
+      "name": "Under_arm_SO101",
+      "printed_parts": 22,
+      "bought_in_parts": 1,
+      "print_model_before": "1.20 mm wall over 20% infill",
+      "print_model_after": "1.20 mm wall over 30% infill",
+      "mass_before_kg": 0.15115074976587148,
+      "mass_after_kg": 0.1616802888655856,
+      "mass_delta_kg": 0.01052953909971413,
+      "mass_delta_percent": 6.966249996129101,
+      "solid_mass_before_kg": 0.23538706256358452,
+      "solid_mass_after_kg": 0.23538706256358452,
+      "com_before_m": [
+        0.004553789489105802,
+        0.04365452361984826,
+        0.13719678812978012
+      ],
+      "com_after_m": [
+        0.004495334876777309,
+        0.04264903906056306,
+        0.13773080149134703
+      ],
+      "com_delta_mm": [
+        -0.058454612328492916,
+        -1.0054845592851955,
+        0.5340133615669151
+      ],
+      "inertia_before_6": [
+        0.0002771165557266813,
+        6.0528001965921845e-05,
+        0.0002759019172379678,
+        -9.069046068736799e-07,
+        1.216260335639136e-06,
+        5.2416092698416266e-05
+      ],
+      "inertia_after_6": [
+        0.0002949818417453384,
+        6.533420419160485e-05,
+        0.00029518634084740967,
+        -8.841975472920429e-07,
+        1.2631438691964458e-06,
+        5.469757464632239e-05
+      ],
+      "inertia_diagonal_delta_percent": [
+        6.446849042205023,
+        7.9404607282245445,
+        6.989593911668568
+      ]
+    },
+    {
+      "link_id": "wrist_roll_pitch_so100",
+      "name": "Wrist_Roll_Pitch_SO100",
+      "printed_parts": 45,
+      "bought_in_parts": 2,
+      "print_model_before": "1.20 mm wall over 20% infill",
+      "print_model_after": "1.20 mm wall over 30% infill",
+      "mass_before_kg": 0.20010751884588965,
+      "mass_after_kg": 0.20577244919787044,
+      "mass_delta_kg": 0.00566493035198079,
+      "mass_delta_percent": 2.830943277220666,
+      "solid_mass_before_kg": 0.24542696166173603,
+      "solid_mass_after_kg": 0.24542696166173603,
+      "com_before_m": [
+        0.01572236375030042,
+        -0.07390071330279127,
+        0.15277173307087602
+      ],
+      "com_after_m": [
+        0.015602991180152336,
+        -0.07402334150907418,
+        0.1527670319349538
+      ],
+      "com_delta_mm": [
+        -0.1193725701480828,
+        -0.12262820628290705,
+        -0.004701135922213773
+      ],
+      "inertia_before_6": [
+        0.0002093862291495074,
+        5.752483407127644e-05,
+        0.00025095672314435656,
+        4.965544876208701e-05,
+        -1.606833162887749e-06,
+        5.2708050603242965e-06
+      ],
+      "inertia_after_6": [
+        0.00021429758552503716,
+        5.929132109263233e-05,
+        0.00025695780354265476,
+        5.044269937770614e-05,
+        -1.6188227708932404e-06,
+        5.2544402158897885e-06
+      ],
+      "inertia_diagonal_delta_percent": [
+        2.3455966495403606,
+        3.070825061689211,
+        2.3912809838715643
+      ]
+    },
+    {
+      "link_id": "wrist_roll_follower_so101",
+      "name": "Wrist_Roll_Follower_SO101",
+      "printed_parts": 8,
+      "bought_in_parts": 1,
+      "print_model_before": "1.20 mm wall over 20% infill",
+      "print_model_after": "1.20 mm wall over 30% infill",
+      "mass_before_kg": 0.12014179799090144,
+      "mass_after_kg": 0.12655576019974568,
+      "mass_delta_kg": 0.006413962208844243,
+      "mass_delta_percent": 5.338660080091347,
+      "solid_mass_before_kg": 0.17145349566165524,
+      "solid_mass_after_kg": 0.17145349566165524,
+      "com_before_m": [
+        0.006559434320180153,
+        -0.1465299331521122,
+        0.14712240109607072
+      ],
+      "com_after_m": [
+        0.006608762678876496,
+        -0.14665534158606122,
+        0.14701095029659147
+      ],
+      "com_delta_mm": [
+        0.049328358696342986,
+        -0.12540843394900913,
+        -0.11145079947924574
+      ],
+      "inertia_before_6": [
+        4.385885118422537e-05,
+        3.25464374297313e-05,
+        3.209241746434375e-05,
+        2.9364382521152984e-07,
+        -4.0352393996388543e-07,
+        -6.15966330572806e-06
+      ],
+      "inertia_after_6": [
+        4.820685744014362e-05,
+        3.5297753725631006e-05,
+        3.5169354558963164e-05,
+        3.1029832869061406e-07,
+        -4.0866340100289914e-07,
+        -6.872550486755975e-06
+      ],
+      "inertia_diagonal_delta_percent": [
+        9.913634622244933,
+        8.453509856001522,
+        9.587738592887375
+      ]
+    },
+    {
+      "link_id": "moving_jaw_so101",
+      "name": "Moving_Jaw_SO101",
+      "printed_parts": 1,
+      "bought_in_parts": 0,
+      "print_model_before": "1.20 mm wall over 20% infill",
+      "print_model_after": "1.20 mm wall over 30% infill",
+      "mass_before_kg": 0.01541483790759734,
+      "mass_after_kg": 0.016695158961100152,
+      "mass_delta_kg": 0.0012803210535028125,
+      "mass_delta_percent": 8.305770460757131,
+      "solid_mass_before_kg": 0.02565740633561982,
+      "solid_mass_after_kg": 0.02565740633561982,
+      "com_before_m": [
+        0.005729901070553589,
+        -0.14754157882420577,
+        0.20191486314891205
+      ],
+      "com_after_m": [
+        0.005729901070553589,
+        -0.14754157882420577,
+        0.20191486314891205
+      ],
+      "com_delta_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "inertia_before_6": [
+        6.792385473876594e-06,
+        8.487223622412443e-06,
+        2.433973886175563e-06,
+        4.9131900958758215e-09,
+        -1.0311080851909328e-07,
+        4.639177053263911e-07
+      ],
+      "inertia_after_6": [
+        7.356545420146592e-06,
+        9.192152934981178e-06,
+        2.636134170236075e-06,
+        5.32126838753992e-09,
+        -1.1167495559491996e-07,
+        5.024496450576127e-07
+      ],
+      "inertia_diagonal_delta_percent": [
+        8.305770460757099,
+        8.305770460757149,
+        8.305770460757115
+      ]
+    }
+  ]
+}

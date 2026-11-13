@@ -1,0 +1,1301 @@
+{
+  "schema_version": "robocad.twin.report/1",
+  "name": "so101",
+  "generated_at": "2026-11-13T23:38:35+00:00",
+  "source": {
+    "file": "so101.step",
+    "parts": 83,
+    "instances": 259,
+    "units": "mm"
+  },
+  "totals": {
+    "bodies": 7,
+    "joints": 6,
+    "parts": 83,
+    "instances": 259,
+    "hulls": 433,
+    "total_mass_kg": 0.95545303,
+    "total_solid_mass_kg": 1.332012393,
+    "print_model": "1.20 mm wall over 30% infill",
+    "assumed_density_bodies": [
+      "base_so101",
+      "rotation_pitch_so101",
+      "upper_arm_so101",
+      "under_arm_so101",
+      "wrist_roll_pitch_so100",
+      "wrist_roll_follower_so101",
+      "moving_jaw_so101"
+    ],
+    "printed_mass_upper_bound_kg": 0.586686582,
+    "printed_volume_m3": 0.000473134340315,
+    "unclassified_volume_m3": 0.000330386746633,
+    "volume_by_role_m3": {
+      "actuator": 0.000031714993728,
+      "fastener": 4.553423415e-6,
+      "link": 0.000473134340315,
+      "unclassified": 0.000330386746633
+    },
+    "actuator_mass_kg": 0.055,
+    "actuator_mass_source": "Feetech STS3215 product specification (STS3215-PRODUCT_SPECIFICATION.pdf, feetech.cn): weight 55 +/- 1 g, both the 7.4 V and the 12 V variant",
+    "actuators": 6,
+    "actuator_torque_nm": 2.941995,
+    "actuator_torque_kind": "stall",
+    "actuator_rated_torque_nm": 0.980665,
+    "actuator_torque_source": "Feetech ST3215 12 V variant: stall torque 30 kg*cm (2.942 N*m), rated load 10 kg*cm (0.981 N*m), as published at docs.waveshare.com/ST3215_Servo and in the RobotShop and TorqueMicro listings for that variant. The torque is NOT taken from the Feetech product-specification PDF cited for the 55 g mass, which documents the 7.4 V variant (19.5 kg*cm stall, 5 kg*cm rated).",
+    "actuator_kp": 20.0,
+    "actuator_kv": 1.0,
+    "visual_meshes": 0,
+    "visual_triangles": 0,
+    "visual_bytes": 0,
+    "visual_budget_bytes": 25165824
+  },
+  "checks": [
+    {
+      "id": "meshes_load",
+      "status": "pass",
+      "measured": {
+        "meshes": 433,
+        "geoms": 433,
+        "warnings": [],
+        "hull_meshes": 433,
+        "visual_meshes": 0
+      },
+      "threshold": {
+        "expected_meshes": 433
+      },
+      "explanation": "433 of 433 meshes loaded as mesh geoms from 433 collision hull(s), 0 warning(s)."
+    },
+    {
+      "id": "inertia_valid",
+      "status": "pass",
+      "measured": {
+        "bodies": 7,
+        "min_triangle_margin": 0.057242599310172
+      },
+      "threshold": {
+        "rule": "positive definite and triangle inequality",
+        "min_margin": 0.0
+      },
+      "explanation": "Every body's tensor is positive definite and satisfies the triangle inequality."
+    },
+    {
+      "id": "pose_equivalence",
+      "status": "pass",
+      "measured": {
+        "bodies_compared": 7,
+        "joints_compared": 6,
+        "samples": 100,
+        "rest_error_m": 0.0,
+        "worst_error_m": 0.0,
+        "worst_q": null,
+        "mjcf_warnings": [],
+        "urdf_warnings": []
+      },
+      "threshold": {
+        "tolerance_m": 1e-6,
+        "seed": 0
+      },
+      "explanation": "URDF and MJCF agree to 0.000e+00 m over 100 random configurations and 0.000e+00 m at rest, against a 1e-06 m tolerance."
+    },
+    {
+      "id": "mujoco_load",
+      "status": "pass",
+      "measured": {
+        "warnings": [],
+        "steps": 1000,
+        "seconds": 2.0,
+        "nonfinite_samples": 0,
+        "final_qacc_norm": 22822.16986072485
+      },
+      "threshold": {
+        "warnings": 0,
+        "nonfinite_samples": 0
+      },
+      "explanation": "Loaded with zero warnings; 1000 passive steps at 0.0020 s stayed finite."
+    },
+    {
+      "id": "self_collision",
+      "status": "fail",
+      "measured": {
+        "non_adjacent_overlaps": [
+          [
+            "wrist_roll_pitch_so100",
+            "moving_jaw_so101"
+          ]
+        ],
+        "deepest_m": -0.007938773299899294,
+        "contacts_total": 110,
+        "body_fill": {
+          "wrist_roll_pitch_so100": 2.054,
+          "moving_jaw_so101": 2.448
+        },
+        "brep_distance_m": {
+          "wrist_roll_pitch_so100|moving_jaw_so101": {
+            "distance_m": 0.0,
+            "shape_pairs": 47,
+            "shape_pairs_total": 47,
+            "intersection_m3": 5.176158652625038e-10
+          }
+        }
+      },
+      "threshold": {
+        "depth_m": 0.0001
+      },
+      "explanation": "1 non-adjacent pair(s) overlap, deepest -7.939e-03 m. The CAD solids of wrist_roll_pitch_so100 and moving_jaw_so101 intersect and share 0.52 mm3 of material, so part of that overlap is real and part of it may be the hull; this measurement does not split the two. The status stays fail either way: MuJoCo collides the hulls, so the simulator will act on the overlap whatever the B-rep says. MuJoCo collides the convex hulls, and this overlap is an overlap of those hulls, so a rollout on this model will see the solver push them apart. The effort check therefore measures with contact forces disabled, which is why its torque is the load the gearing must hold rather than this overlap's contact forces; a torque read from inverse dynamics with contacts enabled would be neither."
+    },
+    {
+      "id": "limits_and_effort",
+      "status": "pass",
+      "measured": {
+        "no_limit": [],
+        "with_limit": {
+          "joint_1": {
+            "range_rad": [
+              -1.91986,
+              1.91986
+            ],
+            "limited": true
+          },
+          "joint_2": {
+            "range_rad": [
+              -1.74533,
+              1.74533
+            ],
+            "limited": true
+          },
+          "joint_3": {
+            "range_rad": [
+              -1.69,
+              1.69
+            ],
+            "limited": true
+          },
+          "joint_4": {
+            "range_rad": [
+              -1.65806,
+              1.65806
+            ],
+            "limited": true
+          },
+          "joint_5": {
+            "range_rad": [
+              -2.74385,
+              2.84121
+            ],
+            "limited": true
+          },
+          "joint_6": {
+            "range_rad": [
+              -0.174533,
+              1.74533
+            ],
+            "limited": true
+          }
+        },
+        "actuators": {
+          "joint_1_servo": {
+            "ctrlrange": [
+              -1.91986,
+              1.91986
+            ],
+            "gear": [
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "force_limited": true,
+            "forcerange": [
+              -2.941995,
+              2.941995
+            ],
+            "field_read": "actuator_ctrlrange and actuator_forcerange"
+          },
+          "joint_2_servo": {
+            "ctrlrange": [
+              -1.74533,
+              1.74533
+            ],
+            "gear": [
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "force_limited": true,
+            "forcerange": [
+              -2.941995,
+              2.941995
+            ],
+            "field_read": "actuator_ctrlrange and actuator_forcerange"
+          },
+          "joint_3_servo": {
+            "ctrlrange": [
+              -1.69,
+              1.69
+            ],
+            "gear": [
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "force_limited": true,
+            "forcerange": [
+              -2.941995,
+              2.941995
+            ],
+            "field_read": "actuator_ctrlrange and actuator_forcerange"
+          },
+          "joint_4_servo": {
+            "ctrlrange": [
+              -1.65806,
+              1.65806
+            ],
+            "gear": [
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "force_limited": true,
+            "forcerange": [
+              -2.941995,
+              2.941995
+            ],
+            "field_read": "actuator_ctrlrange and actuator_forcerange"
+          },
+          "joint_5_servo": {
+            "ctrlrange": [
+              -2.74385,
+              2.84121
+            ],
+            "gear": [
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "force_limited": true,
+            "forcerange": [
+              -2.941995,
+              2.941995
+            ],
+            "field_read": "actuator_ctrlrange and actuator_forcerange"
+          },
+          "joint_6_servo": {
+            "ctrlrange": [
+              -0.174533,
+              1.74533
+            ],
+            "gear": [
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "force_limited": true,
+            "forcerange": [
+              -2.941995,
+              2.941995
+            ],
+            "field_read": "actuator_ctrlrange and actuator_forcerange"
+          }
+        },
+        "limits_source": "SO-ARM100 so101_new_calib.urdf, sha256 3a65d2d35e68a8d2f0c2cc176d19b884506543c93ba72980145b80abe276022c, at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits.",
+        "torque_demand": {
+          "joint_1_servo": {
+            "joint": "joint_1",
+            "required_nm": 0.0023723377744508467,
+            "forcerange_nm": 2.941995,
+            "ratio": 0.0008063704304225013,
+            "at": "joint_1 at upper"
+          },
+          "joint_2_servo": {
+            "joint": "joint_2",
+            "required_nm": 0.6874632340298863,
+            "forcerange_nm": 2.941995,
+            "ratio": 0.23367246852217163,
+            "at": "joint_3 at upper"
+          },
+          "joint_3_servo": {
+            "joint": "joint_3",
+            "required_nm": 0.6620360916002235,
+            "forcerange_nm": 2.941995,
+            "ratio": 0.2250296453937629,
+            "at": "joint_6 at upper"
+          },
+          "joint_4_servo": {
+            "joint": "joint_4",
+            "required_nm": 0.15270460997345847,
+            "forcerange_nm": 2.941995,
+            "ratio": 0.05190512219546888,
+            "at": "joint_6 at upper"
+          },
+          "joint_5_servo": {
+            "joint": "joint_5",
+            "required_nm": 0.0015763808642825805,
+            "forcerange_nm": 2.941995,
+            "ratio": 0.0005358203750457022,
+            "at": "joint_5 at lower"
+          },
+          "joint_6_servo": {
+            "joint": "joint_6",
+            "required_nm": 0.004921094522614399,
+            "forcerange_nm": 2.941995,
+            "ratio": 0.0016727066234355934,
+            "at": "joint_4 at lower"
+          }
+        },
+        "over_limit": [],
+        "over_continuous": [],
+        "rated_torque_nm": 0.980665,
+        "contacts_disabled_for_measurement": true
+      },
+      "threshold": {
+        "rule": "every joint limited, effort stated with its source, and no sampled pose demanding more than the force limit",
+        "rated_torque_nm": 0.980665
+      },
+      "explanation": "6 joint(s) carry a travel limit and 6 actuator(s) state a force limit, from SO-ARM100 so101_new_calib.urdf, sha256 3a65d2d35e68a8d2f0c2cc176d19b884506543c93ba72980145b80abe276022c, at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits. The largest demand at the sampled poses is 0.687 N*m on joint_2, 23% of its 2.942 N*m limit, measured with contacts disabled and at a sample of poses rather than a search over all of them."
+    },
+    {
+      "id": "free_base_stand",
+      "status": "skipped",
+      "measured": {},
+      "threshold": {},
+      "explanation": "the base body carries no free joint, so there is no balance to test; this check applies to legged robots only"
+    }
+  ],
+  "bodies": [
+    {
+      "body_id": "base_so101",
+      "name": "Base_SO101",
+      "parent": null,
+      "joint_id": null,
+      "mass_kg": 0.22289744405816186,
+      "com_m": [
+        -0.0002885792560526639,
+        0.02215407620221745,
+        0.03627713228132201
+      ],
+      "inertia_6": [
+        0.00019567713020293877,
+        0.000165618364896748,
+        0.00018764938706679148,
+        -9.089973047898312e-7,
+        4.679376465894854e-7,
+        -0.000017626315197839865
+      ],
+      "origin_m": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "axis_dir": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "hulls": 274,
+      "parts": 69,
+      "instances": 150,
+      "assumed_density": true,
+      "solid_mass_kg": 0.3023130116962018,
+      "printed_mass_kg": 0.22289744405816186,
+      "printed_parts": 149,
+      "bought_in_parts": 1,
+      "solid_volume_m3": 0.000204731809462,
+      "role_volume_m3": {
+        "link": 0.00019772463808,
+        "fastener": 9.7201886e-7,
+        "unclassified": 7.49320235e-7,
+        "actuator": 5.285832288e-6
+      }
+    },
+    {
+      "body_id": "rotation_pitch_so101",
+      "name": "Rotation_Pitch_SO101",
+      "parent": "base_so101",
+      "joint_id": "joint_1",
+      "mass_kg": 0.14728658274650863,
+      "com_m": [
+        0.001785931859678368,
+        -0.03889676319162222,
+        0.08550901788867829
+      ],
+      "inertia_6": [
+        0.00010091795715390898,
+        0.00010192998231245034,
+        0.000032396734347646446,
+        -5.39175347705048e-7,
+        -2.69298197330729e-6,
+        4.635451113927379e-6
+      ],
+      "origin_m": [
+        -0.00009943246979518915,
+        -0.007552839223757381,
+        0.06353147903307246
+      ],
+      "axis_dir": [
+        3.4694469519536134e-18,
+        0.008726535498374356,
+        -0.9999619230641713
+      ],
+      "hulls": 25,
+      "parts": 12,
+      "instances": 15,
+      "assumed_density": true,
+      "solid_mass_kg": 0.20437341357088584,
+      "printed_mass_kg": 0.14728658274650863,
+      "printed_parts": 14,
+      "bought_in_parts": 1,
+      "solid_volume_m3": 0.000125748262587,
+      "role_volume_m3": {
+        "link": 0.000106106054399,
+        "fastener": 7.5539028e-8,
+        "unclassified": 0.000014280836872,
+        "actuator": 5.285832288e-6
+      }
+    },
+    {
+      "body_id": "upper_arm_so101",
+      "name": "Upper_arm_SO101",
+      "parent": "rotation_pitch_so101",
+      "joint_id": "joint_2",
+      "mass_kg": 0.07456534621806737,
+      "com_m": [
+        0.0018774269190591814,
+        0.021026119775887794,
+        0.11988681035335959
+      ],
+      "inertia_6": [
+        0.00009430541854313396,
+        0.000033070412148207104,
+        0.00012047726303676916,
+        1.8286473802039497e-6,
+        2.7703412361524044e-8,
+        2.948142159635417e-7
+      ],
+      "origin_m": [
+        -0.014756250673518746,
+        -0.0388697664877171,
+        0.11975728484641494
+      ],
+      "axis_dir": [
+        0.9999619230641714,
+        0.008726203218642077,
+        0.0000761524218171241
+      ],
+      "hulls": 14,
+      "parts": 4,
+      "instances": 14,
+      "assumed_density": true,
+      "solid_mass_kg": 0.14740104136097618,
+      "printed_mass_kg": 0.07456534621806737,
+      "printed_parts": 14,
+      "bought_in_parts": 0,
+      "solid_volume_m3": 0.000118871807549,
+      "role_volume_m3": {
+        "unclassified": 0.000118116796711,
+        "fastener": 7.55010838e-7
+      }
+    },
+    {
+      "body_id": "under_arm_so101",
+      "name": "Under_arm_SO101",
+      "parent": "upper_arm_so101",
+      "joint_id": "joint_3",
+      "mass_kg": 0.1616802888655856,
+      "com_m": [
+        0.004495334876777309,
+        0.04264903906056306,
+        0.13773080149134703
+      ],
+      "inertia_6": [
+        0.0002949818417453384,
+        0.00006533420419160485,
+        0.00029518634084740967,
+        -8.841975472920429e-7,
+        1.2631438691964458e-6,
+        0.00005469757464632239
+      ],
+      "origin_m": [
+        -0.013244911113251753,
+        0.07357146555251139,
+        0.1484636557286717
+      ],
+      "axis_dir": [
+        0.9999238475781956,
+        0.008649718529758195,
+        0.008802352740800962
+      ],
+      "hulls": 33,
+      "parts": 13,
+      "instances": 23,
+      "assumed_density": true,
+      "solid_mass_kg": 0.23538706256358452,
+      "printed_mass_kg": 0.1616802888655856,
+      "printed_parts": 22,
+      "bought_in_parts": 1,
+      "solid_volume_m3": 0.000150759269839,
+      "role_volume_m3": {
+        "unclassified": 0.000107423866806,
+        "fastener": 7.55010838e-7,
+        "link": 0.000037294559907,
+        "actuator": 5.285832288e-6
+      }
+    },
+    {
+      "body_id": "wrist_roll_pitch_so100",
+      "name": "Wrist_Roll_Pitch_SO100",
+      "parent": "under_arm_so101",
+      "joint_id": "joint_4",
+      "mass_kg": 0.20577244919787044,
+      "com_m": [
+        0.015602991180152336,
+        -0.07402334150907418,
+        0.1527670319349538
+      ],
+      "inertia_6": [
+        0.00021429758552503716,
+        0.00005929132109263233,
+        0.00025695780354265476,
+        0.00005044269937770614,
+        -1.6188227708932404e-6,
+        5.2544402158897885e-6
+      ],
+      "origin_m": [
+        -0.011162663763622438,
+        -0.06057694392071616,
+        0.1522762187709546
+      ],
+      "axis_dir": [
+        0.999847700955417,
+        -0.0001529606664389411,
+        0.017451403874803297
+      ],
+      "hulls": 67,
+      "parts": 14,
+      "instances": 47,
+      "assumed_density": true,
+      "solid_mass_kg": 0.24542696166173603,
+      "printed_mass_kg": 0.20577244919787044,
+      "printed_parts": 45,
+      "bought_in_parts": 2,
+      "solid_volume_m3": 0.000119786956239,
+      "role_volume_m3": {
+        "unclassified": 0.000033196376511,
+        "fastener": 1.995843851e-6,
+        "link": 0.0000740230713,
+        "actuator": 0.000010571664576
+      }
+    },
+    {
+      "body_id": "wrist_roll_follower_so101",
+      "name": "Wrist_Roll_Follower_SO101",
+      "parent": "wrist_roll_pitch_so100",
+      "joint_id": "joint_5",
+      "mass_kg": 0.12655576019974568,
+      "com_m": [
+        0.006608762678876496,
+        -0.14665534158606122,
+        0.14701095029659147
+      ],
+      "inertia_6": [
+        0.00004820685744014362,
+        0.000035297753725631006,
+        0.000035169354558963164,
+        3.1029832869061406e-7,
+        -4.0866340100289914e-7,
+        -6.872550486755975e-6
+      ],
+      "origin_m": [
+        0.007061806223549176,
+        -0.11987743442570112,
+        0.15207231002956853
+      ],
+      "axis_dir": [
+        6.645215740348764e-7,
+        -0.9999612556431758,
+        -0.008802682095902807
+      ],
+      "hulls": 19,
+      "parts": 9,
+      "instances": 9,
+      "assumed_density": true,
+      "solid_mass_kg": 0.17145349566165524,
+      "printed_mass_kg": 0.12655576019974568,
+      "printed_parts": 8,
+      "bought_in_parts": 1,
+      "solid_volume_m3": 0.000099199941693,
+      "role_volume_m3": {
+        "unclassified": 0.000056619549498,
+        "link": 0.000037294559907,
+        "actuator": 5.285832288e-6
+      }
+    },
+    {
+      "body_id": "moving_jaw_so101",
+      "name": "Moving_Jaw_SO101",
+      "parent": "wrist_roll_follower_so101",
+      "joint_id": "joint_6",
+      "mass_kg": 0.016695158961100152,
+      "com_m": [
+        0.005729901070553589,
+        -0.14754157882420577,
+        0.20191486314891205
+      ],
+      "inertia_6": [
+        7.356545420146592e-6,
+        9.192152934981178e-6,
+        2.636134170236075e-6,
+        5.32126838753992e-9,
+        -1.1167495559491996e-7,
+        5.024496450576127e-7
+      ],
+      "origin_m": [
+        0.02386684127599598,
+        -0.14570442337262066,
+        0.17206615534103112
+      ],
+      "axis_dir": [
+        0.9999619259454086,
+        -0.00007614954071793674,
+        0.008725873067878448
+      ],
+      "hulls": 1,
+      "parts": 1,
+      "instances": 1,
+      "assumed_density": true,
+      "solid_mass_kg": 0.02565740633561982,
+      "printed_mass_kg": 0.016695158961100152,
+      "printed_parts": 1,
+      "bought_in_parts": 0,
+      "solid_volume_m3": 0.000020691456722,
+      "role_volume_m3": {
+        "link": 0.000020691456722
+      }
+    }
+  ],
+  "warnings": [
+    "1 of 1 part(s) in moving_jaw_so101 use an assumed density (1240 kg/m3); mass and inertia scale linearly with it",
+    "1 of 1 part(s) in moving_jaw_so101 were massed as printed parts at 1.20 mm wall over 30% infill rather than as solids; this is a model, not a measurement, and 0 of them are thinner than one wall so print solid",
+    "1 part(s) in base_so101 are valid solids wound inside-out in the source CAD (part_060); volume and inertia taken as magnitudes, and their meshes' face normals point inward",
+    "14 of 14 part(s) in upper_arm_so101 use an assumed density (1240 kg/m3); mass and inertia scale linearly with it",
+    "14 of 14 part(s) in upper_arm_so101 were massed as printed parts at 1.20 mm wall over 30% infill rather than as solids; this is a model, not a measurement, and 13 of them are thinner than one wall so print solid",
+    "14 of 15 part(s) in rotation_pitch_so101 use an assumed density (1240 kg/m3); mass and inertia scale linearly with it",
+    "14 of 15 part(s) in rotation_pitch_so101 were massed as printed parts at 1.20 mm wall over 30% infill rather than as solids; this is a model, not a measurement, and 9 of them are thinner than one wall so print solid",
+    "149 of 150 part(s) in base_so101 use an assumed density (1240 kg/m3); mass and inertia scale linearly with it",
+    "149 of 150 part(s) in base_so101 were massed as printed parts at 1.20 mm wall over 30% infill rather than as solids; this is a model, not a measurement, and 143 of them are thinner than one wall so print solid",
+    "22 of 23 part(s) in under_arm_so101 use an assumed density (1240 kg/m3); mass and inertia scale linearly with it",
+    "22 of 23 part(s) in under_arm_so101 were massed as printed parts at 1.20 mm wall over 30% infill rather than as solids; this is a model, not a measurement, and 17 of them are thinner than one wall so print solid",
+    "45 of 47 part(s) in wrist_roll_pitch_so100 use an assumed density (1240 kg/m3); mass and inertia scale linearly with it",
+    "45 of 47 part(s) in wrist_roll_pitch_so100 were massed as printed parts at 1.20 mm wall over 30% infill rather than as solids; this is a model, not a measurement, and 38 of them are thinner than one wall so print solid",
+    "8 of 9 part(s) in wrist_roll_follower_so101 use an assumed density (1240 kg/m3); mass and inertia scale linearly with it",
+    "8 of 9 part(s) in wrist_roll_follower_so101 were massed as printed parts at 1.20 mm wall over 30% infill rather than as solids; this is a model, not a measurement, and 4 of them are thinner than one wall so print solid",
+    "kp = 20 N*m/rad and kv = 1 N*m*s/rad are ASSUMPTIONS, not datasheet values: the servo closes its own control loop and publishes no stiffness for a simulator to use. Every torque figure below was measured against these gains.",
+    "part_001: 451808 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_001: hulls cover 3.07x the part's volume (0.3 to 3.0 is expected); check the tessellation",
+    "part_001: the tessellation puts 225766 points on the hull, so it was snapped to a 2.47 mm grid to stay under 96 vertices; every hull vertex is within 1.24 mm of the true surface",
+    "part_002: 388664 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_002: the tessellation puts 194296 points on the hull, so it was snapped to a 1.77 mm grid to stay under 96 vertices; every hull vertex is within 0.88 mm of the true surface",
+    "part_003: 654278 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_003: the tessellation puts 327081 points on the hull, so it was snapped to a 2.49 mm grid to stay under 96 vertices; every hull vertex is within 1.24 mm of the true surface",
+    "part_004: 781846 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_004: the tessellation puts 390885 points on the hull, so it was snapped to a 2.31 mm grid to stay under 96 vertices; every hull vertex is within 1.15 mm of the true surface",
+    "part_005: 257678 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_005: hulls cover 4.06x the part's volume (0.3 to 3.0 is expected); check the tessellation",
+    "part_005: the tessellation puts 128835 points on the hull, so it was snapped to a 1.54 mm grid to stay under 96 vertices; every hull vertex is within 0.77 mm of the true surface",
+    "part_006: 241391 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_006: hulls cover 3.83x the part's volume (0.3 to 3.0 is expected); check the tessellation",
+    "part_006: the tessellation is not a closed surface, so the decomposition is a convex cover of an open mesh",
+    "part_006: the tessellation puts 120659 points on the hull, so it was snapped to a 1.13 mm grid to stay under 96 vertices; every hull vertex is within 0.57 mm of the true surface",
+    "part_007: 214010 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_007: hulls cover 3.72x the part's volume (0.3 to 3.0 is expected); check the tessellation",
+    "part_007: the tessellation puts 106965 points on the hull, so it was snapped to a 1.14 mm grid to stay under 96 vertices; every hull vertex is within 0.57 mm of the true surface",
+    "part_008: 653618 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_008: hulls cover 3.67x the part's volume (0.3 to 3.0 is expected); check the tessellation",
+    "part_008: the tessellation is not a closed surface, so the decomposition is a convex cover of an open mesh",
+    "part_008: the tessellation puts 326825 points on the hull, so it was snapped to a 1.65 mm grid to stay under 96 vertices; every hull vertex is within 0.83 mm of the true surface",
+    "part_009: 788432 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_009: the tessellation puts 394172 points on the hull, so it was snapped to a 2.10 mm grid to stay under 96 vertices; every hull vertex is within 1.05 mm of the true surface",
+    "part_010: 320760 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_010: the tessellation puts 160348 points on the hull, so it was snapped to a 1.66 mm grid to stay under 96 vertices; every hull vertex is within 0.83 mm of the true surface",
+    "part_011: 8412 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_011: the tessellation puts 4208 points on the hull, so it was snapped to a 0.20 mm grid to stay under 96 vertices; every hull vertex is within 0.10 mm of the true surface",
+    "part_012: 7252 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_012: the tessellation puts 3628 points on the hull, so it was snapped to a 0.11 mm grid to stay under 96 vertices; every hull vertex is within 0.06 mm of the true surface",
+    "part_013: 74752 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_013: the tessellation puts 37378 points on the hull, so it was snapped to a 0.31 mm grid to stay under 96 vertices; every hull vertex is within 0.15 mm of the true surface",
+    "part_015: the tessellation puts 1330 points on the hull, so it was snapped to a 0.03 mm grid to stay under 96 vertices; every hull vertex is within 0.01 mm of the true surface",
+    "part_016: the tessellation puts 508 points on the hull, so it was snapped to a 0.02 mm grid to stay under 96 vertices; every hull vertex is within 0.01 mm of the true surface",
+    "part_018: the tessellation puts 1438 points on the hull, so it was snapped to a 0.02 mm grid to stay under 96 vertices; every hull vertex is within 0.01 mm of the true surface",
+    "part_019: the tessellation puts 4397 points on the hull, so it was snapped to a 0.05 mm grid to stay under 96 vertices; every hull vertex is within 0.02 mm of the true surface",
+    "part_020: 103112 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_020: the tessellation puts 51552 points on the hull, so it was snapped to a 0.35 mm grid to stay under 96 vertices; every hull vertex is within 0.17 mm of the true surface",
+    "part_021: 10322 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_021: the tessellation puts 5169 points on the hull, so it was snapped to a 0.25 mm grid to stay under 96 vertices; every hull vertex is within 0.12 mm of the true surface",
+    "part_022: 12972 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_022: the tessellation puts 6488 points on the hull, so it was snapped to a 0.23 mm grid to stay under 96 vertices; every hull vertex is within 0.11 mm of the true surface",
+    "part_026: 17457 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_026: the tessellation is not a closed surface, so the decomposition is a convex cover of an open mesh",
+    "part_026: the tessellation puts 8830 points on the hull, so it was snapped to a 0.18 mm grid to stay under 96 vertices; every hull vertex is within 0.09 mm of the true surface",
+    "part_047: 23476 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_047: hulls cover 5.66x the part's volume (0.3 to 3.0 is expected); check the tessellation",
+    "part_047: the tessellation puts 11714 points on the hull, so it was snapped to a 0.20 mm grid to stay under 96 vertices; every hull vertex is within 0.10 mm of the true surface",
+    "part_054: 10342 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_055: 6880 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_055: the tessellation puts 3442 points on the hull, so it was snapped to a 0.07 mm grid to stay under 96 vertices; every hull vertex is within 0.03 mm of the true surface",
+    "part_060: the tessellation is not a closed surface, so the decomposition is a convex cover of an open mesh",
+    "part_065: 8900 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_065: the tessellation puts 4450 points on the hull, so it was snapped to a 0.15 mm grid to stay under 96 vertices; every hull vertex is within 0.08 mm of the true surface",
+    "part_066: 61552 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_066: the tessellation puts 30778 points on the hull, so it was snapped to a 0.42 mm grid to stay under 96 vertices; every hull vertex is within 0.21 mm of the true surface",
+    "part_067: 11376 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_067: the tessellation puts 5688 points on the hull, so it was snapped to a 0.14 mm grid to stay under 96 vertices; every hull vertex is within 0.07 mm of the true surface",
+    "part_068: 14076 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_068: the tessellation puts 7044 points on the hull, so it was snapped to a 0.22 mm grid to stay under 96 vertices; every hull vertex is within 0.11 mm of the true surface",
+    "part_069: the tessellation puts 8926 points on the hull, so it was snapped to a 0.83 mm grid to stay under 96 vertices; every hull vertex is within 0.42 mm of the true surface",
+    "part_070: the tessellation puts 32691 points on the hull, so it was snapped to a 0.81 mm grid to stay under 96 vertices; every hull vertex is within 0.41 mm of the true surface",
+    "part_071: 70226 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_071: the tessellation puts 35127 points on the hull, so it was snapped to a 0.83 mm grid to stay under 96 vertices; every hull vertex is within 0.42 mm of the true surface",
+    "part_072: the tessellation puts 82689 points on the hull, so it was snapped to a 0.61 mm grid to stay under 96 vertices; every hull vertex is within 0.30 mm of the true surface",
+    "part_074: 122986 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_074: hulls cover 3.10x the part's volume (0.3 to 3.0 is expected); check the tessellation",
+    "part_074: the tessellation puts 61495 points on the hull, so it was snapped to a 0.48 mm grid to stay under 96 vertices; every hull vertex is within 0.24 mm of the true surface",
+    "part_075: 23994 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_075: the tessellation puts 11989 points on the hull, so it was snapped to a 0.73 mm grid to stay under 96 vertices; every hull vertex is within 0.37 mm of the true surface",
+    "part_076: 19346 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_076: the tessellation puts 9665 points on the hull, so it was snapped to a 0.43 mm grid to stay under 96 vertices; every hull vertex is within 0.21 mm of the true surface",
+    "part_077: 212318 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_077: hulls cover 24.43x the part's volume (0.3 to 3.0 is expected); check the tessellation",
+    "part_077: the tessellation puts 106161 points on the hull, so it was snapped to a 1.60 mm grid to stay under 96 vertices; every hull vertex is within 0.80 mm of the true surface",
+    "part_078: 247628 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_078: hulls cover 26.06x the part's volume (0.3 to 3.0 is expected); check the tessellation",
+    "part_078: the tessellation puts 123816 points on the hull, so it was snapped to a 2.01 mm grid to stay under 96 vertices; every hull vertex is within 1.00 mm of the true surface",
+    "part_079: 168878 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_079: hulls cover 25.68x the part's volume (0.3 to 3.0 is expected); check the tessellation",
+    "part_079: the tessellation puts 84441 points on the hull, so it was snapped to a 2.13 mm grid to stay under 96 vertices; every hull vertex is within 1.07 mm of the true surface",
+    "part_080: 156350 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_080: hulls cover 16.86x the part's volume (0.3 to 3.0 is expected); check the tessellation",
+    "part_080: the tessellation puts 78177 points on the hull, so it was snapped to a 0.97 mm grid to stay under 96 vertices; every hull vertex is within 0.49 mm of the true surface",
+    "part_081: 153950 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_081: hulls cover 28.86x the part's volume (0.3 to 3.0 is expected); check the tessellation",
+    "part_081: the tessellation puts 76977 points on the hull, so it was snapped to a 1.25 mm grid to stay under 96 vertices; every hull vertex is within 0.63 mm of the true surface",
+    "part_082: 6656 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_082: the tessellation puts 3322 points on the hull, so it was snapped to a 1.04 mm grid to stay under 96 vertices; every hull vertex is within 0.52 mm of the true surface",
+    "part_083: 143062 triangles exceeds the 6000 collision-decomposition limit, so the convex hull is used; concave features smaller than the hull are not collided",
+    "part_083: hulls cover 22.12x the part's volume (0.3 to 3.0 is expected); check the tessellation",
+    "part_083: the tessellation puts 71533 points on the hull, so it was snapped to a 1.54 mm grid to stay under 96 vertices; every hull vertex is within 0.77 mm of the true surface",
+    "the printed-part model in base_so101 holds each part's centre of mass at its solid centre and scales its inertia tensor by the same factor as its mass; a hollow part's true centre of mass moves toward its shell and its true inertia is not a scalar multiple of the solid's",
+    "the printed-part model in moving_jaw_so101 holds each part's centre of mass at its solid centre and scales its inertia tensor by the same factor as its mass; a hollow part's true centre of mass moves toward its shell and its true inertia is not a scalar multiple of the solid's",
+    "the printed-part model in rotation_pitch_so101 holds each part's centre of mass at its solid centre and scales its inertia tensor by the same factor as its mass; a hollow part's true centre of mass moves toward its shell and its true inertia is not a scalar multiple of the solid's",
+    "the printed-part model in under_arm_so101 holds each part's centre of mass at its solid centre and scales its inertia tensor by the same factor as its mass; a hollow part's true centre of mass moves toward its shell and its true inertia is not a scalar multiple of the solid's",
+    "the printed-part model in upper_arm_so101 holds each part's centre of mass at its solid centre and scales its inertia tensor by the same factor as its mass; a hollow part's true centre of mass moves toward its shell and its true inertia is not a scalar multiple of the solid's",
+    "the printed-part model in wrist_roll_follower_so101 holds each part's centre of mass at its solid centre and scales its inertia tensor by the same factor as its mass; a hollow part's true centre of mass moves toward its shell and its true inertia is not a scalar multiple of the solid's",
+    "the printed-part model in wrist_roll_pitch_so100 holds each part's centre of mass at its solid centre and scales its inertia tensor by the same factor as its mass; a hollow part's true centre of mass moves toward its shell and its true inertia is not a scalar multiple of the solid's"
+  ],
+  "notes": [
+    "Axes and origins come from the servos' output shafts and drive-horn placements in the CAD.",
+    "Topology order comes from the CAD assembly names, not from geometry.",
+    "Joint limits come from SO-ARM100 so101_new_calib.urdf, sha256 3a65d2d35e68a8d2f0c2cc176d19b884506543c93ba72980145b80abe276022c, at revision a758567c3978dfeefe282ede0500085a48fe8f78, joint <limit> elements. Not derived from the CAD: the STEP file carries no travel limits.",
+    "Every mass rests on an assumed density unless a part was weighed; the per-body flag says which, and the report never presents an assumed mass as a measurement.",
+    "The printed/actuator/fastener split comes from the CAD part names. On this file 13 parts carry generic names (SOLID, Component1..7) and cannot be placed by name, so they are counted as unclassified and their volume is reported separately rather than folded into either side of the split.",
+    "Each actuator carries a datasheet mass of 0.0550 kg: Feetech STS3215 product specification (STS3215-PRODUCT_SPECIFICATION.pdf, feetech.cn): weight 55 +/- 1 g, both the 7.4 V and the 12 V variant. It is applied as the density that reproduces that mass through the part's own CAD envelope, so the mass is the datasheet's and the centre of mass and inertia remain the envelope's. It is not a weigh-in, and it is one figure applied to every actuator rather than one per unit.",
+    "Each of the 6 joints carries a position actuator with a force limit of 2.94199 N*m stall, from Feetech ST3215 12 V variant: stall torque 30 kg*cm (2.942 N*m), rated load 10 kg*cm (0.981 N*m), as published at docs.waveshare.com/ST3215_Servo and in the RobotShop and TorqueMicro listings for that variant. The torque is NOT taken from the Feetech product-specification PDF cited for the 55 g mass, which documents the 7.4 V variant (19.5 kg*cm stall, 5 kg*cm rated); continuous rating 0.980665 N*m. The limit is the figure the datasheet states for this servo; the torque each joint is actually asked for is measured by inverse dynamics and reported under limits_and_effort. kp = 20 N*m/rad and kv = 1 N*m*s/rad are ASSUMPTIONS, not datasheet values: the servo closes its own control loop and publishes no stiffness for a simulator to use. Every torque figure below was measured against these gains.",
+    "The collision model is 151 convex hulls over 83 parts. 13 part(s) are covered by hulls that inflate them beyond 3x their own solid volume and 4 did not tessellate to a closed surface, so on those parts the hulls are an envelope rather than a shape. self_collision is FAIL on 1 non-adjacent pair(s). That is a statement about the hulls, which are what MuJoCo collides; the same check measures the B-rep of the same bodies, and where the solids only touch, the overlap is the convex approximation rather than an interference in the CAD. The status stays fail either way: the simulator acts on the hulls.",
+    "This bundle carries no visual meshes. A viewer that opens it draws the collision hulls, which are convex covers and larger than the parts; nothing here is a picture of the CAD. That is a rendering limitation, not a physics one: the hulls are the physics.",
+    "Masses in this report are a shell-and-infill estimate at 1.20 mm wall over 30% infill; the solid bound is reported beside it and is never replaced. The centre of mass is held at the solid's centre and the inertia tensor is scaled by the same factor as the mass, which is an approximation stated here rather than hidden in the arithmetic."
+  ],
+  "comparison": {
+    "schema_version": "robocad.twin.comparison/1",
+    "ours": "RoboCAD",
+    "theirs": "SO-ARM100 so101_new_calib.urdf",
+    "ours_total_kg": 0.9554530302470398,
+    "theirs_total_kg": 0.6320060009999999,
+    "delta_kg": 0.32344702924703983,
+    "delta_percent": 51.17784146594517,
+    "bodies": [
+      {
+        "ours": "base_so101",
+        "theirs": "base_link",
+        "ours_kg": 0.22289744405816186,
+        "ours_solid_mass_kg": 0.3023130116962018,
+        "theirs_kg": 0.147,
+        "delta_kg": 0.07589744405816187,
+        "delta_percent": 51.63091432528019,
+        "ours_parts": 69,
+        "ours_instances": 150,
+        "assumed_density": true,
+        "ours_solid_volume_m3": 0.000204731809462,
+        "ours_printed_upper_kg": 0.2451785512192,
+        "ours_print_estimate_kg": 0.22289744405816186,
+        "bought_in_parts": 1,
+        "implied_fill": 0.5790423452432671,
+        "ours_unclassified_volume_m3": 7.49320235e-7,
+        "servos_on_body": 1,
+        "printed_fill": 0.3752367388685159
+      },
+      {
+        "ours": "rotation_pitch_so101",
+        "theirs": "shoulder_link",
+        "ours_kg": 0.14728658274650863,
+        "ours_solid_mass_kg": 0.20437341357088584,
+        "theirs_kg": 0.100006,
+        "delta_kg": 0.047280582746508634,
+        "delta_percent": 47.277746081743736,
+        "ours_parts": 12,
+        "ours_instances": 15,
+        "assumed_density": true,
+        "ours_solid_volume_m3": 0.000125748262587,
+        "ours_printed_upper_kg": 0.13157150745475998,
+        "ours_print_estimate_kg": 0.14728658274650863,
+        "bought_in_parts": 1,
+        "implied_fill": 0.6413607499682281,
+        "ours_unclassified_volume_m3": 0.000014280836872,
+        "servos_on_body": 1,
+        "printed_fill": 0.34206494149559713
+      },
+      {
+        "ours": "upper_arm_so101",
+        "theirs": "upper_arm_link",
+        "ours_kg": 0.07456534621806737,
+        "ours_solid_mass_kg": 0.14740104136097618,
+        "theirs_kg": 0.103,
+        "delta_kg": -0.02843465378193262,
+        "delta_percent": -27.60645998245886,
+        "ours_parts": 4,
+        "ours_instances": 14,
+        "assumed_density": true,
+        "ours_solid_volume_m3": 0.000118871807549,
+        "ours_printed_upper_kg": 0.0,
+        "ours_print_estimate_kg": 0.07456534621806737,
+        "bought_in_parts": 0,
+        "implied_fill": 0.6987738963655645,
+        "ours_unclassified_volume_m3": 0.000118116796711,
+        "servos_on_body": 1,
+        "printed_fill": null
+      },
+      {
+        "ours": "under_arm_so101",
+        "theirs": "lower_arm_link",
+        "ours_kg": 0.1616802888655856,
+        "ours_solid_mass_kg": 0.23538706256358452,
+        "theirs_kg": 0.104,
+        "delta_kg": 0.05768028886558561,
+        "delta_percent": 55.46181621690924,
+        "ours_parts": 13,
+        "ours_instances": 23,
+        "assumed_density": true,
+        "ours_solid_volume_m3": 0.000150759269839,
+        "ours_printed_upper_kg": 0.04624525428468,
+        "ours_print_estimate_kg": 0.1616802888655856,
+        "bought_in_parts": 1,
+        "implied_fill": 0.5563237858043728,
+        "ours_unclassified_volume_m3": 0.000107423866806,
+        "servos_on_body": 1,
+        "printed_fill": 1.0595681818152003
+      },
+      {
+        "ours": "wrist_roll_pitch_so100",
+        "theirs": "wrist_link",
+        "ours_kg": 0.20577244919787044,
+        "ours_solid_mass_kg": 0.24542696166173603,
+        "theirs_kg": 0.079,
+        "delta_kg": 0.12677244919787045,
+        "delta_percent": 160.47145468084867,
+        "ours_parts": 14,
+        "ours_instances": 47,
+        "assumed_density": true,
+        "ours_solid_volume_m3": 0.000119786956239,
+        "ours_printed_upper_kg": 0.091788608412,
+        "ours_print_estimate_kg": 0.20577244919787044,
+        "bought_in_parts": 2,
+        "implied_fill": 0.5318582207919259,
+        "ours_unclassified_volume_m3": 0.000033196376511,
+        "servos_on_body": 1,
+        "printed_fill": 0.26147035471192914
+      },
+      {
+        "ours": "wrist_roll_follower_so101",
+        "theirs": "gripper_link",
+        "ours_kg": 0.12655576019974568,
+        "ours_solid_mass_kg": 0.17145349566165524,
+        "theirs_kg": 0.087,
+        "delta_kg": 0.03955576019974569,
+        "delta_percent": 45.46639103419045,
+        "ours_parts": 9,
+        "ours_instances": 9,
+        "assumed_density": true,
+        "ours_solid_volume_m3": 0.000099199941693,
+        "ours_printed_upper_kg": 0.04624525428468,
+        "ours_print_estimate_kg": 0.12655576019974568,
+        "bought_in_parts": 1,
+        "implied_fill": 0.7072714875147104,
+        "ours_unclassified_volume_m3": 0.000056619549498,
+        "servos_on_body": 1,
+        "printed_fill": 0.6919628942466615
+      },
+      {
+        "ours": "moving_jaw_so101",
+        "theirs": "moving_jaw_so101_v1_link",
+        "ours_kg": 0.016695158961100152,
+        "ours_solid_mass_kg": 0.02565740633561982,
+        "theirs_kg": 0.012,
+        "delta_kg": 0.004695158961100152,
+        "delta_percent": 39.1263246758346,
+        "ours_parts": 1,
+        "ours_instances": 1,
+        "assumed_density": true,
+        "ours_solid_volume_m3": 0.000020691456722,
+        "ours_printed_upper_kg": 0.025657406335280002,
+        "ours_print_estimate_kg": 0.016695158961100152,
+        "bought_in_parts": 0,
+        "implied_fill": 0.4677012104493002,
+        "ours_unclassified_volume_m3": 0.0,
+        "servos_on_body": 0,
+        "printed_fill": 0.4677012104493002
+      }
+    ],
+    "joints": [
+      {
+        "ours": "joint_1",
+        "theirs": "shoulder_pan",
+        "ours_axis": [
+          3.4694469519536134e-18,
+          0.008726535498374356,
+          -0.9999619230641713
+        ],
+        "theirs_axis": [
+          -7.0414969660857844e-12,
+          2.653589793343387e-6,
+          -0.9999999999964793
+        ],
+        "theirs_axis_local": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "ours_axis_in_theirs": [
+          0.0001310442090220499,
+          0.002756027037184018,
+          -0.9999961935639482
+        ],
+        "axis_angle_deg": 0.1579354522436942,
+        "anchor_delta_m": 0.1089642363630105,
+        "anchor_along_axis_m": -0.054798107820759036,
+        "anchor_perpendicular_m": 0.09418265331492041,
+        "ours_limits": {
+          "lower": -1.91986,
+          "upper": 1.91986,
+          "effort": 10.0,
+          "velocity": 10.0
+        },
+        "theirs_limits": {
+          "lower": -1.91986,
+          "upper": 1.91986,
+          "effort": 10.0,
+          "velocity": 10.0
+        }
+      },
+      {
+        "ours": "joint_2",
+        "theirs": "shoulder_lift",
+        "ours_axis": [
+          0.9999619230641714,
+          0.008726203218642077,
+          0.0000761524218171241
+        ],
+        "theirs_axis": [
+          -6.326794896704957e-6,
+          0.999999999976465,
+          2.653576300915006e-6
+        ],
+        "theirs_axis_local": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "ours_axis_in_theirs": [
+          -0.005242753348989567,
+          0.999982460769869,
+          0.002755302154020031
+        ],
+        "axis_angle_deg": 0.33895500824761154,
+        "anchor_delta_m": 0.11034315850965193,
+        "anchor_along_axis_m": -0.0012423442235068541,
+        "anchor_perpendicular_m": 0.1103361645641015,
+        "ours_limits": {
+          "lower": -1.74533,
+          "upper": 1.74533,
+          "effort": 10.0,
+          "velocity": 10.0
+        },
+        "theirs_limits": {
+          "lower": -1.74533,
+          "upper": 1.74533,
+          "effort": 10.0,
+          "velocity": 10.0
+        }
+      },
+      {
+        "ours": "joint_3",
+        "theirs": "elbow_flex",
+        "ours_axis": [
+          0.9999238475781956,
+          0.008649718529758195,
+          0.008802352740800962
+        ],
+        "theirs_axis": [
+          -6.326794897568707e-6,
+          0.9999999999764648,
+          2.6535763014701175e-6
+        ],
+        "theirs_axis_local": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "ours_axis_in_theirs": [
+          -0.005243697282949043,
+          0.9999203339341058,
+          0.011481699521924287
+        ],
+        "axis_angle_deg": 0.7229424353770522,
+        "anchor_delta_m": 0.05396158951909373,
+        "anchor_along_axis_m": 0.000585985391714,
+        "anchor_perpendicular_m": 0.05395840772806277,
+        "ours_limits": {
+          "lower": -1.69,
+          "upper": 1.69,
+          "effort": 10.0,
+          "velocity": 10.0
+        },
+        "theirs_limits": {
+          "lower": -1.69,
+          "upper": 1.69,
+          "effort": 10.0,
+          "velocity": 10.0
+        }
+      },
+      {
+        "ours": "joint_4",
+        "theirs": "wrist_flex",
+        "ours_axis": [
+          0.999847700955417,
+          -0.0001529606664389411,
+          0.017451403874803297
+        ],
+        "theirs_axis": [
+          -6.326794893540821e-6,
+          0.9999999999764647,
+          2.6535763008039837e-6
+        ],
+        "theirs_axis_local": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "ours_axis_in_theirs": [
+          0.0034817087314567576,
+          0.99978973400459,
+          0.020208054912354542
+        ],
+        "axis_angle_deg": 1.1748898535173995,
+        "anchor_delta_m": 0.05477510072866396,
+        "anchor_along_axis_m": 0.0021863760052538805,
+        "anchor_perpendicular_m": 0.054731448179259186,
+        "ours_limits": {
+          "lower": -1.65806,
+          "upper": 1.65806,
+          "effort": 10.0,
+          "velocity": 10.0
+        },
+        "theirs_limits": {
+          "lower": -1.65806,
+          "upper": 1.65806,
+          "effort": 10.0,
+          "velocity": 10.0
+        }
+      },
+      {
+        "ours": "joint_5",
+        "theirs": "wrist_roll",
+        "ours_axis": [
+          6.645215740348764e-7,
+          -0.9999612556431758,
+          -0.008802682095902807
+        ],
+        "theirs_axis": [
+          -0.9999999999288824,
+          -9.99563140747367e-6,
+          -6.505553554525534e-6
+        ],
+        "theirs_axis_local": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "ours_axis_in_theirs": [
+          0.9999939321432998,
+          -0.0034833353334800875,
+          0.00004529389754218608
+        ],
+        "axis_angle_deg": 0.20016586235625436,
+        "anchor_delta_m": 0.056086698469961546,
+        "anchor_along_axis_m": 0.048768416111072105,
+        "anchor_perpendicular_m": 0.027701251511036626,
+        "ours_limits": {
+          "lower": -2.74385,
+          "upper": 2.84121,
+          "effort": 10.0,
+          "velocity": 10.0
+        },
+        "theirs_limits": {
+          "lower": -2.74385,
+          "upper": 2.84121,
+          "effort": 10.0,
+          "velocity": 10.0
+        }
+      },
+      {
+        "ours": "joint_6",
+        "theirs": "gripper",
+        "ours_axis": [
+          0.9999619259454086,
+          -0.00007614954071793674,
+          0.008725873067878448
+        ],
+        "theirs_axis": [
+          0.00001397357354226969,
+          -0.9988152578757736,
+          -0.04866292674398309
+        ],
+        "theirs_axis_local": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "ours_axis_in_theirs": [
+          0.0034825856074942175,
+          0.9999280089133603,
+          0.011482534043050482
+        ],
+        "axis_angle_deg": 2.140753227309615,
+        "anchor_delta_m": 0.05448523788876757,
+        "anchor_along_axis_m": 0.0004173279507986652,
+        "anchor_perpendicular_m": 0.0544836396102268,
+        "ours_limits": {
+          "lower": -0.174533,
+          "upper": 1.74533,
+          "effort": 10.0,
+          "velocity": 10.0
+        },
+        "theirs_limits": {
+          "lower": -0.174533,
+          "upper": 1.74533,
+          "effort": 10.0,
+          "velocity": 10.0
+        }
+      }
+    ],
+    "link_spacings": [
+      {
+        "from_joint": "joint_1",
+        "to_joint": "joint_2",
+        "ours_m": 0.06600692003474214,
+        "theirs_m": 0.06477522160116474,
+        "delta_m": 0.0012316984335773995,
+        "delta_percent": 1.9014962869000083
+      },
+      {
+        "from_joint": "joint_2",
+        "to_joint": "joint_3",
+        "ours_m": 0.11605761732527776,
+        "theirs_m": 0.11600002112068773,
+        "delta_m": 0.00005759620459003245,
+        "delta_percent": 0.049651891468285775
+      },
+      {
+        "from_joint": "joint_3",
+        "to_joint": "joint_4",
+        "ours_m": 0.1342187287794559,
+        "theirs_m": 0.13500018518505813,
+        "delta_m": -0.0007814564056022322,
+        "delta_percent": -0.5788558027020574
+      },
+      {
+        "from_joint": "joint_4",
+        "to_joint": "joint_5",
+        "ours_m": 0.062038061375416495,
+        "theirs_m": 0.0637245635528404,
+        "delta_m": -0.0016865021774239014,
+        "delta_percent": -2.6465495931179728
+      },
+      {
+        "from_joint": "joint_5",
+        "to_joint": "joint_6",
+        "ours_m": 0.036731409059781034,
+        "theirs_m": 0.03618065781602099,
+        "delta_m": 0.000550751243760042,
+        "delta_percent": 1.5222256227640127
+      }
+    ],
+    "alignment": {
+      "method": "rotation fitted to the joint axis directions (with a search over axis senses), translation from the anchor centroid",
+      "rotation_deg": [
+        -0.2749012332602332,
+        -0.5214766001239246,
+        89.79898918028806
+      ],
+      "translation_m": [
+        0.1259161402043356,
+        -0.004300904597678813,
+        0.05360279183426081
+      ],
+      "joints_used": 6,
+      "axis_signs": [
+        1,
+        1,
+        1,
+        1,
+        -1,
+        -1
+      ],
+      "rotations_tied": 4,
+      "rms_axis_deg": 1.0540190376324756,
+      "worst_axis_deg": 2.140753227309615,
+      "rms_point_m": 0.07754067871379794,
+      "worst_point_m": 0.11034315850965191
+    },
+    "notes": [
+      "Ours is measured from the CAD B-rep at a stated density. Theirs is the value published in the official model. Neither is adjusted to match the other.",
+      "The body correspondence is a judgement from the two naming schemes and is printed beside the numbers so it can be disputed.",
+      "Some of our bodies rest on an ASSUMED material density; their mass is therefore an estimate, not a measurement, and the report says which.",
+      "The official model accounts for 0.6320 kg. Our joints imply 6 actuators, and at Feetech STS3215 product specification (STS3215-PRODUCT_SPECIFICATION.pdf, feetech.cn): weight 55 +/- 1 g, both the 7.4 V and the 12 V variant they weigh 330 g, which is 52% of their total. That leaves 302 g for every printed link and fastener. Our printed parts alone are 587 g at 100% solid, so the arithmetic is consistent with their masses being whole-body masses that include the servos, at a fill fraction well under solid. That is a reading of the numbers, not a statement of their method.",
+      "The printed-only column counts parts whose CAD names classify them as links. Parts with generic names (SOLID, Component1..7) are left out of it rather than guessed into it, so it is a lower bound on printed plastic, not a total; a body marked with an asterisk carries such parts, and a printed-only figure of 0 for that body means only that no part on it could be identified as printed.",
+      "The fill column is derived, not assumed: the official mass divided by the mass our geometry would have as 100% solid PLA (1240 kg/m3). Read against a body's whole published mass it can exceed a real fill fraction, because a servo is not plastic.",
+      "The printed-fill column removes one actuator per joint from their body mass and divides what is left by our printed-only upper bound. It assumes their link masses include the servo that link carries, which is the common convention and is stated here rather than silently applied.",
+      "The print estimate is a model, not a measurement: each body's parts as a shell over infill at the wall thickness and infill fraction stated in the bundle, except the bought-in ones. Those bodies weigh 1.3320 kg at 100% solid and 0.9555 kg under the model. 6 bought-in part(s) keep their datasheet mass and are not reduced, so the change is smaller than the infill fraction alone would suggest. The model's centre-of-mass and inertia treatment is stated in the bundle's warnings. The infill fraction is a choice, not a finding: read the interval across infill fractions, not this single number.",
+      "The joint-to-joint spacings are printed before the frame alignment because no change of frame can alter them: a rotation and a translation move both ends of a segment by the same amount, so their agreement is not a consequence of the fit. The largest difference is 1.7 mm between joint_4 and joint_5. A difference in the pose the two files were stored in would show up here too, so agreement means the links are the same length and both files are in much the same configuration.",
+      "Our world datum and theirs are different choices of origin and axes, so one rigid transform is fitted over the 6 joints both files place and ours is carried into their frame before any angle is computed. The rotation is fitted to the axis directions and the translation to the anchor centroid. It is a change of frame, not a correction of the robot: the axis angles and anchor distances below are the residual after it.",
+      "The rotation is fitted to the axis directions rather than to the anchor positions. An anchor is a poor constraint on a rotation: a revolute joint's origin is free to sit anywhere along its own axis, and a difference in the pose the two files were stored in moves every anchor at once. Fitting the rotation to anchors spends both of those on the rotation and reports the robot as worse than it is.",
+      "4 sense combinations fitted the axis directions within 0.25 degrees of each other, so the directions alone did not decide the datum. The anchors chose between them, and the rotation printed above is the one they chose. A reader who disagrees with that tie-break should know the axis agreement would look the same under the others.",
+      "2 of 6 of our axes had to be reversed to agree with theirs. A revolute axis has no natural sense, so a reversed axis is a convention both files are free to choose differently; the per-joint signs are in the frame alignment table so the choice is visible rather than assumed.",
+      "The anchor distance is split along their joint's own axis and perpendicular to it. Only the perpendicular part is a statement about where the joint is: an along-axis difference is the freedom every revolute joint has to put its origin anywhere on its axis line. A perpendicular difference is real, and it can come from the pose each file was stored in as well as from the geometry, so this comparison reports it without attributing it."
+    ]
+  },
+  "revision": null
+}

@@ -100,8 +100,13 @@ def _replay(mujoco, model, seconds: float, hz: float, live: bool = True) -> int:
 
     if not live:
         steps = _headless_steps(seconds)
-        for _ in range(steps):
+        # Same bound as hold: a step count derived from a duration still costs per-step work that grows
+        # with the model, so the run also may not outlive a wall-clock deadline.
+        deadline = time.monotonic() + max(1.0, seconds * WALL_CLOCK_FACTOR)
+        ran = 0
+        while ran < steps and time.monotonic() < deadline:
             pose_and_step()
+            ran += 1
         print(f"replay: {steps} step(s) headless, no window")
         return 0
 
