@@ -177,16 +177,36 @@ def main(argv: list[str] | None = None) -> int:
         page.wait_for_function("window.SO101_PAGE !== undefined", timeout=30000)
         checks = page.evaluate("document.querySelectorAll('#checks .check').length")
         links = page.evaluate("document.querySelectorAll('#links .row').length")
+        revision_text = page.evaluate("document.getElementById('rev').innerText")
+        revision_rows = page.evaluate(
+            "(window.SO101_REVISION && window.SO101_REVISION.links || []).length"
+        )
         missing = page.evaluate(
             "Array.from(document.querySelectorAll('header a')).map(a=>a.getAttribute('href'))"
         )
         browser.close()
 
     absent = [h for h in missing if not (root / h).exists()]
-    ok = not errors and not external and not absent and checks == 7 and links >= 7
+    # The revision panel is a never-cut item, so "the payload is there" is not the check: it has to
+    # render its rows, and it must not print this machine's path separators into a document an
+    # outsider reads.
+    backslashed = "\\" in revision_text
+    ok = (
+        not errors
+        and not external
+        and not absent
+        and checks == 7
+        and links >= 7
+        and revision_rows == 7
+        and len(revision_text.strip()) > 0
+        and not backslashed
+    )
     print(f"[{'PASS' if ok else 'FAIL'}] 4  page opens    {checks} check rows rendered, "
-          f"{links} link rows, {len(errors)} page error(s), {len(external)} non-file request(s), "
-          f"{len(absent)} missing relative link(s)")
+          f"{links} link rows, revision panel {len(revision_text.strip())} chars over "
+          f"{revision_rows} row(s), {len(errors)} page error(s), {len(external)} non-file "
+          f"request(s), {len(absent)} missing relative link(s)")
+    if backslashed:
+        print("        revision panel prints a backslashed path, which is this machine's, not the reader's")
     for error in errors[:5]:
         print(f"        page error: {error}")
     for url in external[:5]:
