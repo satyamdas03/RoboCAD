@@ -148,6 +148,54 @@ class TestTransforms:
             rotation_error((1.0, 0.0, 0.0))
 
 
+class TestResourceGuards:
+    """The import treats its input as hostile: a small file can still be made expensive to process."""
+
+    def test_budget_is_checked_inside_the_face_traversal(self):
+        from OCP.BRepPrimAPI import BRepPrimAPI_MakeBox
+
+        from ai_cad.importers.step_import import FACE_CHECK_EVERY, _Budget, _faces
+
+        big = BRepPrimAPI_MakeBox(10.0, 10.0, 10.0).Shape()
+        # A budget already spent must abort the traversal, not be discovered after it finishes.
+        with pytest.raises(StepImportError, match="budget"):
+            _faces(big, _Budget(-1.0))
+        assert FACE_CHECK_EVERY > 0
+
+    def test_budget_is_checked_around_measurement(self):
+        from OCP.BRepPrimAPI import BRepPrimAPI_MakeBox
+
+        from ai_cad.importers.step_import import _Budget, _measure
+
+        box = BRepPrimAPI_MakeBox(10.0, 10.0, 10.0).Shape()
+        with pytest.raises(StepImportError, match="budget"):
+            _measure(box, _Budget(-1.0), [])
+
+    def test_face_cap_rejects_an_absurd_shape(self, monkeypatch):
+        from OCP.BRepPrimAPI import BRepPrimAPI_MakeBox
+
+        import ai_cad.importers.step_import as mod
+
+        monkeypatch.setattr(mod, "MAX_FACES_PER_SHAPE", 3)
+        with pytest.raises(StepImportError, match="faces"):
+            mod._faces(BRepPrimAPI_MakeBox(10.0, 10.0, 10.0).Shape(), mod._Budget(60.0))
+
+    def test_total_face_cap_rejects_a_file_with_many_heavy_parts(self, assembly_step, monkeypatch):
+        import ai_cad.importers.step_import as mod
+
+        monkeypatch.setattr(mod, "MAX_TOTAL_FACES", 5)
+        with pytest.raises(StepImportError, match="faces across its parts"):
+            import_step(assembly_step)
+
+    def test_budget_class_reports_the_stage_that_overran(self):
+        from ai_cad.importers.step_import import _Budget
+
+        budget = _Budget(60.0)
+        budget.check("fine")  # inside the deadline, does not raise
+        with pytest.raises(StepImportError, match="face iteration"):
+            _Budget(-1.0).check("face iteration")
+
+
 # --------------------------------------------------------------------------------------------
 # models
 # --------------------------------------------------------------------------------------------

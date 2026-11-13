@@ -45,10 +45,39 @@ MAX_STEP_BYTES = 250 * 1024 * 1024
 DEFAULT_PARSE_BUDGET_S = 300.0
 MAX_LABELS = 200_000
 MAX_DEPTH = 64
+# Face work is the part of an import an attacker controls most cheaply: a small file can define a
+# shape with millions of faces. These bound it per shape and across the whole file, and the budget
+# is polled inside the traversal rather than only after it.
+FACE_CHECK_EVERY = 2048
+MAX_FACES_PER_SHAPE = 500_000
+MAX_TOTAL_FACES = 2_000_000
 
 
 class StepImportError(RuntimeError):
     """Raised when a STEP file cannot be read as an assembly."""
+
+
+class _Budget:
+    """Cooperative wall-clock budget for the parts of the import this code drives.
+
+    The guarantee is deliberately narrow: every loop this module owns checks the deadline, so no
+    loop we wrote can run unbounded. It cannot preempt a single blocking OCC call — ``ReadFile`` and
+    ``Transfer`` sit in C++ and expose no cancellation — so a pathologically slow parse is caught
+    when it returns, not while it runs. A caller that accepts untrusted uploads and needs a hard cap
+    should run the import in a worker process and kill it on timeout.
+    """
+
+    __slots__ = ("deadline", "seconds")
+
+    def __init__(self, seconds: float) -> None:
+        self.seconds = seconds
+        self.deadline = time.monotonic() + seconds
+
+    def check(self, stage: str) -> None:
+        if time.monotonic() > self.deadline:
+            raise StepImportError(
+                f"STEP parse exceeded its {self.seconds:.0f} s budget during {stage}"
+            )
 
 
 def _ocp():
@@ -101,8 +130,9 @@ class StepImporter:
             )
 
         started = time.monotonic()
-        doc, reader, roots = self._read_document(p)
-        self._check_budget(started, "read")
+        budget = _Budget(self.parse_budget_s)
+        doc, reader, roots = self._read_document(p, budget)
+        budget.check("read (checked on return; OCC exposes no cancellation)")
 
         warnings: list[str] = []
         assembly = ImportedAssembly(
@@ -120,16 +150,19 @@ class StepImporter:
         part_by_signature: dict[tuple, ImportedPart] = {}
         part_by_label: dict[str, str] = {}
         counter = 0
+        faces_total = 0
 
         def walk(label, parent_matrix: tuple[float, ...], path: tuple[str, ...], depth: int) -> None:
-            nonlocal counter
+            nonlocal counter, faces_total
             counter += 1
             if counter > MAX_LABELS:
                 raise StepImportError(f"{p.name} has more than {MAX_LABELS} labels")
             if depth > MAX_DEPTH:
                 raise StepImportError(f"{p.name} nests assemblies deeper than {MAX_DEPTH} levels")
-            if counter % 500 == 0:
-                self._check_budget(started, f"walk ({counter} labels)")
+            # Per label, not every five hundred: a label can be an assembly whose children cost
+            # more than the label itself, and a monotonic clock read is cheap next to the kernel
+            # work this guards.
+            budget.check(f"walking labels ({counter} so far)")
 
             local = self._location_matrix(shape_tool, label)
             world = _compose(parent_matrix, local)
@@ -167,9 +200,15 @@ class StepImporter:
                 if shape is None or shape.IsNull():
                     warnings.append(f"skipped empty label {self._name_of(target)!r}")
                     return
-                sig = _measure(shape, warnings)
+                sig = _measure(shape, budget, warnings)
                 if sig is None:
                     return
+                faces_total += sig.face_count
+                if faces_total > MAX_TOTAL_FACES:
+                    raise StepImportError(
+                        f"{p.name} measures more than {MAX_TOTAL_FACES} faces across its parts, "
+                        "above the import limit"
+                    )
                 existing = part_by_signature.get(sig.key())
                 if existing is not None:
                     part_id = existing.part_id
@@ -213,7 +252,7 @@ class StepImporter:
         seen_assemblies: set[str] = set()
         for i in range(1, roots.Length() + 1):
             walk(roots.Value(i), _IDENTITY, (), 0)
-        self._check_budget(started, "walk")
+        budget.check("walk")
 
         assembly.label_count = counter
         if not assembly.instances:
@@ -221,7 +260,7 @@ class StepImporter:
         return assembly
 
     # -- internals --------------------------------------------------------------------------
-    def _read_document(self, path: Path):
+    def _read_document(self, path: Path, budget: _Budget):
         from OCP.IFSelect import IFSelect_RetDone
         from OCP.STEPCAFControl import STEPCAFControl_Reader
         from OCP.TCollection import TCollection_ExtendedString
@@ -237,11 +276,16 @@ class StepImporter:
         reader.SetNameMode(True)
         reader.SetColorMode(True)
         reader.SetLayerMode(True)
+        budget.check("before the STEP read")
         status = reader.ReadFile(str(path))
         if status != IFSelect_RetDone:
             raise StepImportError(f"{path.name}: STEP reader returned {status}")
+        # Between the two blocking calls is the only place a budget check can stand, so a parse that
+        # already blew the deadline does not go on to build the whole assembly document.
+        budget.check("between STEP read and transfer")
         if reader.Transfer(doc) is False:
             raise StepImportError(f"{path.name}: STEP transfer into the XCAF document failed")
+        budget.check("after STEP transfer")
 
         from OCP.XCAFDoc import XCAFDoc_DocumentTool
 
@@ -251,13 +295,6 @@ class StepImporter:
         if roots.Length() == 0:
             raise StepImportError(f"{path.name}: no top-level shape")
         return doc, reader, roots
-
-    def _check_budget(self, started: float, stage: str) -> None:
-        elapsed = time.monotonic() - started
-        if elapsed > self.parse_budget_s:
-            raise StepImportError(
-                f"STEP parse exceeded its {self.parse_budget_s:.0f} s budget during {stage}"
-            )
 
     def _root_name(self, roots) -> str:
         for i in range(1, roots.Length() + 1):
@@ -288,12 +325,13 @@ class StepImporter:
         return _toploc_to_matrix(loc)
 
 
-def _measure(shape, warnings: list[str]) -> PartSignature | None:
+def _measure(shape, budget: _Budget, warnings: list[str]) -> PartSignature | None:
     from OCP.Bnd import Bnd_Box
     from OCP.BRepBndLib import BRepBndLib
     from OCP.BRepGProp import BRepGProp
     from OCP.GProp import GProp_GProps
 
+    budget.check("before measuring a shape")
     try:
         vol = GProp_GProps()
         BRepGProp.VolumeProperties_s(shape, vol)
@@ -302,6 +340,7 @@ def _measure(shape, warnings: list[str]) -> PartSignature | None:
     except Exception as exc:  # pragma: no cover - kernel failure on a broken face
         warnings.append(f"could not measure a shape ({exc}); skipped")
         return None
+    budget.check("after measuring a shape")
 
     box = Bnd_Box()
     BRepBndLib.Add_s(shape, box)
@@ -310,37 +349,42 @@ def _measure(shape, warnings: list[str]) -> PartSignature | None:
         return None
     xmin, ymin, zmin, xmax, ymax, zmax = box.Get()
 
+    face_count, face_types = _faces(shape, budget)
     return PartSignature(
         volume_m3=abs(vol.Mass()) * MM_TO_M**3,
         surface_area_m2=abs(area.Mass()) * MM_TO_M**2,
         bbox_min_m=(xmin * MM_TO_M, ymin * MM_TO_M, zmin * MM_TO_M),
         bbox_max_m=(xmax * MM_TO_M, ymax * MM_TO_M, zmax * MM_TO_M),
-        face_count=_face_count(shape),
-        face_type_counts=_face_types(shape),
+        face_count=face_count,
+        face_type_counts=face_types,
     )
 
 
-def _face_count(shape) -> int:
-    from OCP.TopAbs import TopAbs_FACE
-    from OCP.TopExp import TopExp_Explorer
+def _faces(shape, budget: _Budget) -> tuple[int, dict[str, int]]:
+    """Face count and face-type histogram in one traversal, under the time budget.
 
-    count = 0
-    exp = TopExp_Explorer(shape, TopAbs_FACE)
-    while exp.More():
-        count += 1
-        exp.Next()
-    return count
-
-
-def _face_types(shape) -> dict[str, int]:
+    One traversal rather than two is not only faster: both passes are O(faces) on a shape we did not
+    create, so each one is work an input can make arbitrarily expensive. The budget is checked every
+    ``FACE_CHECK_EVERY`` faces and the cap stops a shape whose definition alone would take minutes,
+    rather than discovering that after the traversal finishes.
+    """
     from OCP.BRepAdaptor import BRepAdaptor_Surface
     from OCP.TopAbs import TopAbs_FACE
     from OCP.TopExp import TopExp_Explorer
     from OCP.TopoDS import TopoDS
 
     counts: Counter[str] = Counter()
+    count = 0
+    budget.check("before iterating faces")
     exp = TopExp_Explorer(shape, TopAbs_FACE)
     while exp.More():
+        count += 1
+        if count > MAX_FACES_PER_SHAPE:
+            raise StepImportError(
+                f"a shape has more than {MAX_FACES_PER_SHAPE} faces, above the import limit"
+            )
+        if count % FACE_CHECK_EVERY == 0:
+            budget.check(f"iterating faces ({count} so far)")
         try:
             surf = BRepAdaptor_Surface(TopoDS.Face_s(exp.Current()), True)
             # The enum prints as GeomAbs_SurfaceType.GeomAbs_Plane; keep the readable tail.
@@ -348,7 +392,7 @@ def _face_types(shape) -> dict[str, int]:
         except Exception:  # pragma: no cover - kernel failure on a broken face
             counts["unknown"] += 1
         exp.Next()
-    return dict(counts)
+    return count, dict(counts)
 
 
 _IDENTITY: tuple[float, ...] = (
