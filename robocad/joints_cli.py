@@ -16,11 +16,22 @@ it is the command a reviewer runs after editing, and after a new CAD revision ar
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from collections import Counter
 from pathlib import Path
 
 DEFAULT_OUT = "robot.joints.proposed.yaml"
+
+# CAD label names and YAML values are attacker-controlled: a STEP file can carry ESC sequences and
+# a shared proposal can carry control characters. Printing them raw lets either one rewrite the
+# reviewer's terminal (CWE-150). The file keeps the exact bytes; only the terminal view is escaped.
+_CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f]")
+
+
+def _safe(value: object, limit: int = 200) -> str:
+    text = _CONTROL.sub("?", str(value))
+    return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -55,8 +66,13 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _propose(assembly_path: Path, out: Path | None, quiet: bool, notice_path: Path | None) -> int:
-    from ai_cad.importers.features import extract_cylinders, summarize
-    from ai_cad.importers.joints import group_links, infer_joints, write_proposal
+    from ai_cad.importers.features import FeatureExtractionError, extract_cylinders, summarize
+    from ai_cad.importers.joints import (
+        JointInferenceError,
+        group_links,
+        infer_joints,
+        write_proposal,
+    )
     from ai_cad.importers.step_import import StepImportError, import_step
 
     notice = None
@@ -73,9 +89,15 @@ def _propose(assembly_path: Path, out: Path | None, quiet: bool, notice_path: Pa
         print(f"cannot import {assembly_path}: {exc}", file=sys.stderr)
         return 2
 
-    cylinders = extract_cylinders(assembly)
-    links = group_links(assembly)
-    proposal = infer_joints(assembly, links=links, cylinders=cylinders)
+    try:
+        cylinders = extract_cylinders(assembly)
+        links = group_links(assembly)
+        proposal = infer_joints(assembly, links=links, cylinders=cylinders)
+    except (FeatureExtractionError, JointInferenceError) as exc:
+        # A guard that fired is a real answer: the command refuses rather than writing a proposal
+        # that looks complete and is silently missing faces or bodies.
+        print(f"refusing to write a partial proposal: {exc}", file=sys.stderr)
+        return 3
     out = out or assembly_path.parent / DEFAULT_OUT
     write_proposal(proposal, out, notice=notice)
 
@@ -92,13 +114,13 @@ def _propose(assembly_path: Path, out: Path | None, quiet: bool, notice_path: Pa
     for joint in proposal.joints:
         px = ", ".join(f"{v * 1e3:.1f}" for v in joint.axis_point)
         ax = ", ".join(f"{v:.3f}" for v in joint.axis_dir)
-        print(f"  {joint.joint_id} {joint.parent_link} -> {joint.child_link} "
+        print(f"  {_safe(joint.joint_id)} {_safe(joint.parent_link)} -> {_safe(joint.child_link)} "
               f"r={joint.evidence.radius_m * 1e3:.2f}mm conf={joint.confidence:.2f} "
               f"origin=({px})mm axis=({ax})")
     print(f"unresolved pairs {len(proposal.unresolved_pairs)} "
           f"(bodies that meet but share no bore/shaft interface)")
     for warning in proposal.warnings:
-        print(f"warning: {warning}")
+        print(f"warning: {_safe(warning, 500)}")
     print(f"wrote {out}")
     print("Every joint above is a PROPOSAL. Check the axes, add limits, and edit this file before "
           "anything compiles from it.")
@@ -125,14 +147,17 @@ def _diff(before_path: Path, after_path: Path) -> int:
 
     for joint_id in changes["removed"]:
         joint = before.by_id()[joint_id]
-        print(f"- {joint_id} {joint.parent_link} -> {joint.child_link} (removed)")
+        print(f"- {_safe(joint_id)} {_safe(joint.parent_link)} -> {_safe(joint.child_link)} "
+              "(removed)")
     for joint_id in changes["added"]:
         joint = after.by_id()[joint_id]
-        print(f"+ {joint_id} {joint.parent_link} -> {joint.child_link} (added)")
+        print(f"+ {_safe(joint_id)} {_safe(joint.parent_link)} -> {_safe(joint.child_link)} "
+              "(added)")
     for entry in changes["changed"]:
         old, new = before.by_id()[entry["joint_id"]], after.by_id()[entry["joint_id"]]
         fields = ", ".join(entry["fields"])
-        print(f"~ {entry['joint_id']} {old.parent_link} -> {old.child_link}: {fields}")
+        print(f"~ {_safe(entry['joint_id'])} {_safe(old.parent_link)} -> "
+              f"{_safe(old.child_link)}: {fields}")
         if "axis_position" in entry["fields"]:
             moved = max(abs(a - b) for a, b in zip(old.axis_point, new.axis_point))
             print(f"    axis moved {moved * 1e3:.2f} mm")
@@ -140,8 +165,8 @@ def _diff(before_path: Path, after_path: Path) -> int:
             print(f"    axis {tuple(round(v, 3) for v in old.axis_dir)} -> "
                   f"{tuple(round(v, 3) for v in new.axis_dir)}")
         if "topology" in entry["fields"]:
-            print(f"    parent/child {old.parent_link}->{old.child_link} became "
-                  f"{new.parent_link}->{new.child_link}")
+            print(f"    parent/child {_safe(old.parent_link)}->{_safe(old.child_link)} became "
+                  f"{_safe(new.parent_link)}->{_safe(new.child_link)}")
     print(f"{changes['same']} joint(s) unchanged")
     return 0
 

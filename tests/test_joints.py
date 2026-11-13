@@ -269,6 +269,118 @@ class TestCycles:
 
 
 # --------------------------------------------------------------------------------------------
+# guards: a CAD file is untrusted input
+# --------------------------------------------------------------------------------------------
+class TestGuards:
+    def test_inference_refuses_to_run_past_its_deadline(self):
+        from ai_cad.importers.joints import JointInferenceError
+
+        asm, cylinders = _touching_pair()
+        with pytest.raises(JointInferenceError, match="budget"):
+            infer_joints(asm, cylinders=cylinders, budget_s=-1.0)
+
+    def test_pairing_cap_is_reported_not_hidden(self, monkeypatch):
+        import ai_cad.importers.joints as mod
+
+        asm, cylinders = _touching_pair()
+        monkeypatch.setattr(mod, "MAX_PAIRING_BODIES", 1)
+        proposal = mod.infer_joints(asm, cylinders=cylinders)
+        assert any("pairing cap" in w for w in proposal.warnings)
+
+    def test_unresolved_pairs_are_capped_with_a_warning(self, monkeypatch):
+        import ai_cad.importers.joints as mod
+
+        asm, _ = _touching_pair()
+        monkeypatch.setattr(mod, "MAX_UNRESOLVED_PAIRS", 0)
+        proposal = mod.infer_joints(asm, cylinders=[])
+        assert proposal.unresolved_pairs == []
+        assert any("not listed" in w for w in proposal.warnings)
+
+    def test_bodies_that_do_not_touch_are_never_matched(self):
+        # 10 cm apart with geometrically coaxial faces. No bearing spans that gap, and the bbox
+        # test that rejects it runs before the cylinder comparison that would accept it.
+        asm = _assembly(
+            [
+                LEFT,
+                ("wrist", "wrist", (0.1, 0.0, 0.0), (0.12, 0.02, 0.02)),
+            ]
+        )
+        cylinders = [
+            _cyl("i0", 0.003, (0.01, 0.01, 0.01), (1.0, 0.0, 0.0), is_bore=True),
+            _cyl("i1", 0.003, (0.11, 0.01, 0.01), (-1.0, 0.0, 0.0), is_bore=False),
+        ]
+        assert infer_joints(asm, cylinders=cylinders).joints == []
+
+    def test_cylinder_extraction_refuses_a_part_with_too_many_faces(self):
+        pytest.importorskip("OCP.BRepPrimAPI")
+        from OCP.BRepPrimAPI import BRepPrimAPI_MakeBox
+
+        from ai_cad.importers.features import FeatureExtractionError, extract_cylinders
+
+        shape = BRepPrimAPI_MakeBox(10.0, 10.0, 10.0).Shape()
+        asm = _assembly([LEFT])
+        asm.parts["arm"] = asm.parts["arm"].model_copy(update={"shape": shape})
+        with pytest.raises(FeatureExtractionError, match="faces"):
+            extract_cylinders(asm, max_faces_per_shape=2)
+
+    def test_cylinder_extraction_refuses_past_its_deadline(self):
+        pytest.importorskip("OCP.BRepPrimAPI")
+        from OCP.BRepPrimAPI import BRepPrimAPI_MakeBox
+
+        from ai_cad.importers.features import FeatureExtractionError, extract_cylinders
+
+        shape = BRepPrimAPI_MakeBox(10.0, 10.0, 10.0).Shape()
+        asm = _assembly([LEFT])
+        asm.parts["arm"] = asm.parts["arm"].model_copy(update={"shape": shape})
+        with pytest.raises(FeatureExtractionError, match="budget"):
+            extract_cylinders(asm, budget_s=-1.0)
+
+    def test_cylinder_output_is_capped_rather_than_truncated(self):
+        pytest.importorskip("OCP.BRepPrimAPI")
+        from OCP.BRepPrimAPI import BRepPrimAPI_MakeCylinder
+
+        from ai_cad.importers.features import FeatureExtractionError, extract_cylinders
+
+        shape = BRepPrimAPI_MakeCylinder(3.0, 10.0).Shape()
+        asm = _assembly([LEFT])
+        asm.parts["arm"] = asm.parts["arm"].model_copy(update={"shape": shape})
+        with pytest.raises(FeatureExtractionError, match="cylinder faces"):
+            extract_cylinders(asm, max_cylinders=0)
+
+    def test_a_part_is_read_once_however_often_it_is_placed(self):
+        pytest.importorskip("OCP.BRepPrimAPI")
+        from OCP.BRepPrimAPI import BRepPrimAPI_MakeBox
+
+        from ai_cad.importers.features import extract_cylinders
+
+        shape = BRepPrimAPI_MakeBox(10.0, 10.0, 10.0).Shape()
+        one = _assembly([LEFT])
+        one.parts["arm"] = one.parts["arm"].model_copy(update={"shape": shape})
+
+        two = _assembly([LEFT, ("arm2", "arm", (0.0, 0.0, 0.0), (0.02, 0.02, 0.02))])
+        two.parts["arm"] = two.parts["arm"].model_copy(update={"shape": shape})
+
+        calls = []
+        import ai_cad.importers.features as mod
+
+        original = mod._part_cylinders
+
+        def counting(*args, **kwargs):
+            calls.append(1)
+            return original(*args, **kwargs)
+
+        mod._part_cylinders = counting
+        try:
+            extract_cylinders(one, budget_s=None)
+            assert len(calls) == 1
+            calls.clear()
+            extract_cylinders(two, budget_s=None)
+            assert len(calls) == 1, "the same part must be interrogated once, not once per placement"
+        finally:
+            mod._part_cylinders = original
+
+
+# --------------------------------------------------------------------------------------------
 # the file a reviewer reads
 # --------------------------------------------------------------------------------------------
 class TestProposalFile:
@@ -363,6 +475,23 @@ class TestCli:
         junk.write_bytes(b"not a step file\n" * 4)
         assert cli_main(["propose", str(junk)]) == 2
         assert "cannot import" in capsys.readouterr().err
+
+    def test_control_characters_from_a_yaml_are_escaped_on_the_terminal(self, tmp_path, capsys):
+        # A shared proposal can carry ESC sequences in a link name. Printing them raw would let the
+        # file repaint the reviewer's terminal; the file keeps the bytes, the terminal does not.
+        from robocad.joints_cli import main as cli_main
+
+        asm, cylinders = _touching_pair()
+        before = infer_joints(asm, cylinders=cylinders)
+        after = before.model_copy(deep=True)
+        after.joints[0].parent_link = "\x1b[2J\x1b[31mEVIL"
+        before_path = write_proposal(before, tmp_path / "before.yaml")
+        after_path = write_proposal(after, tmp_path / "after.yaml")
+
+        assert cli_main(["diff", str(before_path), str(after_path)]) == 0
+        out = capsys.readouterr().out
+        assert "\x1b" not in out
+        assert "?[2J?[31mEVIL" in out
 
 
 # --------------------------------------------------------------------------------------------

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import math
 import re
+import time
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -35,8 +36,22 @@ AXIS_OFFSET_M = 0.5e-3
 PARALLEL_DOT = 0.995  # ~5.7 degrees; a bearing axis is much tighter than this in practice
 # Two bodies further apart than this cannot be joined directly, so their missing interface is not
 # an unresolved joint: listing every pair in a 26-body robot produces 275 lines of noise that bury
-# the pairs a reviewer needs to look at.
+# the pairs a reviewer needs to look at. It is also the cheap test that runs before the expensive
+# cylinder comparison, so a pathological assembly costs bbox maths, not an n^2 cylinder scan.
 MAX_PAIR_GAP_M = 5.0e-3
+
+# Guards on the review artefact and on the pairing loop. A CAD file is untrusted input: the number
+# of bodies and the number of faces per body are both attacker-controlled, and the loop is
+# quadratic in the first and linear in the second.
+MAX_PAIRING_BODIES = 400
+MAX_CYLINDERS_PER_LINK = 400
+MAX_UNRESOLVED_PAIRS = 250
+DEFAULT_INFER_BUDGET_S = 60.0
+BUDGET_CHECK_EVERY = 512
+
+
+class JointInferenceError(RuntimeError):
+    """Raised when inference exceeds a budget instead of returning a partial proposal."""
 
 FASTENER_PATTERN = re.compile(
     r"\b(screw|nut|bolt|washer|rivet|circlip|pin|spring|bearing|din|iso\s?\d|m\d\s?x)\b",
@@ -210,9 +225,15 @@ def infer_joints(
     assembly: ImportedAssembly,
     links: list[LinkGroup] | None = None,
     cylinders: list[CylinderFace] | None = None,
+    budget_s: float | None = DEFAULT_INFER_BUDGET_S,
 ) -> JointProposal:
     links = links if links is not None else group_links(assembly)
     cylinders = cylinders if cylinders is not None else extract_cylinders(assembly)
+    deadline = None if budget_s is None else time.monotonic() + budget_s
+    if deadline is not None and time.monotonic() > deadline:
+        raise JointInferenceError(
+            f"joint inference exceeded its {budget_s:.0f} s budget before pairing began"
+        )
     link_of = {iid: g.link_id for g in links for iid in g.instance_ids}
     by_link: dict[str, list[CylinderFace]] = {}
     for face in cylinders:
@@ -223,18 +244,47 @@ def infer_joints(
     joints: list[ProposedJoint] = []
     unresolved: list[dict] = []
     jointed: set[frozenset[str]] = set()
-    names = {g.link_id: g for g in links}
+    extra_warnings: list[str] = []
 
     candidates = [g for g in links if g.role in ("link", "actuator", "unclassified")]
+    if len(candidates) > MAX_PAIRING_BODIES:
+        # Pairing is quadratic. Keep the bodies that could plausibly matter (largest first) and say
+        # so, rather than spend an unbounded amount of time proving the rest cannot be jointed.
+        ordered = sorted(candidates, key=lambda g: -g.volume_m3)
+        candidates = ordered[:MAX_PAIRING_BODIES]
+        extra_warnings.append(
+            f"{len(links)} candidate bodies exceeds the {MAX_PAIRING_BODIES}-body pairing cap; "
+            "only the largest bodies were compared. Review this proposal as partial."
+        )
+
+    faces_for = {
+        g.link_id: sorted(by_link.get(g.link_id, []), key=lambda f: -f.area_m2)[
+            :MAX_CYLINDERS_PER_LINK
+        ]
+        for g in candidates
+    }
+
+    checks = 0
     for i, left in enumerate(candidates):
         for right in candidates[i + 1:]:
-            pair = _best_interface(by_link.get(left.link_id, []), by_link.get(right.link_id, []))
+            checks += 1
+            if deadline is not None and checks % BUDGET_CHECK_EVERY == 0:
+                if time.monotonic() > deadline:
+                    raise JointInferenceError(
+                        f"joint inference exceeded its {budget_s:.0f} s budget after {checks} "
+                        "body pairs"
+                    )
+            # Cheap test first: two bodies that do not touch cannot share a bearing interface.
+            if _bbox_gap(left, right) > MAX_PAIR_GAP_M:
+                continue
+            pair = _best_interface(faces_for[left.link_id], faces_for[right.link_id])
             if pair is None:
                 continue
             jointed.add(frozenset((left.link_id, right.link_id)))
             joints.append(_to_joint(len(joints) + 1, left, right, pair))
 
     joints, dropped = _spanning_tree(joints)
+    omitted = 0
     for i, left in enumerate(candidates):
         for right in candidates[i + 1:]:
             if frozenset((left.link_id, right.link_id)) in jointed:
@@ -242,6 +292,9 @@ def infer_joints(
             if left.role == "unclassified" or right.role == "unclassified":
                 continue
             if _bbox_gap(left, right) > MAX_PAIR_GAP_M:
+                continue
+            if len(unresolved) >= MAX_UNRESOLVED_PAIRS:
+                omitted += 1
                 continue
             unresolved.append(
                 {
@@ -252,8 +305,14 @@ def infer_joints(
                     "next_step": "supply the joint axis by hand, or add contact analysis",
                 }
             )
+    if omitted:
+        extra_warnings.append(
+            f"{omitted} further unresolved pair(s) were not listed; the cap is "
+            f"{MAX_UNRESOLVED_PAIRS}. Review this proposal as partial."
+        )
 
     warnings = _structure_warnings(links, joints)
+    warnings.extend(extra_warnings)
     for joint in dropped:
         warnings.append(
             f"joint {joint.joint_id} ({joint.parent_link} -> {joint.child_link}) closes a loop "
@@ -561,8 +620,10 @@ def _clean_name(name: str) -> str:
 
 __all__ = [
     "JointEvidence",
+    "JointInferenceError",
     "JointProposal",
     "LinkGroup",
+    "MAX_PAIR_GAP_M",
     "ProposedJoint",
     "SCHEMA",
     "diff_proposals",

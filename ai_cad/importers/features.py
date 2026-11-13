@@ -13,11 +13,38 @@ hole next to another hole.
 from __future__ import annotations
 
 import math
+import time
 from collections import Counter
 
 from pydantic import BaseModel, Field
 
 from ai_cad.importers.models import ImportedAssembly, ImportedInstance
+
+# The same guards the STEP reader uses, for the same reason: a CAD file is untrusted input, and a
+# file that measures cheap can still be made expensive to interrogate. Faces are counted once per
+# unique part rather than once per placement, but the totals are still capped.
+MAX_FACES_PER_SHAPE = 200_000
+MAX_CYLINDERS = 500_000
+FACE_CHECK_EVERY = 2048
+DEFAULT_FEATURE_BUDGET_S = 120.0
+
+
+class FeatureExtractionError(RuntimeError):
+    """Raised when a part exceeds a resource guard instead of returning a partial answer."""
+
+
+class _Deadline:
+    __slots__ = ("at", "seconds")
+
+    def __init__(self, seconds: float | None) -> None:
+        self.seconds = seconds
+        self.at = None if seconds is None else time.monotonic() + seconds
+
+    def check(self, stage: str) -> None:
+        if self.at is not None and time.monotonic() > self.at:
+            raise FeatureExtractionError(
+                f"feature extraction exceeded its {self.seconds:.0f} s budget during {stage}"
+            )
 
 
 class CylinderFace(BaseModel):
@@ -46,52 +73,98 @@ class CylinderFace(BaseModel):
         return self
 
 
-def extract_cylinders(assembly: ImportedAssembly, max_faces_per_shape: int = 200_000) -> list[CylinderFace]:
-    """Every cylindrical face of every placed instance, transformed into assembly coordinates."""
+def extract_cylinders(
+    assembly: ImportedAssembly,
+    max_faces_per_shape: int = MAX_FACES_PER_SHAPE,
+    budget_s: float | None = DEFAULT_FEATURE_BUDGET_S,
+    max_cylinders: int = MAX_CYLINDERS,
+) -> list[CylinderFace]:
+    """Every cylindrical face of every placed instance, transformed into assembly coordinates.
+
+    Faces are read once per **part** and transformed once per **instance**. In a real assembly the
+    same part is often placed many times (SO-101 places one adapter 45 times), so reading per
+    instance multiplies the kernel cost by the instance count for no new information. The guards are
+    the reader's: a deadline, a per-shape face cap and a total cap on what this call may emit. A cap
+    is reached by raising, never by returning a shorter list, because a silently truncated feature
+    set produces a proposal that looks complete and is not.
+    """
+    deadline = _Deadline(budget_s)
+    cache: dict[str, list[dict]] = {}
+    out: list[CylinderFace] = []
+    for inst in assembly.instances:
+        deadline.check("instance placement")
+        part = assembly.parts.get(inst.part_id)
+        shape = getattr(part, "shape", None) if part is not None else None
+        if shape is None:
+            continue
+        local = cache.get(inst.part_id)
+        if local is None:
+            local = _part_cylinders(shape, max_faces_per_shape, deadline)
+            cache[inst.part_id] = local
+        if len(out) + len(local) > max_cylinders:
+            raise FeatureExtractionError(
+                f"assembly would yield more than {max_cylinders} cylinder faces; refusing rather "
+                "than returning a partial feature set"
+            )
+        rot, trans = _rotation_translation(inst)
+        for cyl in local:
+            out.append(
+                CylinderFace(
+                    instance_id=inst.instance_id,
+                    radius_m=cyl["radius_m"],
+                    axis_point=_apply(rot, trans, cyl["point"]),
+                    axis_dir=_unit(_rotate(rot, cyl["dir"])),
+                    is_bore=cyl["is_bore"],
+                    area_m2=cyl["area_m2"],
+                ).normalized()
+            )
+    return out
+
+
+def _part_cylinders(shape, max_faces: int, deadline: _Deadline) -> list[dict]:
+    """Cylindrical faces of one part, in part coordinates."""
     from OCP.BRepAdaptor import BRepAdaptor_Surface
     from OCP.GeomAbs import GeomAbs_Cylinder
     from OCP.TopAbs import TopAbs_FACE, TopAbs_REVERSED
     from OCP.TopExp import TopExp_Explorer
     from OCP.TopoDS import TopoDS
 
-    out: list[CylinderFace] = []
-    for inst in assembly.instances:
-        part = assembly.parts.get(inst.part_id)
-        shape = getattr(part, "shape", None) if part is not None else None
-        if shape is None:
-            continue
-        rot, trans = _rotation_translation(inst)
-        seen = 0
-        exp = TopExp_Explorer(shape, TopAbs_FACE)
-        while exp.More():
-            seen += 1
-            if seen > max_faces_per_shape:
-                break
-            face = TopoDS.Face_s(exp.Current())
-            exp.Next()
-            try:
-                surf = BRepAdaptor_Surface(face, True)
-                if surf.GetType() != GeomAbs_Cylinder:
-                    continue
-                cyl = surf.Cylinder()
-            except Exception:  # pragma: no cover - kernel failure on a broken face
-                continue
-            axis = cyl.Axis()
-            loc, direction = axis.Location(), axis.Direction()
-            point = _apply(rot, trans, (loc.X(), loc.Y(), loc.Z()))
-            dirv = _rotate(rot, (direction.X(), direction.Y(), direction.Z()))
-            if _norm(dirv) < 1e-9:  # pragma: no cover - degenerate axis
-                continue
-            out.append(
-                CylinderFace(
-                    instance_id=inst.instance_id,
-                    radius_m=cyl.Radius() * 1e-3,
-                    axis_point=point,
-                    axis_dir=_unit(dirv),
-                    is_bore=face.Orientation() == TopAbs_REVERSED,
-                    area_m2=_face_area(face) * 1e-6,
-                ).normalized()
+    out: list[dict] = []
+    seen = 0
+    exp = TopExp_Explorer(shape, TopAbs_FACE)
+    deadline.check("face iteration")
+    while exp.More():
+        seen += 1
+        if seen > max_faces:
+            raise FeatureExtractionError(
+                f"a part has more than {max_faces} faces; refusing to interrogate it"
             )
+        if seen % FACE_CHECK_EVERY == 0:
+            deadline.check("face iteration")
+        face = TopoDS.Face_s(exp.Current())
+        exp.Next()
+        try:
+            surf = BRepAdaptor_Surface(face, True)
+            if surf.GetType() != GeomAbs_Cylinder:
+                continue
+            cyl = surf.Cylinder()
+        except Exception:  # pragma: no cover - kernel failure on a broken face
+            continue
+        axis = cyl.Axis()
+        loc, direction = axis.Location(), axis.Direction()
+        dirv = (direction.X(), direction.Y(), direction.Z())
+        if _norm(dirv) < 1e-9:  # pragma: no cover - degenerate axis
+            continue
+        out.append(
+            {
+                "radius_m": cyl.Radius() * 1e-3,
+                "point": (loc.X(), loc.Y(), loc.Z()),
+                "dir": dirv,
+                "is_bore": face.Orientation() == TopAbs_REVERSED,
+                "area_m2": _face_area(face) * 1e-6,
+            }
+        )
+    deadline.check("face iteration")
     return out
 
 
@@ -156,6 +229,10 @@ def _unit(v: tuple[float, float, float]) -> tuple[float, float, float]:
 
 __all__ = [
     "CylinderFace",
+    "DEFAULT_FEATURE_BUDGET_S",
+    "FeatureExtractionError",
+    "MAX_CYLINDERS",
+    "MAX_FACES_PER_SHAPE",
     "extract_cylinders",
     "radius_histogram",
     "summarize",
