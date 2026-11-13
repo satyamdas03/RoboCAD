@@ -72,7 +72,7 @@ def _simplify(vertices: np.ndarray, faces: np.ndarray, target_triangles: int):
         return vertices.astype(np.float32), faces.astype(np.int32)
 
 
-def _meshes(model, mujoco, target_triangles: int):
+def _meshes(model, mujoco, target_triangles: int, visual_only: bool = True):
     """Unique meshes, simplified, plus which mesh each mesh geom uses.
 
     MuJoCo reuses one mesh across several geoms, so the payload stores each mesh once and the page
@@ -82,6 +82,14 @@ def _meshes(model, mujoco, target_triangles: int):
     geoms = []
     for geom in range(model.ngeom):
         if model.geom_type[geom] != mujoco.mjtGeom.mjGEOM_MESH:
+            continue
+        # visual geoms carry contype and conaffinity 0; collision hulls are the ones that collide.
+        # Rendering hulls makes the page look like a pile of blocks, so the page takes the visuals
+        # and the collision set stays a property of the bundle, not of the picture.
+        is_visual = int(model.geom_contype[geom]) == 0 and int(model.geom_conaffinity[geom]) == 0
+        if visual_only and not is_visual:
+            continue
+        if (not visual_only) and is_visual:
             continue
         mesh_id = int(model.geom_dataid[geom])
         if mesh_id not in unique:
@@ -117,6 +125,8 @@ def main() -> int:
     parser.add_argument("--seconds", type=float, default=6.0)
     parser.add_argument("--hz", type=int, default=100)
     parser.add_argument("--triangles", type=int, default=2500)
+    parser.add_argument("--visual-only", action="store_true", default=True)
+    parser.add_argument("--collision-only", dest="visual_only", action="store_false")
     args = parser.parse_args()
 
     import mujoco
@@ -126,7 +136,7 @@ def main() -> int:
     mujoco.mj_forward(model, data)
 
     traj = _simulate(model, data, mujoco, args.seconds, args.hz)
-    mesh_items, mesh_geoms = _meshes(model, mujoco, args.triangles)
+    mesh_items, mesh_geoms = _meshes(model, mujoco, args.triangles, args.visual_only)
 
     out = pathlib.Path(args.out_dir)
     out.mkdir(parents=True, exist_ok=True)

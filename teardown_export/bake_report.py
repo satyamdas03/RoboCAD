@@ -54,13 +54,22 @@ def _comparison(comp: dict | None) -> dict | None:
                 "ours": b.get("ours"),
                 "theirs": b.get("theirs"),
                 "ours_kg": b.get("ours_kg"),
+                "ours_solid_mass_kg": b.get("ours_solid_mass_kg"),
+                "ours_printed_upper_kg": b.get("ours_printed_upper_kg"),
                 "theirs_kg": b.get("theirs_kg"),
                 "delta_percent": b.get("delta_percent"),
                 "assumed_density": b.get("assumed_density", False),
                 "implied_fill": b.get("implied_fill"),
+                "printed_fill": b.get("printed_fill"),
+                "bought_in_parts": b.get("bought_in_parts"),
+                "servos_on_body": b.get("servos_on_body"),
             }
             for b in comp.get("bodies", [])
         ],
+        "alignment": comp.get("alignment"),
+        "link_spacings": comp.get("link_spacings", []),
+        "ours_solid_total_kg": sum(b.get("ours_solid_mass_kg") or 0.0 for b in comp.get("bodies", [])),
+        "ours_print_total_kg": sum(b.get("ours_kg") or 0.0 for b in comp.get("bodies", [])),
         "joints": [
             {
                 "ours": j.get("ours"),

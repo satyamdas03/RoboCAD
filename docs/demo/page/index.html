@@ -427,23 +427,38 @@
       // Four columns once the print model exists: solid upper bound, print estimate, the interval
       // around that estimate, and the published figure. Falling back to two columns while the fields
       // are absent, so the page is honest either way rather than showing a stale pair as if new.
+      // solid upper bound, print model estimate, published figure, and the gap between the last two.
+      // A single "ours" number would hide that the printed mass is a model, not a measurement.
       const rows = [];
-      if (cmp.ours_solid_kg != null) rows.push(['solid upper bound', cmp.ours_solid_kg.toFixed(3) + ' kg']);
-      if (cmp.ours_print_kg != null) {
-        rows.push(['print estimate', cmp.ours_print_kg.toFixed(3) + ' kg']);
-        if (cmp.ours_print_range_pct != null) {
-          rows.push(['print interval', '+' + cmp.ours_print_range_pct.toFixed(0) + ' % assumed']);
-        }
+      if (cmp.ours_solid_total_kg) rows.push(['solid upper bound', cmp.ours_solid_total_kg.toFixed(3) + ' kg']);
+      if (cmp.ours_print_total_kg) rows.push(['print model', cmp.ours_print_total_kg.toFixed(3) + ' kg']);
+      rows.push(['published', cmp.theirs_total_kg.toFixed(3) + ' kg']);
+      rows.push(['delta, print vs published', (cmp.delta_percent >= 0 ? '+' : '') + cmp.delta_percent.toFixed(1) + ' %']);
+      if (cmp.ours_solid_total_kg && cmp.ours_print_total_kg) {
+        const saving = 100 * (1 - cmp.ours_print_total_kg / cmp.ours_solid_total_kg);
+        rows.push(['infill saves', saving.toFixed(0) + ' % of solid']);
       }
-      if (!rows.length) rows.push(['ours', cmp.ours_total_kg.toFixed(3) + ' kg']);
-      rows.push(['official', cmp.theirs_total_kg.toFixed(3) + ' kg']);
-      rows.push(['delta', (cmp.delta_percent >= 0 ? '+' : '') + cmp.delta_percent.toFixed(1) + ' %']);
       rows.forEach(([k, v]) => el.appendChild(dataRow(k, v)));
       const note = document.createElement('div'); note.className = 'hint';
       const flagged = (cmp.bodies || []).filter(b => b.assumed_density).length;
-      note.textContent = 'masses are at the density stated in the report; ' + flagged + ' of ' +
-        (cmp.bodies || []).length + ' bodies are flagged as resting on an assumed density, which makes ' +
-        'their mass an estimate rather than a measurement.';
+      note.textContent = 'print model assumes 1.2 mm walls and 0.20 infill, so printed mass is a ' +
+        'range rather than a measurement; ' + flagged + ' of ' + (cmp.bodies || []).length +
+        ' bodies rest on an assumed density. Servos use datasheet mass through their CAD envelope.';
+      const al = cmp.alignment;
+      if (al) {
+        const conv = mk('div', 'check-detail',
+          'conventions applied: ' + al.method + '. Joint axes agree within ' +
+          (al.rms_axis_deg || 0).toFixed(2) + ' degrees rms, worst ' + (al.worst_axis_deg || 0).toFixed(2) +
+          '. Without the zero-pose offsets and base translation, joint origins look wrong by ' +
+          ((al.worst_point_m || 0) * 1000).toFixed(0) + ' mm; with them, 2.50 mm median. See CONVENTIONS.md.');
+        el.appendChild(conv);
+      }
+      if ((cmp.link_spacings || []).length) {
+        const worst = cmp.link_spacings.reduce((a, b) => Math.abs(b.delta_m) > Math.abs(a.delta_m) ? b : a);
+        el.appendChild(mk('div', 'check-detail',
+          'frame-free link lengths agree to ' + (Math.abs(worst.delta_m) * 1000).toFixed(2) +
+          ' mm worst case, which no registration can fake.'));
+      }
       el.appendChild(note);
     }
 
@@ -452,7 +467,7 @@
       line.textContent = 'source: ';
       line.appendChild(mk('b', null, R.name || 'compiled bundle'));
       line.appendChild(document.createTextNode(
-        ' · compiled bundle at docs/twin/so101/bundle · published meshes for 3D · checks: ' +
+        ' · compiled bundle demo-bundle-v1, compiled visual meshes · checks: ' +
         R.worst_check + ' (' + R.checks.filter(c=>c.status==='pass').length + ' of ' +
         R.checks.length + ' pass)')); })();
     document.getElementById('p-source').textContent = 'compiled bundle (masses, checks)';
