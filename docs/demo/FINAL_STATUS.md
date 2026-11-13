@@ -61,15 +61,24 @@ same mistake will be made again.
 
 ## Assumptions Satyam must confirm
 
-1. **Infill and wall parameters** for printed parts: PLA 1240 kg/m³, wall 1.2 mm, infill 0.20, all
-   marked ASSUMPTION. Every printed mass on the page is an upper bound built on them. Lane A flags
-   this as the figure most likely to be contested in a partner conversation.
-2. **Servo mass source**: the datasheet figure and URL that Lane A cites per servo. In the current
-   run `actuator_mass_kg` is **null**, because no datasheet was available or supplied, so servo mass
-   is still coming from CAD volume. That is a real hole in the mass story and it is stated here
-   rather than buried.
-3. **Publish decision** for `docs/twin/so101/` and its NOTICE, Apache-2.0 with a statement of changes.
-4. **M2 YAML review**: cross-reviewed by the lane that did not write it, recorded in `DECISIONS.md`.
+1. **Printed mass is an upper bound at 100 percent fill.** The compile layer counts printed plastic
+   as solid PLA at the material library density, `materials.py` `"pla": 1240.0` kg/m3, and the report
+   field is `printed_mass_upper_bound_kg`. There is **no wall thickness and no infill fraction**
+   anywhere in the compile layer; a page line claiming "1.2 mm wall, 0.20 infill" would describe a
+   model that is not in the bundle, so the page does not claim it. `verified-read` from Lane A.
+2. **Servo mass, 55 g plus or minus 1 g**, sourced to the Feetech STS3215 product specification
+   document (feetech.cn); the code carries the document name, not a URL. It enters the
+   comparison only, as the figure that reconciles our mass against the published mass. It does **not**
+   enter the bundle's mass properties, which is why `actuator_mass_kg` is null; a reader who assumes
+   55 g is already inside our body masses would overstate every body. `verified-read` from Lane A.
+3. **Publishing `docs/twin/so101/`.** Satyam authorised this in the sprint directive, verbatim:
+   "Publish docs/twin/so101/: YES. Add docs/twin/so101/NOTICE.md crediting the SO-101 project, its
+   Apache-2.0 licence, the pinned commit, and a list of what we changed." What is still true: the
+   directory is **uncommitted**, `NOTICE.md` is not written, and no `demo-bundle-v1` tag exists,
+   because Lane A will not commit derived CAD on a relayed instruction. Nothing in this folder
+   describes it as published.
+4. **M2 YAML review**: cross-reviewed by the lane that did not write it, criteria recorded in
+   `DECISIONS.md`. M2 stays `[~]` while the YAML is uncommitted for the licence question.
 
 ## What is deliberately not shipped
 
