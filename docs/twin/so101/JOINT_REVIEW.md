@@ -67,13 +67,42 @@ Each criterion, and the one thing a reader should know before believing the PASS
 
 - **Author self-check:** the build session, by running the command above. This is what the output in
   this file is.
-- **Independent cross-review:** requested from the monitor session on 2026-11-14 with the command and
-  this file named. Its verdict is recorded below when it arrives. Until it does, this file claims a
-  self-check and not a review, and the tracker says the same.
+- **Independent cross-review:** the monitor session, 2026-11-14. Verdict below.
 
 ### Cross-review verdict
 
-Pending. No verdict has been received and none is invented here.
+**PASS, 4/4**, recorded verbatim from the reviewing session:
+
+> PASS, 4/4, run by me just now against the committed files.
+>
+> Before the verdict, the provenance check, because a checker run against an unverified input is worth
+> nothing: I fetched `so101_new_calib.urdf` at the pinned commit `a758567` myself, 16,231 bytes,
+> sha256 `3a65d2d35e68a8d2...`, matching the `PINNED_LIMITS_SHA256` in your script. So the official
+> input is the file the artifact claims.
+>
+> Run: `python scripts/check_joints_yaml.py ...` gives 4/4 PASS: 259 instances assigned exactly once
+> across 26 links, no duplicates; 6 joints all revolute, no non-unit axes; 6 of 6 limits with one
+> stated source; chain joint_1 to joint_6, one root, zero body-to-body mismatches against the official
+> URDF.
+>
+> One observation for your JOINTS_REVIEW.md, not a disagreement and not a FAIL: your own output line
+> says the axis point sits at most 57.83 mm from the servo shaft line. That is the P0-a offset showing
+> up inside the acceptance check, and it is consistent with the five-anchor residual of 2.50 mm once
+> the zero-pose conventions are applied. I would record it as an observation with that number rather
+> than let a future reader find 57.83 mm in the log and wonder why a PASS contains it.
+
+The provenance check is the part that makes the verdict worth something: the reviewer fetched the
+official file itself and checked its sha256 against the one the script pins, rather than accepting the
+copy on this machine.
+
+**The 57.83 mm observation, answered.** Criterion 2 is about axis *direction* — the compiled joint's
+`axis_dir` is the servo output-shaft direction, taken from the same `ServoAxis` object, so the 1°
+criterion is one object rather than two measurements. The 57.83 mm is a distance between the recorded
+joint *origin* and the shaft *line*, and the joint origin is where the two bodies meet, not where the
+shaft surface is. It is consistent with the conventions in `CONVENTIONS.md`: the anchors agree to
+2.50 mm median only after the five zero-pose offsets and the base translation are applied, and the
+acceptance check here applies none of them. A reader finding 57.83 mm in a PASS should read it as the
+unconventioned comparison, not as an axis error.
 
 ## What this review does not cover
 

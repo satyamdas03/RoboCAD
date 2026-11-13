@@ -92,7 +92,7 @@ notice and a statement of changes are required on the page, film and report.
 | | ID | Deliverable | Acceptance evidence | Owner | State |
 |---|---|---|---|---|---|
 | | M1 | STEP import of the chosen assembly | part and instance counts, units, transforms, warnings | build | [x] |
-| | M2 | Link grouping and joint inference, YAML reviewed by Satyam | 1 geometry-confirmed joint, 91 unresolved pairs; proposal **committed** 2026-11-14 as `docs/twin/so101/robot.joints.yaml` (licence question answered by Satyam's order to commit it); criteria checker 4/4 PASS, record in `docs/twin/so101/JOINT_REVIEW.md` | build | [~] |
+| | M2 | Link grouping and joint inference, YAML reviewed by Satyam | 1 geometry-confirmed joint, 91 unresolved pairs; proposal **committed** 2026-11-14 as `docs/twin/so101/robot.joints.yaml` (licence question answered by Satyam's order to commit it); criteria checker 4/4 PASS and independent cross-review PASS 4/4 (with the official file's sha256 re-checked), record in `docs/twin/so101/JOINT_REVIEW.md` | build | [x] |
 | | M3 | Exact mass and inertia, collision hulls via CoACD | B-rep mass and inertia verified, 433 hulls; joint origins still unattributed | build | [~] |
 
 No vendor-spread work. If a step looks like it will pass about 3 days, stop and propose a smaller
@@ -122,8 +122,8 @@ body plus an adoption header) and `docs/twin/so101/JOINT_REVIEW.md` are committe
 command rather than an opinion, `python scripts/check_joints_yaml.py`, and it returns 4/4 PASS on the
 four criteria in `docs/DECISIONS.md` decision 2. The record distinguishes the author self-check, which
 is what that output is, from the independent cross-review, which was requested from the monitor session
-and had not returned a verdict when the record was written. The row is `[~]` for that one reason and
-flips to `[x]` only when the verdict is in the file.
+and returned **PASS, 4/4** the same day, with the official file's sha256 re-checked against the one
+`scripts/check_joints_yaml.py` pins. The row is `[x]`.
 
 ## Step 4: M4 core
 
