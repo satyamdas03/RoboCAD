@@ -1,8 +1,8 @@
 {
   "schema_version": "robocad.twin.revision_demo/1",
-  "before": "docs\\twin\\so101\\bundle",
-  "after": "docs\\twin\\so101\\revision_f030\\bundle",
-  "keyed_on": "docs\\twin\\so101\\bundle\\robot.joints.yaml",
+  "before": "docs/twin/so101/bundle",
+  "after": "docs/twin/so101/revision_f030/bundle",
+  "keyed_on": "docs/twin/so101/bundle/robot.joints.yaml",
   "added": [],
   "removed": [],
   "sanity": [

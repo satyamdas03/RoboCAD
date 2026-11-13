@@ -191,9 +191,9 @@ def compare(before_dir: Path, after_dir: Path) -> dict:
 
     return {
         "schema_version": "robocad.twin.revision_demo/1",
-        "before": str(before_dir),
-        "after": str(after_dir),
-        "keyed_on": str(before_dir / "robot.joints.yaml"),
+        "before": before_dir.as_posix(),
+        "after": after_dir.as_posix(),
+        "keyed_on": (before_dir / "robot.joints.yaml").as_posix(),
         "added": added,
         "removed": removed,
         "sanity": list(SANITY),

@@ -1,7 +1,7 @@
 # Revision diff: infill assumption f = 0.20 to f = 0.30
 
-Before: `docs\twin\so101\bundle` (1.20 mm wall over 20% infill)
-After: `docs\twin\so101\revision_f030\bundle` (1.20 mm wall over 30% infill)
+Before: `docs/twin/so101/bundle` (1.20 mm wall over 20% infill)
+After: `docs/twin/so101/revision_f030/bundle` (1.20 mm wall over 30% infill)
 
 Same pipeline, same STEP file, one input changed: the print model's infill fraction. The diff is keyed only on the link names in `robot.joints.yaml`.
 
