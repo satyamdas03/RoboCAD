@@ -37,9 +37,10 @@ Owner of this file: monitor session (Lane B). Updated 2026-11-14. Every claim ca
   sense-searched datum fit over all 64 sense combinations. `verified-ran`
 - Joint **origins** do not agree: perpendicular offsets **94.2, 110.3, 54.0, 54.7, 27.7, 54.5 mm**.
   The repeating ~54 mm is unattributed and is the open question in the comparison. `verified-ran`
-- Self-collision: hulls overlap **7.9 mm** at rest; B-rep solids touch, **0.52 mm³** shared of a
-  32.27 cm³ wrist and 20.69 cm³ jaw. Hull overlap is real for the simulator; the CAD does not
-  interfere. `verified-read` from Lane A, corrected after their unit bug
+- Self-collision: hulls overlap **7.9 mm** at rest. The B-rep solids touch and share **0.52 mm³**
+  across 47 of 47 shape pairs, which is contact-scale, not a statement that the parts fit together,
+  against a 32.27 cm³ wrist and 20.69 cm³ jaw. Hull overlap is real for the simulator; the solids
+  do not interfere. `verified-read` from Lane A, corrected after their unit bug
 - Identification rungs 0, 1, 2 and 4 recover (0.57, 1.6/0.86, latency exact, 0.12/0.56 percent).
   Rung 3 is blocked. `verified-ran`
 - Default test tier at `c7a6544`: 520 of 808 collected, measured in an isolated worktree.
@@ -61,8 +62,12 @@ same mistake will be made again.
 ## Assumptions Satyam must confirm
 
 1. **Infill and wall parameters** for printed parts: PLA 1240 kg/m³, wall 1.2 mm, infill 0.20, all
-   marked ASSUMPTION. Every printed mass on the page is an upper bound built on them.
-2. **Servo mass source**: the datasheet figure and URL that Lane A cites per servo.
+   marked ASSUMPTION. Every printed mass on the page is an upper bound built on them. Lane A flags
+   this as the figure most likely to be contested in a partner conversation.
+2. **Servo mass source**: the datasheet figure and URL that Lane A cites per servo. In the current
+   run `actuator_mass_kg` is **null**, because no datasheet was available or supplied, so servo mass
+   is still coming from CAD volume. That is a real hole in the mass story and it is stated here
+   rather than buried.
 3. **Publish decision** for `docs/twin/so101/` and its NOTICE, Apache-2.0 with a statement of changes.
 4. **M2 YAML review**: cross-reviewed by the lane that did not write it, recorded in `DECISIONS.md`.
 
