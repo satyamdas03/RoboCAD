@@ -1,0 +1,99 @@
+{
+  "model": "so101_new_calib.xml",
+  "rungs": [
+    {
+      "rung": 0,
+      "name": "damping only, noise free, 1 kHz",
+      "reached": true,
+      "recovered": {
+        "damping": 0.08045246697397171
+      },
+      "truth": {
+        "damping": 0.08
+      },
+      "error_percent": {
+        "damping": 0.5655837174646343
+      },
+      "note": "condition number 1.00"
+    },
+    {
+      "rung": 1,
+      "name": "damping and Coulomb, noise free, 1 kHz",
+      "reached": true,
+      "recovered": {
+        "damping": 0.08128337956808855,
+        "coulomb": 0.14871008827266083
+      },
+      "truth": {
+        "damping": 0.08,
+        "coulomb": 0.15
+      },
+      "error_percent": {
+        "damping": 1.604224460110687,
+        "coulomb": 0.859941151559444
+      },
+      "note": "condition number 4.80"
+    },
+    {
+      "rung": 2,
+      "name": "plus 3 sample latency at 1 kHz",
+      "reached": true,
+      "recovered": {
+        "latency_samples": 3,
+        "damping": 0.08128421576809335,
+        "coulomb": 0.14870968607201404
+      },
+      "truth": {
+        "latency_samples": 3,
+        "damping": 0.08,
+        "coulomb": 0.15
+      },
+      "error_percent": {
+        "latency_samples": 0.0,
+        "damping": 1.6052697101166802,
+        "coulomb": 0.8602092853239689
+      },
+      "note": "latency identified as an integer number of samples"
+    },
+    {
+      "rung": 3,
+      "name": "62 Hz with noise and 4096 count quantisation",
+      "reached": false,
+      "recovered": {
+        "damping": 0.43466319648375185,
+        "coulomb": -0.1768988272224004
+      },
+      "truth": {
+        "damping": 0.08,
+        "coulomb": 0.15
+      },
+      "error_percent": {
+        "damping": 443.3289956046898,
+        "coulomb": 217.93255148160026
+      },
+      "note": "condition number 6.3, tolerance 25%. Position quantisation is 1.53 mrad and the servo stiffness is 998 N m per rad, so one count of position error is about 1.53 N m of actuator torque, against a friction signal of roughly 0.05 N m. The method cannot separate them at this rate, and no amount of fitting fixes a signal to noise ratio of 0.04. A partner's bench log with a real torque channel escapes this; a 62 Hz position log does not."
+    },
+    {
+      "rung": 4,
+      "name": "second joint elbow_flex, noise free, 1 kHz",
+      "reached": true,
+      "recovered": {
+        "damping": 0.08009867710747916,
+        "coulomb": 0.14915258949490917
+      },
+      "truth": {
+        "damping": 0.08,
+        "coulomb": 0.15
+      },
+      "error_percent": {
+        "damping": 0.1233463843489449,
+        "coulomb": 0.5649403367272154
+      },
+      "note": ""
+    }
+  ],
+  "stopped_at": 3,
+  "stop_reason": "condition number 6.3, tolerance 25%. Position quantisation is 1.53 mrad and the servo stiffness is 998 N m per rad, so one count of position error is about 1.53 N m of actuator torque, against a friction signal of roughly 0.05 N m. The method cannot separate them at this rate, and no amount of fitting fixes a signal to noise ratio of 0.04. A partner's bench log with a real torque channel escapes this; a 62 Hz position log does not.",
+  "label": "SYNTHETIC",
+  "disclaimer": "SYNTHETIC method validation. Parameters are planted in a simulation and recovered from simulated logs. No hardware was involved."
+}
