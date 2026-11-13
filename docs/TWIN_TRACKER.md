@@ -92,7 +92,7 @@ notice and a statement of changes are required on the page, film and report.
 | | ID | Deliverable | Acceptance evidence | Owner | State |
 |---|---|---|---|---|---|
 | | M1 | STEP import of the chosen assembly | part and instance counts, units, transforms, warnings | build | [x] |
-| | M2 | Link grouping and joint inference, YAML reviewed by Satyam | 1 geometry-confirmed joint, 91 unresolved pairs; YAML uncommitted pending the licence question | build | [~] |
+| | M2 | Link grouping and joint inference, YAML reviewed by Satyam | 1 geometry-confirmed joint, 91 unresolved pairs; proposal **committed** 2026-11-14 as `docs/twin/so101/robot.joints.yaml` (licence question answered by Satyam's order to commit it); criteria checker 4/4 PASS, record in `docs/twin/so101/JOINT_REVIEW.md` | build | [~] |
 | | M3 | Exact mass and inertia, collision hulls via CoACD | B-rep mass and inertia verified, 433 hulls; joint origins still unattributed | build | [~] |
 
 No vendor-spread work. If a step looks like it will pass about 3 days, stop and propose a smaller
@@ -115,6 +115,15 @@ across 26 body groups, and never invents a tree. This is the honest M2 acceptanc
 "joints inferred". The row stays `[~]` because the acceptance gate is Satyam reviewing the YAML, and
 the generated proposal at `docs/twin/so101/` is deliberately uncommitted until he says the derived
 work may be published.
+
+**Update 2026-11-14.** That gate is answered for publication: Satyam's order for the final sprint is
+to commit the skeleton and its review record, so `docs/twin/so101/robot.joints.yaml` (the proposal's
+body plus an adoption header) and `docs/twin/so101/JOINT_REVIEW.md` are committed. The review is now a
+command rather than an opinion, `python scripts/check_joints_yaml.py`, and it returns 4/4 PASS on the
+four criteria in `docs/DECISIONS.md` decision 2. The record distinguishes the author self-check, which
+is what that output is, from the independent cross-review, which was requested from the monitor session
+and had not returned a verdict when the record was written. The row is `[~]` for that one reason and
+flips to `[x]` only when the verdict is in the file.
 
 ## Step 4: M4 core
 

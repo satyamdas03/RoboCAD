@@ -99,6 +99,7 @@ measured yet. It is the first thing to measure before any demo timing appears in
 | `c7a6544` | 808 | 288 |
 | `33e30d1` | 809 | 288 |
 | `af75fdd` plus in-flight edits | 968 | 300 |
+| `f202c12` (`demo-bundle-v1`) | 1045 | 300 |
 
 The `af75fdd` run is labelled with that caveat on purpose. It ran while Lane A had three files modified
 but uncommitted in the same tree, so it measures the commit plus those edits, not the commit alone. The
@@ -108,3 +109,21 @@ not been done, and pretending otherwise would be the drift this file exists to p
 
 Each of these was read with `python -m pytest --collect-only -q -p no:cacheprovider` at the commit,
 not derived by arithmetic from the row above.
+
+## The frozen tag, measured on a clean checkout
+
+The run the demo bundle is allowed to cite. It is a clean checkout of the tag in its own worktree, so
+nothing uncommitted in the main tree can reach it.
+
+| item | value |
+|---|---|
+| tag | `demo-bundle-v1` |
+| commit | `f202c12` |
+| worktree | `git worktree add ../robocad-final demo-bundle-v1` (detached HEAD) |
+| command | `python -m pytest -q` |
+| result | **745 passed, 300 deselected, 3 warnings, exit 0, 391.13 s (6:31)** |
+| collected | 1045 |
+
+No caveat on this row: the tree was the tag, not the tag plus edits. The three warnings are the
+pre-existing `InsecureKeyLengthWarning` from the JWT tests, not new ones. `BASELINE.md` was written
+before the run by the same lane, which is a note about the ordering, not about the number.

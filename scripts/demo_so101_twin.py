@@ -134,6 +134,15 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="also write a visual mesh per part (the B-rep surface, not the collision hull)",
     )
+    parser.add_argument(
+        "--infill",
+        type=float,
+        default=None,
+        help=(
+            "infill fraction for the print model, so a revision can be compiled at a different "
+            "assumption than the one the bundle states; omitted means PrintModel's default"
+        ),
+    )
     args = parser.parse_args(argv)
 
     official = Path(args.official)
@@ -148,7 +157,7 @@ def main(argv: list[str] | None = None) -> int:
         notice=_notice(Path(args.out)),
         limits=limits,
         limits_source=source,
-        print_model=PrintModel(),
+        print_model=PrintModel() if args.infill is None else PrintModel(infill_fraction=args.infill),
         actuator_mass_kg=SERVO_MASS_KG,
         actuator_mass_source=SERVO_SOURCE,
         actuator=ActuatorSpec(

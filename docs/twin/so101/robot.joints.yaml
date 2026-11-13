@@ -1,0 +1,1186 @@
+# RoboCAD joint skeleton, ADOPTED for the SO-101 demo bundle.
+#
+# This is the reviewed form of robot.joints.proposed.yaml beside it; the body below is that file
+# byte for byte, so the two cannot say different things about a link. What the review added is
+# the verdict, not the content: see JOINT_REVIEW.md in this directory for the four criteria, the
+# command that checks them, and who checked. Adopted 2026-11-14 under DECISIONS.md decision 2.
+#
+# RoboCAD joint proposal
+# Generated from CAD geometry. Every joint here is a PROPOSAL: limits are unknown and
+# the joint tree has not been verified against the real machine. Review before use.
+# Geometry-confirmed joints only; pairs with no coaxial bore/shaft interface are listed
+# under unresolved_pairs with the reason they are missing.
+# SO-101 arm geometry: TheRobotStudio/SO-ARM100, STEP/SO101/SO101 Assembly.step
+# Pinned revision: a758567c3978dfeefe282ede0500085a48fe8f78 (2026-10-06)
+# Licence: Apache-2.0. The copyright notice and the full licence text are in that repository's
+# LICENSE file, and are not restated here to avoid paraphrasing them.
+# Changes made by RoboCAD: link groups and joint axes were inferred from the original geometry.
+# No geometry was modified, moved or rebuilt; this file carries derived metadata only.
+#
+schema: robocad.joints/1
+source:
+  file: so101.step
+  sha256: f754be35708382b05ce65768ae33c612f91dca11ad19d14807dc637eb944ba3d
+  bytes: 20496014
+  parts: 83
+  instances: 259
+  units: mm
+links:
+- link_id: base_so101
+  name: Base_SO101
+  instance_ids:
+  - inst_001
+  - inst_011
+  - inst_012
+  - inst_013
+  - inst_014
+  - inst_015
+  - inst_016
+  - inst_067
+  - inst_068
+  - inst_069
+  - inst_070
+  - inst_071
+  - inst_072
+  - inst_073
+  - inst_074
+  part_ids:
+  - part_001
+  - part_011
+  - part_012
+  - part_013
+  volume_m3: 0.0001234850070005715
+  bbox_min_m:
+  - -0.05546822282694659
+  - -0.03308356940283532
+  - 0.0003885727072740956
+  bbox_max_m:
+  - 0.05546822282694688
+  - 0.054133856751789264
+  - 0.07249179445484004
+  role: link
+- link_id: rotation_pitch_so101
+  name: Rotation_Pitch_SO101
+  instance_ids:
+  - inst_002
+  - inst_017
+  - inst_018
+  - inst_019
+  - inst_020
+  part_ids:
+  - part_002
+  - part_011
+  volume_m3: 6.888703352053962e-05
+  bbox_min_m:
+  - -0.023107556119464558
+  - -0.055710456431696684
+  - 0.01909083058974847
+  bbox_max_m:
+  - 0.02290869117987422
+  - 0.005827682770426807
+  - 0.10390148707557652
+  role: link
+- link_id: upper_arm_so101
+  name: Upper_arm_SO101
+  instance_ids:
+  - inst_003
+  - inst_021
+  - inst_022
+  - inst_023
+  - inst_024
+  - inst_051
+  - inst_052
+  - inst_053
+  - inst_054
+  - inst_059
+  - inst_060
+  - inst_061
+  - inst_062
+  part_ids:
+  - part_003
+  - part_011
+  - part_013
+  volume_m3: 0.00011817208452459086
+  bbox_min_m:
+  - -0.030906182227625523
+  - -0.05212279618257496
+  - 0.10664857470149733
+  bbox_max_m:
+  - 0.03782511765576936
+  - 0.09186752160135186
+  - 0.13560262334162337
+  role: link
+- link_id: under_arm_so101
+  name: Under_arm_SO101
+  instance_ids:
+  - inst_004
+  - inst_025
+  - inst_026
+  - inst_027
+  - inst_028
+  - inst_047
+  - inst_048
+  - inst_049
+  - inst_050
+  - inst_055
+  - inst_056
+  - inst_057
+  - inst_058
+  part_ids:
+  - part_004
+  - part_011
+  - part_013
+  volume_m3: 9.371837039047896e-05
+  bbox_min_m:
+  - -0.02687781473441086
+  - -0.045356782805789725
+  - 0.1343149607476709
+  bbox_max_m:
+  - 0.03890762091573589
+  - 0.08712188521473119
+  - 0.16202086255949616
+  role: link
+- link_id: base_08p
+  name: Base_08p
+  instance_ids:
+  - inst_005
+  part_ids:
+  - part_005
+  volume_m3: 2.3717252520641787e-05
+  bbox_min_m:
+  - -0.0239083435466953
+  - -0.0218912625132412
+  - 0.03849284059832995
+  bbox_max_m:
+  - 0.025199825359631483
+  - 0.05872360836000247
+  - 0.06989575047011179
+  role: link
+- link_id: motor_holder_so101_base
+  name: Motor_holder_SO101_Base
+  instance_ids:
+  - inst_006
+  part_ids:
+  - part_006
+  volume_m3: 1.331427591238886e-05
+  bbox_min_m:
+  - -0.027167637447460626
+  - -0.05937040663046621
+  - 0.07532280644276562
+  bbox_max_m:
+  - 0.02859007883847861
+  - -0.020353053162750177
+  - 0.10367823990389477
+  role: link
+- link_id: motor_holder_so101_wrist
+  name: Motor_holder_SO101_Wrist
+  instance_ids:
+  - inst_007
+  part_ids:
+  - part_007
+  volume_m3: 1.3880539857894683e-05
+  bbox_min_m:
+  - -0.02291210109081867
+  - -0.04541004494929405
+  - 0.1316703921441754
+  bbox_max_m:
+  - 0.03557095162954399
+  - -0.016562326517393665
+  - 0.16999905860514877
+  role: link
+- link_id: wrist_roll_pitch_so100
+  name: Wrist_Roll_Pitch_SO100
+  instance_ids:
+  - inst_008
+  - inst_029
+  - inst_030
+  - inst_031
+  - inst_032
+  - inst_033
+  - inst_034
+  - inst_035
+  - inst_036
+  - inst_037
+  - inst_038
+  - inst_039
+  - inst_040
+  - inst_041
+  - inst_042
+  - inst_043
+  - inst_044
+  - inst_045
+  - inst_046
+  - inst_063
+  - inst_064
+  - inst_065
+  - inst_066
+  - inst_075
+  - inst_076
+  - inst_077
+  - inst_078
+  - inst_201
+  - inst_202
+  - inst_257
+  part_ids:
+  - part_008
+  - part_011
+  - part_013
+  - part_067
+  volume_m3: 3.4269134622265924e-05
+  bbox_min_m:
+  - -0.057822920066599406
+  - -0.20219985027216292
+  - -0.02184645707211874
+  bbox_max_m:
+  - 0.12310478774120293
+  - -0.015243190060638234
+  - 0.32750364020724254
+  role: link
+- link_id: wrist_roll_follower_so101
+  name: Wrist_Roll_Follower_SO101
+  instance_ids:
+  - inst_009
+  part_ids:
+  - part_009
+  volume_m3: 5.661954949756995e-05
+  bbox_min_m:
+  - -0.03331167830101115
+  - -0.22683478321404427
+  - 0.11171441869858365
+  bbox_max_m:
+  - 0.043349014787212724
+  - -0.11608682795604627
+  - 0.1835503082233329
+  role: link
+- link_id: moving_jaw_so101
+  name: Moving_Jaw_SO101
+  instance_ids:
+  - inst_010
+  part_ids:
+  - part_010
+  volume_m3: 2.069145672227405e-05
+  bbox_min_m:
+  - -0.03896249815478976
+  - -0.16090366511453527
+  - 0.15477600957639817
+  bbox_max_m:
+  - 0.06400098952740992
+  - -0.13373056434751376
+  - 0.2545209510807914
+  role: link
+- link_id: bus_servo_adapter_a
+  name: Bus Servo Adapter (A)
+  instance_ids:
+  - inst_079
+  - inst_080
+  - inst_081
+  - inst_082
+  - inst_083
+  - inst_084
+  - inst_085
+  - inst_086
+  - inst_087
+  - inst_088
+  - inst_089
+  - inst_090
+  - inst_091
+  - inst_092
+  - inst_093
+  - inst_094
+  - inst_095
+  - inst_096
+  - inst_097
+  - inst_098
+  - inst_099
+  - inst_100
+  - inst_101
+  - inst_102
+  - inst_103
+  - inst_104
+  - inst_105
+  - inst_106
+  - inst_107
+  - inst_108
+  - inst_109
+  - inst_110
+  - inst_111
+  - inst_112
+  - inst_113
+  - inst_114
+  - inst_115
+  - inst_116
+  - inst_117
+  - inst_118
+  - inst_119
+  - inst_120
+  - inst_121
+  - inst_122
+  - inst_123
+  - inst_124
+  - inst_125
+  - inst_126
+  - inst_127
+  - inst_128
+  - inst_129
+  - inst_130
+  - inst_131
+  - inst_132
+  - inst_133
+  - inst_134
+  - inst_135
+  - inst_136
+  - inst_137
+  - inst_138
+  - inst_139
+  - inst_140
+  - inst_141
+  - inst_142
+  - inst_143
+  - inst_144
+  - inst_145
+  - inst_146
+  - inst_147
+  - inst_148
+  - inst_149
+  - inst_150
+  - inst_151
+  - inst_152
+  - inst_153
+  - inst_154
+  - inst_155
+  - inst_156
+  - inst_157
+  - inst_158
+  - inst_159
+  - inst_160
+  - inst_161
+  - inst_162
+  - inst_163
+  - inst_164
+  - inst_165
+  - inst_166
+  - inst_167
+  - inst_168
+  - inst_169
+  - inst_170
+  - inst_171
+  - inst_172
+  - inst_173
+  - inst_174
+  - inst_175
+  - inst_176
+  - inst_177
+  - inst_178
+  - inst_179
+  - inst_180
+  - inst_181
+  - inst_182
+  - inst_183
+  - inst_184
+  - inst_185
+  - inst_186
+  - inst_187
+  - inst_188
+  - inst_189
+  - inst_190
+  - inst_191
+  - inst_192
+  - inst_193
+  - inst_194
+  - inst_195
+  - inst_196
+  - inst_197
+  - inst_198
+  - inst_199
+  - inst_200
+  part_ids:
+  - part_014
+  - part_015
+  - part_016
+  - part_017
+  - part_018
+  - part_019
+  - part_020
+  - part_021
+  - part_022
+  - part_023
+  - part_024
+  - part_025
+  - part_026
+  - part_027
+  - part_028
+  - part_029
+  - part_030
+  - part_031
+  - part_032
+  - part_033
+  - part_034
+  - part_035
+  - part_036
+  - part_037
+  - part_038
+  - part_039
+  - part_040
+  - part_041
+  - part_042
+  - part_043
+  - part_044
+  - part_045
+  - part_046
+  - part_047
+  - part_048
+  - part_049
+  - part_050
+  - part_051
+  - part_052
+  - part_053
+  - part_054
+  - part_055
+  - part_056
+  - part_057
+  - part_058
+  - part_059
+  - part_060
+  - part_061
+  - part_062
+  - part_063
+  - part_064
+  - part_065
+  - part_066
+  volume_m3: 4.69852955166138e-06
+  bbox_min_m:
+  - -0.020610434160151042
+  - 0.05854015289375648
+  - 0.032888570312030616
+  bbox_max_m:
+  - 0.022181568060562
+  - 0.07714028174633882
+  - 0.0670843010245779
+  role: actuator
+- link_id: '050375033'
+  name: '050375033'
+  instance_ids:
+  - inst_203
+  part_ids:
+  - part_068
+  volume_m3: 2.3486064836579565e-07
+  bbox_min_m:
+  - 0.00630743391150127
+  - 0.06809015252510972
+  - 0.06139934851917862
+  bbox_max_m:
+  - 0.01620743493327519
+  - 0.07709015293055337
+  - 0.06609935084355202
+  role: unclassified
+- link_id: '050375033_2'
+  name: '050375033'
+  instance_ids:
+  - inst_204
+  part_ids:
+  - part_068
+  volume_m3: 2.3486064836579565e-07
+  bbox_min_m:
+  - -0.005626556567014771
+  - 0.06809015252510962
+  - 0.061399348519178304
+  bbox_max_m:
+  - 0.004273444454759148
+  - 0.07709015293055327
+  - 0.0660993508435517
+  role: unclassified
+- link_id: st3215_servo
+  name: ST3215 Servo
+  instance_ids:
+  - inst_205
+  - inst_206
+  - inst_207
+  - inst_208
+  - inst_209
+  - inst_210
+  - inst_211
+  - inst_212
+  part_ids:
+  - part_069
+  - part_070
+  - part_071
+  - part_072
+  - part_073
+  - part_074
+  - part_075
+  - part_076
+  volume_m3: 4.258039219510551e-05
+  bbox_min_m:
+  - -0.012494886352737877
+  - -0.017645622496795507
+  - 0.027887440973246438
+  bbox_max_m:
+  - 0.012296021787890068
+  - 0.027873131020579422
+  - 0.06586578447147051
+  role: actuator
+- link_id: st3215_servo_2
+  name: ST3215 Servo
+  instance_ids:
+  - inst_213
+  - inst_214
+  - inst_215
+  - inst_216
+  - inst_217
+  - inst_218
+  - inst_219
+  - inst_220
+  part_ids:
+  - part_069
+  - part_070
+  - part_071
+  - part_072
+  - part_073
+  - part_074
+  - part_075
+  - part_076
+  volume_m3: 4.258039219510551e-05
+  bbox_min_m:
+  - -0.01709055611191691
+  - -0.05130005100362037
+  - 0.08453240535857971
+  bbox_max_m:
+  - 0.02090742208790884
+  - -0.025858529896589523
+  - 0.13001322578992633
+  role: actuator
+- link_id: st3215_servo_3
+  name: ST3215 Servo
+  instance_ids:
+  - inst_221
+  - inst_222
+  - inst_223
+  - inst_224
+  - inst_225
+  - inst_226
+  - inst_227
+  - inst_228
+  part_ids:
+  - part_069
+  - part_070
+  - part_071
+  - part_072
+  - part_073
+  - part_074
+  - part_075
+  - part_076
+  volume_m3: 4.258039219510551e-05
+  bbox_min_m:
+  - -0.015662907741686063
+  - 0.061140437577407225
+  - 0.11331461960452457
+  bbox_max_m:
+  - 0.022723846049661742
+  - 0.08658264506403048
+  - 0.1590294798963722
+  role: actuator
+- link_id: st3215_servo_4
+  name: ST3215 Servo
+  instance_ids:
+  - inst_229
+  - inst_230
+  - inst_231
+  - inst_232
+  - inst_233
+  - inst_234
+  - inst_235
+  - inst_236
+  part_ids:
+  - part_069
+  - part_070
+  - part_071
+  - part_072
+  - part_073
+  - part_074
+  - part_075
+  - part_076
+  volume_m3: 4.258039219510551e-05
+  bbox_min_m:
+  - -0.013580489015625695
+  - -0.07083654066906112
+  - 0.13984412068925617
+  bbox_max_m:
+  - 0.0246051113729817
+  - -0.02535181394878894
+  - 0.16559894606416214
+  role: actuator
+- link_id: st3215_servo_5
+  name: ST3215 Servo
+  instance_ids:
+  - inst_237
+  - inst_238
+  - inst_239
+  - inst_240
+  - inst_241
+  - inst_242
+  - inst_243
+  part_ids:
+  - part_069
+  - part_070
+  - part_071
+  - part_072
+  - part_073
+  - part_074
+  - part_075
+  volume_m3: 4.201434368108394e-05
+  bbox_min_m:
+  - -0.003298452925845609
+  - -0.12221392517227316
+  - 0.13955538194927092
+  bbox_max_m:
+  - 0.04239124842010012
+  - -0.08421130613919774
+  - 0.16539123298394656
+  role: actuator
+- link_id: st3215_servo_6
+  name: ST3215 Servo
+  instance_ids:
+  - inst_244
+  - inst_245
+  - inst_246
+  - inst_247
+  - inst_248
+  - inst_249
+  - inst_250
+  - inst_251
+  part_ids:
+  - part_069
+  - part_070
+  - part_071
+  - part_072
+  - part_073
+  - part_074
+  - part_075
+  - part_076
+  volume_m3: 4.258039219510551e-05
+  bbox_min_m:
+  - -0.011777201773410583
+  - -0.15818706924108158
+  - 0.13653245584249282
+  bbox_max_m:
+  - 0.026201149930679058
+  - -0.13299762971488
+  - 0.18226717880826387
+  role: actuator
+- link_id: component1_1
+  name: Component1:1
+  instance_ids:
+  - inst_252
+  part_ids:
+  - part_077
+  volume_m3: 9.665609591822903e-07
+  bbox_min_m:
+  - 0.002973039248078633
+  - -0.03641565385855891
+  - 0.026856334021127092
+  bbox_max_m:
+  - 0.029321704055121307
+  - 0.022156113073512708
+  - 0.1067130191609944
+  role: link
+- link_id: component2_1
+  name: Component2:1
+  instance_ids:
+  - inst_253
+  part_ids:
+  - part_078
+  volume_m3: 6.997230245834515e-07
+  bbox_min_m:
+  - 0.015205641604447203
+  - -0.05134985852721769
+  - 0.1048084854179137
+  bbox_max_m:
+  - 0.0378651570048203
+  - 0.0713713138785068
+  - 0.1366282538629933
+  role: link
+- link_id: component3_1
+  name: Component3:1
+  instance_ids:
+  - inst_254
+  part_ids:
+  - part_079
+  volume_m3: 5.799673959134283e-07
+  bbox_min_m:
+  - 0.016764571887506165
+  - -0.04977996333391234
+  - 0.13368232461169466
+  bbox_max_m:
+  - 0.03849598078629123
+  - 0.08439531329889982
+  - 0.15004297606676434
+  role: link
+- link_id: component4_1
+  name: Component4:1
+  instance_ids:
+  - inst_255
+  part_ids:
+  - part_080
+  volume_m3: 4.933671584302188e-07
+  bbox_min_m:
+  - 0.016605898221059685
+  - -0.09140485849856081
+  - 0.1412022306133529
+  bbox_max_m:
+  - 0.055477871106676915
+  - -0.045584685361482684
+  - 0.1590252332020891
+  role: link
+- link_id: component6_1
+  name: Component6:1
+  instance_ids:
+  - inst_256
+  part_ids:
+  - part_081
+  volume_m3: 4.297185820343723e-07
+  bbox_min_m:
+  - -0.02113306299121565
+  - -0.14230339027683736
+  - 0.15425497880219163
+  bbox_max_m:
+  - 0.022039383478722748
+  - -0.07642517850876836
+  - 0.17137400155596236
+  role: link
+- link_id: waveshare_mounting_plate_so101
+  name: WaveShare_Mounting_Plate_SO101
+  instance_ids:
+  - inst_258
+  part_ids:
+  - part_082
+  volume_m3: 9.097225479793908e-06
+  bbox_min_m:
+  - -0.02470843256979562
+  - 0.05494015332411121
+  - 0.029194295434220228
+  bbox_max_m:
+  - 0.026291567630206087
+  - 0.062540153524112
+  - 0.07119429563422244
+  role: link
+- link_id: component7_1
+  name: Component7:1
+  instance_ids:
+  - inst_259
+  part_ids:
+  - part_083
+  volume_m3: 6.836814179653862e-07
+  bbox_min_m:
+  - -0.009501398633517491
+  - 0.005398252184092778
+  - 0.020881942365522037
+  bbox_max_m:
+  - 0.0036916446404381817
+  - 0.09358262070456716
+  - 0.06534737432341978
+  role: link
+joints:
+- joint_id: joint_01
+  parent_link: st3215_servo_6
+  child_link: moving_jaw_so101
+  joint_type: revolute
+  axis_point:
+  - 0.009953622041798837
+  - -0.1457033638470246
+  - 0.1719447457334781
+  axis_dir:
+  - 0.9999619259454084
+  - -7.614954071823202e-05
+  - 0.008725873067885673
+  limits: null
+  evidence:
+    kind: coaxial_bore_shaft
+    radius_m: 0.003
+    radial_gap_m: 0.0
+    axis_offset_m: 1.2203892003140843e-14
+    face_pairs: 120
+  confidence: 0.95
+  review_required: true
+unresolved_pairs:
+- parent_link: base_so101
+  child_link: rotation_pitch_so101
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: base_so101
+  child_link: base_08p
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: base_so101
+  child_link: motor_holder_so101_base
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: base_so101
+  child_link: wrist_roll_pitch_so100
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: base_so101
+  child_link: bus_servo_adapter_a
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: base_so101
+  child_link: st3215_servo
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: base_so101
+  child_link: component1_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: base_so101
+  child_link: waveshare_mounting_plate_so101
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: base_so101
+  child_link: component7_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: rotation_pitch_so101
+  child_link: upper_arm_so101
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: rotation_pitch_so101
+  child_link: base_08p
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: rotation_pitch_so101
+  child_link: motor_holder_so101_base
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: rotation_pitch_so101
+  child_link: wrist_roll_pitch_so100
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: rotation_pitch_so101
+  child_link: st3215_servo
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: rotation_pitch_so101
+  child_link: st3215_servo_2
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: rotation_pitch_so101
+  child_link: component1_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: rotation_pitch_so101
+  child_link: component2_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: rotation_pitch_so101
+  child_link: component7_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: upper_arm_so101
+  child_link: under_arm_so101
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: upper_arm_so101
+  child_link: motor_holder_so101_base
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: upper_arm_so101
+  child_link: motor_holder_so101_wrist
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: upper_arm_so101
+  child_link: wrist_roll_pitch_so100
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: upper_arm_so101
+  child_link: st3215_servo_2
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: upper_arm_so101
+  child_link: st3215_servo_3
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: upper_arm_so101
+  child_link: st3215_servo_4
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: upper_arm_so101
+  child_link: component1_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: upper_arm_so101
+  child_link: component2_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: upper_arm_so101
+  child_link: component3_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: under_arm_so101
+  child_link: motor_holder_so101_wrist
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: under_arm_so101
+  child_link: wrist_roll_pitch_so100
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: under_arm_so101
+  child_link: st3215_servo_2
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: under_arm_so101
+  child_link: st3215_servo_3
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: under_arm_so101
+  child_link: st3215_servo_4
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: under_arm_so101
+  child_link: component2_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: under_arm_so101
+  child_link: component3_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: under_arm_so101
+  child_link: component4_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: base_08p
+  child_link: wrist_roll_pitch_so100
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: base_08p
+  child_link: bus_servo_adapter_a
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: base_08p
+  child_link: st3215_servo
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: base_08p
+  child_link: component1_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: base_08p
+  child_link: waveshare_mounting_plate_so101
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: base_08p
+  child_link: component7_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: motor_holder_so101_base
+  child_link: wrist_roll_pitch_so100
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: motor_holder_so101_base
+  child_link: st3215_servo_2
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: motor_holder_so101_base
+  child_link: component1_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: motor_holder_so101_base
+  child_link: component2_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: motor_holder_so101_wrist
+  child_link: wrist_roll_pitch_so100
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: motor_holder_so101_wrist
+  child_link: st3215_servo_2
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: motor_holder_so101_wrist
+  child_link: st3215_servo_4
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: motor_holder_so101_wrist
+  child_link: component2_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: motor_holder_so101_wrist
+  child_link: component3_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: motor_holder_so101_wrist
+  child_link: component4_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: wrist_roll_pitch_so100
+  child_link: wrist_roll_follower_so101
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: wrist_roll_pitch_so100
+  child_link: moving_jaw_so101
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: wrist_roll_pitch_so100
+  child_link: st3215_servo
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: wrist_roll_pitch_so100
+  child_link: st3215_servo_2
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: wrist_roll_pitch_so100
+  child_link: st3215_servo_4
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: wrist_roll_pitch_so100
+  child_link: st3215_servo_5
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: wrist_roll_pitch_so100
+  child_link: st3215_servo_6
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: wrist_roll_pitch_so100
+  child_link: component1_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: wrist_roll_pitch_so100
+  child_link: component2_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: wrist_roll_pitch_so100
+  child_link: component3_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: wrist_roll_pitch_so100
+  child_link: component4_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: wrist_roll_pitch_so100
+  child_link: component6_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: wrist_roll_follower_so101
+  child_link: moving_jaw_so101
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: wrist_roll_follower_so101
+  child_link: st3215_servo_5
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: wrist_roll_follower_so101
+  child_link: st3215_servo_6
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: wrist_roll_follower_so101
+  child_link: component6_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: moving_jaw_so101
+  child_link: component6_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: bus_servo_adapter_a
+  child_link: waveshare_mounting_plate_so101
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: bus_servo_adapter_a
+  child_link: component7_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: st3215_servo
+  child_link: component1_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: st3215_servo
+  child_link: component7_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: st3215_servo_2
+  child_link: component1_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: st3215_servo_2
+  child_link: component2_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: st3215_servo_2
+  child_link: component3_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: st3215_servo_3
+  child_link: component2_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: st3215_servo_3
+  child_link: component3_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: st3215_servo_4
+  child_link: component2_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: st3215_servo_4
+  child_link: component3_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: st3215_servo_4
+  child_link: component4_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: st3215_servo_5
+  child_link: component4_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: st3215_servo_5
+  child_link: component6_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: st3215_servo_6
+  child_link: component6_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: component1_1
+  child_link: component2_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: component1_1
+  child_link: component7_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: component2_1
+  child_link: component3_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: component2_1
+  child_link: component4_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: component3_1
+  child_link: component4_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: component4_1
+  child_link: component6_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+- parent_link: waveshare_mounting_plate_so101
+  child_link: component7_1
+  reason: no coaxial bore/shaft interface between these bodies at radius >= 2.0 mm
+  next_step: supply the joint axis by hand, or add contact analysis
+warnings:
+- '24 body group(s) have no inferred joint: Base_SO101, Rotation_Pitch_SO101, Upper_arm_SO101,
+  Under_arm_SO101, Base_08p, Motor_holder_SO101_Base'
+summary:
+  links: 26
+  joints: 1
+  unresolved_pairs: 91
+  cylinders_extracted: 5148
+  tolerances:
+    min_radius_m: 0.002
+    radial_match_m: 0.0005
+    axis_offset_m: 0.0005
+    parallel_dot: 0.995
+    max_pair_gap_m: 0.005
+  note: geometry-confirmed joints only; a missing joint is expected on servo-mediated
+    assemblies and is for review, not a failure
+status: proposed
+partial: false
