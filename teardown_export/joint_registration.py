@@ -167,15 +167,34 @@ def _joint_lines(mujoco, model, R=None, t=None, joint_limit: int | None = None):
 
 
 def _line_distance(p1, d1, p2, d2):
-    """Minimum distance between two lines, and the angle between their directions."""
+    """Distance between two joint axes, reported the way an engineer reads it.
+
+    The minimum distance between two INFINITE lines is exact but misleading when the axes are close
+    to parallel and long: slide far enough along a line and the perpendicular gap shrinks while the
+    two joints end up metres apart axially. So three numbers come out together: the angle, the
+    minimum line-to-line distance, and the axial station where that minimum is attained on each line.
+    A metric that hides the station invites exactly the wrong conclusion.
+    """
     cross = np.cross(d1, d2)
     norm = np.linalg.norm(cross)
     angle = float(np.degrees(np.arccos(np.clip(abs(float(d1 @ d2)), -1.0, 1.0))))
-    if norm < 1e-9:  # parallel: distance from one point to the other line
-        w = p2 - p1
-        return float(np.linalg.norm(w - (w @ d1) * d1)), angle
+    w = p2 - p1
+    if norm < 1e-9:
+        axial = float(w @ d1)
+        return float(np.linalg.norm(w - axial * d1)), angle, axial, 0.0
     n = cross / norm
-    return float(abs((p2 - p1) @ n)), angle
+    dist = float(abs(w @ n))
+    # stations of the closest points, from the standard two-line solution
+    a = float(d1 @ d1); b = float(d1 @ d2); c = float(d2 @ d2)
+    d = float(d1 @ w); e = float(d2 @ w)
+    denom = a * c - b * b
+    if abs(denom) < 1e-12:
+        s_star = 0.0
+        t_star = e / c
+    else:
+        s_star = (b * e - c * d) / denom
+        t_star = (a * e - b * d) / denom
+    return dist, angle, float(s_star), float(t_star)
 
 
 def _tip_point(mujoco, model, body_name: str, definition: str = "extreme"):
@@ -247,8 +266,27 @@ def main() -> int:
     lines_o = _joint_lines(mujoco, official)
     rows = []
     for j, ((p1, d1), (p2, d2)) in enumerate(zip(lines_c, lines_o)):
-        dist_mm, angle_deg = _line_distance(p1, d1, p2, d2)
-        rows.append({"joint": j + 1, "angle_deg": round(angle_deg, 2), "line_distance_mm": round(dist_mm * 1000, 1)})
+        dist_mm, angle_deg, s_star, t_star = _line_distance(p1, d1, p2, d2)
+        # The infinite-line minimum is degenerate for near-parallel axes: it can be attained metres
+        # along the axis, which is not what an engineer means by two joints being offset. Bounded
+        # alternatives are reported beside it, each measured at a station that actually exists on the
+        # robot: the offset of each joint's anchor from the other joint's axis.
+        def point_to_line(pt, p0, d):
+            w = pt - p0
+            return float(np.linalg.norm(w - (w @ d) * d))
+
+        anchor_c_to_axis_o = point_to_line(p1, p2, d2)
+        anchor_o_to_axis_c = point_to_line(p2, p1, d1)
+        rows.append({
+            "joint": j + 1,
+            "angle_deg": round(angle_deg, 2),
+            "line_distance_mm": round(dist_mm * 1000, 1),
+            "axial_station_compiled_mm": round(s_star * 1000, 1),
+            "axial_station_official_mm": round(t_star * 1000, 1),
+            "min_is_degenerate": bool(max(abs(s_star), abs(t_star)) > 0.25),
+            "our_anchor_to_their_axis_mm": round(anchor_c_to_axis_o * 1000, 1),
+            "their_anchor_to_our_axis_mm": round(anchor_o_to_axis_c * 1000, 1),
+        })
 
     # forward kinematics of a fixed tip point, both models, same joint vectors
     rng = np.random.default_rng(0)
