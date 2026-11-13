@@ -28,6 +28,11 @@ MAX_CYLINDERS = 500_000
 FACE_CHECK_EVERY = 2048
 DEFAULT_FEATURE_BUDGET_S = 120.0
 
+# A cylinder radius is untrusted input the moment it can arrive from a file rather than from the
+# kernel. An infinite or absurd radius would crash the pairing loop's bucket arithmetic, so the
+# model rejects it on construction instead. 1 km is larger than any robot.
+MAX_PHYSICAL_RADIUS_M = 1.0e3
+
 
 class FeatureExtractionError(RuntimeError):
     """Raised when a part exceeds a resource guard instead of returning a partial answer."""
@@ -51,7 +56,7 @@ class CylinderFace(BaseModel):
     """One cylindrical face, placed in assembly coordinates."""
 
     instance_id: str
-    radius_m: float = Field(gt=0.0)
+    radius_m: float = Field(gt=0.0, lt=MAX_PHYSICAL_RADIUS_M, allow_inf_nan=False)
     axis_point: tuple[float, float, float]
     axis_dir: tuple[float, float, float]
     is_bore: bool

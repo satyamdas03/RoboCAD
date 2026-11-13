@@ -21,7 +21,7 @@ import re
 import time
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ai_cad.importers.features import CylinderFace, extract_cylinders
 from ai_cad.importers.models import ImportedAssembly
@@ -81,9 +81,11 @@ class LinkGroup(BaseModel):
 
 class JointEvidence(BaseModel):
     kind: str = "coaxial_bore_shaft"
-    radius_m: float
-    radial_gap_m: float
-    axis_offset_m: float
+    # Finite and positive: the diff compares this number, and a NaN comparison is false, so a bad
+    # value would silently pass as "unchanged".
+    radius_m: float = Field(gt=0.0, allow_inf_nan=False)
+    radial_gap_m: float = Field(allow_inf_nan=False)
+    axis_offset_m: float = Field(allow_inf_nan=False)
     face_pairs: int
 
 
@@ -98,6 +100,22 @@ class ProposedJoint(BaseModel):
     evidence: JointEvidence
     confidence: float = 0.0
     review_required: bool = True
+
+    @model_validator(mode="after")
+    def _axis_must_be_a_line(self) -> "ProposedJoint":
+        """Reject an axis that cannot describe a line.
+
+        This model is also what ``read_proposal`` builds, so its input is a YAML file someone else
+        wrote. A non-finite point, a non-finite component or a zero direction makes every geometric
+        comparison downstream meaningless, and a NaN comparison returns ``False`` -- which in a
+        review diff reads as "nothing changed". Rejecting here means the diff never sees one.
+        """
+        values = (*self.axis_point, *self.axis_dir)
+        if not all(math.isfinite(v) for v in values):
+            raise ValueError(f"joint {self.joint_id!r} has a non-finite axis")
+        if _norm(self.axis_dir) < 1e-9:
+            raise ValueError(f"joint {self.joint_id!r} has a zero-length axis direction")
+        return self
 
 
 class JointProposal(BaseModel):
@@ -470,8 +488,17 @@ def _best_interface(
 
 
 def _radius_bucket(radius_m: float) -> int:
-    """Bucket index at the radial tolerance, so a match lands within one bucket of its partner."""
-    return int(math.floor(radius_m / RADIAL_MATCH_M))
+    """Bucket index at the radial tolerance, so a match lands within one bucket of its partner.
+
+    Total over every value ``CylinderFace`` allows. ``math.floor`` raises on inf and NaN, and this
+    runs inside the pairing loop, so a value that got past the model would be a crash rather than a
+    refusal; it is raised as ``JointInferenceError`` here too, because that is the error the caller
+    already handles.
+    """
+    scaled = radius_m / RADIAL_MATCH_M
+    if not math.isfinite(scaled) or scaled > 1e12:
+        raise JointInferenceError(f"cylinder radius out of range: {radius_m!r}")
+    return int(math.floor(scaled))
 
 
 def _to_joint(index: int, left: LinkGroup, right: LinkGroup, pair: dict) -> ProposedJoint:
@@ -635,14 +662,20 @@ def diff_proposals(before: JointProposal, after: JointProposal) -> dict:
         fields = []
         if a.parent_link != b.parent_link or a.child_link != b.child_link:
             fields.append("topology")
-        if _angle_deg(a.axis_dir, b.axis_dir) > 0.5:
+        direction_delta = _angle_deg(a.axis_dir, b.axis_dir)
+        position_delta = axis_line_distance_m(a, b)
+        # Fail closed: an axis pair that cannot be compared is reported as changed, not as equal.
+        # A geometry check whose answer on bad input is "no difference" is a check that can be
+        # defeated by the input it is checking.
+        if not math.isfinite(direction_delta) or direction_delta > 0.5:
             fields.append("axis_direction")
         # The axis is a line, and the recorded point is only a representative point on it. Compare
         # the distance between the two lines: a point that slid along an unchanged axis is the same
         # joint, and reporting it as moved would train a reviewer to ignore the diff.
-        if axis_line_distance_m(a, b) > 1e-5:
+        if not math.isfinite(position_delta) or position_delta > 1e-5:
             fields.append("axis_position")
-        if abs(a.evidence.radius_m - b.evidence.radius_m) > 1e-6:
+        radius_delta = abs(a.evidence.radius_m - b.evidence.radius_m)
+        if not math.isfinite(radius_delta) or radius_delta > 1e-6:
             fields.append("radius")
         if a.joint_type != b.joint_type:
             fields.append("type")

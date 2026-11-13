@@ -93,9 +93,11 @@ def _propose(assembly_path: Path, out: Path | None, quiet: bool, notice_path: Pa
         cylinders = extract_cylinders(assembly)
         links = group_links(assembly)
         proposal = infer_joints(assembly, links=links, cylinders=cylinders)
-    except (FeatureExtractionError, JointInferenceError) as exc:
+    except (FeatureExtractionError, JointInferenceError, ValueError, OverflowError) as exc:
         # A guard that fired is a real answer: the command refuses rather than writing a proposal
-        # that looks complete and is silently missing faces or bodies.
+        # that looks complete and is silently missing faces or bodies. ValueError and OverflowError
+        # are here because the kernel can raise them on hostile geometry, and a traceback is not a
+        # refusal: the reviewer needs the exit code and a line they can read.
         print(f"refusing to write a partial proposal: {_safe(exc, 500)}", file=sys.stderr)
         return 3
     out = out or assembly_path.parent / DEFAULT_OUT

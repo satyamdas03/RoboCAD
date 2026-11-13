@@ -518,6 +518,74 @@ class TestProposalFile:
 
 
 # --------------------------------------------------------------------------------------------
+# untrusted proposal input
+# --------------------------------------------------------------------------------------------
+class TestUntrustedInput:
+    """A proposal comes back from a file someone else wrote, so its numbers are input, not facts."""
+
+    def test_a_cylinder_radius_must_be_finite_and_plausible(self):
+        from ai_cad.importers.features import MAX_PHYSICAL_RADIUS_M, CylinderFace
+
+        for bad in (float("inf"), float("nan"), 0.0, -1e-3, MAX_PHYSICAL_RADIUS_M * 10):
+            with pytest.raises(Exception):
+                CylinderFace(
+                    instance_id="i0", radius_m=bad, axis_point=(0.0, 0.0, 0.0),
+                    axis_dir=(1.0, 0.0, 0.0), is_bore=True,
+                )
+
+    def test_the_radius_bucket_refuses_a_value_it_cannot_index(self):
+        import ai_cad.importers.joints as mod
+
+        for bad in (float("inf"), float("nan")):
+            with pytest.raises(mod.JointInferenceError, match="out of range"):
+                mod._radius_bucket(bad)
+
+    def test_a_proposal_with_a_non_finite_axis_is_rejected_on_read(self, tmp_path):
+        import yaml
+
+        asm, cylinders = _touching_pair()
+        proposal = infer_joints(asm, cylinders=cylinders)
+        data = proposal.model_dump(mode="json", by_alias=True)
+        data["joints"][0]["axis_point"][0] = float("nan")
+        path = tmp_path / "bad.yaml"
+        path.write_text(yaml.safe_dump(data), encoding="utf-8")
+        with pytest.raises(Exception):
+            read_proposal(path)
+
+    def test_a_compare_that_cannot_be_computed_is_reported_as_changed(self):
+        # Fail closed. Reachable only by bypassing validation, which is exactly the input a
+        # hand-edited file represents, so the check is made on a constructed joint.
+        asm, cylinders = _touching_pair()
+        proposal = infer_joints(asm, cylinders=cylinders)
+        joint = proposal.joints[0]
+        # model_copy skips validation, which is what a hand-edited file bypasses.
+        poisoned = joint.model_copy(update={"axis_point": (float("nan"), 0.0, 0.0)})
+        after = proposal.model_copy(update={"joints": [poisoned]})
+        assert "axis_position" in diff_proposals(proposal, after)["changed"][0]["fields"]
+
+    def test_the_cli_refuses_on_a_value_error_instead_of_a_traceback(self, tmp_path, capsys, monkeypatch):
+        from robocad.joints_cli import main as cli_main
+
+        import ai_cad.importers.features as features_mod
+        import ai_cad.importers.joints as joints_mod
+        import ai_cad.importers.step_import as step_mod
+
+        asm, _ = _touching_pair()
+
+        def boom(*_args, **_kwargs):
+            raise ValueError("kernel said no")
+
+        monkeypatch.setattr(step_mod, "import_step", lambda _p: asm)
+        monkeypatch.setattr(features_mod, "extract_cylinders", lambda _a: [])
+        monkeypatch.setattr(joints_mod, "group_links", lambda _a: [])
+        monkeypatch.setattr(joints_mod, "infer_joints", boom)
+        assert cli_main(["propose", str(tmp_path / "x.step")]) == 3
+        err = capsys.readouterr().err
+        assert "refusing to write a partial proposal" in err
+        assert "kernel said no" in err
+
+
+# --------------------------------------------------------------------------------------------
 # the CLI a reviewer actually runs
 # --------------------------------------------------------------------------------------------
 class TestCli:
