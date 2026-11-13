@@ -29,3 +29,26 @@ verified-read or claimed. Never claim a lane's output without opening it.
   Teardown kit exists in this repo.
 - Next: fetch the official SO-101 MJCF at the pinned commit, bake a trajectory, and stand up the
   page skeleton so B1 does not wait for the compiler.
+
+### 2026-11-13 20:00Z, monitor session, Lane B
+
+Done, all `verified-ran`:
+
+- B1 page: offline from `file://`, zero network requests, 54 to 58 fps headless, 83k triangles,
+  600 frames. Page geometry agrees with MuJoCo to 0.001 mm on three geoms, which is the check that
+  separates a correct page from a pretty wrong one.
+- B3 synthetic twin preview: generator plants friction, damping, armature and 16 ms latency, logs at
+  62 Hz with noise and 4096 count quantisation. **Identification failed: 0 of 19 parameters
+  recovered**, every one flagged `identifiable: false`. Trajectory error improves 270 to 224 mrad,
+  which is a fit, not a recovery. Kept and labelled, not tuned.
+- Page carries a SYNTHETIC watermarked twin panel with that honest count.
+- B2 film: `docs/demo/film/so101_demo.mp4`, 1280x800, 24.0 s, 720 frames at 30 fps, 2.9 MB, recorded
+  from the page itself so it shows the provenance line and the SYNTHETIC panel.
+- `docs/demo/README.md` (3 minute script, real versus synthetic table, known limits) and
+  `docs/demo/FINAL_STATUS.md` (every claim tagged).
+
+Blocked: the compiled bundle. The page still shows the official SO-101 model and says so on screen.
+No `demo-bundle-v1` tag exists yet, so nothing is bound to a bundle whose layout is not final.
+
+Next: bind the page to `report.json` when Lane A tags, print the infill assumption beside every
+printed link, and re-record the film against the compiled numbers.

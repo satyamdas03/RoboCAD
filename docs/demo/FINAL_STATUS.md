@@ -15,7 +15,7 @@ Deadline: Sat 14 Nov 2026, 22:00 Sydney.
 | Synthetic twin preview | `docs/demo/twin/synthetic_preview.json` | Produced, **labelled SYNTHETIC**, identification failed honestly, `verified-ran` |
 | Walkthrough | `docs/demo/README.md` | Written, `verified-read` |
 | Compiled bundle + report | `docs/twin/so101/bundle/` | **Not present yet**, Lane A in progress |
-| Film | none | **Not recorded yet** |
+| Film | `docs/demo/film/so101_demo.mp4` | 24.0 s, 720 frames, 2.9 MB, recorded from the page, `verified-ran` |
 
 ## Verified numbers, Lane B
 
