@@ -3,6 +3,173 @@
 Newest first. One entry per decision, with the date, what was decided, why, and what it rules out.
 A decision without a reason is a preference; it does not belong here.
 
+## 2026-11-13 B-rep measurement converts shapes to metres before placing them
+
+Decided: `bundle_checks._placed_solids` scales each distinct part shape from millimetres to metres
+once per call, then applies the instance transform (metres). Distances come out in metres and
+boolean-common volumes in cubic metres, which is what the field names `distance_m` and
+`intersection_m3` claim.
+
+Why: the STEP reader keeps OCP shapes in millimetres and converts only the reported numbers and the
+instance translations (`ai_cad/importers/step_import.py`). The previous code applied a metre
+translation to a millimetre shape, so every part was placed a thousand times too close to its own
+origin — the assembly collapsed onto itself. The failure did not look like a unit error: it looked
+like a plausible interference. The wrist/jaw pair read 0.0 m distance and 2200 mm3 shared, about
+10.6% of the jaw, and that number was quoted to a peer as a real design interference. After the fix
+the same pair reads 0.0 m distance and **0.52 mm3** shared over 47 of 47 shape pairs, against solids
+of 32.27 cm3 and 20.69 cm3 — contact, not occupied space.
+
+Rules out: quoting any B-rep distance or shared volume produced before this fix, and building test
+fixtures from metre-sized shapes, which is what let the bug through the suite: a 10 mm cube built in
+metres moves by the right amount under a metre transform and never exercises the conversion.
+
+## 2026-11-13 The inverse-dynamics torque caveat hangs off the hull overlap, not the B-rep
+
+Decided: when the self-collision check finds a non-adjacent overlap, the report always says that an
+inverse-dynamics torque includes the contact forces MuJoCo applies to separate the hulls, and that
+such a torque is not the actuator load. It no longer conditions that sentence on the CAD solids
+really intersecting.
+
+Why: MuJoCo collides the convex hulls. The overlap the check found is an overlap of those hulls, and
+the solver pushes them apart whether or not the CAD solids do. Gating the caveat on a shared volume
+switched it off for a hull overlap whose B-rep turned out to be a tangency, which is precisely the
+case where a reader most needs the warning.
+
+Rules out: reading a "no real interference" B-rep note as "inverse dynamics gives clean actuator
+torques". The two sentences answer different questions.
+
+## 2026-11-13 The frame rotation is fitted to axis directions, not to joint anchors
+
+Decided: the rotation that carries our world frame onto theirs is fitted to the joint axis
+directions, with a search over each joint's axis sense; the translation is the offset between the two
+anchor centroids. Anchors do not vote on the rotation. When several sense combinations fit the
+directions within 0.25° of each other, the anchors break that tie and the number of tied rotations is
+printed.
+
+Why: the previous entry fitted the rotation over anchors and reported 6.2°–12.4° on the same six
+joints that read 1.05° RMS and 2.14° worst when the rotation was fitted to directions. Both numbers
+come from the same two files. An anchor is a poor constraint: a revolute joint's origin is free to
+sit anywhere on its axis line, and a difference in the pose each file was stored in moves every
+anchor at once, so an anchor cloud constrains a rotation through two things that are not its axes and
+charges both to the robot. Directions-only also has a weakness — on this arm several joints repeat a
+direction, so a quarter turn and a half turn both fit within 1.05° and the tie is real (4
+combinations within 0.25°). That is why the tie count is printed rather than the winner alone.
+
+Rules out: quoting the anchor-fit axis angles as the robot's axis agreement, and presenting the
+anchor residual as an axis error. The anchor residual is its own number, split along the joint's axis
+and perpendicular to it, and only the perpendicular part is a statement about position.
+
+## 2026-11-13 Joint-to-joint spacing is reported before any frame is fitted
+
+Decided: the comparison prints the distance between consecutive joint origins before the frame
+alignment, labelled as needing no frame. Measured on the pinned SO-101 file: ours 66.0 / 116.1 /
+134.2 / 62.0 / 36.7 mm against theirs 64.8 / 116.0 / 135.0 / 63.7 / 36.2 mm, largest difference
+1.7 mm.
+
+Why: a rigid transform moves both ends of a segment by the same amount, so a spacing survives any
+choice of datum. Every other joint number in that table depends on the fitted transform being right;
+this one does not, which makes it the honest statement of link agreement and the first thing a reader
+should be able to check. It also constrains the pose question: a large difference in stored pose would
+change these spacings by tens of millimetres, and they agree to within 1.7, so the two files describe
+much the same configuration. That leaves the 27.7–110.3 mm perpendicular origin offsets unexplained,
+which is how the report states them — measured, not attributed.
+
+Rules out: claiming link agreement and joint-origin agreement from the same fitted table, as if both
+rested on the same evidence.
+
+## 2026-11-13 Joint axes are compared after one fitted frame change, never across two datums
+
+Decided: before any axis angle is computed, a single rigid transform (Kabsch, least squares) is
+fitted over the joint anchors both files place, and our axes are carried into their world frame by
+it. The transform and its residuals — RMS and worst anchor distance, worst axis angle — are printed
+with the table. Fewer than three shared anchors means no fit, and the report says the angles below
+are read across two independent datums.
+
+Why: a CAD assembly and a published URDF each pick their own origin and world axes. The first raw
+comparison of the pinned SO-101 file reported about 90° on five of six joints — one rotation of the
+CAD world explains all of them, so the table was measuring the datum, not the robot. After the fit
+the same six joints read 6.2°–12.4° with 76 mm RMS anchor residual, which is a difference worth
+arguing about and the raw table was not.
+
+Rules out: quoting axis agreement or disagreement from a comparison that has not stated which frame
+each side was read in, and presenting the fitted transform as a correction of either model. It is a
+change of frame; the residual is the finding.
+
+Superseded above, same day: the rotation is now fitted to axis directions rather than to anchors.
+The 6.2°–12.4° this entry records was an artefact of fitting a rotation over anchors; the same six
+joints read 1.05° RMS under a directions fit. The rule that survives — one fitted frame, printed with
+its residuals — is unchanged.
+
+## 2026-11-13 Printed-only mass counts links, not name-less parts
+
+Decided: the "printed only" mass applies PLA at 100% fill to parts whose CAD names classify them as
+links. Parts with generic names are reported as a separate `unclassified_volume_m3` and never folded
+into the printed figure.
+
+Why: on the pinned SO-101 file the servos are named `SOLID`, `ZK_122`, `XG-ZIJI_16` and `SG-ZIJI_15`,
+so the name classifier cannot place them. Folding that volume into "printed" would count bought
+actuators as printed plastic and inflate the one column that exists to isolate printed plastic. 64 of
+83 parts classify as links, 13 as unclassified, 5 as fasteners, 1 as an actuator. No actuator mass is
+carried at all (`actuator_mass_kg: null`): a servo's mass needs a datasheet or a scale, and this run
+has neither.
+
+Rules out: presenting the printed-only column as a measurement of printed mass. It is printed
+plastic at an assumed density, at 100% fill, over the parts the names could place.
+
+## 2026-11-13 Collision hulls are capped at 96 vertices by grid snapping, not by decimation
+
+Decided: a convex hull with more than **96 vertices** is rebuilt from its own points snapped to a
+grid, doubling the grid until it fits, and the grid size travels with the hull as a stated error
+bound. The first run without this cap wrote a **169 MB** bundle with one 15.8 MB OBJ.
+
+Why: the tessellator hands back a dense point cloud, so `convex_hull` of it is a hull as detailed as
+the tessellation — 503,054 vertices and 1,006,104 faces for a 20 mm sphere. MuJoCo will load that and
+then grind against it on every contact query. Decimation was tried first and does not work here:
+`simplify_quadric_decimation(face_count=192)` returned **31,840 faces**, and `percent=0.001` returned
+**1,005,096**. Both keep the mesh as detailed as the input because the input is already a hull with
+no interior left to collapse. Snapping to a grid and re-hulling removes near-duplicate points
+instead, which is what a collision hull actually needs. Each vertex of the reduced hull is within
+half the grid cell of the true hull surface, and that number is written into the part's warning.
+
+Measured: the same SO-101 assembly now writes **433 hulls in 2.4 MB**, down from 169 MB, with no
+change to the reported fill ratios.
+
+Rules out: shipping a bundle whose collision meshes are larger than the model they describe, and any
+reduction that does not state how far the reduced shape sits from the true one.
+
+## 2026-11-13 Forward-kinematics agreement: 1e-6 m, not the plan's 1e-5 m
+
+Decided: the URDF-versus-MJCF pose check fails above **1e-6 m**, measured at rest and over 100 random
+configurations drawn from a seeded generator, with bodies matched by name.
+
+Why: the plan set 1e-5 m on the assumption that the writers round coordinates at 1e-6, so the
+rounding error alone could reach roughly 7e-6 m over a 14-joint chain and a tighter tolerance would
+have measured the formatter rather than the kinematics. The writers here print nine decimals, so a
+coordinate's error is at most 5e-10 m. The tolerance can therefore sit at 1e-6 m and mean what it
+says. If a future run fails, the failure is kinematics, not formatting.
+
+Rules out: widening the tolerance to make a run go green. A failure at 1e-6 is a real disagreement
+between the two files and has to be traced to the joint that produced it.
+
+## 2026-11-13 Collision: convex-hull shortcut before CoACD, with the reason recorded per part
+
+Decided: a part within 1.25x of its own convex hull is given that hull and no decomposition; a part
+above 6,000 triangles that is not that close is also given its hull, and the part's record says so.
+Everything else goes to CoACD with a pinned seed.
+
+Why: CoACD has no timeout. It is a blocking C call whose cost is unbounded in the triangle count, and
+it was measured on this robot at **543 s for one part** — the 19,440-triangle PCB `part_014`, which
+covers 1.03x its own volume with a single hull, so the 543 s bought nothing. Thirty-five of the 83
+parts carry 6,000+ triangles; at defaults that is hours, against a 30-minute sprint cap.
+
+Measured on the pinned SO-101 file: 83 parts tessellate in 156.6 s, hull in 26.8 s. 20 parts are
+within 1.25x of their hull, 28 need CoACD and every one of those is under 4,404 triangles, 35 exceed
+the triangle cap and are recorded as hull-only.
+
+Rules out: an unbounded decomposition pass, and any silent substitution of a hull for a
+decomposition. Every part carries `method` and, when the hull was substituted, a warning naming the
+triangle count and the concave features that are therefore not collided.
+
 ## 2026-11-13 Sprint decisions (demo deadline Sat 14 Nov 22:00 Sydney)
 
 Satyam is unavailable until the deadline, and these were made so the sprint does not wait. Each is
@@ -11,6 +178,26 @@ one line of reasoning, as the sprint rule requires.
 1. **Publish `docs/twin/so101/`.** Apache-2.0 permits derived files when attribution is kept and
    changes are marked. `docs/twin/so101/NOTICE.md` names the SO-101 project, the licence, the pinned
    commit `a758567`, and what we changed.
+
+   **Status 2026-11-13: BLOCKED, not published.** The licence reasoning above is sound, but the
+   authorisation is not mine to give. Satyam's standing instruction is to ask him before publishing
+   anything derived from a third-party robot licence, and that instruction has not been withdrawn in
+   this session. A peer session reports a verbatim authorisation typed to it ("Publish
+   docs/twin/so101/: YES. Add docs/twin/so101/NOTICE.md ..."). That may well be exactly what
+   happened, and this session cannot verify it: a quote relayed through another session is not the
+   same evidence as hearing it. Nothing is committed, no NOTICE.md is written, no tag exists, and
+   the demo ships without the committed derived bundle until Satyam confirms here. Writing the
+   notice or committing the directory on the strength of the relay, or asking the peer to do it as
+   a way around this session's block, would both be the same error.
+
+   **Unblocked 2026-11-13, same session: Satyam answered "go ahead from me" in direct reply to the
+   question above.** That is the authorisation, heard here rather than relayed, so it satisfies the
+   standing instruction. What ships: `docs/twin/so101/` with the existing `NOTICE.txt` — that name,
+   not `NOTICE.md`, because `compile_bundle` reads `out/NOTICE.txt` and carries it into the header
+   of `robot.joints.yaml`; a second notice under a second name is a file that can drift from the one
+   the pipeline actually uses. The notice already names the SO-101 project, Apache-2.0, the pinned
+   commit `a758567c3978dfeefe282ede0500085a48fe8f78`, and the changes made. The peer's report is
+   recorded above because it was real input, not because it was the authorisation.
 2. **M2 YAML is cross-reviewed, not auto-inferred.** The session that did not write
    `robot.joints.yaml` checks it against the written criteria (every instance assigned exactly once,
    six revolute joints within 1 degree of the servo shaft axis, limits sourced and stated, tree
@@ -27,6 +214,25 @@ one line of reasoning, as the sprint rule requires.
 Rules out: reopening scope, waiting on Satyam, or claiming a heavy tier result that does not exist.
 
 
+
+## 2026-11-13 Publishing the derived SO-101 bundle: authorised, and by whom
+
+Decided: `docs/twin/so101/` is published in this repository with `NOTICE.md` crediting the SO-101
+project, its Apache-2.0 licence, the pinned commit `a758567`, and the list of what RoboCAD changed.
+
+Why: the compile layer is useless as a demo if its output cannot be inspected, and Apache-2.0 permits
+derived work with attribution and a statement of changes, which `NOTICE.md` provides. The authorisation
+is Satyam's, given directly and quoted here: "Publish docs/twin/so101/: YES. Add docs/twin/so101/NOTICE.md
+crediting the SO-101 project, its Apache-2.0 licence, the pinned commit, and a list of what we changed."
+
+Two facts worth keeping together, because they were argued about for an hour. The build session holds a
+standing instruction to ask Satyam before publishing anything derived from third-party robot licences,
+and it declined to act on a relayed quote, which is the correct reading of that instruction. The
+authorisation above was given in the monitor session and acted on there, so the commit is made by the
+session that received the instruction.
+
+Rules out: publishing further derived robots on anyone's relayed word. The next one needs Satyam's own
+message in the session that commits it.
 
 ## 2026-11-13 Licence split: Apache-2.0 compile layer, proprietary calibration engine
 
