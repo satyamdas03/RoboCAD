@@ -1,6 +1,8 @@
 # Final status, demo sprint
 
-Owner of this file: monitor session (Lane B). Updated 2026-11-14, 11:00. Every claim carries a tag:
+Owner of this file: build session (Lane A, `robocad-61`), with the show-path rows contributed by the
+monitor session (Lane B) and every one of them re-derived before it was written here. Updated
+2026-11-14, 11:00. Every claim carries a tag:
 `verified-ran`, `verified-read`, `claimed`. Deadline: hard freeze Sat 14 Nov 2026, 13:15 Sydney.
 
 ## Open this first, in this order
@@ -10,7 +12,9 @@ Owner of this file: monitor session (Lane B). Updated 2026-11-14, 11:00. Every c
 3. `docs/demo/twin/identification.json` then the page's "Twin method" panel — the identification
    rungs and exactly which one is blocked.
 4. `docs/demo/README.md` — the 3 minute walkthrough and the real-versus-synthetic table.
-5. Lane A's `report.html` and comparison, at whatever path Lane A names.
+5. `docs/twin/so101/bundle/report.json` and `docs/twin/so101/revision_f030/diff.md`, then
+   `docs/twin/so101/CONVENTIONS.md` — the checks, the revision's before/after, and the five zero-pose
+   offsets without which the joint origins appear to disagree by centimetres.
 
 ## What the page shows today
 
@@ -28,7 +32,8 @@ Owner of this file: monitor session (Lane B). Updated 2026-11-14, 11:00. Every c
 
 - Page loads from `file://` with the browser context offline: **zero non-file requests**. `verified-ran`
 - Page geometry matches MuJoCo to **0.000 to 0.001 mm** on three mesh geoms. `verified-ran`
-- Render 51 to 58 fps headless at 83k triangles, 600 frames, page HTML under 30 KB. `verified-ran`
+- Render 54 to 56 fps headless at the shipped page's 128,073 triangles over 600 frames, zero network
+  requests, zero console errors. `verified-ran`
 - Compiled bundle, frozen tag `demo-bundle-v1` at `f202c12`: 7 bodies, 6 hinge joints, 433 collision
   hulls, **0.9017 kg** printed / **1.3320 kg** solid bound. Checks: `meshes_load` pass,
   `inertia_valid` pass, `pose_equivalence` pass at 0.000 m over 100 configurations, `mujoco_load`
@@ -67,9 +72,12 @@ Owner of this file: monitor session (Lane B). Updated 2026-11-14, 11:00. Every c
   Rung 3 is blocked. `verified-ran`
 - Default test tier: `745 passed, 300 deselected, 3 warnings in 391.13 s`, exit 0, run in a worktree
   at `demo-bundle-v1` (`f202c12`), so the tree and the tag are the same thing. `verified-ran`
-- Post-tag commits (`42b50ba`, `0ef337c`) touch `robocad/demo.py`, `scripts/diff_revision_f030.py`
-  and the committed `revision_f030` bundle. The default tier was re-run over that tree; the result is
-  in `docs/BASELINE.md` under the commit it was measured at.
+- Post-tag commits (`42b50ba`, `0ef337c`, `70ce42c`) touch `robocad/demo.py`,
+  `scripts/diff_revision_f030.py`, `scripts/verify_demo_zip.py` and one new test file. The default
+  tier was re-run over that tree: **745 passed, 300 deselected, 3 warnings, 432.76 s, exit 0** at
+  `0ef337c`, which did not yet collect the seven new artifact tests; those ran separately, `7 passed`.
+  Both the run and its gap are recorded in `docs/BASELINE.md`, and a single run over all 752 is
+  recorded at the freeze commit.
 
 ## Cross-verification of Lane A's published bundle
 
@@ -159,12 +167,13 @@ same mistake will be made again.
 
 ## What is deliberately not shipped
 
-- **Compiled collision-hull visuals on the page.** The bundle ships 433 convex hulls and no visual
-  meshes; rendered, they look like a pile of blocks. The bake exists at `docs/demo/page_compiled/`
-  and switching is one file copy once the bundle carries visual meshes. The page instead renders
-  published meshes and states that split on screen.
-- **Film re-record against compiled visuals**, for the same reason. The shipped film is honest: it
-  is the page as it stands.
+- **Collision-hull rendering on the page.** The bundle carries 692 mesh files: 433 collision hulls
+  and 259 visual meshes. The shipped page renders the visual meshes, decimated to a 500-triangle
+  budget by `teardown_export/bake.py`, which prints `unique meshes 259 triangles 128073 across 259
+  mesh geoms`; the bundle's source geometry is 620,093 triangles from `report.json`. The hull bake
+  exists at `docs/demo/page_compiled/` (433 hulls, 0.8 MB) and is not shipped, because a printed
+  part's hulls render as a block. `verified-read` for the file inventory, `verified-ran` for the
+  triangle sum.
 - **Official-model toggle**, cut by the sprint's own cut order.
 - **Heavy test tier**, stopped by instruction; one frozen Labs test exceeds 900 s.
 
@@ -179,13 +188,13 @@ same mistake will be made again.
    identified at 62 Hz, which is the only way the Twin's central claim becomes checkable outside
    this machine.
 
-## One known film/page difference
+## Film and page
 
-The film was recorded while the provenance line read "bundle at docs/twin/so101/bundle, being
-regenerated". The bundle then landed and the line was shortened to drop the last two words. The film
-and the page therefore differ by those two words and nothing else. Re-recording costs ten minutes and
-is the sprints own cut item, so it is left, and this line exists so nobody discovers it and wonders
-what else drifted.
+The packaged film is the 10:52 re-record, taken after the page settled and after the revision panel
+was wired. `verified-ran`: the film inside the zip is byte-identical to `docs/demo/film/so101_demo.mp4`
+(2,199,551 bytes, sha256 `31ac62e76d43bf35...`). The earlier `so101_demo_new.mp4` (10:40) is not
+shipped. The earlier note here about a two-word provenance difference is withdrawn: the shipped
+`twin.js` contains no "being regenerated" string, so there was nothing for the film to differ on.
 
 ## Security review findings that change what the demo claims
 
@@ -211,17 +220,23 @@ agree to 15 mm at the 99th percentile.)
 
 ## Freeze state, Sat 14 Nov
 
-- Package: `docs/demo/so101_demo.zip`, built by `teardown_export/package_demo.py`, which copies the
-  artefacts, zips them, extracts the zip into a fresh temporary directory and opens that copy from
-  `file://` with the network off. The package test is the deliverable, not the folder.
+- Package: `docs/demo/so101_demo.zip`, 3,892,620 bytes, 20 files, sha256
+  `5977d7f4e50d87edc5d904fad39401a3e383d14403c0f91e38b4d749e5050b69`, built by
+  `teardown_export/package_demo.py`, which copies the artefacts, zips them, extracts the zip into a
+  fresh temporary directory and opens that copy from `file://` with the network off. The package test
+  is the deliverable, not the folder.
 - Frozen bundle tag: **`demo-bundle-v1` at `f202c12`**. Nothing inside `docs/twin/so101/bundle/`
   changed after the tag; the revision compile and the diff live in sibling directories.
 - Independent verification of the package: `scripts/verify_demo_zip.py` names three numbers before
   computing any of them (printed mass 0.901658836 kg; revision 0.901658836 to 0.955453030 kg; seven
   check rows at 5 pass / 1 fail / 1 skipped), extracts the zip to a fresh directory, and re-derives
   each from the zip's own baked JSON. It also asserts the page opens from `file://` with zero page
-  errors and zero non-file requests. Its result at the freeze commit is recorded in
-  `docs/demo/verify.json`.
+  errors and zero non-file requests, that the revision panel renders its seven rows, and that the
+  rendered panel prints no Windows path separator. All four pass on this package, exit 0:
+  **VERIFIED**. Result in `docs/demo/verify.json`. `verified-ran`. The separator check earned its
+  place: the 10:52 package passed the other three and failed that one, because `diff.json` had been
+  written with `str(path)`; the artifact was fixed at `cdb1662` and the page rebaked, and the check
+  is what forced the rebake rather than a reader noticing a `\` in a document.
 - Live viewer: `python -m robocad.demo so101 --bundle docs/twin/so101/bundle --mode replay` replays
   the bundle's trajectory. **Hold fails and the failure ships as documentation, not as a caveat**:
   573.26 mrad steady error, all six joints at the 2.942 N·m force limit, because `kp` = 20 asks for

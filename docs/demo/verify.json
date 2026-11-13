@@ -1,0 +1,42 @@
+{
+  "zip": "docs\\demo\\so101_demo.zip",
+  "sha256": "5977d7f4e50d87edc5d904fad39401a3e383d14403c0f91e38b4d749e5050b69",
+  "named": {
+    "printed_kg": 0.901658836,
+    "revision_kg": [
+      0.901658836,
+      0.95545303
+    ],
+    "check_rows": {
+      "pass": 5,
+      "fail": 1,
+      "skipped": 1
+    }
+  },
+  "measured": {
+    "printed_kg": 0.901658836,
+    "body_sum_kg": 0.9016588355893798,
+    "revision": {
+      "mass_before_kg": 0.9016588355893798,
+      "mass_after_kg": 0.9554530302470398,
+      "solid_mass_before_kg": 1.3320123928506593,
+      "solid_mass_after_kg": 1.3320123928506593,
+      "print_model_before": "1.20 mm wall over 20% infill",
+      "print_model_after": "1.20 mm wall over 30% infill",
+      "mass_delta_kg": 0.05379419465766,
+      "mass_delta_percent": 5.966136251800473
+    },
+    "check_rows": {
+      "pass": 5,
+      "fail": 1,
+      "skipped": 1
+    },
+    "checks_rendered": 7,
+    "links_rendered": 7,
+    "page_errors": [],
+    "external_requests": [],
+    "missing_relative_links": []
+  },
+  "failures": [],
+  "ok": true
+}

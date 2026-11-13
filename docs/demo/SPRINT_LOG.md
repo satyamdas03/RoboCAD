@@ -100,3 +100,51 @@ in the repo copy: rewriting the page header removed the provenance element the s
 page asked for a `diff.js` that the package did not contain.
 
 Open: `diff.json` from Lane A's 0.30 infill run, the film re-record, and the final zip rebuild.
+
+### 2026-11-14 11:00 Sydney, build session, Lane A close
+
+A1 to A6 done, `verified-ran` unless tagged otherwise.
+
+- **A1 clean run at the tag.** `git worktree add ../robocad-final demo-bundle-v1`, then `python -m
+  pytest -q`: **745 passed, 300 deselected, 3 warnings, exit 0, 391.13 s**, collected 1045. No
+  caveat is attached, because the tree was the tag and not the tag plus edits. In `BASELINE.md`.
+- **A2 M2 review closed.** `docs/twin/so101/robot.joints.yaml` and `docs/twin/so101/JOINT_REVIEW.md`
+  committed, tracker row `[x]`. The review ran against four written criteria and re-hashed the
+  official URDF against the digest the checker pins, before the check.
+- **A3 revision diff.** Same pipeline, `f = 0.30`, output `docs/twin/so101/revision_f030/`, keyed only
+  on the link names `robot.joints.yaml` declares. Printed mass **0.9016588355893798 ->
+  0.9554530302470398 kg (+6.0%)**, solid bound 1.3320123928 kg unchanged, effort **0.652 -> 0.687
+  N m on `joint_2` (22% -> 23% of the 2.942 N m stall)**. Sanity all hold: **0 added, 0 removed**,
+  all 7 printed links heavier (+2.8% to +16.2%), and the actuator and joint blocks byte-identical,
+  which is what "servos unchanged" means when the bundle states its hardware there. The `f = 0.30`
+  bundle is committed beside the diff (2.5 MB, hulls only) so the diff re-derives without this
+  machine, and it loads and replays 500 steps. Seven tests in
+  `tests/test_revision_f030_artifact.py` guard the artifact's arithmetic.
+- **A4 conventions.** `docs/twin/so101/CONVENTIONS.md` opens with the mandated sentence about joint
+  origins without offsets being misleading by centimetres, and carries the five offsets
+  (-88.17, +90.29, -90.31, -0.15, 0.00 deg), the base translation (38.74, 6.64, -2.86) mm and the
+  2.50 mm median residual.
+- **A5 live viewer.** `--mode replay` ships and replays the bundle. `--mode hold` **fails and the
+  failure ships**: 573.26 mrad steady error with all six joints at the 2.942 N m force limit, because
+  `kp` = 20 asks 10 N m for a 0.5 rad step and the servo has 2.942. Per-joint numbers in
+  `docs/twin/so101/live_hold.md`.
+- **A6 package verification.** `scripts/verify_demo_zip.py` names three numbers before computing
+  them, extracts the zip to a fresh directory and re-derives each from the zip's own baked JSON.
+  Final package sha256 `5977d7f4e50d87edc5d904fad39401a3e383d14403c0f91e38b4d749e5050b69`,
+  3,892,620 bytes, 20 files: **four passes, exit 0, VERIFIED**, in `docs/demo/verify.json`.
+
+Two defects the verifier caught rather than a reader:
+
+1. The 10:52 package rendered `docs\twin\so101\bundle` in the revision panel. The page was fine; my
+   `diff.json` wrote `str(path)`. Fixed at `cdb1662` with `as_posix()`, page rebaked, repacked. A
+   repo-side test could not have caught this, because the repo copy is built on the machine whose
+   convention the path uses.
+2. The rendered panel had to be checked, not merely the payload. A non-null `window.SO101_REVISION`
+   with an empty panel would have passed the old check while showing nothing.
+
+Post-tag test tier: **745 passed, 300 deselected, 3 warnings, 432.76 s, exit 0** at `0ef337c`, which
+did not yet collect the seven new artifact tests (`7 passed` separately). Collected **752 of 1052, 300
+deselected** at `70ce42c`, measured with `--collect-only -q -p no:cacheprovider`. The single run over
+all 752 is recorded at the freeze commit in `BASELINE.md`.
+
+Next: the freeze commit, and the three post-demo steps in `FINAL_STATUS.md`.
