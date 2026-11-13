@@ -502,7 +502,9 @@
     document.getElementById('t-rated').textContent = T.rated_nm.toFixed(2) + ' N·m';
     document.getElementById('t-torque-note').textContent =
       'same joint-space trajectory on both models, inverse dynamics, contacts disabled. ' +
-      'grey is the published model, green is the compiled bundle' +
+      'grey is the published model, green is the compiled bundle. Joint axes agree within 2.1 ' +
+      'degrees, but joint origins differ by up to 110 mm perpendicular, so this compares mass and ' +
+      'geometry, not an identical pose' +
       (T.saturated ? '. WARNING: the published servo saturates, so part of this is a limit artefact.' : '.');
 
     if (T.axis_residual_deg_after_datum_fit) {
@@ -515,8 +517,10 @@
           'axis ' + res[j].toFixed(1) + '° · anchor ' + (perp[j] !== undefined ? perp[j].toFixed(0) + ' mm' : 'n/a')));
       });
       const note = mk('div', 'hint',
-        'residual after removing the best-fit datum rotation between the two models. ' +
-        'Joints that agree are within a few degrees; joints that do not are a geometry difference, not a frame.');
+        'axis residual after removing the best-fit datum rotation, searched over all 64 sense ' +
+        'combinations (a revolute axis has no natural sense). Axes agree within ' +
+        Math.max(...res).toFixed(1) + ' degrees, so the difference is in where the joints are, ' +
+        'not which way they turn: the perpendicular anchor offsets are real.');
       box.appendChild(note);
     }
   })();

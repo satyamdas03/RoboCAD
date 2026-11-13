@@ -123,6 +123,43 @@ def main() -> int:
         float(np.degrees(np.arccos(np.clip(float(a @ b), -1.0, 1.0))))
         for a, b in zip(axes_c, axes_o)
     ]
+
+    # A revolute axis has no natural sense, so the comparison must search all 64 sense combinations
+    # and refit the rotation inside each one. A signed fit that cannot flip a sense has to buy a
+    # reversed axis with a rotation that bends every other joint, which is what produced the wrong
+    # "90 degree axes" reading earlier in this sprint.
+    import itertools
+
+    best = None
+    for signs in itertools.product((1, -1), repeat=len(axes_c)):
+        target = axes_o * np.array(signs)[:, None]
+        H = axes_c.T @ target
+        U, S, Vt = np.linalg.svd(H)
+        R = Vt.T @ U.T
+        if np.linalg.det(R) < 0:
+            Vt[-1] *= -1
+            R = Vt.T @ U.T
+        res = [float(np.degrees(np.arccos(np.clip(float((R @ axes_c[i]) @ target[i]), -1.0, 1.0))))
+               for i in range(len(axes_c))]
+        score = float(np.sqrt(np.mean(np.square(res))))
+        if best is None or score < best[0]:
+            best = (score, res, R, signs)
+    axis_fit_rms_deg, axis_residual_deg, R, senses = best
+
+    moved = (R @ anchors_c.T).T
+    moved = moved + (anchors_o.mean(axis=0) - moved.mean(axis=0))
+    anchor_perp_mm, anchor_along_mm = [], []
+    for i in range(len(anchors_c)):
+        delta = moved[i] - anchors_o[i]
+        axis = axes_o[i] / np.linalg.norm(axes_o[i])
+        anchor_perp_mm.append(float(np.linalg.norm(delta - (delta @ axis) * axis) * 1000.0))
+        anchor_along_mm.append(float(abs(delta @ axis) * 1000.0))
+
+    names = [mujoco.mj_id2name(compiled, mujoco.mjtObj.mjOBJ_JOINT, j) or f"joint_{j+1}"
+             for j in range(compiled.njnt)]
+
+    # joint axes and anchors must be compared in the WORLD frame at rest: axes are expressed in each
+    # model's own body frame, and the two models do not share body orientations
     anchor_delta_mm = [float(v) for v in np.linalg.norm(anchors_c - anchors_o, axis=1) * 1000.0]
     payload = {
         "hz": args.hz,
@@ -138,6 +175,14 @@ def main() -> int:
         "saturated": saturated,
         "axis_angle_deg": [round(v, 1) for v in axis_angle_deg],
         "anchor_delta_mm": [round(v, 1) for v in anchor_delta_mm],
+        "axis_residual_deg_after_datum_fit": [round(v, 2) for v in axis_residual_deg],
+        "axis_fit_rms_deg": round(axis_fit_rms_deg, 2),
+        "axis_senses": [int(v) for v in senses],
+        "anchor_perp_mm_after_datum_fit": [round(v, 1) for v in anchor_perp_mm],
+        "anchor_along_mm_after_datum_fit": [round(v, 1) for v in anchor_along_mm],
+        "datum_fit_note": "best of 64 sense combinations, rotation refitted inside each, then a "
+                          "translation fitted on the anchors. Along-axis offset is the freedom every "
+                          "revolute joint has and is not evidence of anything; perpendicular offset is.",
         "note": "contacts disabled on both models; the compiled hulls overlap at rest and their "
                 "constraint forces would otherwise appear as joint torque",
     }
@@ -150,6 +195,9 @@ def main() -> int:
     print(f"rated servo torque used as the line on the chart: {args.rated} N m")
     print("world joint axis angle difference (deg):", [round(v, 1) for v in axis_angle_deg])
     print("world joint anchor distance (mm):", [round(v, 1) for v in anchor_delta_mm])
+    print("axis residual after sense-searched datum fit (deg):", [round(v, 2) for v in axis_residual_deg],
+          "rms", round(axis_fit_rms_deg, 2), "senses", senses)
+    print("anchor perpendicular distance after datum fit (mm):", [round(v, 1) for v in anchor_perp_mm])
     if saturated:
         print("WARNING: the published servo reaches its rated torque, so part of this trajectory is "
               "a saturation artefact; lower the amplitude before quoting these numbers")
