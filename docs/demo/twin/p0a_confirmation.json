@@ -1,0 +1,68 @@
+{
+  "verdict": "same robot, missing conventions",
+  "reproduced_by": "monitor session, independent script, 2026-11-14",
+  "parameterisation": {
+    "offsets_applied_to": "compiled model, positive sign, five upstream joints by name",
+    "joints": [
+      "shoulder_pan",
+      "shoulder_lift",
+      "elbow_flex",
+      "wrist_flex",
+      "wrist_roll"
+    ],
+    "gripper": "fixed at zero, origin excluded",
+    "residual": "Euclidean distance at each of the five joint origins, stacked over poses",
+    "poses": "numpy default_rng(0), 100 samples, uniform -1.7 to 1.7 rad, all six joints",
+    "rotation": "none",
+    "translation": "mean(official origins) - mean(ours origins), added to ours in world"
+  },
+  "result": {
+    "median_mm": 2.5,
+    "p90_mm": 5.95,
+    "max_mm": 11.25,
+    "offsets_deg": [
+      -88.17,
+      90.29,
+      -90.31,
+      -0.15,
+      0.0
+    ],
+    "translation_mm": [
+      38.74,
+      6.64,
+      -2.86
+    ]
+  },
+  "seeds": {
+    "from_published_vector": "median 2.50 mm, same vector",
+    "from_zero": "median 2.50 mm, same vector"
+  },
+  "frame_free_support": {
+    "consecutive_anchor_spacings_compiled_mm": [
+      66.01,
+      116.06,
+      134.22,
+      62.04,
+      36.73
+    ],
+    "consecutive_anchor_spacings_official_mm": [
+      64.78,
+      116.0,
+      135.0,
+      63.72,
+      36.18
+    ],
+    "worst_difference_mm": 1.69
+  },
+  "superseded": [
+    "median 168 mm at the same joint vector: correct as measured, but it compares two models whose zero poses and base frames differ, so it is not a robot error",
+    "median 38 mm after a tip-centroid fit: the tip is dominated by the jaw frame, which disagrees by 5.74 mm at rest; five-anchor fitting is the right residual",
+    "the 27.6 to 94.5 mm line-distance family: five of six joint minimum distances are attained more than 250 mm along the axis, so that metric is degenerate and the bounded anchor-to-axis numbers 94.2 to 110.3 mm are the ones to quote"
+  ],
+  "not_cleared_by_this_verdict": [
+    "collision geometry",
+    "mass",
+    "inertia",
+    "contact behaviour"
+  ]
+}

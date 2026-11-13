@@ -39,11 +39,19 @@ Owner of this file: monitor session (Lane B). Updated 2026-11-14. Every claim ca
   54.0, 54.7, 27.7, 54.5 mm**. `verified-ran`. The infinite-line minimum is NOT used: five of six
   joints attain it more than 250 mm along the axis and one at 9.64 m, which is meaningless for a
   robot. No clustering claim is made; the offsets sit between 28 and 110 mm.
-- Joint frames in use: at the same joint vector the tip differs by **median 168 mm**. After fitting
-  six constant joint offsets and a base translation, **median 38 mm** remains across 60 poses and
-  four restarts. So the models are the same mechanism with offset joint frames, not a different
-  robot, and the residual after nine free parameters is the part that a stated base transform and
-  zero pose would not fix. `verified-ran`
+- **P0-a verdict, reproduced independently: same robot, missing conventions.** With five constant
+  zero-pose offsets applied to the compiled model by joint name, a base translation of (38.74, 6.64,
+  -2.86) mm and no rotation, the residual at the five joint origins over 100 poses is **median 2.50
+  mm, p90 5.95, max 11.25**, and the fitted offsets are -88.17, +90.29, -90.31, -0.15, 0.00 degrees.
+  Both a seeded and a zero start converge to the same vector, so it is not a local basin. `verified-ran`
+  Data: `docs/demo/twin/p0a_confirmation.json`.
+- Superseded by that verdict, and kept here so the record is honest: the earlier median 168 mm at the
+  same joint vector compared two models whose zero poses and base frames differ; the 38 mm after a
+  tip-centroid fit was dominated by the jaw frame, which disagrees by 5.74 mm at rest, so five-anchor
+  fitting is the correct residual; and the 27.6 to 94.5 mm line-distance family was partly a
+  degenerate metric, five of six minima being attained more than 250 mm along the axis.
+- What P0-a does **not** clear: collision geometry, mass, inertia, contact behaviour. The
+  `self_collision` fail and the 13 oversized hulls live in P0-b and are untouched by this verdict.
 - Self-collision: hulls overlap **7.9 mm** at rest. The B-rep solids touch and share **0.52 mm³**
   across 47 of 47 shape pairs, which is contact-scale, not a statement that the parts fit together,
   against a 32.27 cm³ wrist and 20.69 cm³ jaw. Hull overlap is real for the simulator; the solids
