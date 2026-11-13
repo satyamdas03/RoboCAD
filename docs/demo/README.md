@@ -1,72 +1,55 @@
-# RoboCAD Twin demo, 3 minute walkthrough
+# SO-101 demo: open this first
 
-What this folder contains today, stated plainly, because the honest version is more useful than a
-polished one.
+`so101_demo.zip` is the whole demo. Unzip it anywhere and open `index.html` in a browser. No server,
+no network, no install. Every number on the page is read from the compiled bundle's `report.json`,
+and the provenance line at the top says which bundle and which checks are shown.
 
-## Open this first
+## 3 minute script
 
-`docs/demo/page/index.html`, opened directly from disk in a browser. No server, no network. It is a
-single page plus three classic scripts, chosen because a page served from `file://` cannot use
-`fetch` or ES modules.
+1. **0:00, compiled from its own CAD.** Open `index.html`. Read the provenance line aloud: this is
+   the SO-101 compiled from the STEP file exported from the SO-ARM100 repository at commit
+   `a758567`, not a hand-written model. The 3D geometry is the bundle's own visual meshes,
+   decimated to 128k of its 620k triangles so a browser can hold it.
+2. **0:30, the seven checks.** Point at the Checks panel. Five pass. `self_collision` **fails**: two
+   convex hulls overlap 7.9 mm at rest. The B-rep solids touch and share 0.52 mm3, which is
+   contact-scale, so MuJoCo will act on a contact the CAD does not have. The report carries 265
+   warnings, including 26 parts whose hulls are more than 3x their own volume. None of this is
+   hidden, and none of it is a passing light.
+3. **1:00, same robot as the official model.** Comparison panel: joint axes agree within **1.05°**
+   rms, worst 2.14°. Joint origins look wrong by up to 110 mm **until the zero-pose conventions are
+   applied**, and then they agree at **2.50 mm median / 11.25 mm worst**. Frame-free link lengths
+   agree to **1.69 mm**, which no registration can fake. See `CONVENTIONS.md`.
+4. **1:30, masses with their assumptions.** Solid upper bound **1.332 kg**, print model **0.902 kg**,
+   published **0.632 kg**. The print model assumes 1.2 mm walls and 0.20 infill, so printed mass is a
+   range, not a measurement. Servos use 55 g datasheet mass through their CAD envelope.
+5. **2:00, what that does to the motors.** Torque panel: required torque for the same trajectory on
+   both models, with the bundle's own 2.94 N m actuator limit drawn as a dashed line. Peak 1.26 N m
+   official against 0.63 N m compiled, so neither saturates on this motion.
+6. **2:30, the revision.** `diff.md`: the same pipeline recompiled at 0.30 infill, diffed per link on
+   the same link names.
+7. **2:45, calibration and what we need.** Twin panel: four of five identification rungs recover
+   their planted values. The fifth cannot, and the page says why: a 4096-count encoder is 1.53 mrad,
+   the servo is 998 N m per rad, so position quantisation is 1.53 N m of torque noise against a
+   0.15 N m friction signal. **A motor-current channel takes that SNR from 0.10 to 4.48.** That is
+   the ask: three excitation runs and one held-out, with the servo load channel logged.
 
-What the page shows: the SO-101 model in 3D, orbiting, with per-link mass bars, per-joint angle and
-actuator torque read from a baked MuJoCo trajectory, and isolate, exploded and CoM views. The
-provenance line in the header states which model is loaded and says whether it is synthetic.
-
-**Right now the provenance line reads `so101_new_calib.xml`, the official SO-101 MuJoCo model at the
-pinned commit, not our compiled bundle.** The page switches when Lane A tags `demo-bundle-v1`. Until
-then, every number on the page comes from the official model and the page says so on screen.
-
-## The 3 minute script
-
-1. **0:00** Open the page. Point at the provenance line: this is the official SO-101 model, and the
-   page tells you that rather than letting you assume it is ours.
-2. **0:30** Press Play. Six joints sweep, the gripper opens and closes. Every value in the right hand
-   panel is read from the baked trajectory, not typed in. Point at a torque value and say: this is
-   what the model says the actuator needs at this instant.
-3. **1:00** Click a link in the Links panel. It isolates. Press Exploded to pull the chain apart along
-   the joint axes. Press CoM to show the centre of mass markers.
-4. **1:40** Open `docs/demo/twin/synthetic_preview.json`. Read the disclaimer at the top, and read
-   the `not_identifiable` list. This is the Twin half: synthetic logs with planted friction, damping,
-   armature and latency, and an attempt to recover them.
-5. **2:30** Read the numbers honestly. The trajectory error improves from 270 to 224 milliradians
-   after the fit, but **the parameter recovery did not work**: 0 of 19 planted parameters were
-   recovered within tolerance, so every one is marked `identifiable: false`. The method and its
-   failure are both in the file.
-6. **2:50** Close on the limits below, out loud, not as a footnote.
-
-## What is real, what is synthetic
+## Real versus synthetic
 
 | Artefact | Status |
 |---|---|
-| SO-101 CAD and official URDF/MJCF | Real, third party, Apache-2.0, pinned at commit `a758567` |
-| The 3D page and its baked trajectory | Real MuJoCo simulation of that model, deterministic |
-| Page numbers | Read from the baked MuJoCo model, not hand written |
-| Synthetic twin logs | **SYNTHETIC.** Generated from the model with planted perturbations |
-| Recovered parameters in `synthetic_preview.json` | **SYNTHETIC and not yet recovered.** Marked `identifiable: false` |
-| Compiled-from-CAD bundle | Built by Lane A; its checks are shown on the page with the honest red |
-| Film | **Not recorded yet** |
+| SO-101 CAD, URDF, MJCF | Real, third party, Apache-2.0, pinned at `a758567` |
+| Compiled bundle, checks, comparison, torque | Real output of the compiler on that CAD |
+| Page, film | Rendered from the compiled bundle and its report |
+| Synthetic twin preview and rungs | **SYNTHETIC.** Planted parameters in simulation; no hardware |
+| Live viewer | Local MuJoCo viewer against the same bundle |
 
-Nothing in this folder is a real robot measurement. No hardware was touched.
+Nothing here is a hardware measurement. No robot was commanded.
 
 ## Known limits
 
-- Joint axes and origins, masses and inertias in the compiled comparison are not in this build yet;
-  the compiler side is being finished in Lane A.
-- Mass honesty: printed parts at solid PLA are an upper bound, not a mass. Nothing printed from the
-  compiler is fit to quote until an infill assumption is written into `materials.yaml`.
-- The synthetic identification does not yet recover planted parameters. This is a real negative
-  result, kept and labelled rather than tuned until it looked good.
-- The page runs at 54 to 58 fps headless on this machine at 83k triangles; no claim is made about
-  other hardware.
-
-## Reproducing it
-
-```
-python teardown_export/bake.py <model.xml> docs/demo/page --seconds 6 --hz 100 --triangles 3000
-python teardown_export/check_page.py docs/demo/page/index.html --shot shot.png
-python -c "import mujoco,sys; sys.path.insert(0,'.'); from ai_cad.twin.synthetic import run_preview, write_preview; write_preview(run_preview(mujoco, '<model.xml>'), 'docs/demo/twin/synthetic_preview.json')"
-```
-
-The official model and its 19 MB of STL assets are deliberately outside the repository; download
-them at the pinned commit before running the commands above.
+- Joint origins require the zero-pose conventions to compare at all; a naive comparison reports
+  errors of several centimetres that do not exist.
+- Printed masses are a model built on two stated assumptions, not measurements.
+- `self_collision` fails for a simulator-geometry reason, and the check is not softened.
+- The identification result is a method validation on synthetic data, and it stops at the rung where
+  the data runs out of information.
