@@ -178,13 +178,21 @@ def _line_distance(p1, d1, p2, d2):
     return float(abs((p2 - p1) @ n)), angle
 
 
-def _tip_point(mujoco, model, body_name: str):
+def _tip_point(mujoco, model, body_name: str, definition: str = "extreme"):
+    """A fixed point on the end body, in world coordinates at the zero pose.
+
+    Two definitions, both stated so two operators can compare numbers:
+    ``centroid`` is the mean of the body's mesh vertices, which is what Lane A intends to use.
+    ``extreme`` is the vertex furthest from that centroid, which amplifies any orientation error and
+    is therefore the harder test. FK errors from the two are not interchangeable.
+    """
     pts = _body_points(mujoco, model, body_name)
     if len(pts) == 0:
         return None
-    # the point furthest from the base along the body's own extent, stable under pose changes
     centre = pts.mean(axis=0)
-    return centre + (pts[np.argmax(np.linalg.norm(pts - centre, axis=1))] - centre)
+    if definition == "centroid":
+        return centre
+    return pts[np.argmax(np.linalg.norm(pts - centre, axis=1))]
 
 
 def main() -> int:
@@ -196,6 +204,8 @@ def main() -> int:
     parser.add_argument("--tip-body", default=None)
     parser.add_argument("--samples", type=int, default=50)
     parser.add_argument("--out", default=None)
+    parser.add_argument("--tip-definition", choices=("centroid", "extreme"), default="extreme")
+    parser.add_argument("--inside-limits", action="store_true", default=True)
     parser.add_argument("--register", choices=("axes", "base"), default="axes",
                         help="axes is the reliable option while the bundle carries hulls only")
     args = parser.parse_args()
@@ -242,8 +252,8 @@ def main() -> int:
 
     # forward kinematics of a fixed tip point, both models, same joint vectors
     rng = np.random.default_rng(0)
-    tip_c_local = _tip_point(mujoco, compiled, tip_c)
-    tip_o_local = _tip_point(mujoco, official, tip_o)
+    tip_c_local = _tip_point(mujoco, compiled, tip_c, args.tip_definition)
+    tip_o_local = _tip_point(mujoco, official, tip_o, args.tip_definition)
     dc, do = mujoco.MjData(compiled), mujoco.MjData(official)
     mujoco.mj_forward(compiled, dc)
     mujoco.mj_forward(official, do)
@@ -252,9 +262,16 @@ def main() -> int:
     local_c = dc.xmat[body_c].reshape(3, 3).T @ (tip_c_local - dc.xpos[body_c])
     local_o = do.xmat[body_o].reshape(3, 3).T @ (tip_o_local - do.xpos[body_o])
 
+    # sample inside the PUBLISHED model's limits, because those are the joint ranges a real SO-101
+    # has. The compiled bundle ships no limits at all (range 0 0), so sampling its own range would
+    # silently draw every pose from a fallback and call it "inside the limits".
+    lo = official.jnt_range[:, 0].copy()
+    hi = official.jnt_range[:, 1].copy()
+    unlimited = hi <= lo
+    lo[unlimited], hi[unlimited] = -0.4, 0.4
     errors = []
     for _ in range(args.samples):
-        q = rng.uniform(-0.4, 0.4, compiled.nq)
+        q = rng.uniform(lo, hi) if args.inside_limits else rng.uniform(-0.4, 0.4, compiled.nq)
         dc.qpos[:] = q
         do.qpos[:] = q
         mujoco.mj_forward(compiled, dc)
