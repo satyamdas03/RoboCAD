@@ -46,6 +46,26 @@ Owner of this file: monitor session (Lane B). Updated 2026-11-14. Every claim ca
 - Default test tier at `c7a6544`: 520 of 808 collected, measured in an isolated worktree.
   `verified-ran`. Not re-run at the final commit; the sprint stopped that work by instruction.
 
+## Cross-verification of Lane A's published bundle
+
+Three targets were named before computing them, so the choice could not flatter the result.
+
+1. **Hashes**: `model.mjcf` `c427c3e1...`, `model.urdf` `86ce5502...`, computed here. Both match
+   the values Lane A published, and the MJCF digest being byte-identical to the pre-fix run is what
+   proves the units defect lived in the measuring code rather than in the geometry. `verified-ran`
+2. **Pose equivalence**, re-derived rather than read: both models loaded in MuJoCo, bodies keyed by
+   name, world position and rotation compared at the zero pose and at 20 random configurations.
+   Worst error **0.000e+00** everywhere. `verified-ran`
+3. **Mass consistency**: heaviest body `Base_SO101` 0.2539 kg against a 2.0473e-04 m3 solid volume
+   implies exactly 1240.0 kg/m3, and the body masses sum to the reported 1.04134 kg total.
+   `verified-ran`
+
+**Not verified, and not shown**: the revision diff. The published `revision.json` compares
+`robot.joints.proposed.yaml` against `so101_demo` and reports **19 links removed, 7 changed, 0
+added**, which is an artefact of two different link identity schemes rather than a revision. It is
+excluded from the page and flagged to Lane A. A diff that reports deletions that never happened is
+worse than a missing panel.
+
 ## Identification: the rung reached and why it stopped
 
 Rung 3, 62 Hz with sensor noise and 4096 count quantisation, does not recover. The reason is
