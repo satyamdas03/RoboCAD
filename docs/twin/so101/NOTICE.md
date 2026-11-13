@@ -30,10 +30,15 @@ RoboCAD did not modify the upstream CAD. It read the assembly and produced a sim
 
 ## Known state at the time of writing
 
-The check report in this directory is the authority. At this revision it reports
-`self_collision` as **fail**: two convex hulls overlap by 7.9 mm at rest while the B-rep solids
-touch and share 0.52 mm^3, which is contact scale. That means MuJoCo will act on a contact the CAD
-does not have. The other checks pass or are skipped as recorded in `report.json`.
+The check report in this directory is the authority for this artifact. At this revision it records
+`self_collision` as **fail**: two convex hulls overlap by 7.9 mm at rest, so MuJoCo will act on a
+contact the CAD does not have. The other checks pass or are skipped as recorded in `report.json`.
+
+A later re-measurement of the B-rep solids, after a units defect was fixed in the measuring code,
+found the solids touching and sharing 0.52 mm^3, which is contact scale rather than interference.
+That measurement is **not** in the `report.json` sitting beside this notice; this directory is
+scheduled to be regenerated with it. Until then, the notice and the report disagree by exactly that
+one sentence, and the report is the older of the two.
 
 This directory is published because Satyam Das authorised it directly on 2026-11-13. The reasoning
 and the pinned revision are recorded in `docs/DECISIONS.md` and in `docs/THIRD_PARTY.md`.

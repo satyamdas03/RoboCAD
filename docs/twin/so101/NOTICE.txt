@@ -1,6 +1,0 @@
-SO-101 arm geometry: TheRobotStudio/SO-ARM100, STEP/SO101/SO101 Assembly.step
-Pinned revision: a758567c3978dfeefe282ede0500085a48fe8f78 (2026-10-06)
-Licence: Apache-2.0. The copyright notice and the full licence text are in that repository's
-LICENSE file, and are not restated here to avoid paraphrasing them.
-Changes made by RoboCAD: link groups and joint axes were inferred from the original geometry.
-No geometry was modified, moved or rebuilt; this file carries derived metadata only.
