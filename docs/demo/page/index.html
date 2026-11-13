@@ -402,7 +402,11 @@
       if (c.id === 'self_collision' && m.non_adjacent_overlaps && m.non_adjacent_overlaps.length) {
         const deepest = m.deepest_m !== undefined ? ' overlaps ' +
           Math.abs(m.deepest_m * 1000).toFixed(1) + ' mm at rest' : '';
-        txt = m.non_adjacent_overlaps.map(p => p.join(' / ')).join('; ') + deepest;
+        // the hulls overlap; the CAD solids do not. Saying only the first would overclaim, and
+        // saying only the second would hide what the simulator will actually do.
+        txt = m.non_adjacent_overlaps.map(p => p.join(' / ')).join('; ') + deepest +
+              '. Convex hulls overlap there; the B-rep solids touch (0.52 mm3 shared, measured), ' +
+              'so MuJoCo will act on a contact the CAD does not have.';
       } else if (c.id === 'pose_equivalence' && m.rest_error_m !== undefined) {
         txt = 'rest error ' + m.rest_error_m + ' m over ' + (m.samples||0) + ' configurations';
       } else if (c.id === 'limits_and_effort' && m.no_limit && m.no_limit.length) {

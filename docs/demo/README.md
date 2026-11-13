@@ -44,7 +44,7 @@ then, every number on the page comes from the official model and the page says s
 | Page numbers | Read from the baked MuJoCo model, not hand written |
 | Synthetic twin logs | **SYNTHETIC.** Generated from the model with planted perturbations |
 | Recovered parameters in `synthetic_preview.json` | **SYNTHETIC and not yet recovered.** Marked `identifiable: false` |
-| Compiled-from-CAD bundle | **Not in this build yet.** Pending Lane A `demo-bundle-v1` |
+| Compiled-from-CAD bundle | Built by Lane A; its checks are shown on the page with the honest red |
 | Film | **Not recorded yet** |
 
 Nothing in this folder is a real robot measurement. No hardware was touched.
