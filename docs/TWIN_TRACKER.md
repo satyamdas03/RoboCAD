@@ -48,8 +48,8 @@ grouping cannot be name-only. `[claimed: build session probe, not yet re-run by 
 
 | | Item | Evidence required | Owner | State |
 |---|---|---|---|---|
-| | Record the default-tier baseline | `docs/BASELINE.md` with command, summary line, timing | monitor | [ ] |
-| | Record the heavy/slow/mujoco baseline | `docs/BASELINE.md`, raw log kept, command shown | monitor | [~] |
+| | Record the default-tier baseline | `docs/BASELINE.md` with command, summary line, timing | monitor | [x] |
+| | Record the heavy/slow/mujoco baseline | stopped by instruction; frozen Labs test exceeds 900 s, recorded in `BASELINE.md` | monitor | [~] |
 | | CI exits green | workflow file, and the pytest invocations proven locally | monitor | [~] |
 | | Apache-2.0 at the root | `LICENSE`, canonical text, decision recorded | build | [x] |
 | | `ai_cad/twin/` kept out of the open licence | nested licence plus an exclusion that a wheel build respects | build | [~] |
@@ -85,8 +85,8 @@ notice and a statement of changes are required on the page, film and report.
 | | ID | Deliverable | Acceptance evidence | Owner | State |
 |---|---|---|---|---|---|
 | | M1 | STEP import of the chosen assembly | part and instance counts, units, transforms, warnings | build | [x] |
-| | M2 | Link grouping and joint inference, YAML reviewed by Satyam | proposals versus his edited YAML, axes correct | build | [~] |
-| | M3 | Exact mass and inertia, collision hulls via CoACD | analytic part checks, CoACD hulls, MuJoCo loads clean | build | [ ] |
+| | M2 | Link grouping and joint inference, YAML reviewed by Satyam | 1 geometry-confirmed joint, 91 unresolved pairs; YAML uncommitted pending the licence question | build | [~] |
+| | M3 | Exact mass and inertia, collision hulls via CoACD | B-rep mass and inertia verified, 433 hulls; joint origins still unattributed | build | [~] |
 
 No vendor-spread work. If a step looks like it will pass about 3 days, stop and propose a smaller
 version, per the course correction.
@@ -113,22 +113,22 @@ work may be published.
 
 | | Item | Acceptance evidence | Owner | State |
 |---|---|---|---|---|
-| | Bundle plus the 7 checks plus `report.html` | report on the chosen robot, every check carrying a measured value | build | [ ] |
-| | One deliberate revision | a changed part or link mass, diff names what changed and by how much | build | [ ] |
+| | Bundle plus the 7 checks plus `report.html` | published at `docs/twin/so101/bundle`, 5 pass, self_collision fail, 1 skipped | build | [x] |
+| | One deliberate revision | **defective**: diff compares two link identity schemes, reports 19 removals that never happened; excluded from the page | build | [!] |
 
 ## Step 5: M6 core
 
 | | Item | Acceptance evidence | Owner | State |
 |---|---|---|---|---|
-| | One offline living page under 1 MB | opens from `file://`, no network, every number read from `report.json` | build | [ ] |
-| | One 20 to 30 second film | baked MuJoCo trajectory drives it | build | [ ] |
+| | One offline living page under 1 MB | offline, 0 network requests, 55 fps, bound to the published bundle | monitor | [x] |
+| | One 20 to 30 second film | 24 s, 720 frames, recorded from the page | monitor | [~] |
 
 ## Step 6: synthetic twin preview
 
 | | Item | Acceptance evidence | Owner | State |
 |---|---|---|---|---|
 | | Synthetic logs with known perturbations | covers mass, armature, joint friction, damping, latency | build | [ ] |
-| | Parameter recovery with intervals | recovered values against known truth, unidentifiable ones flagged | build | [ ] |
+| | Parameter recovery with intervals | rungs 0/1/2/4 recover; rung 3 blocked at SNR 0.1 and quantified | monitor | [~] |
 | | Sim versus synthetic-real overlay | on the page, and every screen and file labelled SYNTHETIC | build | [ ] |
 
 ## Step 7: demo package
