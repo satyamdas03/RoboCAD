@@ -34,6 +34,7 @@
   .st-pass{color:#57d3a0} .st-warn{color:#f2b45c} .st-fail{color:#ef6b6b} .st-skipped{color:#8b97a8}
   .check-detail{color:var(--dim);font-size:11px;padding:0 0 6px}
   .synth{background:#3a2a12;color:#f2b45c;border:1px solid #6b4a1c;border-radius:4px;padding:1px 5px;font-size:10px;letter-spacing:.08em}
+  #torque-chart{width:100%;height:auto;background:#0d1219;border:1px solid var(--line);border-radius:6px;margin-bottom:8px}
   #twin-chart{width:100%;height:auto;background:#0d1219;border:1px solid var(--line);border-radius:6px;margin-bottom:8px}
   #hud{position:absolute;left:14px;bottom:12px;font-family:var(--mono);font-size:12px;color:var(--dim)}
   #load{position:absolute;inset:0;display:grid;place-items:center;color:var(--dim);font-family:var(--mono);font-size:12px}
@@ -76,9 +77,22 @@
       <h2>Checks</h2>
       <div id="checks"></div>
     </div>
+    <div class="grp" id="kin-grp" style="display:none">
+      <h2>Kinematics vs official</h2>
+      <div id="kin"></div>
+    </div>
     <div class="grp" id="cmp-grp" style="display:none">
       <h2>Compiled vs official</h2>
       <div id="cmp"></div>
+    </div>
+    <div class="grp" id="torque-grp" style="display:none">
+      <h2>Required torque</h2>
+      <canvas id="torque-chart" width="296" height="126"></canvas>
+      <div class="row"><span>joint</span><span id="t-joint">–</span></div>
+      <div class="row"><span>peak official</span><span id="t-off">–</span></div>
+      <div class="row"><span>peak compiled</span><span id="t-comp">–</span></div>
+      <div class="row"><span>rated (servo)</span><span id="t-rated">–</span></div>
+      <div class="hint" id="t-torque-note"></div>
     </div>
     <div class="grp" id="twin-grp">
       <h2>Twin method <span class="synth">SYNTHETIC</span></h2>
@@ -104,6 +118,7 @@
 <script src="twin.js"></script>
 <script src="identification.js"></script>
 <script src="report.js"></script>
+<script src="torque.js"></script>
 <script>
 (function(){
   "use strict";
@@ -456,6 +471,53 @@
         bar.appendChild(fill); wrap.appendChild(bar);
         linksBox.appendChild(wrap);
       });
+    }
+  })();
+
+  // ---- torque panel and kinematics row: what the mass and geometry difference does to the motors ----
+  (function torquePanel(){
+    const T = window.SO101_TORQUE;
+    if (!T) return;
+    document.getElementById('torque-grp').style.display = '';
+    const c = document.getElementById('torque-chart'), ctx = c.getContext('2d');
+    const w = c.width, h = c.height, pad = 8;
+    const joint = 1; // shoulder_lift: the joint the kinematics note flags as worst
+    const off = T.official.map(f => f[joint]), comp = T.compiled.map(f => f[joint]);
+    const lo = Math.min(...off, ...comp, -T.rated_nm), hi = Math.max(...off, ...comp, T.rated_nm);
+    const y = v => h - pad - (h - 2*pad) * ((v - lo) / (hi - lo || 1));
+    const x = f => pad + (w - 2*pad) * f / Math.max(1, off.length - 1);
+
+    // rated torque lines, dashed, so a reader can see how much headroom the servo has
+    ctx.strokeStyle = '#6b4a1c'; ctx.setLineDash([4,4]); ctx.lineWidth = 1;
+    [T.rated_nm, -T.rated_nm].forEach(v => { ctx.beginPath(); ctx.moveTo(pad, y(v)); ctx.lineTo(w-pad, y(v)); ctx.stroke(); });
+    ctx.setLineDash([]);
+    ctx.strokeStyle = '#8b97a8'; ctx.lineWidth = 1.4; ctx.beginPath();
+    off.forEach((v,i) => { i ? ctx.lineTo(x(i), y(v)) : ctx.moveTo(x(i), y(v)); }); ctx.stroke();
+    ctx.strokeStyle = '#57d3a0'; ctx.lineWidth = 1.6; ctx.beginPath();
+    comp.forEach((v,i) => { i ? ctx.lineTo(x(i), y(v)) : ctx.moveTo(x(i), y(v)); }); ctx.stroke();
+
+    document.getElementById('t-joint').textContent = (T.joints[joint] || ('joint ' + (joint+1)));
+    document.getElementById('t-off').textContent = Math.max(...off.map(Math.abs)).toFixed(2) + ' N·m';
+    document.getElementById('t-comp').textContent = Math.max(...comp.map(Math.abs)).toFixed(2) + ' N·m';
+    document.getElementById('t-rated').textContent = T.rated_nm.toFixed(2) + ' N·m';
+    document.getElementById('t-torque-note').textContent =
+      'same joint-space trajectory on both models, inverse dynamics, contacts disabled. ' +
+      'grey is the published model, green is the compiled bundle' +
+      (T.saturated ? '. WARNING: the published servo saturates, so part of this is a limit artefact.' : '.');
+
+    if (T.axis_residual_deg_after_datum_fit) {
+      document.getElementById('kin-grp').style.display = '';
+      const box = document.getElementById('kin');
+      const res = T.axis_residual_deg_after_datum_fit;
+      const perp = T.anchor_perp_mm_after_datum_fit || [];
+      T.joints.forEach((name, j) => {
+        box.appendChild(dataRow(name,
+          'axis ' + res[j].toFixed(1) + '° · anchor ' + (perp[j] !== undefined ? perp[j].toFixed(0) + ' mm' : 'n/a')));
+      });
+      const note = mk('div', 'hint',
+        'residual after removing the best-fit datum rotation between the two models. ' +
+        'Joints that agree are within a few degrees; joints that do not are a geometry difference, not a frame.');
+      box.appendChild(note);
     }
   })();
 
