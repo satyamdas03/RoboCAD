@@ -20,6 +20,23 @@ checked, a version diff, and a clearly labelled synthetic calibration preview. T
 Nothing past the demo slice gets built until Satyam says so. M5, M7, M8 to M12 and Phase 2 are
 PARKED, not deleted.
 
+## Decisions locked
+
+| | Decision | Value every later report cites |
+|---|---|---|
+| | Demo robot | SO-101, repository `TheRobotStudio/SO-ARM100`, commit `a758567c3978dfeefe282ede0500085a48fe8f78` (2026-10-06), Apache-2.0 |
+| | Assembly under import | `STEP/SO101/SO101 Assembly.step`, 20,496,014 bytes, git blob `541ad0e11398e6701d006c40a032ffd67bac5369` |
+| | Outside description to check against | `Simulation/SO101/so101_new_calib.urdf`, `so101_old_calib.urdf`, `so101_new_calib.xml` at the same commit |
+| | Licence obligation | Apache-2.0: keep the notice, ship the licence text, state what we changed, on the page, film and report |
+| | Collision backend | CoACD 1.0.14, abi3 wheel, verified installed and decomposing |
+| | Licence split | Apache-2.0 at the root, `ai_cad/twin/` proprietary and excluded from the built package |
+
+First real M1 datum, from the build session's XCAF probe of the downloaded assembly: 1 top level free
+shape, 394 assembly labels, 393 component instances, 144 distinct names, bounding box 175.45 x
+320.11 x 344.68 mm, header AP214 from Autodesk Translation Framework. Units are millimetres by
+magnitude, and the names include PCB reference designators and anonymous numeric labels, so link
+grouping cannot be name-only. `[claimed: build session probe, not yet re-run by monitor]`
+
 ## Step 1: M0-lite
 
 | | Item | Evidence required | Owner | State |
