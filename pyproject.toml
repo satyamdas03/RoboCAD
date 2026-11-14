@@ -29,6 +29,9 @@ dependencies = [
   # ai_cad/compiler/revision.py imports this at module scope, so `twin revise` needs it installed.
   # Undeclared, a clean `.[dev]` install compiled for 26 minutes and then crashed on the import.
   "pyyaml>=6.0",
+  # ai_cad/compiler/compare.py imports this at module scope to parse a URDF that arrived from
+  # outside the repo with a parser that refuses entity expansion.
+  "defusedxml>=0.7.1",
 ]
 
 [project.optional-dependencies]
