@@ -27,11 +27,27 @@ package to use.
 Nothing about the robot changed in v1.2. The masses, the checks, the revision and the **failing live
 hold** are exactly v1.1's numbers, and the hold still fails for contact geometry, not gain.
 
+### Fixed in source, ships in the next bundle
+
+The `self_collision` check explanation in `report.json` (and the `comparison.md` rendered from it)
+stated the hull fact twice: once as "The status stays fail either way: MuJoCo collides the hulls…" and
+again as "MuJoCo collides the convex hulls, and this overlap is an overlap of those hulls…". Read
+aloud, that is the same sentence twice in 131 words. The generator in
+`ai_cad/compiler/compile.py` (`_brep_note`) now states it once, folding the status sentence into the
+single hull sentence. `TestExplanationReadsAloud` in `tests/test_twin_bundle.py` fails any check
+explanation that repeats a sentence, or a ten-word run, whatever the case or punctuation.
+
+**v1.2 is unchanged: no rebake, no re-tag.** The fix is in the source that builds the next package and
+reaches a recipient only when v1.3 is packaged. A v1.2 recipient still hears the repetition.
+
 ### What Satyam still has to do, on hardware
 
 These cannot be done from this machine and are not claimed as done anywhere:
 
-1. Run the live viewer against the real arm and confirm the page and the arm agree on the zero pose.
+1. Run the live viewer and confirm the page and the model agree on the zero pose. Correcting an
+   earlier line in this file: the viewer is the MuJoCo window that `robocad demo so101` opens on this
+   laptop. `robocad/demo.py` states that nothing in it talks to hardware, so **no SO-101 is needed for
+   the rehearsal** — only the microphone, the speakers and the stopwatch.
 2. Rehearse the microphone in the room and confirm the voice's section requests land on the intended
    panel while someone is speaking over it.
 3. Time the 1.5 s section-navigation latency by ear and by stopwatch; the code flashes for 1.5 s, the

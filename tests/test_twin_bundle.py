@@ -368,3 +368,43 @@ class TestBrepNote:
         note = self._note({"distance_m": 0.0, "intersection_m3": 0.0, "shape_pairs": 2, "shape_pairs_total": 2})
         assert "in contact without shared volume" in note
         assert "inverse dynamics" in note
+
+
+class TestExplanationReadsAloud:
+    """A check explanation is spoken as well as read, so a fact stated twice is heard as a stutter."""
+
+    def _note(self, row):
+        from ai_cad.compiler.compile import _brep_note
+
+        return _brep_note({"wrist|jaw": row})
+
+    ROWS = [
+        {"distance_m": 3.0e-3, "intersection_m3": None, "shape_pairs": 4, "shape_pairs_total": 9},
+        {"distance_m": 0.0, "intersection_m3": 5.2e-10, "shape_pairs": 47, "shape_pairs_total": 47},
+        {"distance_m": 0.0, "intersection_m3": 0.0, "shape_pairs": 2, "shape_pairs_total": 2},
+        {"distance_m": None, "intersection_m3": None, "shape_pairs": None, "shape_pairs_total": None},
+    ]
+
+    def test_no_sentence_is_said_twice(self):
+        import re
+
+        for row in self.ROWS:
+            note = self._note(row)
+            sentences = [s.strip().lower() for s in re.split(r"(?<=[.!?])\s+", note) if s.strip()]
+            assert len(sentences) == len(set(sentences)), f"a sentence repeats in {note!r}"
+
+    def test_no_long_run_of_words_is_said_twice(self):
+        """Near-duplicates slip past an exact-sentence check; a shared 10-word run does not."""
+        import re
+
+        for row in self.ROWS:
+            words = re.findall(r"[a-z0-9]+", self._note(row).lower())
+            runs = [" ".join(words[i:i + 10]) for i in range(len(words) - 9)]
+            assert len(runs) == len(set(runs)), "a 10-word run repeats in the explanation"
+
+    def test_the_hull_reason_is_stated_where_a_reader_acts_on_it(self):
+        # The overlap is the hull's, not the CAD's; that is the fact the fail status rests on, and it
+        # is stated once, in the sentence that also carries the status.
+        note = self._note(self.ROWS[1])
+        assert note.lower().count("mujoco collides") == 1
+        assert "status stays fail" in note

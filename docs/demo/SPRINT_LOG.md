@@ -625,3 +625,44 @@ The order's figure of "1,266 files and 1.07M lines" is not reproducible from eit
 not mine: it came in with the review that opened this sprint, and I have no command that produces it.
 Recorded as unreproduced rather than adopted, per the rule that an unverified number does not become
 a premise. Anyone planning a merge should use the measured pair above.
+
+## S3 — repeated sentence in the self_collision explanation [verified: ran]
+
+Reproduced first, on the shipped artifact (`docs/twin/so101/bundle/report.json`, the file the v1.2 zip
+carries as sha256 `34caf7e8…`):
+
+```
+self_collision fail 131 words
+1 non-adjacent pair(s) overlap, deepest -7.939e-03 m. The CAD solids of wrist_roll_pitch_so100 and
+moving_jaw_so101 intersect and share 0.52 mm3 of material, so part of that overlap is real and part of
+it may be the hull; this measurement does not split the two. The status stays fail either way: MuJoCo
+collides the hulls, so the simulator will act on the overlap whatever the B-rep says. MuJoCo collides
+the convex hulls, and this overlap is an overlap of those hulls, so a rollout on this model will see
+the solver push them apart. The effort check therefore measures with contact forces disabled, which is
+why its torque is the load the gearing must hold rather than this overlap's contact forces; a torque
+read from inverse dynamics with contacts enabled would be neither.
+```
+
+The hull fact is stated twice: "MuJoCo collides the hulls" and "MuJoCo collides the convex hulls".
+That is exactly what the outside review heard. The reviewer's "neither.." with two dots is not in the
+artifact; it is their speech layer joining a full stop to a leading dot. No literal `".."` exists in
+this text.
+
+Fix: `ai_cad/compiler/compile.py`, `_brep_note`. One sentence carries the fact and the status:
+
+```
+MuJoCo collides the convex hulls, and this overlap is an overlap of those hulls, so a rollout on this
+model will see the solver push them apart; the status stays fail whatever the B-rep says.
+```
+
+Test: `TestExplanationReadsAloud` in `tests/test_twin_bundle.py` — no repeated sentence
+(case/punctuation-insensitive), no repeated ten-word run, and `"mujoco collides"` appears once in the
+note while `"status stays fail"` survives.
+
+```
+$ python -m pytest -q -p no:cacheprovider tests/test_twin_bundle.py -k "ExplanationReadsAloud or BrepNote"
+6 passed, 24 deselected in 0.84s
+```
+
+**v1.2 unchanged.** No rebake, no re-tag, `demo-bundle-v1.2` stays the artifact of record. The fix
+ships in the next bundle; logged in FINAL_STATUS under "Fixed in source, ships in the next bundle".

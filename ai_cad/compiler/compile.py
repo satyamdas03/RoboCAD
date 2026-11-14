@@ -544,20 +544,18 @@ def _brep_note(measured: dict[str, dict]) -> str:
     # the first version of the effort check reported 1,110 N*m against a 2.94 N*m limit. The check
     # now disables contacts for the measurement, so the sentence has to say what is actually done
     # rather than warn about what used to happen.
+    #
+    # The claim is stated once. A separate "the status stays fail either way: MuJoCo collides the
+    # hulls" sentence used to follow this one, saying the same thing in different words; read aloud
+    # it was the same fact twice, which is what a listener notices and a reader skims past.
     torque = (
         " MuJoCo collides the convex hulls, and this overlap is an overlap of those hulls, so a "
-        "rollout on this model will see the solver push them apart. The effort check therefore "
-        "measures with contact forces disabled, which is why its torque is the load the gearing must "
-        "hold rather than this overlap's contact forces; a torque read from inverse dynamics with "
-        "contacts enabled would be neither."
+        "rollout on this model will see the solver push them apart; the status stays fail whatever "
+        "the B-rep says. The effort check therefore measures with contact forces disabled, which is "
+        "why its torque is the load the gearing must hold rather than this overlap's contact forces; "
+        "a torque read from inverse dynamics with contacts enabled would be neither."
     )
-    return (
-        " "
-        + " ".join(parts)
-        + " The status stays fail either way: MuJoCo collides the hulls, so the simulator will act "
-        "on the overlap whatever the B-rep says."
-        + torque
-    )
+    return " " + " ".join(parts) + torque
 
 
 # ------------------------------------------------------------------------------------------------
