@@ -993,3 +993,17 @@ clone; the fast-path check is what proves the six-phrase table offline.
 One thing this cannot fix: the `demo-v1.0` tag points at the merge commit, so the FINAL_STATUS blob
 inside the tag is the pre-tag one, and it still reads "`demo-v1.0` does not exist yet". Re-tagging is
 forbidden, so the correction is a commit after the tag and the tag carries the older sentence.
+
+## E3 on the merged head — the gate, with the clock running and no keys
+
+`tests/test_journey.py` on the fresh clone of Hi-EV `origin/main` at `c76fd47`, with
+`ANTHROPIC_API_KEY` and `OPENAI_API_KEY` removed:
+
+```
+walk me through it 25.7 ms   next x6 9.0/7.8/7.6/7.1/7.8/7.6 ms   back 7.3 ms
+show me the torque 7.8 ms    what failed 10.4 ms   how heavy 8.9 ms   live 14.6 ms
+1 passed in 1.27s
+```
+
+Worst case 25.7 ms against a 1.5 s budget. Microphone and speaker remain Satyam's to test; this is
+the shell path only.

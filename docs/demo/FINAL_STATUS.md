@@ -136,6 +136,24 @@ green, which this sprint's own rules forbid, so the requirement is stated instea
 needs `pip install -e ".[dev,web,sim,ai,voice]"`, and the CLI does not. The Hi-EV half of E2 was run
 by the monitor lane on the same day (`[claimed: peer report, a6d2e18]`, not re-run here).
 
+### E3 — the whole script, keys removed, with the clock running [verified: ran]
+
+`tests/test_journey.py` drives the real daemon WebSocket through all eleven utterances. Run on the
+**merged** Hi-EV head (`c76fd47`) in the fresh clone, with `ANTHROPIC_API_KEY` and `OPENAI_API_KEY`
+removed from the environment, so an unmatched phrase has no provider to fall through to:
+
+```
+walk me through it            25.7 ms      next (x6)  9.0 / 7.8 / 7.6 / 7.1 / 7.8 / 7.6 ms
+back                           7.3 ms      show me the torque  7.8 ms
+what failed                   10.4 ms      how heavy is it     8.9 ms
+open the live simulation      14.6 ms      1 passed in 1.27s
+```
+
+Worst case 25.7 ms against the 1.5 s budget. This measures the shell's own path, not a microphone: the
+audio device and the speaker are Satyam's to test. The earlier pre-merge run by the monitor lane
+(`[claimed: peer report, Hi-EV docs/SPRINT_LOG.md]`) logged 89.3 ms for "walk me through it"; the
+merged-head run is faster, and both are far inside budget.
+
 ### E5 — both PRs merged, both heads tagged, the merged head starts [verified: ran]
 
 | Step | Result |
