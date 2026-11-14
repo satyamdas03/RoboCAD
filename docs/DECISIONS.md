@@ -649,3 +649,40 @@ the code commit, before the zip it names existed in the tree, which would have m
 `git show demo-bundle-v1.3:docs/demo/so101_demo.zip` fail. Nothing was pushed or handed out. The tag
 was deleted and recreated at the final commit. The rule against re-tagging protects artifacts someone
 may already hold; an unpublished tag that cannot resolve its own package protects nothing.
+
+**Decision: `twin revise` refuses a diff whose solid bound moved.** Wall thickness and infill cannot
+change the solid mass: the solid is the CAD volume at a stated density. A diff between two compiles
+that disagree about it is therefore not a revision of one assumption, and the printed mass it reports
+is that disagreement plus the revision. Measured while building this: a compile of the same STEP file
+without the frozen bundle's servo mass produced a solid of 1.0413 kg against 1.3320 kg and a printed
+mass of 0.6485 kg against 0.9017 kg — a 28% "reduction" at *higher* infill, which is the shape of the
+defect. `revise` now exits 3 with that reason and still writes `diff.md` carrying it, and
+`--servo-mass-kg`/`--servo-source` exist so the caller can hold the rest of the compile fixed.
+
+**Decision: the print model is bounded by the CLI, not by `PrintModel`.** `PrintModel` accepts any
+infill from 0 to 1 and any positive wall, which is right for a model and wrong for an instruction a
+person speaks. `twin compile --infill` and `twin revise --infill` accept 0.1 to 1.0, and
+`--wall-mm` 0.8 to 3.0; outside that, exit code 2 before the compiler starts. Zero infill is a
+number, not a part, and a mass computed from it would be reported with the same confidence as one
+from a printable assumption.
+
+**Decision: "Try it yourself" is written outside the packaged README.** `README.md` is copied into
+`so101_demo.zip`, so editing it after the v1.3 tag would mean the tagged package can no longer be
+re-derived from the tree it names. The commands live in `docs/demo/TRY_IT_YOURSELF.md`, which is not
+in the packager's file list, and the packaged README is untouched.
+
+**Decision: a mass-only change is `changed` in a revision diff.** `diff_links` measured change in
+quantity and volume, so the first real print-model revision printed `0 changed` beside a 6% mass rise
+and `unchanged` beside `+11.35 g` on all seven rows. Geometry and mass are two different axes and a
+revision can move one without the other; the status column now means "anything in this row moved".
+Re-rendering the same two bundles costs nothing and the table now reads `7 changed`, volumes `+0.00%`,
+masses positive.
+
+**Decision: `twin revise` gets no baked-in servo mass; the fix is provenance in the bundle.** The
+frozen compile used a datasheet figure for one servo (Feetech STS3215, 55 +/- 1 g). A CLI default
+would stamp that actuator on every bundle the tool is ever run against, and the mass it produced would
+read exactly as confidently as a measured one. The flag pair stays explicit and the solid-bound guard
+refuses the alternative. The improvement is `actuator_mass_kg` and its source recorded in
+`bundle.json` at compile time, so `revise` can read them from `--before` instead of asking, and a
+revision cannot be run without the assumption the frozen bundle actually made. Not done now: adding a
+field changes what the next package's bundle records, and v1.3 is frozen and re-derivable.

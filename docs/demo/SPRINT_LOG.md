@@ -734,3 +734,164 @@ commit; no published artifact was moved.
 
 **Not done:** `film.mp4` is still v1.2's; `docs/twin/so101/comparison.md` in the tree is still the
 pre-S3 render and is not in the package. Both are in FINAL_STATUS under "Not done, stated plainly".
+
+## E4 — "change infill to 30 percent" reaches a modelled mass [verified: ran]
+
+The order: a spoken "change the infill to 30 percent" has to drive a real recompile and come back
+with a mass the voice can say, bounded so the number always has a process behind it, and refuse
+anything else. That is three pieces, and they are one path.
+
+**1. The print model is a CLI input, and it is bounded there.** `twin compile` gained `--infill`,
+`--wall-mm`, `--servo-mass-kg`, `--servo-source`. The bounds live in the CLI, not in `PrintModel`:
+infill 0.1–1.0, wall 0.8–3.0 mm. Outside, exit 2 and the compiler never starts.
+
+```
+$ python -m robocad twin compile --step s.step --out out --infill 0.05
+error: infill 0.05 is outside 0.1-1: below 0.1 is not a printable part and above 1.0 is solid, so the
+mass would be a number with no process behind it
+$ echo $?
+2
+
+$ python -m robocad twin compile --step s.step --out out --wall-mm 0.4
+error: wall 0.4 mm is outside 0.8-3 mm: a wall thinner than 0.8 mm does not survive a print, and one
+thicker than the part has no infilled interior to model
+$ echo $?
+2
+```
+
+**2. The assumption is announced before the compiler runs**, as a tooling phase at 0%, ahead of the
+compiler's own first stage at 10%. The emitter refuses unknown stages, so `tooling:print_model` is in
+`KNOWN_STAGES` on its own merit (`STAGES` still describes compiler stages only):
+
+```
+{"stage": "tooling:print_model", "pct": 0, "msg": "print model: 1.20 mm wall, 0.30 infill"}
+{"stage": "import", "pct": 10, "msg": "83 parts, 259 instances"}
+```
+
+**3. `twin revise` compiles against the new print model and diffs it against the frozen bundle.**
+New verb, in the help so a subprocess caller can find it:
+
+```
+$ python -m robocad twin --help
+usage: robocad twin [-h] {summary,page,compile,revise,unpack} ...
+```
+
+The real run, on the SO-101 STEP at the pinned commit, 25m58s:
+
+```
+$ python -m robocad twin revise \
+    --step "STEP/SO101/SO101 Assembly.step" --before docs/twin/so101/bundle \
+    --out <tmp> --joints docs/twin/so101/bundle/robot.joints.yaml \
+    --infill 0.30 --servo-mass-kg 0.055 \
+    --servo-source "Feetech STS3215 product specification: weight 55 +/- 1 g" --json-progress
+{"stage": "tooling:print_model", "pct": 0, "msg": "print model: 1.20 mm wall, 0.30 infill"}
+...
+{"stage": "properties", "pct": 45, "msg": "7 bodies, 0.955 kg modelled"}
+{"stage": "checks", "pct": 97, "msg": "7 checks, worst fail"}
+recompiled at 1.20 mm wall, 0.30 infill
+links        7  (0 added, 0 removed, 7 changed)
+printed mass 0.9017 kg -> 0.9555 kg (+6.0%)
+solid bound  1.3320 kg -> 1.3320 kg (the solid is not a print assumption)
+diff written <tmp>/diff.md
+$ echo $?
+0
+```
+
+0.9017 → 0.9555 kg, +6.0%, and the solid bound does not move: the same two numbers the frozen
+`docs/twin/so101/revision_f030/diff.json` carries.
+
+**A second defect, found by reading the table.** The compile above printed `0 changed` next to a 6%
+mass rise, and `diff.md` said `unchanged` beside `+11.35 g` on every row: the status counted only
+quantity and volume, so a print-model revision — which moves mass and no vertex — read as nothing
+happened. `diff_links` now counts a mass change too. Re-rendered from the same two bundles, no
+recompile and no new measurement:
+
+```
+links        7  (0 added, 0 removed, 7 changed)
+| `base_so101` | changed | 150 | 150 | +0 | 204.732 | 204.732 | +0.00% | +11.35 |
+```
+
+`tests/test_revision.py` carries `test_a_mass_only_change_is_not_reported_as_unchanged`, 23 passed.
+
+**A defect this exposed, and the guard that closes it.** The first real revise run came back
+0.9017 → 0.6485 kg at *higher* infill, with the solid bound moving 1.3320 → 1.0413 kg. Cause: the
+frozen bundle was compiled with six actuators and the revise run named none, so the servo CAD
+envelopes were counted as printed PLA. The mass change was real, and it was not the revision.
+
+Two fixes, because either alone is insufficient:
+- `--servo-mass-kg` / `--servo-source` let the caller state the datasheet mass the frozen bundle used.
+- a **solid-bound guard**: wall thickness and infill cannot change the solid, so if the two bundles
+  disagree about `total_solid_mass_kg` the diff is refused — exit 3, and `diff.md` still written,
+  carrying the reason, because a refused diff is evidence.
+
+```
+**Not comparable.** the solid bound moved 0.6485 kg -> 1.0413 kg, and wall thickness and infill
+cannot change it: the two compiles differ by something other than the print model. ...
+```
+
+Tests, all green:
+
+```
+$ python -m pytest tests/test_twin_print_model.py -q
+14 passed
+$ python -m pytest tests/test_twin_cli.py tests/test_twin_print_model.py tests/test_twin_bundle.py \
+    tests/test_demo_so101_twin.py -q
+80 passed, 11 deselected
+```
+
+The tests drive the CLI with a stand-in compiler: the real compile needs the third-party STEP and 26
+minutes of convex decomposition, and none of that is what the rules are about.
+
+Documentation: `docs/demo/TRY_IT_YOURSELF.md`, deliberately **outside** the packaged README, which
+ships inside `so101_demo.zip` — editing it after the tag would break re-derivation of the v1.3
+package. Nothing here talks to hardware; the wall and infill figures are stated assumptions, not
+measurements of a printed part.
+
+**Not done:** `revise` does not re-run the effort check or the torque comparison against the new
+bundle's masses; it reports printed mass and the link diff. The frozen `revision_f030` carries that
+effort pair (0.652 → 0.687 N·m) and it came from the scripted path, not from the CLI.
+
+**A third refusal, so the tool cannot be run without its assumption.** A caller who omits
+`--servo-mass-kg` previously got 26 minutes of compile and then a refused diff. The frozen bundle
+says how many bought-in parts it models, so the check belongs before the compile: if the bundle
+models any and the mass is not stated, `revise` exits 2 in milliseconds and names both flags; a mass
+with a blank `--servo-source` is refused the same way, because a number without its datasheet is the
+claim this project does not make. No default is baked in — 55 g is one actuator's datasheet figure,
+and a default would stamp it on every bundle the tool is run against (`docs/DECISIONS.md`).
+
+```
+$ python -m robocad twin revise --step s.step --before docs/twin/so101/bundle --out out --infill 0.30
+error: the frozen bundle models 6 bought-in part(s) with no printed mass, and this compile was not
+told their mass: pass --servo-mass-kg with --servo-source, or the servo envelopes are counted as
+printed plastic and the solid bound moves for a reason that is not the print model
+$ echo $?
+2
+# real 0m1.082s, against 25m58s for the compile it did not start
+```
+
+`tests/test_twin_print_model.py` grew to 16: the refusal, the blank-source refusal, and a test that
+both flags reach the compiler together. With `tests/test_revision.py`:
+**39 passed**.
+
+**What a presenter experiences, measured.** Two refusals a demo will actually hit, both timed on this
+machine against the real frozen bundle:
+
+| command | what it says | wall clock | exit |
+|---|---|---|---|
+| `revise … --infill 1.5` | `infill 1.5 is outside 0.1-1: …` | 1.095 s | 2 |
+| `revise … --infill 0.30` with no servo flags | `the frozen bundle models 6 bought-in part(s) …` | 1.082 s | 2 |
+| `revise … --infill 0.30` with both flags | `printed mass 0.9017 kg -> 0.9555 kg (+6.0%)` | 25m58s | 0 |
+
+Before the provenance check existed, the middle row cost the third row's 25m58s and then refused the
+diff. The timings are wall clock on this laptop, not a benchmark; the compile time is dominated by
+convex decomposition and will move on other hardware.
+
+Full default tier on the final tree, after every edit above:
+
+```
+$ python -m pytest -q
+852 passed, 309 deselected, 3 warnings in 663.26s (0:11:03)
+```
+
+309 are the heavy/slow/mujoco tests, deselected by the default tier's own marker configuration; they
+are not skipped-with-reasons and this line does not claim they ran.

@@ -10,6 +10,10 @@ Commands::
     robocad twin summary --bundle DIR [--json]
     robocad twin page    --bundle DIR --out PAGE_DIR [--seconds S] [--hz N] [--triangles N]
     robocad twin compile --step FILE --joints FILE --out DIR [--json-progress]
+                         [--infill F] [--wall-mm W] [--servo-mass-kg KG --servo-source TEXT]
+    robocad twin revise  --step FILE --before DIR --out DIR [--infill F] [--wall-mm W]
+                         [--joints FILE] [--servo-mass-kg KG --servo-source TEXT]
+                         [--json-progress] [--json]
     robocad twin unpack  --zip FILE --out DIR [--verify-sha SHA]
 
 ``summary`` describes a bundle as JSON. Its contract is ``robocad.twin.summary/1`` and its point is
@@ -20,6 +24,13 @@ data generated in simulation is labelled ``synthetic``, and only ``calibration``
 
 ``page`` builds the offline living page from a bundle. ``compile`` runs the compiler and, with
 ``--json-progress``, writes one JSON object per line so a GUI can show progress without scraping text.
+
+``revise`` is the sentence "change the infill to 30 percent" as a command: it recompiles the same STEP
+file at a print model the caller named, diffs the new bundle against ``--before`` link by link, and
+prints the modelled mass before and after. It refuses a diff whose solid bound moved, because wall
+thickness and infill cannot change the solid, so a diff that reports otherwise is comparing two
+different compiles. ``--infill`` and ``--wall-mm`` are bounded here (0.1-1.0 and 0.8-3.0 mm) rather
+than at the print model, because a value outside them is a number rather than a printable part.
 
 ``unpack`` is the one source of truth for a shipped demo. It extracts the zip and, given
 ``--verify-sha``, refuses before writing anything when the archive does not hash to that digest. A
@@ -46,6 +57,7 @@ from pathlib import Path
 
 SUMMARY_SCHEMA = "robocad.twin.summary/1"
 UNPACK_SCHEMA = "robocad.twin.unpack/1"
+REVISE_SCHEMA = "robocad.twin.revise/1"
 # The sidecar a package may carry: one `sha256  path` line per file it ships. Optional, because a
 # consumer's zip is theirs; when present it is checked, and a mismatch refuses the unpack.
 FILE_DIGESTS = "FILES.sha256"
@@ -53,6 +65,23 @@ FILE_DIGESTS = "FILES.sha256"
 # The stages `twin compile` emits, in order. A consumer may rely on this list: no other stage name is
 # produced, and "done" is only ever the last line of a successful run.
 STAGES = ("import", "joints", "properties", "collision", "bundle", "checks", "done")
+
+# `tooling:*` stages describe decisions made BEFORE the compiler runs, so they are emitted with a
+# percentage below the compiler's first stage rather than squeezed into its ordered list. A consumer
+# that only knows STAGES still sees them as lines it can ignore; one that reads them learns which
+# print assumptions the run used.
+TOOLING_STAGE = "tooling:print_model"
+
+# The ranges a print assumption may take. The print model itself allows any infill from 0 to 1 and
+# any positive wall; these are the bounds this CLI will accept from a spoken or typed instruction,
+# because a 0 percent infill or a 0.1 mm wall is not a part anyone can print and the mass it implies
+# is a number, not a result.
+PRINT_INFILL_RANGE = (0.1, 1.0)
+PRINT_WALL_MM_RANGE = (0.8, 3.0)
+
+# Every stage name a caller may see. STAGES stays the compiler's own ordered list; this is the
+# superset the emitter will pass through, so a tooling line is a known line rather than a crash.
+KNOWN_STAGES = STAGES + (TOOLING_STAGE,)
 
 # What kind of claim a figure is. `counted`, `measured`, `stated` and `adopted` are observations of
 # something that exists; `assumed` is an input a person chose; `modelled` is a model output over those
@@ -1000,12 +1029,50 @@ def _limits_from_joints(path: Path) -> tuple[dict[str, dict], str]:
     return limits, unique[0]
 
 
+def print_model_from_cli(infill: float | None, wall_mm: float | None):
+    """The print model a run should use, refusing assumptions no printer makes.
+
+    ``None`` means "the bundle's own default", not "zero": a caller that says nothing about infill
+    must get the 1.2 mm wall and 0.20 infill the report already states, or two bundles of the same
+    robot would disagree about mass for a reason nobody chose.
+    """
+    from ai_cad.compiler.print_model import (
+        DEFAULT_INFILL_FRACTION,
+        DEFAULT_WALL_THICKNESS_M,
+        PrintModel,
+    )
+
+    if infill is None and wall_mm is None:
+        return None
+    lo, hi = PRINT_INFILL_RANGE
+    fraction = DEFAULT_INFILL_FRACTION if infill is None else float(infill)
+    if not lo <= fraction <= hi:
+        raise ValueError(
+            f"infill {fraction:g} is outside {lo:g}-{hi:g}: below {lo:g} is not a printable part "
+            "and above 1.0 is solid, so the mass would be a number with no process behind it"
+        )
+    wlo, whi = PRINT_WALL_MM_RANGE
+    wall = DEFAULT_WALL_THICKNESS_M * 1000.0 if wall_mm is None else float(wall_mm)
+    if not wlo <= wall <= whi:
+        raise ValueError(
+            f"wall {wall:g} mm is outside {wlo:g}-{whi:g} mm: a wall thinner than {wlo:g} mm does "
+            "not survive a print, and one thicker than the part has no infilled interior to model"
+        )
+    return PrintModel(wall_thickness_m=wall / 1000.0, infill_fraction=fraction)
+
+
 def compile_bundle_cli(step: Path, joints: Path | None, out: Path, json_progress: bool,
-                       emit=None) -> int:
+                       print_model=None, servo_mass_kg: float | None = None,
+                       servo_source: str | None = None, emit=None) -> int:
     """Run the compiler, emitting one JSON line per stage when asked.
 
     The progress stream is line-delimited JSON so a GUI can read it without buffering the whole run:
     ``{"stage": "...", "pct": 0-100, "msg": "..."}``, with the stage set fixed by ``STAGES``.
+
+    ``servo_mass_kg`` with ``servo_source`` is the datasheet mass of one actuator, so a servo's CAD
+    envelope is counted as bought-in hardware instead of as printed plastic. It is passed together
+    because a mass without the document it came from is indistinguishable from a guess; the compiler
+    enforces the pairing, and a caller that supplies one and not the other is refused there.
     """
 
     def default_emit(stage: str, pct: int, msg: str) -> None:
@@ -1015,9 +1082,15 @@ def compile_bundle_cli(step: Path, joints: Path | None, out: Path, json_progress
         f"{stage:11s} {pct:3d}%  {msg}", flush=True)))
 
     def progress(stage: str, pct: int, msg: str) -> None:
-        if stage not in STAGES:  # a stage the consumer cannot know about is a bug, not a feature
+        if stage not in KNOWN_STAGES:  # a stage the consumer cannot know about is a bug, not a feature
             raise ValueError(f"unknown stage {stage!r}")
         sink(stage, pct, msg)
+
+    if print_model is not None:
+        # Said before the compiler starts, not after: the print model decides every body's mass, and
+        # a caller reading the stream has to know which assumptions the numbers that follow rest on.
+        sink(TOOLING_STAGE, 0, f"print model: {print_model.wall_thickness_m * 1000:.2f} mm wall, "
+                               f"{print_model.infill_fraction:.2f} infill")
 
     try:
         from ai_cad.compiler.compile import compile_bundle
@@ -1030,6 +1103,9 @@ def compile_bundle_cli(step: Path, joints: Path | None, out: Path, json_progress
             str(out),
             limits=limits,
             limits_source=source,
+            print_model=print_model,
+            actuator_mass_kg=servo_mass_kg,
+            actuator_mass_source=servo_source,
             progress=progress,
         )
     except Exception as error:  # noqa: BLE001 - a CLI contract: report, do not traceback at a GUI
@@ -1042,6 +1118,210 @@ def compile_bundle_cli(step: Path, joints: Path | None, out: Path, json_progress
         "warn" if any(c.status == "warn" for c in report.checks) else "pass"
     )
     return 3 if worst == "fail" else 0
+
+
+def _bundle_document(directory: Path) -> dict:
+    """The compiled ``bundle.json`` in a directory, or a caller-facing error naming what is missing."""
+    path = Path(directory) / "bundle.json"
+    if not path.exists():
+        raise FileNotFoundError(
+            f"{_safe(directory)} has no bundle.json: a revision compares two compiles of the same robot"
+        )
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _bought_in_parts(document: dict) -> int:
+    """How many parts in a compile are bought in rather than printed."""
+    return sum(
+        int(body.get("bought_in_parts") or 0)
+        for body in document.get("bodies") or []
+        if isinstance(body, dict)
+    )
+
+
+def _servo_provenance_error(before_document: dict, servo_mass_kg: float | None,
+                            servo_source: str | None) -> str | None:
+    """Why a revision cannot start without a stated actuator mass, or ``None`` if it can.
+
+    The frozen bundle models bought-in parts — servos sitting in a CAD envelope that carries no mass
+    of its own. A compile that is not told their mass counts those envelopes as printed plastic, so
+    the two compiles disagree about how much of the robot is printed. That disagreement is not a
+    revision, and the solid-bound guard downstream can only report it after 26 minutes of compilation.
+    Refusing here costs milliseconds and names the flag.
+    """
+    bought_in = _bought_in_parts(before_document)
+    if bought_in == 0:
+        return None
+    if servo_mass_kg is None:
+        return (
+            f"the frozen bundle models {bought_in} bought-in part(s) with no printed mass,"
+            " and this compile was not told their mass: pass --servo-mass-kg with --servo-source, or"
+            " the servo envelopes are counted as printed plastic and the solid bound moves for a"
+            " reason that is not the print model"
+        )
+    if not (servo_source or "").strip():
+        return (
+            "a servo mass without its source is a number with nothing behind it: pass --servo-source"
+            " naming the datasheet the mass came from, so the revision carries its assumption"
+        )
+    return None
+
+
+def revise_cli(step: Path, before: Path, out: Path, infill: float | None, wall_mm: float | None,
+               joints: Path | None, json_progress: bool, json_out: bool,
+               servo_mass_kg: float | None = None, servo_source: str | None = None,
+               emit=None) -> int:
+    """Recompile ``before``'s robot against a new print model and diff the two compiles.
+
+    This is the sentence "change the infill to 30 percent" made into a command: the STEP file is
+    recompiled with a print model the caller named, written into ``out/bundle``, and diffed link by
+    link against the frozen bundle with ``ai_cad/compiler/revision.py``. Both sides are compiles of
+    the same robot, so the diff is a statement about one changed assumption and nothing else.
+    """
+    try:
+        print_model = print_model_from_cli(infill, wall_mm)
+    except ValueError as error:
+        # A range refusal is bad input, not a failed revision: nothing was compiled and no number was
+        # produced, so the caller gets exit 2 and the reason rather than a mass built on a bad guess.
+        print(f"error: {error}", file=sys.stderr)
+        if json_out:
+            print(json.dumps({"schema_version": REVISE_SCHEMA, "error": str(error)}))
+        return 2
+
+    # Read the frozen bundle before compiling anything: everything that can be refused in
+    # milliseconds should be, and the servo provenance check needs the bundle's own body records.
+    try:
+        before_document = _bundle_document(before)
+    except FileNotFoundError as error:
+        print(f"error: {_safe(error)}", file=sys.stderr)
+        if json_out:
+            print(json.dumps({"schema_version": REVISE_SCHEMA, "error": str(error)}))
+        return 2
+    provenance_error = _servo_provenance_error(before_document, servo_mass_kg, servo_source)
+    if provenance_error is not None:
+        print(f"error: {provenance_error}", file=sys.stderr)
+        if json_out:
+            print(json.dumps({"schema_version": REVISE_SCHEMA, "error": provenance_error}))
+        return 2
+
+    bundle_out = Path(out) / "bundle"
+    code = compile_bundle_cli(Path(step), joints, bundle_out, json_progress, print_model,
+                              servo_mass_kg, servo_source, emit)
+    if code == 2:
+        return 2  # the compiler reported through the same sink; there is nothing to diff
+
+    from ai_cad.compiler.revision import diff_links, from_bundle, render_markdown  # noqa: PLC0415
+
+    try:
+        after_document = _bundle_document(bundle_out)
+    except FileNotFoundError as error:
+        print(f"error: {_safe(error)}", file=sys.stderr)
+        if json_out:
+            print(json.dumps({"schema_version": REVISE_SCHEMA, "error": str(error)}))
+        return 2
+
+    revision = diff_links(
+        from_bundle(before_document),
+        from_bundle(after_document),
+        before_label=Path(before).as_posix(),
+        after_label=bundle_out.as_posix(),
+    )
+    Path(out).mkdir(parents=True, exist_ok=True)
+    (Path(out) / "diff.json").write_text(revision.model_dump_json(indent=2), encoding="utf-8")
+    markdown = render_markdown(revision)
+    (Path(out) / "diff.md").write_text(markdown, encoding="utf-8")
+
+    # The spoken figures: both totals are printed from the two bundles, and the solid bound is named
+    # beside them because it does not move with a print assumption and that is the point of it.
+    mass_before = before_document.get("total_mass_kg")
+    mass_after = after_document.get("total_mass_kg")
+    solid_before = before_document.get("total_solid_mass_kg")
+    solid_after = after_document.get("total_solid_mass_kg")
+    change = None
+    if mass_before and mass_after is not None and mass_before > 0:
+        change = 100.0 * (mass_after - mass_before) / mass_before
+
+    # A print assumption cannot move the solid bound: the solid is the volume the CAD holds at a
+    # stated density, and neither wall thickness nor infill enters it. When the two bundles disagree
+    # about it, something OTHER than the print model differs between the compiles -- the servo mass,
+    # the density map, the decimation -- and the mass change below is that difference plus the
+    # revision rather than the revision. That is the defect revision_f030's sanity list exists to
+    # prevent, so the diff is refused instead of printed as if it were one changed assumption.
+    solid_moved = (
+        solid_before is not None
+        and solid_after is not None
+        and abs(solid_after - solid_before) > max(1e-9, 1e-6 * max(abs(solid_before), abs(solid_after)))
+    )
+    reason = revision.incomparable_reason
+    if solid_moved:
+        reason = (
+            f"the solid bound moved {solid_before:.4f} kg -> {solid_after:.4f} kg, and wall "
+            "thickness and infill cannot change it: the two compiles differ by something other than "
+            "the print model. Recompile with the same inputs the frozen bundle was built with "
+            "(`--servo-mass-kg` and `--servo-source`, and the same `--joints`), or the printed mass "
+            "below is that difference plus the revision, not the revision."
+        )
+    comparable = revision.comparable and not solid_moved
+
+    payload = {
+        "schema_version": REVISE_SCHEMA,
+        "before": Path(before).as_posix(),
+        "after": bundle_out.as_posix(),
+        "print_model": (
+            None if print_model is None
+            else {
+                "wall_thickness_m": print_model.wall_thickness_m,
+                "infill_fraction": print_model.infill_fraction,
+            }
+        ),
+        "totals": {
+            "printed_mass_before_kg": mass_before,
+            "printed_mass_after_kg": mass_after,
+            "printed_mass_change_percent": change,
+            "solid_mass_before_kg": solid_before,
+            "solid_mass_after_kg": solid_after,
+        },
+        "links": {"added": [], "removed": [], "changed": len(revision.changed)},
+        "solid_bound_moved": solid_moved,
+        "comparable": comparable,
+        "incomparable_reason": reason,
+        "written": [str(Path(out) / "diff.json"), str(Path(out) / "diff.md")],
+    }
+    for link in revision.links:
+        if link.status == "added":
+            payload["links"]["added"].append(link.link_id)
+        elif link.status == "removed":
+            payload["links"]["removed"].append(link.link_id)
+
+    if solid_moved:
+        # The table is still written -- a refused diff is evidence -- but it says why it is refused,
+        # so a reader of the file alone is never handed a mass change with no caveat.
+        markdown += (
+            f"\n**Not comparable.** {reason}\n"
+        )
+        (Path(out) / "diff.md").write_text(markdown, encoding="utf-8")
+
+    if json_out:
+        print(json.dumps(payload, indent=2))
+    else:
+        model = ("the bundle's own print model" if print_model is None
+                 else f"{print_model.wall_thickness_m * 1000:.2f} mm wall, "
+                      f"{print_model.infill_fraction:.2f} infill")
+        print(f"recompiled at {model}")
+        if not comparable:
+            print(f"NOT COMPARABLE: {reason}")
+        else:
+            print(f"links        {len(revision.links)}  ({len(payload['links']['added'])} added, "
+                  f"{len(payload['links']['removed'])} removed, {len(revision.changed)} changed)")
+            if change is None:
+                print("printed mass  not stated: one of the two bundles carries no total mass")
+            else:
+                print(f"printed mass {mass_before:.4f} kg -> {mass_after:.4f} kg ({change:+.1f}%)")
+            if solid_before is not None and solid_after is not None:
+                print(f"solid bound  {solid_before:.4f} kg -> {solid_after:.4f} kg "
+                      "(the solid is not a print assumption)")
+            print(f"diff written {Path(out) / 'diff.md'}")
+    return 0 if comparable else 3
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -1075,6 +1355,49 @@ def main(argv: list[str] | None = None) -> int:
     compile_cmd.add_argument("--out", type=Path, required=True)
     compile_cmd.add_argument("--json-progress", action="store_true",
                              help="emit one JSON object per line instead of text")
+    compile_cmd.add_argument(
+        "--infill", type=float, default=None,
+        help=f"print-model infill fraction, {PRINT_INFILL_RANGE[0]:g}-{PRINT_INFILL_RANGE[1]:g}; "
+             "outside that range the command refuses",
+    )
+    compile_cmd.add_argument(
+        "--wall-mm", type=float, default=None,
+        help=f"print-model wall thickness in mm, {PRINT_WALL_MM_RANGE[0]:g}-{PRINT_WALL_MM_RANGE[1]:g}; "
+             "outside that range the command refuses",
+    )
+    compile_cmd.add_argument(
+        "--servo-mass-kg", type=float, default=None,
+        help="datasheet mass of one actuator, so its CAD envelope is not counted as printed plastic",
+    )
+    compile_cmd.add_argument(
+        "--servo-source", default=None,
+        help="the document the servo mass comes from; required with --servo-mass-kg",
+    )
+
+    revise_cmd = sub.add_parser(
+        "revise", help="recompile a bundle's robot at a new print model and diff the two compiles"
+    )
+    revise_cmd.add_argument("--step", type=Path, required=True)
+    revise_cmd.add_argument("--before", type=Path, required=True,
+                            help="the compiled bundle the revision is measured against")
+    revise_cmd.add_argument("--out", type=Path, required=True,
+                            help="directory for the new compile, diff.json and diff.md")
+    revise_cmd.add_argument("--joints", type=Path, default=None,
+                            help="reviewed robot.joints.yaml whose limits this compile adopts")
+    revise_cmd.add_argument("--infill", type=float, default=None,
+                            help=f"print-model infill fraction, {PRINT_INFILL_RANGE[0]:g}-"
+                                 f"{PRINT_INFILL_RANGE[1]:g}")
+    revise_cmd.add_argument("--wall-mm", type=float, default=None,
+                            help=f"print-model wall thickness in mm, {PRINT_WALL_MM_RANGE[0]:g}-"
+                                 f"{PRINT_WALL_MM_RANGE[1]:g}")
+    revise_cmd.add_argument("--json-progress", action="store_true",
+                            help="emit one JSON object per line instead of text")
+    revise_cmd.add_argument("--json", action="store_true", help="machine-readable output")
+    revise_cmd.add_argument("--servo-mass-kg", type=float, default=None,
+                            help="the mass the frozen bundle was compiled with, so the only stated "
+                                 "difference between the two compiles is the print model")
+    revise_cmd.add_argument("--servo-source", default=None,
+                            help="the document the servo mass comes from; required with --servo-mass-kg")
 
     unpack_cmd = sub.add_parser("unpack", help="extract a shipped demo zip, refusing a bad digest")
     unpack_cmd.add_argument("--zip", type=Path, required=True)
@@ -1149,7 +1472,21 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"  no {FILE_DIGESTS} in this package: the zip digest is the only check")
             print(f"  bundle (set ROBOCAD_BUNDLE_DIR to this): {payload['bundle']}")
         return 0
-    return compile_bundle_cli(args.step, args.joints, args.out, args.json_progress)
+    if args.command == "revise":
+        return revise_cli(args.step, args.before, args.out, args.infill, args.wall_mm,
+                          args.joints, args.json_progress, args.json,
+                          args.servo_mass_kg, args.servo_source)
+    try:
+        print_model = print_model_from_cli(args.infill, args.wall_mm)
+    except ValueError as error:
+        # Refused before the compiler starts: a compile that produced masses from an impossible print
+        # assumption would be a number with no process behind it, and the caller has to see why.
+        print(f"error: {error}", file=sys.stderr)
+        if args.json_progress:
+            print(json.dumps({"stage": "error", "pct": 0, "msg": str(error)}), flush=True)
+        return 2
+    return compile_bundle_cli(args.step, args.joints, args.out, args.json_progress, print_model,
+                              args.servo_mass_kg, args.servo_source)
 
 
 if __name__ == "__main__":

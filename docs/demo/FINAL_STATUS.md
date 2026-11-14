@@ -47,6 +47,36 @@ one of those statements now comes from the summary the voice also speaks from.
 - The live hold still fails for contact geometry. Nothing in v1.3 changes that, and no panel claims
   otherwise.
 
+### E4 — the revision a voice can call [verified: ran]
+
+Added after v1.3 was cut. This is CLI source, not page content: the package holds no `.py` files
+(33 entries, the only twin artefact is `twin.js`), and `docs/demo/so101_demo.zip` still hashes to
+`f86c28f703f84ccfcb3269233ad7a0ef88e2843172387728f5af7c01b6b569f3`. **v1.3 remains the artifact of
+record and is unchanged by this work.**
+
+| What | State | Evidence |
+|---|---|---|
+| `twin revise` exists and is discoverable | `usage: robocad twin [-h] {summary,page,compile,revise,unpack} ...`; tested, because a verb only in a changelog is one a subprocess caller cannot find | `verified-ran`, `python -m robocad twin --help`; `test_the_help_names_revise_because_a_caller_scripts_against_the_help` |
+| "change the infill to 30 percent" produces a spoken mass | real run on the SO-101 STEP, 25m58s, exit 0: `printed mass 0.9017 kg -> 0.9555 kg (+6.0%)`, `solid bound 1.3320 kg -> 1.3320 kg` | `verified-ran`, `twin revise --infill 0.30 …`; equals the frozen `docs/twin/so101/revision_f030/diff.json` |
+| Bounds, and refusal before compiling | infill 0.1–1.0, wall 0.8–3.0 mm; `--infill 0.05` and `--wall-mm 0.4` each exit **2** with the reason, nothing compiled | `verified-ran`, both stderr lines quoted in SPRINT_LOG E4; 4 parametrised cases + exit-2 case in `tests/test_twin_print_model.py` |
+| The assumption is announced first | `tooling:print_model` at pct 0, ahead of the compiler's `import` at pct 10; `KNOWN_STAGES` admits it without widening `STAGES` | `verified-ran`, progress stream, first line; 2 tests |
+| A diff that is not the revision is refused | the first real run moved the solid bound (1.3320 → 1.0413 kg) because it named no actuators; `revise` now refuses that diff, exit 3, reason written into `diff.md` | `verified-ran`, guard output; `test_revise_refuses_a_diff_where_the_solid_bound_moved` |
+| Refused before the compile, not after it | the frozen bundle records 6 bought-in parts, so a revise with no `--servo-mass-kg` exits **2** in 1.08 s naming both flags; a mass with a blank `--servo-source` is refused the same way. The guard downstream caught this only after 25m58s | `verified-ran`, `twin revise … --infill 0.30` on the real bundle; 3 tests |
+| A mass-only change is not called unchanged | the real run first printed `0 changed` beside a 6% mass rise, and `diff.md` said `unchanged` next to `+11.35 g`; `diff_links` now counts mass, re-rendered to `7 changed` from the same two bundles without recompiling | `verified-ran`, regenerated `diff.md`; `test_a_mass_only_change_is_not_reported_as_unchanged`, `tests/test_revision.py` 23 passed |
+| Tests | `tests/test_twin_print_model.py` **16 passed**; twin/CLI/bundle/demo suites **80 passed, 11 deselected**; full default tier **852 passed, 309 deselected**, exit 0, 11m03s | `verified-ran`, pytest output in SPRINT_LOG E4 |
+| Documented under "Try it yourself" | `docs/demo/TRY_IT_YOURSELF.md`, placed outside the packaged README so editing it cannot break re-derivation of the tagged package | `verified-read`, file; `docs/DECISIONS.md` carries the reason |
+
+**Not done, stated plainly:** `revise` reports printed mass and the link diff, not the effort check or
+the torque comparison on the new masses — the frozen 0.652 → 0.687 N·m pair came from the scripted
+path. Re-deriving a revision through the CLI also requires the caller to pass `--servo-mass-kg` and
+`--servo-source` and the frozen `--joints`, because a compile without them counts servo envelopes as
+printed plastic; the guard refuses the result rather than reporting it. No default is baked for the
+servo mass: 55 g is a datasheet figure for one actuator, and a default would stamp it on every bundle
+the tool is run against. The fix is to record `actuator_mass_kg` and its source in `bundle.json` so
+`revise` reads them from `--before` — a next-bundle change, not one to make under a frozen tag. The
+SO-101 STEP is still not in the repo, so `revise` cannot run from a clean clone without fetching the
+third-party file.
+
 ## v1.2: superseded, kept for the record
 
 Read this paragraph before handing anyone a zip. **The tag `demo-bundle-v1.1` points at a defective

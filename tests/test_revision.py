@@ -33,6 +33,15 @@ class TestDiffLinks:
         assert result.links[0].status == "unchanged"
         assert result.changed == []
 
+    def test_a_mass_only_change_is_not_reported_as_unchanged(self):
+        """A print-model revision moves mass and no geometry; the status must not deny it."""
+        result = diff_links({"a": row("a", mass=0.1)}, {"a": row("a", mass=0.106)})
+        link = result.links[0]
+        assert link.volume_delta_percent == pytest.approx((0.0, 0.0))
+        assert link.mass_delta_kg == pytest.approx(0.006)
+        assert link.status == "changed"
+        assert result.changed == [link]
+
     def test_an_added_link_is_named_not_dropped(self):
         result = diff_links({}, {"a": row("a", quantity=4)})
         link = result.links[0]
