@@ -3,6 +3,22 @@
 Newest first. One entry per decision, with the date, what was decided, why, and what it rules out.
 A decision without a reason is a preference; it does not belong here.
 
+## 2026-11-14 `demo-v1.1` is the sprint's release tag, and it is not the package tag
+
+Decided: the sprint is tagged `demo-v1.1` in both repos — RoboCAD at `b941e5e` (the commit that holds
+`FINAL_STATUS.md`, so the tag carries its own gate table), Hi-EV at `2b46fa0` (the fixture export).
+The artifact tag stays `demo-bundle-v1.7` on RoboCAD `656d244`.
+
+Why two tags: they answer different questions. `demo-bundle-v1.7` answers "which bytes are the
+package", and `scripts/verify_demo_zip.py --tag` proves that answer byte for byte. `demo-v1.1` answers
+"which state of the two repositories is the thing we handed over", and it has to name commits in both
+repos, which a bundle tag cannot. Pointing `demo-v1.1` at `656d244` instead would have made the
+release tag precede its own evidence: `verify.json` lands at `83ecc0f` and this status file at
+`b941e5e`, both after the package commit.
+
+Rules out: treating `demo-v1.1` as a rebuild signal. Nothing is baked from it, and a reader who needs
+the bytes follows `demo-bundle-v1.7`, which is the only tag `verify_demo_zip.py` accepts.
+
 ## 2026-11-13 A check called `limits_and_effort` needs an effort limit to pass
 
 Decided: `bundle_checks.check_limits_and_effort` passes only when every joint carries a travel limit,

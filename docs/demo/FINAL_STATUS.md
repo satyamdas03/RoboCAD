@@ -27,6 +27,8 @@ moved.
 | Printed mass for any infill, no STEP | `tests/test_print_from_bundle.py`, `test_print_model.py`, `test_revise_from_bundle.py` → 40 passed; bundle arithmetic 0.9554530302470396 vs an independent compile 0.9554530302470398 kg | verified-ran |
 | Hostile bundle input refused, not crashed | `pytest tests/test_bundle_untrusted_input.py` → 27 passed (terminal, markdown, arithmetic sinks; backslash-neutralised pipes; `float(10**400)`; two bodies sanitising to one id) | verified-ran |
 | Hi-EV reads the same summary | fixture re-exported from `f14291bf…` into both repos; `pytest tests/test_robocad_tool.py` → 11 passed | verified-ran |
+| Whole default suite, at this tree | `python -m pytest -q` → **896 passed, 320 deselected, 3 warnings in 517.97 s**, exit 0 | verified-ran |
+| Release tag in both repos | `demo-v1.1` → RoboCAD, on the commit that holds this file (so the tag carries this table); Hi-EV `2b46fa0`; package tag `demo-bundle-v1.7` → RoboCAD `656d244` | verified-ran |
 
 **What is still not done, plainly.**
 
