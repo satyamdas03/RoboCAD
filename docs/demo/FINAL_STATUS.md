@@ -2,8 +2,44 @@
 
 Owner of this file: build session (Lane A, `robocad-61`), with the show-path rows contributed by the
 monitor session (Lane B) and every one of them re-derived before it was written here. Updated
-2026-11-14, 15:40, for **v1.3**. Every claim carries a tag:
-`verified-ran`, `verified-read`, `claimed`. Deadline: hard freeze Sat 14 Nov 2026, 13:15 Sydney.
+2026-11-14 for **v1.7** (see the section immediately below); the v1.3 sections further down are kept
+as history. Every claim carries a tag: `verified-ran`, `verified-read`, `claimed`. Deadline: hard
+freeze Sat 14 Nov 2026, 13:15 Sydney.
+
+## Final visual stretch: v1.7 is the package to hand anyone
+
+`demo-bundle-v1.7`, commit `656d244`, zip sha256
+`f14291bf796f01c6fd17687ad56d7d4d32426111d1b79232494ebea7f69fa052`. Two earlier tags from the same
+sprint (`v1.5`, `v1.6`) are superseded and left in place; `DECISIONS.md` explains why they were not
+moved.
+
+| Gate | Evidence | Tag |
+|---|---|---|
+| Package baked once, after the page gates were green | `python teardown_export/package_demo.py --tag demo-bundle-v1.7 --tag-pending` → `PACKAGE OK` | verified-ran |
+| Tag proves its own bytes | `python scripts/verify_demo_zip.py docs/demo/so101_demo.zip --tag demo-bundle-v1.7 --built-from 656d2444… --out docs/demo/verify.json` → 5/5 PASS, `VERIFIED`; tag → `656d2444`, zip in tag matches, `manifest.js` records `demo-bundle-v1.7`, page reads `demo-bundle-v1.7` | verified-ran |
+| Package opens from `file://`, offline | same run, check 4: 7 check rows, 7 link rows, revision panel 284 chars over 7 rows, 0 page errors, 0 non-file requests, 0 missing links | verified-ran |
+| Fresh clone → `start_demo` → HUD | clone of `83ecc0f`; `start_demo.ps1 -RoboCadRoot <clone> -Fresh`: package digest `f14291bf796f01c6` matches `verify.json`, `EV_DEMO_BUNDLE_TAG=v1.7`, `setup hidden  needs_setup false, demo true`, daemon up, page served | verified-ran |
+| The release journey, typed into that HUD | `python scripts/release_journey.py --base http://127.0.0.1:7345`: 7 phrases, 0 unanswered, 0 over the 1500 ms budget, 0 console errors; first phrase 1337 ms cold, the rest 44–59 ms; Escape closes the input and `/` reopens it | verified-ran |
+| Every frame of that journey | `docs/demo/screens/release/01-…09-….png`, plus `package-tile.png` and `infill-30-page.png` | verified-ran |
+| PACKAGE tile names the tag, unclipped | `pytest tests/test_page_package_tile.py -m ""` → 1 passed (asserts no doubled prefix, tag once, pill `tagged`/`ok`, pill box inside the tile, no clipped span) | verified-ran |
+| Cockpit at the blade's 870 px | `pytest tests/test_page_blade_width.py -m ""` → 1 passed; pre-fix reproduction at a 198 px stage in `screens/v1.4/defect-blade-870x680.png` | verified-ran |
+| Infill moves every dependent number | `pytest tests/test_page_infill_bridge.py -m ""` → 1 passed; `node --test docs/demo/page/sections.test.mjs` → 15 passed (origin rule, range rule, both message types) | verified-ran |
+| Printed mass for any infill, no STEP | `tests/test_print_from_bundle.py`, `test_print_model.py`, `test_revise_from_bundle.py` → 40 passed; bundle arithmetic 0.9554530302470396 vs an independent compile 0.9554530302470398 kg | verified-ran |
+| Hostile bundle input refused, not crashed | `pytest tests/test_bundle_untrusted_input.py` → 27 passed (terminal, markdown, arithmetic sinks; backslash-neutralised pipes; `float(10**400)`; two bodies sanitising to one id) | verified-ran |
+| Hi-EV reads the same summary | fixture re-exported from `f14291bf…` into both repos; `pytest tests/test_robocad_tool.py` → 11 passed | verified-ran |
+
+**What is still not done, plainly.**
+
+* The HUD does not yet send `robocad.infill`. The page accepts the message and moves every number
+  (`infill-30-page.png` shows the card at 0.955 kg), but in the live HUD frame `07-infill-30.png` the
+  chat answer says 0.955 kg while the card still shows 0.902 kg. The sender is the Hi-EV HUD, which is
+  the peer lane's V7. Until it posts the message, that one frame is the honest picture of the gap.
+* `verify.json` lands one commit after the tag, because a tag cannot contain a record of its own
+  commit. It is committed at `83ecc0f`.
+* Heavy, slow, mujoco and benchmark tiers were run for the page tests only (`-m ""`); the rest of the
+  default selection is reported in the release message, not here.
+* Nothing has been measured on hardware.
+
 
 ## Everything that is not done, in one place
 

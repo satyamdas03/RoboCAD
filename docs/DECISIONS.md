@@ -808,3 +808,33 @@ the number is tidier, and the price is teaching every later digest-reading scrip
 move. Rejected for the same reason `v1.3` was only ever recreated once, before it was referenced by
 anything.
 
+## demo-bundle-v1.7 supersedes v1.6, and the churn is the lesson
+
+**Decision.** The package of record is `demo-bundle-v1.7` at commit `656d244`, zip sha256
+`f14291bf…`. `demo-bundle-v1.6` (`d5615d3`, zip `49d75172…`) and `demo-bundle-v1.5` (`2422af4`, zip
+`19701ec2…`) are left where they are.
+
+**What went wrong.** Two tags were cut in one hour for the same reason both times: the visual gate ran
+after the tag instead of before it. v1.5 shipped a page that clipped its own tag text; v1.6 shipped a
+page that answered "change infill to 30 percent" in chat while the card behind it still showed the
+other bake, because the page had no channel for that sentence.
+
+**The process fix, stated so the next release can follow it.** The bake is the last step, not a
+checkpoint:
+
+1. every page assertion runs against the tree page (`tests/test_page_*.py -m ""`), which is cheap and
+   needs no bake;
+2. only when those are green is the package baked, once;
+3. the packaged-page assertions run against the baked copy, because build output is what a recipient
+   gets;
+4. only then is the tag created, and the tag is created on the commit that already holds that zip.
+
+A tag made before step 3 can be wrong in a way no test will tell you about until after it exists, and
+the only honest repair costs a version number. That is what happened here, twice.
+
+**Considered and rejected.** Squashing the three tags into one by deleting v1.5 and v1.6: the rule
+against moving a published tag is the reason `verify.json` can be trusted at all, and a reader who
+sees three tags can read this section, while a reader who sees one has no way to know anything was
+ever wrong.
+
+

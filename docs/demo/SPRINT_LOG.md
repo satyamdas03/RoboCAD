@@ -1222,3 +1222,57 @@ robocad_summary.v1.json 57755 bytes from so101_demo.zip 49d75172e2ca; synthetic 
 $ cd ../Hi-EV && python -m pytest tests/test_robocad_tool.py -q
 11 passed
 ```
+
+### The package is v1.7, and the release journey was typed into a fresh clone [verified: ran]
+
+Two corrections after the v1.6 tag, both caused by the same ordering mistake: the visual gate ran
+after the tag. v1.6 shipped a page whose PACKAGE tile was fixed but which could not follow "change
+infill to 30 percent": the sentence answered in chat while the card behind it still showed the other
+bake. The page now accepts `{type: "robocad.infill", infill}` on the section channel, under the
+section channel's own origin rule, and applies it through the single `setInfill` that already owns
+every dependent figure.
+
+```
+$ node --test docs/demo/page/sections.test.mjs
+15 passed
+
+$ python -m pytest tests/test_page_infill_bridge.py -m "" -q
+1 passed
+   page opens at 0.902 kg / "0.20 infill"; the message moves card, KPI tile, delta,
+   saving, basis line, torque caption and the aria-pressed switch to 0.955 / "0.30 infill";
+   1.4 is refused and leaves the page exactly where it was
+```
+
+The bake then ran once, and the packaged copy was checked before the tag existed:
+
+```
+$ python teardown_export/package_demo.py --tag demo-bundle-v1.7 --tag-pending
+PACKAGE OK
+$ python -m pytest tests/test_page_package_tile.py tests/test_page_blade_width.py -m "" -q
+2 passed
+sha256 f14291bf796f01c6fd17687ad56d7d4d32426111d1b79232494ebea7f69fa052
+```
+
+Fresh clone, launcher, journey:
+
+```
+$ git clone --branch master <repo> %TEMP%\rc_clone && cd %TEMP%\rc_clone
+$ sha256sum docs/demo/so101_demo.zip
+f14291bf…  (the digest verify.json records)
+$ pwsh scripts/start_demo.ps1 -RoboCadRoot %TEMP%\rc_clone -Fresh
+PASS  package digest f14291bf796f01c6 matches verify.json
+PASS  EV_DEMO_BUNDLE_TAG=v1.7
+PASS  setup hidden  needs_setup false, demo true
+RESULT: PASS  demo ready at http://127.0.0.1:7345
+$ python scripts/release_journey.py --base http://127.0.0.1:7345
+walk me through it   1337.4 ms   next 57.3 ms   next 47.6 ms   next 58.6 ms
+show me the torque     45.7 ms   what failed 44.4 ms
+change infill to 30 percent 1149.7 ms
+Escape  input after Escape: False, reopens on '/': True
+7 phrases in 11.7 s, 0 unanswered, 0 over the 1500 ms budget, 0 console error(s)
+```
+
+Every frame is committed in `docs/demo/screens/release/`. One of them is honest about a gap: in
+`07-infill-30.png` the chat answer says 0.955 kg and the card still says 0.902 kg, because the HUD
+does not send the message yet. That sender is the peer lane's V7; the page half is proven separately
+by `infill-30-page.png` and by the test above.
