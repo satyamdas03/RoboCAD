@@ -3,6 +3,23 @@
 Newest first. One entry per decision, with the date, what was decided, why, and what it rules out.
 A decision without a reason is a preference; it does not belong here.
 
+## 2026-11-14 The HUD half of the release needs `demo-v1.2`; `demo-v1.1` stays where it is
+
+Decided: `demo-v1.1` in Hi-EV stays on `2b46fa0`, even though it predates the sender fix at
+`870d48f`. The pair's HUD half gets a later tag, `demo-v1.2`, on the Hi-EV commit that holds the
+release pass; RoboCAD follows with `demo-v1.2` at whatever commit records that pass as evidence.
+
+Why: the tag was cut before the visual gate for the third time this sprint. The gate that caught it
+is new — `tests/test_page_sandboxed_delivery.py`, which embeds the page the way the HUD does and
+shows that an infill message addressed to the frame's origin is dropped by the browser while a
+wildcard target moves the card. Until that test existed, every journey run passed with the message
+dead, which is why a tag cut from journey evidence could not have caught this.
+
+Rules out: deleting and re-creating `demo-v1.1`. It is pushed, and the no-move rule is what makes
+`verify.json` worth reading. It also rules out trusting a chat-only journey result as a visual gate:
+`scripts/release_journey.py` now reads the embedded card after the infill sentence and fails when the
+card disagrees with the sentence.
+
 ## 2026-11-14 `demo-v1.1` is the sprint's release tag, and it is not the package tag
 
 Decided: the sprint is tagged `demo-v1.1` in both repos — RoboCAD at `b941e5e` (the commit that holds

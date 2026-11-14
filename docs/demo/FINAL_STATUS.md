@@ -29,13 +29,20 @@ moved.
 | Hi-EV reads the same summary | fixture re-exported from `f14291bf…` into both repos; `pytest tests/test_robocad_tool.py` → 11 passed | verified-ran |
 | Whole default suite, at this tree | `python -m pytest -q` → **896 passed, 320 deselected, 3 warnings in 517.97 s**, exit 0 | verified-ran |
 | Release tag in both repos | `demo-v1.1` → RoboCAD, on the commit that holds this file (so the tag carries this table); Hi-EV `2b46fa0`; package tag `demo-bundle-v1.7` → RoboCAD `656d244` | verified-ran |
+| A sandboxed frame really receives the sentence | `pytest tests/test_page_sandboxed_delivery.py -m ""` → 1 passed: a message addressed to the frame's origin is dropped by the browser, the same message with a wildcard target moves the card from 0.902/0.20 to 0.955/0.30 and presses the switch | verified-ran |
+| …and the journey now reads the card, not only chat | `scripts/release_journey.py` reads the embedded page after "change infill to 30 percent" and fails the run when the card disagrees with the sentence | verified-read (script; the peer's packaged run printed `PAGE shows 0.955 kg at 0.30 infill`) |
 
 **What is still not done, plainly.**
 
-* The HUD does not yet send `robocad.infill`. The page accepts the message and moves every number
-  (`infill-30-page.png` shows the card at 0.955 kg), but in the live HUD frame `07-infill-30.png` the
-  chat answer says 0.955 kg while the card still shows 0.902 kg. The sender is the Hi-EV HUD, which is
-  the peer lane's V7. Until it posts the message, that one frame is the honest picture of the gap.
+* The HUD's infill sender and the page's receiver were never connected before today. The HUD posted
+  to the frame's origin, which a sandboxed frame never accepts, so the message died in the browser
+  before the page's listener ran. The peer lane fixed the sender (Hi-EV `870d48f`); this lane proves
+  the pair with `tests/test_page_sandboxed_delivery.py` and made the journey read the card. Consequence
+  to be honest about: every earlier journey run in this sprint passed while delivery was broken.
+* `demo-v1.1` in Hi-EV points at `2b46fa0`, which is **before** that sender fix. The tag was cut in
+  the same wrong order this sprint already paid for twice: evidence first, tag second, and here the
+  tag came first. It is published, so it stays. The pair's HUD half needs a later tag (`demo-v1.2`
+  proposed in `DECISIONS.md`) rather than a moved tag.
 * `verify.json` lands one commit after the tag, because a tag cannot contain a record of its own
   commit. It is committed at `83ecc0f`.
 * Heavy, slow, mujoco and benchmark tiers were run for the page tests only (`-m ""`); the rest of the

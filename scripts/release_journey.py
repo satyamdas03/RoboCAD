@@ -31,6 +31,37 @@ STEPS = [
 GPU_ARGS = ["--enable-gpu", "--use-angle=d3d11", "--ignore-gpu-blocklist"]
 BUDGET_MS = 1500  # a phrase an audience waits more than a second and a half for is a phrase that hung
 
+# The frame reads its own card. A chat answer alone does not prove the page moved: the sentence
+# "printed mass went from 0.902 to 0.955" lands in chat whether or not the card behind it follows,
+# and that mismatch is exactly the defect v1.6 shipped. The host posts to the frame with a wildcard
+# target because a sandboxed frame's document origin is opaque; if that delivery regresses, the chat
+# still answers and only this read changes. See docs/demo/screens/release/07-infill-30.png.
+BLADE_READ = """(()=>{
+  const t = (id)=>{const e=document.getElementById(id);
+    return e ? e.innerText.replace(/\\s+/g,' ').trim() : null};
+  return {mass: t('kpi-mass'), masses: t('masses'),
+          after: document.getElementById('rev-after')?.getAttribute('aria-pressed') ?? null};
+})()"""
+
+
+def blade_frame(page):
+    """The embedded page, or None when the HUD has not opened the blade."""
+    for frame in page.frames:
+        if "/robocad/page/" in (frame.url or ""):
+            return frame
+    return None
+
+
+def read_blade(page):
+    frame = blade_frame(page)
+    if frame is None:
+        return None
+    try:
+        return frame.evaluate(BLADE_READ)
+    except Exception:
+        return None
+
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -81,6 +112,19 @@ def main() -> int:
                 silent += 1
             elif elapsed > BUDGET_MS:
                 over_budget += 1
+
+            # After the infill sentence the card has to show what the sentence said. A chat answer
+            # that names 0.955 kg while the card still reads 0.902 is the v1.6 defect, and it is
+            # invisible to every assertion that only reads chat.
+            if name.endswith("infill-30"):
+                card = read_blade(page)
+                ok = bool(card and "0.955" in (card.get("mass") or "")
+                          and "0.30 infill" in (card.get("masses") or "")
+                          and card.get("after") == "true")
+                print(f"{'  page after the sentence':28s} {'':>10s}  "
+                      f"{'PASS' if ok else 'FAIL'}  {card}")
+                if not ok:
+                    silent += 1
 
         # Escape is part of the journey: the presenter presses it when a question lands that they did
         # not want to ask, and the page has to go back to a state they can type into again. So the
