@@ -13,6 +13,7 @@ import hashlib
 import json
 import pathlib
 import shutil
+import subprocess
 import sys
 import tempfile
 import zipfile
@@ -121,9 +122,18 @@ def main() -> int:
     parser.add_argument("--repo", default=".")
     parser.add_argument("--out", default="docs/demo/so101_demo")
     parser.add_argument("--zip", default="docs/demo/so101_demo.zip")
+    parser.add_argument("--tag", default=None,
+                        help="the repository tag this package is cut from, written into manifest.js")
     args = parser.parse_args()
 
     repo = pathlib.Path(args.repo).resolve()
+    if args.tag:
+        # Fail closed on a tag that does not exist yet: the header would then name a package that
+        # cannot be fetched, which is the same class of defect as a digest that records nothing.
+        found = subprocess.run(["git", "rev-parse", "--verify", f"refs/tags/{args.tag}"],
+                               cwd=repo, capture_output=True, text=True)
+        if found.returncode != 0:
+            raise SystemExit(f"no tag {args.tag} in {repo}: create it, or package without a tag")
     out = repo / args.out
     if out.exists():
         shutil.rmtree(out)
@@ -164,6 +174,10 @@ def main() -> int:
         "torque.json": "docs/twin/so101/bundle/torque.json",
         "identification.json": "docs/twin/so101/bundle/identification.json",
         "identifiability_scenarios.json": "docs/twin/so101/bundle/identifiability_scenarios.json",
+        # The summary the page renders from and the voice speaks from: one generator, shipped as a
+        # script because the page runs from file://, where fetch() is blocked. `manifest.js` is
+        # written below instead of copied, because it must carry the tag this package is cut from.
+        "summary.js": "docs/demo/page/summary.js",
     }
     for name, rel in wanted.items():
         _copy(repo / rel, out / name, repo)
@@ -194,6 +208,12 @@ def main() -> int:
         manifest["files"] = files
         manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
+        # The page prints the tag this package was cut from, and it reads it here rather than from a
+        # string in the HTML. `--tag` is required to be a tag that exists in this repository: a page
+        # that names a tag nobody created is a claim, not a label.
+        from bake_manifest import bake as bake_manifest_js  # noqa: PLC0415
+
+        bake_manifest_js(manifest_path, out / "manifest.js", args.tag)
     # The packaged README says how much of the bundle's geometry this copy actually renders. Appended
     # here rather than written into docs/demo/README.md, because the repo README describes the source
     # document and the page is a build-time reduction of it.

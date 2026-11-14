@@ -301,6 +301,13 @@ def _sections(bundle_dir: Path, report: dict) -> dict:
         masses["print_kg"] = _node(totals["total_mass_kg"], "modelled")
     if comparison.get("theirs_total_kg") is not None:
         masses["published_kg"] = _node(comparison["theirs_total_kg"], "stated")
+    if comparison.get("delta_percent") is not None:
+        # The gap the page prints beside the published figure, computed once here rather than in
+        # the page's own arithmetic: a second computation is a second answer waiting to disagree.
+        masses["delta_percent"] = _node(comparison["delta_percent"], "modelled")
+    solid, printed = _number(totals.get("total_solid_mass_kg")), _number(totals.get("total_mass_kg"))
+    if solid and printed:
+        masses["infill_saving_percent"] = _node(round(100.0 * (1.0 - printed / solid), 1), "modelled")
     wall_mm, infill = _print_assumptions(totals.get("print_model"))
     assumptions: dict = {}
     if wall_mm is not None:
@@ -344,6 +351,13 @@ def _sections(bundle_dir: Path, report: dict) -> dict:
         residuals["origin_median_mm"] = _node(residual_mm.get("median"), "measured")
         residuals["origin_p90_mm"] = _node(residual_mm.get("p90"), "measured")
         residuals["origin_max_mm"] = _node(residual_mm.get("max"), "measured")
+    if alignment.get("worst_point_m") is not None:
+        # The same joint origins, measured before the zero-pose offsets are applied. The page states
+        # both figures side by side ("they look 110 mm apart; with the conventions, 2.50 mm median"),
+        # and the pair only means something if both come from the files rather than from the prose.
+        residuals["origin_worst_no_conventions_mm"] = _node(
+            round(float(alignment["worst_point_m"]) * 1000.0, 2), "measured"
+        )
     spacings = comparison.get("link_spacings") or []
     deltas = [abs(n) for n in (_number(s.get("delta_m")) for s in spacings
                                if isinstance(s, dict)) if n is not None]
@@ -371,8 +385,15 @@ def _sections(bundle_dir: Path, report: dict) -> dict:
             "rated_nm": _node(totals.get("actuator_rated_torque_nm"), "stated"),
             "dynamic_comparable": torque.get("dynamic_comparable"),
             "dynamic_reason": torque.get("dynamic_reason"),
+            # The saturation flag travels with the summary too: the page's warning line reads it from
+            # here, so a stale torque.js cannot say a different thing about the same rollover.
+            "saturated": torque.get("saturated"),
             "pose_gate_mm": _node(torque.get("pose_gate_worst_mm"), "modelled"),
             "pose_gate_samples_mm": torque.get("pose_gate_samples_mm"),
+            # Per-joint residuals behind the axis paragraph: the page prints one row per joint, so the
+            # numbers it prints have to be the numbers this summary carries, or the two disagree.
+            "axis_residual_deg": torque.get("axis_residual_deg_after_datum_fit"),
+            "anchor_perp_mm": torque.get("anchor_perp_mm_after_datum_fit"),
             "basis": "same joint-space trajectory, contacts disabled; static rows are qfrc_bias at rest",
         }
 
@@ -393,6 +414,17 @@ def _sections(bundle_dir: Path, report: dict) -> dict:
             "added": list(diff.get("added") or []),
             "removed": list(diff.get("removed") or []),
         }
+        # The effort check's demand, which is the same quantity the torque section reports as
+        # qfrc_bias at rest. Both are on the page, so both are here: a reader comparing 0.652 with
+        # 0.767 is comparing a load case with a pose, and the summary is where that is written down.
+        effort = diff.get("effort") or {}
+        for key, field in (("before", "effort_before_nm"), ("after", "effort_after_nm")):
+            demand = (effort.get(key) or {}).get("demand_nm")
+            if demand is not None:
+                section["revision"][field] = _node(demand, "modelled")
+                section["revision"][field.replace("_nm", "_percent")] = (
+                    effort.get(key) or {}
+                ).get("percent")
 
     identification = _read_json(bundle_dir / "identification.json")
     scenarios = _read_json(bundle_dir / "identifiability_scenarios.json")
@@ -422,6 +454,21 @@ def _sections(bundle_dir: Path, report: dict) -> dict:
                     })
             calibration["current_channel"] = {"params": params}
             calibration["stopped_at_rung"] = identification.get("stopped_at")
+            # How far the method got, counted here rather than on the page: "5 of 6 rungs" is a
+            # statement about this file, and a page that counts its own rows can count them wrong.
+            rungs = [r for r in identification.get("rungs") or [] if isinstance(r, dict)]
+            reached = {r.get("rung") for r in rungs if r.get("reached")}
+            calibration["rungs_total"] = len({r.get("rung") for r in rungs})
+            calibration["rungs_recovered"] = len(reached)
+            # The rung rows themselves, notes included. The page prints the blocked rung's reason,
+            # and that reason is full of figures (1.53 mrad, 998 N m per rad, 4096 counts); if the
+            # page reads them from identification.js instead, the two can disagree about the same
+            # sentence, which is the defect this summary exists to prevent.
+            calibration["rungs"] = [
+                {"rung": r.get("rung"), "name": r.get("name"), "reached": bool(r.get("reached")),
+                 "note": r.get("note")}
+                for r in rungs
+            ]
         if scenarios:
             base = scenarios[0]
             calibration["position_only"] = {
@@ -429,10 +476,44 @@ def _sections(bundle_dir: Path, report: dict) -> dict:
                 "status": "sufficient" if base.get("crosses_snr_3") else "insufficient",
                 "scenario": base.get("scenario"),
             }
+            calibration["scenarios"] = [
+                {"scenario": row.get("scenario"), "snr": row.get("snr"),
+                 "crosses": bool(row.get("crosses_snr_3"))}
+                for row in scenarios if isinstance(row, dict)
+            ]
         # Every number in this block came out of simulated logs with planted parameters. That is the
         # one place in the summary where `synthetic` is the true kind, and it says so here.
         calibration["synthetic"] = True
         section["calibration"] = calibration
+
+    # The twin preview the page draws: synthetic logs with planted parameters, and the count of
+    # parameters the method could and could not recover. It lives beside the bundle rather than in
+    # it because it is a method-validation artefact, and it is summarised here for the same reason
+    # the torque numbers are -- the page and the voice quote one set of figures, not two.
+    # It goes INSIDE `calibration`, not beside it: this is simulated data with planted parameters,
+    # and `synthetic` is a kind this summary reserves for exactly that block. Beside it, a reader
+    # checking which figures are synthetic would have found two blocks and no rule for the second.
+    preview = _read_json(bundle_dir / "synthetic_preview.json")
+    if preview:
+        estimates = preview.get("estimates") or []
+        calibration = section.setdefault("calibration", {})
+        calibration["synthetic"] = True
+        calibration["twin_preview"] = {
+            "identified": sum(1 for e in estimates if isinstance(e, dict) and e.get("identifiable")),
+            "total": len(estimates),
+            "hz": preview.get("hz"),
+            "runs": preview.get("runs"),
+            "rmse_uncalibrated_mrad": _node(
+                preview.get("trajectory_rmse_mrad_uncalibrated"), "synthetic"
+            ),
+            "rmse_calibrated_mrad": _node(
+                preview.get("trajectory_rmse_mrad_calibrated"), "synthetic"
+            ),
+            "data": (f"{preview.get('runs')} synthetic runs at {preview.get('hz')} Hz, "
+                     "position logs only"),
+            "source": "synthetic_preview.json",
+            "synthetic": True,
+        }
 
     return section
 
@@ -632,6 +713,7 @@ def build_page(bundle_dir: Path, out: Path, seconds: float, hz: int, triangles: 
     sys.path.insert(0, str(repo / "teardown_export"))
     try:
         import bake  # noqa: PLC0415 - imported here so the rest of the CLI has no numpy/mujoco dep
+        import bake_manifest  # noqa: PLC0415
         import bake_report  # noqa: PLC0415
 
         bake.main([
@@ -642,10 +724,20 @@ def build_page(bundle_dir: Path, out: Path, seconds: float, hz: int, triangles: 
             str(report_json), str(out / "report.js"),
             "--bundle", str(bundle_dir / "bundle.json"),
         ])
+        manifest_path = bundle_dir / "manifest.json"
+        if manifest_path.exists():
+            bake_manifest.bake(manifest_path, out / "manifest.js", None)
     finally:
         sys.path.remove(str(repo / "teardown_export"))
 
-    rebuilt = {"trajectory.js", "meshes.js", "report.js"}
+    # The summary the voice speaks from, shipped as a script so the page can quote the same figure
+    # the voice does. One generator means one document: a page that recomputes its own numbers is a
+    # second source, and the two drift the moment either side is edited.
+    (out / "summary.js").write_text(
+        "window.SO101_SUMMARY = " + json.dumps(build_summary(bundle_dir)) + ";\n", encoding="utf-8"
+    )
+
+    rebuilt = {"trajectory.js", "meshes.js", "report.js", "summary.js", "manifest.js"}
     copied, missing = [], []
     for name in ("index.html", "three.min.js", "twin.js", "torque.js", "identification.js",
                  "diff.js"):

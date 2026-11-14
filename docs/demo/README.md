@@ -9,7 +9,11 @@ and the provenance line at the top says which bundle and which checks are shown.
 1. **0:00, compiled from its own CAD.** Open `index.html`. Read the provenance line aloud: this is
    the SO-101 compiled from the STEP file exported from the SO-ARM100 repository at commit
    `a758567`, not a hand-written model. The 3D geometry is the bundle's own visual meshes,
-   decimated to 128,073 triangles of the bundle's 620,093 so a browser can hold it (counted by `teardown_export/bake.py` at build time, printed in its output; the bundle's own total comes from `report.json`).
+   decimated to 533,262 triangles of the bundle's 620,093 — 86.0% — at a 3,000-triangle-per-mesh
+   budget, so a browser can hold it (counted by `teardown_export/bake.py` at build time and recorded
+   in the packaged README's "Mesh resolution" section; the bundle's own total comes from
+   `report.json`). The budget was raised from 2,500 because at that setting the reducer overshot and
+   left ~500 triangles per mesh, which is under the budget rather than near it.
 2. **0:30, the seven checks.** Point at the Checks panel. Five pass, one is skipped, and
    `self_collision` **fails**: two convex hulls overlap 7.9 mm at rest. The B-rep solids touch and
    share 0.52 mm3, which is contact-scale, so MuJoCo will act on a contact the CAD does not have. The
