@@ -273,8 +273,44 @@ def test_the_page_builds_from_the_published_bundle_and_every_link_resolves(tmp_p
     assert "torque.js" in payload["copied_from_page_assets"]
 
 
-@pytest.mark.mujoco
-@pytest.mark.skipif(not (BUNDLE / "model.mjcf").exists(), reason="no published bundle checked out")
+def test_a_control_character_in_a_bundle_string_does_not_reach_the_terminal(tmp_path, capsys):
+    """A part name is untrusted input; an ESC sequence in it would repaint the reader's screen."""
+    (tmp_path / "report.json").write_text(json.dumps({
+        "name": "evil" + chr(27) + "[2Jname",
+        "totals": {"bodies": 1, "total_mass_kg": "heavy" + chr(13) + chr(10) + "forged line"},
+        "checks": [{"id": "self_collision", "status": "fail",
+                    "explanation": "bad" + chr(27) + "[31m red"}],
+    }), encoding="utf-8")
+    assert twin_cli.main(["summary", "--bundle", str(tmp_path)]) == 0
+    out = capsys.readouterr().out
+    for forbidden in (chr(27), chr(13), chr(0)):
+        assert forbidden not in out, forbidden
+    assert "forged line" in out
+
+
+def test_unpack_refuses_a_directory_member_that_escapes(tmp_path):
+    """A directory entry is written by extractall too, so it is validated like a file entry."""
+    import zipfile
+
+    archive = tmp_path / "demo.zip"
+    with zipfile.ZipFile(archive, "w") as handle:
+        handle.writestr("so101_demo/report.json", "{}")
+        handle.writestr(".. /elsewhere/", "")
+    with pytest.raises(twin_cli.ArchiveError, match="parent-directory escape"):
+        twin_cli.unpack_zip(archive, tmp_path / "out")
+    assert not (tmp_path / "out").exists()
+
+
+def test_a_package_without_source_meshes_refuses_to_rebuild_a_page_and_says_why(tmp_path):
+    """The shipped zip ships meshes.js, not the 692 meshes; MuJoCo's error names a directory it lacks."""
+    bundle = tmp_path / "bundle"
+    bundle.mkdir()
+    (bundle / "model.mjcf").write_text("<mujoco/>", encoding="utf-8")
+    (bundle / "report.json").write_text("{}", encoding="utf-8")
+    with pytest.raises(FileNotFoundError, match="no meshes/"):
+        twin_cli.build_page(bundle, tmp_path / "page", 0.1, 10, 100)
+
+
 def test_a_missing_trajectory_payload_is_a_refusal_not_a_half_page(tmp_path):
     empty = tmp_path / "empty"
     empty.mkdir()
@@ -287,6 +323,51 @@ def test_a_missing_trajectory_payload_is_a_refusal_not_a_half_page(tmp_path):
 # unpack: the one source of truth for a shipped demo
 # ------------------------------------------------------------------------------------------------
 DEMO_ZIP = REPO / "docs" / "demo" / "so101_demo.zip"
+
+
+def test_unpack_checks_the_per_file_digests_a_package_ships(tmp_path):
+    """A zip digest says which archive this is; the sidecar says the archive holds the right files."""
+    source = tmp_path / "src"
+    source.mkdir()
+    (source / "report.json").write_text('{"name": "so101"}', encoding="utf-8")
+    lines = [
+        f"{twin_cli.sha256_file(path)}  {path.name}"
+        for path in sorted(source.iterdir())
+    ]
+    (source / twin_cli.FILE_DIGESTS).write_text("\n".join(lines) + "\n", encoding="utf-8")
+    archive = tmp_path / "demo.zip"
+    with __import__("zipfile").ZipFile(archive, "w") as zf:
+        for file in source.iterdir():
+            zf.write(file, f"so101_demo/{file.name}")
+
+    payload = twin_cli.unpack_zip(archive, tmp_path / "out")
+
+    assert payload["file_digests"]["verified"] is True
+    assert payload["file_digests"]["checked"] == 1
+
+
+def test_unpack_refuses_a_package_whose_recorded_digest_does_not_match_the_file(tmp_path):
+    """The stale-copy case: the sidecar records the fixed file, the archive carries the old one."""
+    archive = tmp_path / "demo.zip"
+    recorded = __import__("hashlib").sha256(b'{"name": "so101", "fixed": true}').hexdigest()
+    with __import__("zipfile").ZipFile(archive, "w") as zf:
+        zf.writestr("so101_demo/report.json", '{"name": "so101"}')
+        zf.writestr("so101_demo/" + twin_cli.FILE_DIGESTS, f"{recorded}  report.json\n")
+
+    with pytest.raises(twin_cli.ArchiveError, match="does not match the digest recorded"):
+        twin_cli.unpack_zip(archive, tmp_path / "out")
+
+
+def test_unpack_refuses_a_package_carrying_a_file_no_digest_records(tmp_path):
+    archive = tmp_path / "demo.zip"
+    recorded = __import__("hashlib").sha256(b'{"name": "so101"}').hexdigest()
+    with __import__("zipfile").ZipFile(archive, "w") as zf:
+        zf.writestr("so101_demo/report.json", '{"name": "so101"}')
+        zf.writestr("so101_demo/stowaway.json", "{}")
+        zf.writestr("so101_demo/" + twin_cli.FILE_DIGESTS, f"{recorded}  report.json\n")
+
+    with pytest.raises(twin_cli.ArchiveError, match="no digest records it"):
+        twin_cli.unpack_zip(archive, tmp_path / "out")
 
 
 def _make_zip(path: Path, members: dict[str, str]) -> Path:

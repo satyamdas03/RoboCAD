@@ -13,8 +13,15 @@ import hashlib
 import json
 import pathlib
 import shutil
+import sys
 import tempfile
 import zipfile
+
+# The sidecar's name is read by `twin unpack`, so it is taken from the reader rather than repeated
+# here: a packager that writes `FILES.sha256` and a reader that looks for `files.sha256` would both
+# work perfectly and never check anything.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+from robocad.twin_cli import FILE_DIGESTS  # noqa: E402
 
 
 def _copy(src: pathlib.Path, dest: pathlib.Path, repo: pathlib.Path) -> None:
@@ -224,6 +231,19 @@ def main() -> int:
             insert_at = end + len("</header>")
             html = html[:insert_at] + chr(10) + nav + html[insert_at:]
             index.write_text(html, encoding="utf-8")
+
+    # Record what this build put in the package, one digest per file. Written here, after every
+    # other write, because a sidecar taken earlier would record a README or an index.html that the
+    # lines above then changed -- which is the same shape as the defect it exists to catch: a file
+    # that is right in the tree and wrong in the package.
+    sidecar = out / FILE_DIGESTS
+    lines = []
+    for path in sorted(out.rglob("*")):
+        if path.is_file() and path != sidecar:
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            lines.append(f"{digest}  {path.relative_to(out).as_posix()}")
+    sidecar.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print(f"{FILE_DIGESTS}: {len(lines)} files recorded")
 
     zip_path = repo / args.zip
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:

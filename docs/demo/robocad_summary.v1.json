@@ -2,7 +2,7 @@
   "schema_version": "robocad.twin.summary/1",
   "name": "so101",
   "bundle": {
-    "path": "C:/Users/point/AppData/Local/Temp/robocad-fixture-d1ar5103/demo/so101_demo",
+    "path": "C:/Users/point/AppData/Local/Temp/robocad-fixture-1p3s7u52/demo/so101_demo",
     "generated_at": "2026-11-14T00:52:14+00:00",
     "source": {
       "file": "so101.step",
@@ -858,14 +858,6 @@
       "params": [
         {
           "joint": "shoulder_lift",
-          "name": "viscous_damping",
-          "true": 0.08,
-          "recovered": 0.043576314705297235,
-          "lo": 0.0432,
-          "hi": 0.0439
-        },
-        {
-          "joint": "shoulder_lift",
           "name": "coulomb_friction",
           "true": 0.15,
           "recovered": 0.1466117889924351,
@@ -873,12 +865,12 @@
           "hi": 0.1467
         },
         {
-          "joint": "elbow_flex",
+          "joint": "shoulder_lift",
           "name": "viscous_damping",
           "true": 0.08,
-          "recovered": 0.06011353672442974,
-          "lo": 0.0598,
-          "hi": 0.0605
+          "recovered": 0.043576314705297235,
+          "lo": 0.0432,
+          "hi": 0.0439
         },
         {
           "joint": "elbow_flex",
@@ -887,6 +879,14 @@
           "recovered": 0.13297107629162733,
           "lo": 0.1326,
           "hi": 0.1333
+        },
+        {
+          "joint": "elbow_flex",
+          "name": "viscous_damping",
+          "true": 0.08,
+          "recovered": 0.06011353672442974,
+          "lo": 0.0598,
+          "hi": 0.0605
         }
       ]
     },

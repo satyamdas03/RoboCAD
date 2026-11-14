@@ -520,3 +520,93 @@ report exits 2 with a JSON error line.
 sha256 `fa16ff010b4d295854b14cb47461a9a0e76f805afc66a82fe3c02d32fc8eb889`.
 `python scripts/verify_demo_zip.py docs/demo/so101_demo.zip --out docs/demo/verify.json` → four
 PASS rows, `VERIFIED`.
+
+### 2026-11-14, hardening pass before the tag [verified: ran]
+
+*Two holes the tests did not cover, found by probing rather than by a failing test.*
+
+Terminal injection, `totals` block. The sanitiser covered the names, checks and provenance lines but
+not the line that prints the report's own totals, so a mass field carrying `\r` started a fresh
+terminal line. Reproduced before fixing: a synthetic `report.json` with `total_mass_kg:
+"heavy\r\nforged line"` printed `mass heavy` then `forged line kg modelled` on the next line.
+Fixed by routing every value in that line (bodies/joints/parts/instances, both masses, the kind)
+through a new `_text()` helper -- `_safe` of the written value, `None` for a missing one -- and the
+same for `worst_status`, `check_counts`, the masses' kind and the torque pose. Regression test
+`test_a_control_character_in_a_bundle_string_does_not_reach_the_terminal` now fails on the old code
+and passes on this one. `python -m pytest -q tests/test_twin_cli.py` -> `42 passed, 1 deselected in
+11.21s`. `node --test docs/demo/page/sections.test.mjs` -> `10 pass, 0 fail` (the two tests added
+with the null-origin and non-parent-source refusals are in the earlier block's count of 8; this is
+the current number).
+
+*Lane B's ordering request, adopted.* `calibration.current_channel.params` led with the attenuated
+viscous estimate (0.0436 recovered against 0.08 true) and followed with Coulomb, the parameter the
+current channel actually resolves (0.1466 against 0.15). Reordered so Coulomb leads, with the reason
+in a comment beside the loop. Fixture regenerated from the untouched package:
+`coulomb_friction 0.15 -> 0.1466`, `viscous_damping 0.08 -> 0.0436` for the first joint. Lane B can
+drop her preference scan.
+
+*F7 (2): the four commands with no Anthropic SDK installed.* `python -m robocad twin unpack` on
+`docs/demo/so101_demo.zip` -> `sha256 fa16ff01... (verified)`, 29 files. `twin summary` on the
+extracted bundle -> the seven check rows, masses, torque, revision and calibration lines, all
+correct, no traceback. `twin page` -> exit 2 with the intended sentence: the package ships
+`meshes.js` and not the source meshes, so a page cannot be baked from it; that message is the fix,
+not a defect. `twin compile` needed two environment facts to run at all: `pydantic` is a real
+dependency of the compile path, and build123d resolved to 0.13.0, whose OCP build no longer carries
+`TDF_LabelSequence`, so the STEP importer died claiming the dependencies were missing. Pinned
+`build123d>=0.9.0,<0.13` in `requirements.txt` and `pyproject.toml`, and the importer now names the
+failing import in its message. With 0.11.1 in a venv that has no `anthropic` module at all:
+`twin compile --step ...` reached `import 10% 1 parts, 1 instances` and then refused a single-part
+STEP for the right reason (its kinematics chain names bodies the assembly does not contain). The
+claim is the one the order asked for: none of the four commands needs the Anthropic SDK, and none
+of them tracebacks on a machine that has never had it.
+
+*F7 (4): what this branch puts into git.* Largest file touched between the merge-base and HEAD is
+`docs/demo/so101_demo.zip` at **3.76 MB**, then `docs/twin/so101/bundle/model.mjcf` at 0.12 MB. All
+23 newly added files together are 0.3 MB. Nothing exceeds 5 MB, so nothing moves to LFS and nothing
+leaves git. Measured with `git show HEAD:<path> | wc -c` over `git diff --name-status base..HEAD`,
+not from the working tree.
+
+### 2026-11-14, the zip was stale, and now a digest says so [verified: ran]
+
+Before tagging, the packaged page was compared against the tree it is built from:
+
+    so101_demo/sections.js zip 67a239f3842b tree f68f8bc7eb31 DIFFERS
+    zip has "null": True   tree has "null": True
+    zip has event.source: False   tree has event.source: True
+
+The rebuild earlier in this sprint happened before the two security guards went into
+`docs/demo/page/sections.js`, so the package carried the pre-fix listener. Lane B found the sharper
+form of the check: both copies contain the string `"null"`, so grepping for the null-origin refusal
+would have declared the package fixed. The token that discriminates is `event.source`.
+
+Rebuilt: `python teardown_export/package_demo.py` -> `PACKAGE OK`, playwright on the unpacked copy
+reports `page_errors: []`, `external_requests: []`, `missing_relative_links: []`,
+`manifest_dead_entries: []`, panels `checks 7, links 7, cmp 840, torque 634, ident 7`. Zip is now
+**30 entries**, sha256 `b2f835c019fc114d0753f6e8dda33e3118c2b90eab122ffbeb339174d0744774`. The packaged
+`sections.js` now hashes to the tree's `f68f8bc7eb31`, and `event.source` is present in it.
+
+*The class of defect, not just the instance.* This is the second round where a file existed in the
+tree and differed in the package, so the packager now records a digest per file. It writes
+`FILES.sha256` after its last write, and `twin unpack` recomputes every line, refusing on a mismatch
+or on a file no line records. On the rebuilt package:
+
+    sha256 b2f835c019fc114d0753f6e8dda33e3118c2b90eab122ffbeb339174d0744774 (verified)
+    30 files into <fresh dir>
+    29 files match the FILES.sha256 the package ships
+
+Three tests cover it: matching digests report `checked: 1`; a file whose bytes differ from its
+recorded digest raises `does not match the digest recorded`; a file with no line raises `no digest
+records it`. `python -m pytest -q tests/test_twin_cli.py` -> `45 passed, 1 deselected in 8.28s`.
+
+`python scripts/verify_demo_zip.py docs/demo/so101_demo.zip --out docs/demo/verify.json` -> four PASS
+rows, `VERIFIED`, and `verify.json` now names sha256 `b2f835c0…`. Fixture re-exported from that
+archive: `sections: check_counts, masses, residuals, torque, revision, calibration`,
+`synthetic figures: 0`.
+
+*One legibility fix in the page.* The impeccable hook flagged `.synth`, the badge that labels a
+synthetic figure, at 10px. That is content-bearing functional text, so it moved to 11px
+(`letter-spacing: .08em -> .06em` to keep the badge the same width). No id or class changed, so the
+blade's element pointers and the section map are unaffected. Nothing else on the page is under 11px.
+
+*Suite.* Full default tier on the tree before these last three changes: **829 passed, 307 deselected,
+3 warnings in 1015.77s**.

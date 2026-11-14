@@ -41,6 +41,8 @@ function fakeWindow({ protocol = 'http:', origin = 'http://localhost:8000', pane
 
   const window = {
     document,
+    // the embedding frame, which is the only sender `wire` will listen to
+    parent: { embedding: true },
     location: { protocol, origin, hash: '' },
     matchMedia: () => ({ matches: false }),
     // captured rather than real, so the 1.5 s flash can be inspected without waiting for it
@@ -136,13 +138,30 @@ test('wired, a message from the right origin scrolls and one from elsewhere does
   const sections = load(window)
   sections.wire(window.document, window)
 
-  window.dispatch('message', { origin: 'http://evil.example',
+  window.dispatch('message', { origin: 'http://evil.example', source: window.parent,
     data: { type: 'robocad.section', section: 'revision' } })
   assert.equal(window.document.getElementById('rev-grp').scrolled, 0)
 
-  window.dispatch('message', { origin: 'http://localhost:8000',
+  window.dispatch('message', { origin: 'http://localhost:8000', source: window.parent,
     data: { type: 'robocad.section', section: 'revision' } })
   assert.equal(window.document.getElementById('rev-grp').scrolled, 1)
+})
+
+test('a sandboxed frame, where both origins read "null", is refused', () => {
+  const { window } = fakeWindow({ origin: 'null' })
+  const sections = load(window)
+  assert.equal(window.location.origin, 'null')
+  assert.equal(sections.accept({ type: 'robocad.section', section: 'torque' }, 'null',
+    window.location), null)
+})
+
+test('a message from a window that is not the parent is ignored, even with the right origin', () => {
+  const { window } = fakeWindow({ panels: PANELS })
+  const sections = load(window)
+  sections.wire(window.document, window)
+  window.dispatch('message', { origin: 'http://localhost:8000', source: { other: true },
+    data: { type: 'robocad.section', section: 'revision' } })
+  assert.equal(window.document.getElementById('rev-grp').scrolled, 0)
 })
 
 test('a #section in the URL navigates on load and on hashchange', () => {

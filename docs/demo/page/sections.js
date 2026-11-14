@@ -41,7 +41,10 @@
   function accept(data, origin, location) {
     if (!location) return null;
     if (location.protocol !== "http:" && location.protocol !== "https:") return null;
-    if (!origin || !location.origin || origin !== location.origin) return null;
+    // A sandboxed frame and its sender both report the origin "null", so comparing the two would
+    // accept a stranger. An opaque origin is never a caller with authority over this page.
+    if (!origin || origin === "null" || !location.origin || location.origin === "null") return null;
+    if (origin !== location.origin) return null;
     if (!data || data.type !== TYPE || typeof data.section !== "string") return null;
     return owns(MAP, data.section) ? data.section : null;
   }
@@ -85,6 +88,10 @@
     if (!document || typeof view.addEventListener !== "function") return;
 
     view.addEventListener("message", function (event) {
+      // Only the embedding frame may drive this page. `event.source` is set by the browser and cannot
+      // be forged, so it pins the sender to the parent even when origins are spoofed, mirrored, or
+      // opaque. A page opened standalone has no usable parent and refuses everything.
+      if (!view.parent || event.source !== view.parent) return;
       var section = accept(event.data, event.origin, view.location);
       if (section) show(document, section, { reducedMotion: reducedMotion(view) });
     });

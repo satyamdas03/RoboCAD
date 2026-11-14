@@ -1,5 +1,13 @@
-"""RoboCAD core package: AI-driven parametric CAD generation."""
+"""RoboCAD core package: AI-driven parametric CAD generation.
 
+The public names below are resolved on first use rather than imported here. A process that only
+wants the compiler -- ``python -m robocad twin compile|summary|page|unpack`` -- has no use for the
+Anthropic SDK, and importing it eagerly made those commands fail on a machine where the SDK is not
+installed. Attribute access is unchanged: ``ai_cad.transpile`` and ``from ai_cad import transpile``
+both work exactly as before, they just import their module when they are asked for it.
+"""
+
+import importlib
 import sys
 
 # The anthropic SDK depends on a vendored "httpx2" fork that has a recursion
@@ -16,29 +24,37 @@ try:
 except ImportError:
     pass
 
-from ai_cad.api import RoboCADBackend, generate
-from ai_cad.code_ops import update_parameter, update_parameters
-from ai_cad.executor import execute_code
-from ai_cad.exporter import export_model
-from ai_cad.generator import generate_model
-from ai_cad.models import CADParameter, ExportPaths, GenerationResult, ValidationReport
-from ai_cad.parameters import extract_parameters
-from ai_cad.assembly import transpile_assembly
-from ai_cad.transpiler import transpile
-from ai_cad.validator import validate_model
+# name -> module that defines it. One entry per name in ``__all__``, so nothing is reachable only
+# through an eager import that would drag the LLM client back in.
+_LAZY: dict[str, str] = {
+    "RoboCADBackend": "ai_cad.api",
+    "generate": "ai_cad.api",
+    "update_parameter": "ai_cad.code_ops",
+    "update_parameters": "ai_cad.code_ops",
+    "execute_code": "ai_cad.executor",
+    "export_model": "ai_cad.exporter",
+    "generate_model": "ai_cad.generator",
+    "CADParameter": "ai_cad.models",
+    "ExportPaths": "ai_cad.models",
+    "GenerationResult": "ai_cad.models",
+    "ValidationReport": "ai_cad.models",
+    "extract_parameters": "ai_cad.parameters",
+    "transpile_assembly": "ai_cad.assembly",
+    "transpile": "ai_cad.transpiler",
+    "validate_model": "ai_cad.validator",
+}
 
-__all__ = [
-    "RoboCADBackend",
-    "generate",
-    "generate_model",
-    "execute_code",
-    "validate_model",
-    "export_model",
-    "extract_parameters",
-    "update_parameter",
-    "update_parameters",
-    "CADParameter",
-    "ExportPaths",
-    "GenerationResult",
-    "ValidationReport",
-]
+__all__ = list(_LAZY)
+
+
+def __getattr__(name: str):
+    module_name = _LAZY.get(name)
+    if module_name is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    value = getattr(importlib.import_module(module_name), name)
+    globals()[name] = value
+    return value
+
+
+def __dir__() -> list[str]:
+    return sorted(set(list(globals()) + __all__))

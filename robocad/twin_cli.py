@@ -46,6 +46,9 @@ from pathlib import Path
 
 SUMMARY_SCHEMA = "robocad.twin.summary/1"
 UNPACK_SCHEMA = "robocad.twin.unpack/1"
+# The sidecar a package may carry: one `sha256  path` line per file it ships. Optional, because a
+# consumer's zip is theirs; when present it is checked, and a mismatch refuses the unpack.
+FILE_DIGESTS = "FILES.sha256"
 
 # The stages `twin compile` emits, in order. A consumer may rely on this list: no other stage name is
 # produced, and "done" is only ever the last line of a successful run.
@@ -73,11 +76,19 @@ def _read_json(path: Path):
 
 
 def _read_yaml(path: Path):
+    """The file parsed as YAML, or None. A missing parser is a missing optional input, not a crash.
+
+    ``robot.joints.yaml`` carries travel limits alongside the bundle; a machine running the JSON CLI
+    without PyYAML installed still has a full summary, and the limits it cannot read are simply not
+    claimed. Raising here would turn an optional dependency into a command that does not run.
+    """
     if not path.exists():
         return None
     try:
         import yaml
-
+    except ImportError:  # no parser installed: the caller sees no file and says so
+        return None
+    try:
         return yaml.safe_load(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
@@ -101,6 +112,25 @@ def _node(value, kind: str) -> dict:
 def _value_of(node):
     """The bare value of a node, for a caller that wants the number and already has the kind."""
     return node.get("value") if isinstance(node, dict) and "value" in node else node
+
+
+_CONTROL = re.compile("[\x00-\x1f\x7f-\x9f]")
+
+
+def _safe(text) -> str:
+    """Text read from a bundle, made safe for a terminal: control characters removed.
+
+    A bundle is untrusted input -- it arrives inside an extracted archive -- so a part name
+    carrying an escape sequence could clear the reader's screen, and one carrying a carriage
+    return would rewrite the line that just reported a check. Printing is a sink like any other;
+    the control characters are stripped here rather than trusted at whatever wrote them.
+    """
+    return _CONTROL.sub("", str(text))
+
+
+def _text(value) -> str:
+    """A value from the bundle, shown as it was written but with its control characters gone."""
+    return _safe("None" if value is None else value)
 
 
 def _number(value):
@@ -375,7 +405,10 @@ def _sections(bundle_dir: Path, report: dict) -> dict:
                     continue
                 joint = str(rung.get("name") or "").split(",")[-1].strip()
                 intervals = rung.get("intervals") or _intervals(rung.get("note"))
-                for key, name in (("damping", "viscous_damping"), ("coulomb", "coulomb_friction")):
+                # Coulomb first: it is the parameter this current channel actually resolves. The
+                # viscous estimate beside it is attenuated (0.0436 recovered against 0.08 true) and
+                # reading it first makes the block look like it failed at its strongest number.
+                for key, name in (("coulomb", "coulomb_friction"), ("damping", "viscous_damping")):
                     if key not in (rung.get("recovered") or {}):
                         continue
                     lo_hi = intervals.get(key) or [None, None]
@@ -499,24 +532,28 @@ def _numeric_leaves(node) -> int:
 
 def _print_summary(summary: dict) -> None:
     totals = summary["totals"]
-    print(f"{summary['name']}: {summary['bundle']['path']}")
-    print(f"  bodies {totals.get('bodies')}  joints {totals.get('joints')}  "
-          f"parts {totals.get('parts')}  instances {totals.get('instances')}")
-    print(f"  mass {totals.get('total_mass_kg')} kg modelled, "
-          f"{totals.get('total_solid_mass_kg')} kg solid bound "
-          f"[{(summary['provenance'].get('totals.total_mass_kg') or {}).get('kind')}]")
+    print(f"{_safe(summary['name'])}: {_safe(summary['bundle']['path'])}")
+    print(f"  bodies {_text(totals.get('bodies'))}  joints {_text(totals.get('joints'))}  "
+          f"parts {_text(totals.get('parts'))}  instances {_text(totals.get('instances'))}")
+    # The totals block is copied straight out of report.json, so every value here is untrusted text
+    # until it is printed: a mass field carrying a carriage return would start a new terminal line.
+    print(f"  mass {_text(totals.get('total_mass_kg'))} kg modelled, "
+          f"{_text(totals.get('total_solid_mass_kg'))} kg solid bound "
+          f"[{_text((summary['provenance'].get('totals.total_mass_kg') or {}).get('kind'))}]")
     for check in summary["checks"]:
-        print(f"  {check['id']:22s} {check['status']:8s} {check['explanation']}")
-    print(f"  worst check {summary['worst_status']}")
+        print(f"  {_safe(check['id'])[:22]:22s} {_safe(check['status'])[:8]:8s} "
+              f"{_safe(check['explanation'])}")
+    print(f"  worst check {_text(summary['worst_status'])}")
     conventions = summary["conventions"]
     print("  conventions: " + (
-        f"measured, {conventions['source']}" if conventions["measured"]
+        f"measured, {_safe(conventions['source'])}" if conventions["measured"]
         else "none measured; the bundle says so rather than shipping zeros"
     ))
     counts = summary.get("check_counts") or {}
     if counts:
-        print(f"  checks {counts.get('pass', 0)} pass  {counts.get('fail', 0)} fail  "
-              f"{counts.get('skipped', 0)} skipped")
+        print(f"  checks {_text(counts.get('pass', 0))} pass  "
+              f"{_text(counts.get('fail', 0))} fail  "
+              f"{_text(counts.get('skipped', 0))} skipped")
     if "masses" in summary:
         masses = summary["masses"]
         parts = []
@@ -525,20 +562,20 @@ def _print_summary(summary: dict) -> None:
             if key not in masses:
                 continue
             number = _number(_value_of(masses[key]))
-            shown = f"{number:.4g}" if number is not None else str(_value_of(masses[key]))
-            parts.append(f"{name} {shown} [{masses[key]['kind']}]")
+            shown = f"{number:.4g}" if number is not None else _safe(_value_of(masses[key]))
+            parts.append(f"{name} {shown} [{_text(masses[key]['kind'])}]")
         print("  masses: " + ", ".join(parts))
     if "torque" in summary and summary["torque"].get("static_poses"):
         rest = summary["torque"]["static_poses"][0]
-        print(f"  torque at {rest['pose']}: {rest['compiled_nm']['value']} compiled vs "
-              f"{rest['published_nm']['value']} published N m, "
-              f"limit {summary['torque']['limit_stall_nm']['value']}")
+        print(f"  torque at {_text(rest['pose'])}: {_text(rest['compiled_nm']['value'])} compiled vs "
+              f"{_text(rest['published_nm']['value'])} published N m, "
+              f"limit {_text(summary['torque']['limit_stall_nm']['value'])}")
     if "revision" in summary:
         revision = summary["revision"]
         before = _number(_value_of(revision.get("mass_before_kg")))
         after = _number(_value_of(revision.get("mass_after_kg")))
-        print(f"  revision infill {_value_of(revision['infill_before'])} -> "
-              f"{_value_of(revision['infill_after'])}: mass "
+        print(f"  revision infill {_safe(_value_of(revision['infill_before']))} -> "
+              f"{_safe(_value_of(revision['infill_after']))}: mass "
               f"{f'{before:.4g}' if before is not None else 'unreadable'} -> "
               f"{f'{after:.4g}' if after is not None else 'unreadable'} kg, "
               f"{revision['links_changed']} links changed")
@@ -552,10 +589,10 @@ def _print_summary(summary: dict) -> None:
               f"{len(summary['provenance'])} provenance entries")
     for key, entry in summary["provenance"].items():
         if entry["kind"] in SYNTHETIC_KINDS:
-            print(f"    {key:34s} {entry['kind']:10s} {entry['basis']}")
+            print(f"    {_safe(key)[:34]:34s} {_safe(entry['kind'])[:10]:10s} {_safe(entry['basis'])}")
     for key, entry in summary["provenance"].items():
         if entry["kind"] == "modelled":
-            print(f"  modelled  {key:34s} {entry['basis'][:88]}")
+            print(f"  modelled  {_safe(key)[:34]:34s} {_safe(entry['basis'])[:88]}")
 
 
 def build_page(bundle_dir: Path, out: Path, seconds: float, hz: int, triangles: int,
@@ -577,6 +614,17 @@ def build_page(bundle_dir: Path, out: Path, seconds: float, hz: int, triangles: 
         raise FileNotFoundError(f"no model.mjcf in {bundle_dir}: nothing to bake a trajectory from")
     if not report_json.exists():
         raise FileNotFoundError(f"no report.json in {bundle_dir}: the page has no checks to show")
+    # The page's 3D payload is baked from the compiled model's own meshes. A distribution package
+    # carries `meshes.js` (the decimated copy) and not the 692 source meshes, so rebuilding a page
+    # from it is impossible by design -- say that, rather than letting MuJoCo report a missing file
+    # from a directory the package never had.
+    meshdir = bundle_dir / "meshes"
+    if not meshdir.is_dir() or not any(meshdir.iterdir()):
+        raise FileNotFoundError(
+            f"{bundle_dir} carries no meshes/: this package ships meshes.js, the decimated payload, "
+            "not the source meshes the 3D view is baked from. Build the page from the tagged bundle "
+            "the package was cut from."
+        )
     out.mkdir(parents=True, exist_ok=True)
     repo = Path(__file__).resolve().parents[1]
     assets = Path(assets) if assets else repo / "docs" / "demo" / "page"
@@ -676,6 +724,54 @@ def _member_problem(name: str) -> str | None:
     return None
 
 
+def _check_file_digests(root: Path) -> dict:
+    """Verify a package against the per-file digests it shipped, if it shipped any.
+
+    A zip digest says the archive is the one a caller checked. It does not say the archive holds the
+    files the build meant to put in it: twice now a file has existed in the tree and differed in the
+    package, and both times the only detector was a person diffing two copies. A sidecar of per-file
+    digests, written by the packager after every file is final, turns that into a check.
+    """
+    sidecar = root / FILE_DIGESTS
+    if not sidecar.is_file():
+        return {"sidecar": None, "checked": 0, "verified": None}
+
+    listed: dict[str, str] = {}
+    for line in sidecar.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        digest, _, rel = line.partition("  ")
+        if len(digest) != 64 or not rel.strip():
+            raise ArchiveError(
+                f"{FILE_DIGESTS} carries a line this reader cannot parse: {_safe(line)[:80]!r}"
+            )
+        listed[rel.strip()] = digest.lower()
+
+    base = root.resolve()
+    problems: list[str] = []
+    for rel, digest in sorted(listed.items()):
+        target = (root / rel).resolve()
+        if not target.is_relative_to(base):
+            problems.append(f"{rel} resolves outside the package")
+        elif not target.is_file():
+            problems.append(f"{rel} is recorded but missing")
+        elif sha256_file(target) != digest:
+            problems.append(f"{rel} does not match the digest recorded for it")
+    present = {
+        path.relative_to(root).as_posix() for path in root.rglob("*") if path.is_file()
+    } - {FILE_DIGESTS}
+    for rel in sorted(present - set(listed)):
+        problems.append(f"{rel} is in the package but no digest records it")
+    if problems:
+        raise ArchiveError(
+            f"{root} does not match {FILE_DIGESTS}: " + "; ".join(problems[:5])
+            + (f" (and {len(problems) - 5} more)" if len(problems) > 5 else "")
+            + ". The archive is what was checked; its contents are not what the build recorded."
+        )
+    return {"sidecar": FILE_DIGESTS, "checked": len(listed), "verified": True}
+
+
 def unpack_zip(zip_path: Path, out: Path, verify_sha: str | None = None) -> dict:
     """Extract a shipped demo zip, refusing on a digest mismatch or an unsafe member.
 
@@ -716,9 +812,11 @@ def unpack_zip(zip_path: Path, out: Path, verify_sha: str | None = None) -> dict
                 f"{zip_path} expands to {expanded} bytes: past the {MAX_EXPANDED_BYTES} cap"
             )
 
-        problems = [(info.filename, _member_problem(info.filename)) for info in infos]
+        # Every entry is validated, directories included: a directory member is written by extractall
+        # just like a file member, so `"../elsewhere/"` escapes exactly as `"../elsewhere/x"` would.
+        problems = [(info.filename, _member_problem(info.filename)) for info in every]
         unsafe = [(name, why) for name, why in problems if why]
-        for info in infos:
+        for info in every:
             if info.external_attr >> 16 & 0o170000 == 0o120000:
                 unsafe.append((info.filename, "symlink"))
         if unsafe:
@@ -730,7 +828,7 @@ def unpack_zip(zip_path: Path, out: Path, verify_sha: str | None = None) -> dict
         # The name rules are a fast path; containment on the resolved path is the actual promise. A
         # member whose resolved target leaves `out` is refused even if every name rule passed.
         root = out.resolve()
-        for info in infos:
+        for info in every:
             target = (out / info.filename).resolve()
             if not target.is_relative_to(root):
                 raise ArchiveError(f"refusing to extract {info.filename!r}: it resolves outside {out}")
@@ -759,6 +857,8 @@ def unpack_zip(zip_path: Path, out: Path, verify_sha: str | None = None) -> dict
                 "this package means"
             )
 
+    file_digests = _check_file_digests(bundle)
+
     return {
         "schema_version": UNPACK_SCHEMA,
         "zip": {
@@ -773,6 +873,7 @@ def unpack_zip(zip_path: Path, out: Path, verify_sha: str | None = None) -> dict
         # What a consumer sets ROBOCAD_BUNDLE_DIR to: the directory whose report.json and page are
         # the shipped ones, never a sibling copy.
         "bundle": bundle.resolve().as_posix(),
+        "file_digests": file_digests,
         "files": sorted(names),
     }
 
@@ -897,7 +998,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             document = build_summary(args.bundle)
         except FileNotFoundError as error:
-            print(f"error: {error}", file=sys.stderr)
+            print(f"error: {_safe(error)}", file=sys.stderr)
             if args.json:
                 print(json.dumps({"schema_version": SUMMARY_SCHEMA, "error": str(error)}))
             return 2
@@ -905,8 +1006,9 @@ def main(argv: list[str] | None = None) -> int:
             # A bundle is untrusted input: it arrives inside an extracted archive. Whatever shape it
             # turns out to have, the caller gets the same error line and exit code as for a missing
             # bundle, because a stack trace on stdout is not a contract.
-            message = f"{type(error).__name__}: {error}"
-            print(f"error: {args.bundle} is not a readable bundle: {message}", file=sys.stderr)
+            message = f"{type(error).__name__}: {_safe(error)}"
+            print(f"error: {_safe(args.bundle)} is not a readable bundle: {message}",
+                  file=sys.stderr)
             if args.json:
                 print(json.dumps({"schema_version": SUMMARY_SCHEMA, "error": message}))
             return 2
@@ -921,7 +1023,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.bundle, args.out, args.seconds, args.hz, args.triangles, args.assets
             )
         except FileNotFoundError as error:
-            print(f"error: {error}", file=sys.stderr)
+            print(f"error: {_safe(error)}", file=sys.stderr)
             if args.json:
                 print(json.dumps({"schema_version": "robocad.twin.page/1", "error": str(error)}))
             return 2
@@ -938,7 +1040,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             payload = unpack_zip(args.zip, args.out, args.verify_sha)
         except (FileNotFoundError, ArchiveError) as error:
-            print(f"error: {error}", file=sys.stderr)
+            print(f"error: {_safe(error)}", file=sys.stderr)
             if args.json:
                 print(json.dumps({"schema_version": UNPACK_SCHEMA, "error": str(error)}))
             return 2
@@ -948,6 +1050,11 @@ def main(argv: list[str] | None = None) -> int:
             print(f"unpacked {payload['zip']['path']}")
             print(f"  sha256 {payload['zip']['sha256']} ({'verified' if payload['verified'] else 'NOT CHECKED'})")
             print(f"  {len(payload['files'])} files into {payload['out']}")
+            digests = payload.get("file_digests") or {}
+            if digests.get("verified"):
+                print(f"  {digests['checked']} files match the {FILE_DIGESTS} the package ships")
+            else:
+                print(f"  no {FILE_DIGESTS} in this package: the zip digest is the only check")
             print(f"  bundle (set ROBOCAD_BUNDLE_DIR to this): {payload['bundle']}")
         return 0
     return compile_bundle_cli(args.step, args.joints, args.out, args.json_progress)

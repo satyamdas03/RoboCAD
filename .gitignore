@@ -72,3 +72,6 @@ verification_jobs.db
 
 # README screenshots and diagrams are part of the docs
 !docs/images/*.png
+
+# packager output: the unpacked copy of docs/demo/so101_demo.zip, rebuilt by teardown_export/package_demo.py
+docs/demo/so101_demo/

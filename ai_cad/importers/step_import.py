@@ -100,8 +100,12 @@ def _ocp():
         from OCP.XCAFApp import XCAFApp_Application  # noqa: F401
         from OCP.XCAFDoc import XCAFDoc_DocumentTool  # noqa: F401
     except ImportError as exc:  # pragma: no cover - depends on the installed kernel
+        # Name the import that failed. A build123d release that moves a symbol out of OCP produces
+        # the same ModuleNotFoundError shape as a kernel that was never installed, and telling
+        # someone with a working install to install the dependencies wastes their afternoon.
         raise StepImportError(
             "STEP import needs the OCP kernel that build123d installs. "
+            f"The failing import was: {exc}. "
             "Install the runtime dependencies first: python -m pip install -r requirements.txt"
         ) from exc
 

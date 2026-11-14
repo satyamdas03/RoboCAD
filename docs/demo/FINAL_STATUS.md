@@ -2,10 +2,48 @@
 
 Owner of this file: build session (Lane A, `robocad-61`), with the show-path rows contributed by the
 monitor session (Lane B) and every one of them re-derived before it was written here. Updated
-2026-11-14, 12:30, for **v1.1**. Every claim carries a tag:
+2026-11-14, 13:35, for **v1.2**. Every claim carries a tag:
 `verified-ran`, `verified-read`, `claimed`. Deadline: hard freeze Sat 14 Nov 2026, 13:15 Sydney.
 
+## v1.2: the artifact of record, and why it replaces v1.1's package
+
+Read this paragraph before handing anyone a zip. **The tag `demo-bundle-v1.1` points at a defective
+package.** Its zip (sha256 `46b848e9…`, 25 files) carries a page that disagrees with the tree it was
+built from, a summary the voice cannot speak from, and no way for the voice to point the page at a
+panel. The tag is left where it is on purpose: moving or re-tagging a published artifact rewrites
+what somebody may already have downloaded, so v1.1 stays as evidence of the defect and v1.2 is the
+package to use.
+
+| What | v1.2 state | Evidence |
+|---|---|---|
+| Tag | `demo-bundle-v1.2`, at the commit holding this exact zip | `verified-ran`, `git show demo-bundle-v1.2:docs/demo/so101_demo.zip \| sha256sum` equals `docs/demo/verify.json` |
+| Package | `docs/demo/so101_demo.zip`, 3,943,593 bytes, **30 files** (29 payloads plus `FILES.sha256`), sha256 `b2f835c019fc114d0753f6e8dda33e3118c2b90eab122ffbeb339174d0744774` | `verified-ran`, `scripts/verify_demo_zip.py` four PASS rows, `VERIFIED` |
+| One source of truth | `python -m robocad twin unpack --zip … --out <new dir> --verify-sha …` extracts and refuses on a digest mismatch; consumers point `ROBOCAD_BUNDLE_DIR` at its `bundle` field | `verified-ran`, `tests/test_twin_cli.py` (unpack tests) |
+| The summary carries the demo's numbers | `check_counts`, `masses`, `residuals`, `torque`, `revision`, `calibration`, every value copied from the bundle's own files and labelled `{value, kind}` | `verified-ran`, on a fresh unpack of this zip: `checks 5 pass 1 fail 1 skipped`, `masses: solid 1.332 [modelled], print 0.9017 [modelled], published 0.632 [stated]`, `torque at rest: 0.7668 compiled vs 0.5377 published N m`, `revision … 0.9017 -> 0.9555 kg, 7 links changed`, `synthetic figures: 0 of 31 provenance entries, 18 in the calibration block` |
+| One report for both repos | the zip's `report.json` is sha256 `34caf7e8…`, the same file the tree's bundle holds; `docs/demo/robocad_summary.v1.json` is that summary exported by `scripts/export_summary_fixture.py` with a sha256 sidecar | `verified-ran` |
+| The packaged copy is the fixed copy | the zip carries `FILES.sha256`, one digest per file, written by the packager after its last write; `twin unpack` recomputes all 29 and refuses on a mismatch or an unrecorded file. The first rebuild of v1.2 shipped a stale `sections.js` and only a person diffing two files caught it | `verified-ran`, on this zip: `29 files match the FILES.sha256 the package ships`; three tests in `tests/test_twin_cli.py` cover match, mismatch and an unrecorded file |
+| Section navigation | the packaged page ships `sections.js`: `{type:"robocad.section", section}` from the page's own origin scrolls the panel and flashes it 1.5 s; `#section` works from `file://` | `verified-ran`, `node --test docs/demo/page/sections.test.mjs` 10 pass; real browser over http: scroll 0 → 2699, wrong origin refused, no page errors |
+
+Nothing about the robot changed in v1.2. The masses, the checks, the revision and the **failing live
+hold** are exactly v1.1's numbers, and the hold still fails for contact geometry, not gain.
+
+### What Satyam still has to do, on hardware
+
+These cannot be done from this machine and are not claimed as done anywhere:
+
+1. Run the live viewer against the real arm and confirm the page and the arm agree on the zero pose.
+2. Rehearse the microphone in the room and confirm the voice's section requests land on the intended
+   panel while someone is speaking over it.
+3. Time the 1.5 s section-navigation latency by ear and by stopwatch; the code flashes for 1.5 s, the
+   perceived delay to first scroll has not been measured outside this machine.
+4. Record `voice_walkthrough.mp4` against the v1.2 package, and only then describe it as a recording
+   of the demo.
+5. The bench protocol still needs a human supervisor, joint and torque limits and a stop condition
+   at the bench; the licence review of the derived `robot.joints.yaml` is still Satyam's call.
+
 ## v1.1: what changed, and what it costs
+
+Superseded by v1.2 above; kept because the defect history is the reason for the unpack rule.
 
 v1.1 is not a new demo. It is the same robot and the same page, with four defects fixed and two
 handover artifacts added. The rows below are the delta; the sections after them are still true.
@@ -17,7 +55,7 @@ handover artifacts added. The rows below are the delta; the sections after them 
 | R2 | Zero-pose conventions inside the bundle | done: `manifest.json` plus an MJCF comment, both rendered from one `Conventions` object, pinned by a mutation test that breaks the reader | `verified-ran`, `tests/test_conventions.py` 8 pass |
 | R3 | Mesh resolution stated | done: the page payload carries `triangle_budget`, so the 500-triangle decimation is disclosed rather than silent | `verified-ran`, `tests/test_mesh_resolution.py` |
 | R4 | Calibration against the current channel | **SYNTHETIC**, Lane B, `e1312b1`; the bench protocol carries joint and torque limits, a stop condition and the supervision note | `claimed` by Lane B, protocol read here |
-| R5 | Tag, zip, fresh-folder verification | `demo-bundle-v1.1` at `cb33678`; zip rebuilt and verified at sha256 `46b848e9…`, 25 files | `verified-ran`, see "Freeze state" |
+| R5 | Tag, zip, fresh-folder verification | `demo-bundle-v1.1` at `cb33678`; zip rebuilt and verified at sha256 `46b848e9…`, 25 files. **Superseded: that package is defective, see the v1.2 block; the tag stays** | `verified-ran`, see "Freeze state" |
 | H0 | JSON CLI for Hi-EV | done: `python -m robocad twin summary|page|compile`, fixed stage set, JSON progress lines, exit codes 0/2/3, every figure labelled | `verified-ran`, `tests/test_twin_cli.py` 15 pass (+2 MuJoCo) |
 | H5 | RoboCAD blade for the Hi-EV HUD | done as a drop-in in `docs/twin/hiev_blade/` with its own tests; Hi-EV copies it, the repos stay separate | `verified-ran`, `node --test panel.test.mjs` 10 pass |
 | H7 | Cross-verification | Lane A checked eleven of Lane B's spoken figures against the artifacts: ten matched, two were rewritten, and the packaged zip was checked separately | `verified-ran`, `docs/demo/H7_cross_check.md` |

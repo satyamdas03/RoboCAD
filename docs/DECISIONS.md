@@ -592,3 +592,31 @@ reading was fair, so `synthetic_figures` now reports `{provenance, calibration,
 calibration_is_synthetic}` and the printed line says both. `synthetic_count` is kept unchanged
 because a consumer already reads it; the schema stays `/1` because nothing was removed or
 reinterpreted, only added beside it.
+
+**Decision: build123d is pinned below 0.13, and the STEP importer names the import that failed.**
+A clean venv resolved `build123d 0.13.0`, whose OCP no longer exposes `TDF_LabelSequence`; the
+importer caught the `ImportError` and told the user to install the runtime dependencies, which they
+had. Two changes: `build123d>=0.9.0,<0.13` in `requirements.txt` and `pyproject.toml` so a fresh
+install lands on a kernel the importer supports, and the error message now carries the failing
+import, because "moved between releases" and "never installed" look identical from the outside.
+
+**Decision: `calibration.current_channel.params` lists Coulomb friction before viscous damping.**
+The current channel resolves Coulomb (0.1466 recovered against 0.15 true); the viscous estimate
+beside it is attenuated (0.0436 against 0.08) and reads like a failure when it leads. The order is
+the only change: both parameters stay, both carry `true`, `recovered`, `lo`, `hi`, and the block
+still says `synthetic: true`. Lane B proposed this from the consumer side and drops her
+preference-scan workaround now that the producer orders it.
+
+**Decision: nothing on this branch goes to LFS.** The largest file the branch touches is the demo
+zip at 3.76 MB, and the 23 files it adds together are 0.3 MB. The 5 MB line is where a repository
+starts paying for binaries it cannot review; nothing here is close, so the zip stays in git, the
+tag stays checkable with `git show`, and no history was rewritten to move it.
+
+**Decision: a package records a digest per file, and unpack checks it.** A zip digest answers "is
+this the archive a caller verified?", not "does this archive hold the files the build produced?".
+Twice in two rounds a file has been right in the tree and stale in the package, and both times the
+only detector was a person diffing copies. `teardown_export/package_demo.py` now writes
+`FILES.sha256` after its final write, taking the sidecar's name from `robocad.twin_cli` rather than
+repeating it, and `twin unpack` recomputes each line and refuses on a mismatch, a recorded-but-missing
+file, or a file no line records. The check is optional for a zip that has no sidecar, because a
+consumer's package is theirs; when it is present it is binding.
