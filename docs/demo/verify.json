@@ -1,14 +1,14 @@
 {
   "zip": "docs\\demo\\so101_demo.zip",
-  "sha256": "49d75172e2cac4822b1d9d3993c1462f12c1cc6cc3642e38ca8d80831f77563c",
-  "built_from_claimed": "d5615d3af47348a7a1caa6ffb28eb6346f774cd1",
+  "sha256": "f14291bf796f01c6fd17687ad56d7d4d32426111d1b79232494ebea7f69fa052",
+  "built_from_claimed": "656d2444541cdebf3af50abe7f9543309c545ebf",
   "tag": {
-    "tag": "demo-bundle-v1.6",
-    "commit": "d5615d3af47348a7a1caa6ffb28eb6346f774cd1",
+    "tag": "demo-bundle-v1.7",
+    "commit": "656d2444541cdebf3af50abe7f9543309c545ebf",
     "zip_in_tag": "docs/demo/so101_demo.zip",
-    "manifest_records": "demo-bundle-v1.6",
-    "page_reports": "demo-bundle-v1.6",
-    "tagged_sha256": "49d75172e2cac4822b1d9d3993c1462f12c1cc6cc3642e38ca8d80831f77563c"
+    "manifest_records": "demo-bundle-v1.7",
+    "page_reports": "demo-bundle-v1.7",
+    "tagged_sha256": "f14291bf796f01c6fd17687ad56d7d4d32426111d1b79232494ebea7f69fa052"
   },
   "named": {
     "printed_kg": 0.901658836,
