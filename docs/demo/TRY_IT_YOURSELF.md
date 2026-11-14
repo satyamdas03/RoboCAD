@@ -30,6 +30,15 @@ python -m robocad twin revise \
     --json-progress
 ```
 
+## What each command needs installed
+
+`summary` and `unpack` need the base install only. `revise` and `compile` additionally need the STEP
+file named above. `twin page` needs MuJoCo (`pip install -e ".[sim]"`) because `teardown_export/bake.py`
+bakes the trajectory from `model.mjcf`, and it needs the bundle's source `meshes/` directory — the
+shipped zip carries `meshes.js`, the decimated payload, so rebuilding a page from the package is
+impossible by design. Without MuJoCo the command says which extra to install rather than failing
+inside a helper module (`[verified: ran]` on a clean clone with a fresh venv).
+
 ## What the third command does, and why each flag is there
 
 `revise` recompiles the same STEP file at a print model the caller names, writes the new bundle to

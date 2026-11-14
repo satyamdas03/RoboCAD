@@ -739,6 +739,18 @@ def build_page(bundle_dir: Path, out: Path, seconds: float, hz: int, triangles: 
     repo = Path(__file__).resolve().parents[1]
     assets = Path(assets) if assets else repo / "docs" / "demo" / "page"
 
+    # The trajectory is baked by MuJoCo. MuJoCo is the `sim` extra and is deliberately not a base
+    # dependency, so a clean install without it must say so in one sentence rather than arrive as a
+    # ModuleNotFoundError from a helper module the caller has never heard of.
+    import importlib.util  # noqa: PLC0415
+
+    if importlib.util.find_spec("mujoco") is None:
+        raise FileNotFoundError(
+            "building the page needs MuJoCo: teardown_export/bake.py bakes the trajectory and meshes "
+            "from model.mjcf. Install it with `pip install -e \".[sim]\"`, or use the packaged "
+            "so101_demo.zip, which is already baked"
+        )
+
     sys.path.insert(0, str(repo / "teardown_export"))
     try:
         import bake  # noqa: PLC0415 - imported here so the rest of the CLI has no numpy/mujoco dep

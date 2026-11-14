@@ -319,6 +319,24 @@ def test_a_missing_trajectory_payload_is_a_refusal_not_a_half_page(tmp_path):
     assert not (tmp_path / "page" / "index.html").exists()
 
 
+def test_a_clean_machine_without_mujoco_is_told_what_to_install(tmp_path, monkeypatch):
+    """MuJoCo is the `sim` extra. A base install must hear one sentence, not a helper's ImportError."""
+    import importlib.util
+
+    real_find_spec = importlib.util.find_spec
+    bundle = tmp_path / "bundle"
+    (bundle / "meshes").mkdir(parents=True)
+    (bundle / "meshes" / "part.stl").write_bytes(b"solid x\nendsolid x\n")
+    (bundle / "model.mjcf").write_text("<mujoco/>", encoding="utf-8")
+    (bundle / "report.json").write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(
+        importlib.util, "find_spec",
+        lambda name, *a, **k: None if name == "mujoco" else real_find_spec(name, *a, **k),
+    )
+    with pytest.raises(FileNotFoundError, match=r"pip install -e \"\.\[sim\]\""):
+        twin_cli.build_page(bundle, tmp_path / "page", seconds=0.1, hz=10, triangles=10)
+
+
 # ------------------------------------------------------------------------------------------------
 # unpack: the one source of truth for a shipped demo
 # ------------------------------------------------------------------------------------------------
