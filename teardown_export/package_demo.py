@@ -148,6 +148,9 @@ def main() -> int:
         "robot.joints.yaml": "docs/twin/so101/bundle/robot.joints.yaml",
         "BENCH_PROTOCOL.md": "docs/twin/so101/BENCH_PROTOCOL.md",
         "diff.js": "docs/demo/page/diff.js",
+        # The page's section listener: the voice shell says "show me the torque" and this scrolls
+        # that panel. It ships because the shell's iframe runs the packaged page, not the repo's.
+        "sections.js": "docs/demo/page/sections.js",
         # The data forms of the payloads the page reads as scripts. `twin summary` reads these to
         # speak the demo's numbers; if they are not in the package, the voice falls back to
         # "not in the report" for a number the recipient can see on the page beside it.

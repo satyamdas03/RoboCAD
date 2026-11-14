@@ -21,6 +21,8 @@
   aside{border-left:1px solid var(--line);background:var(--panel);overflow:auto;padding:12px}
   .grp{margin-bottom:16px}
   .grp h2{font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--dim);margin:0 0 8px}
+  /* the flash a spoken "show me the torque" leaves behind: a section the voice asked for says so */
+  .nav-flash{outline:2px solid var(--accent);outline-offset:4px;border-radius:4px;background:rgba(87,211,160,.07);transition:background .25s,outline-color .25s}
   .row{display:flex;justify-content:space-between;gap:8px;padding:4px 0;font-family:var(--mono);font-size:13px}
   .row span:last-child{color:var(--accent)}
   .bar{height:3px;background:#1b2431;margin-top:2px}
@@ -125,6 +127,7 @@
 <script src="report.js"></script>
 <script src="torque.js"></script>
 <script src="diff.js"></script>
+<script src="sections.js"></script>
 <script>
 (function(){
   "use strict";
@@ -725,6 +728,11 @@
     })
   };
 })();
+</script>
+<script>
+// Wired after the panels above have rendered, so a `#torque` link on load has a filled panel to
+// scroll to rather than a hidden one that refuses the jump.
+if (window.ROBOCAD_SECTIONS) window.ROBOCAD_SECTIONS.wire();
 </script>
 </body>
 </html>

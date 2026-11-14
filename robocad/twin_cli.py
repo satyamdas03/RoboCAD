@@ -37,6 +37,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import re
 import shutil
 import sys
@@ -100,6 +101,22 @@ def _node(value, kind: str) -> dict:
 def _value_of(node):
     """The bare value of a node, for a caller that wants the number and already has the kind."""
     return node.get("value") if isinstance(node, dict) and "value" in node else node
+
+
+def _number(value):
+    """A float, or None when what the bundle carries is not a number.
+
+    A summary reads JSON from an extracted archive, which is untrusted input. Arithmetic on a string
+    there raises a traceback out of a documented JSON contract, so every computed figure goes through
+    here first: a field that is not a number is omitted, never guessed at.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
 
 
 def provenance(bundle_dir: Path, report: dict, manifest: dict, data: dict) -> dict:
@@ -267,8 +284,9 @@ def _sections(bundle_dir: Path, report: dict) -> dict:
         )
     except Exception:  # noqa: BLE001 - a missing constant must not remove the other assumptions
         pass
-    if totals.get("actuator_mass_kg") is not None:
-        assumptions["servo_g"] = _node(round(totals["actuator_mass_kg"] * 1000.0, 1), "stated")
+    servo_kg = _number(totals.get("actuator_mass_kg"))
+    if servo_kg is not None:
+        assumptions["servo_g"] = _node(round(servo_kg * 1000.0, 1), "stated")
     # Assumptions belong to a mass; with no mass in the bundle they would be a section describing
     # nothing, which reads as a mass that is merely missing its number.
     if assumptions and any(k in masses for k in ("solid_kg", "print_kg", "published_kg")):
@@ -297,7 +315,8 @@ def _sections(bundle_dir: Path, report: dict) -> dict:
         residuals["origin_p90_mm"] = _node(residual_mm.get("p90"), "measured")
         residuals["origin_max_mm"] = _node(residual_mm.get("max"), "measured")
     spacings = comparison.get("link_spacings") or []
-    deltas = [abs(float(s["delta_m"])) for s in spacings if s.get("delta_m") is not None]
+    deltas = [abs(n) for n in (_number(s.get("delta_m")) for s in spacings
+                               if isinstance(s, dict)) if n is not None]
     if deltas:
         # The worst of the bundle's own spacing deltas, which is the "1.69 mm" the script quotes.
         residuals["link_length_mm"] = _node(round(max(deltas) * 1000.0, 2), "measured")
@@ -339,7 +358,7 @@ def _sections(bundle_dir: Path, report: dict) -> dict:
             "mass_after_kg": _node((diff.get("totals") or {}).get("mass_after_kg"), "modelled"),
             "links_changed": sum(
                 1 for link in diff.get("links") or []
-                if (link.get("mass_delta_kg") or 0.0) != 0.0
+                if isinstance(link, dict) and _number(link.get("mass_delta_kg")) not in (None, 0.0)
             ),
             "added": list(diff.get("added") or []),
             "removed": list(diff.get("removed") or []),
@@ -451,7 +470,31 @@ def build_summary(bundle_dir: Path) -> dict:
     # The demo's numbers travel beside the report-derived ones. A section is present only when the
     # file that carries it is, so a bare compiled bundle gets no invented revision.
     document.update(_sections(bundle_dir, report))
+    # `synthetic_count` covers the provenance block only, and on this bundle that is honest zero.
+    # Read alone it would say "nothing here is synthetic" while the calibration section beside it is
+    # built entirely from simulated logs, so the calibration count is reported next to it. The
+    # calibration block's figures are bare numbers (a parameter table, not provenance nodes), which
+    # is why this is a second count rather than one walk over the document.
+    calibration = document.get("calibration") or {}
+    document["synthetic_figures"] = {
+        "provenance": document["synthetic_count"],
+        "calibration": _numeric_leaves(calibration) if calibration.get("synthetic") else 0,
+        "calibration_is_synthetic": bool(calibration.get("synthetic")),
+    }
     return document
+
+
+def _numeric_leaves(node) -> int:
+    """How many numbers a block carries, counting through dicts and lists and not booleans."""
+    if isinstance(node, bool):
+        return 0
+    if isinstance(node, (int, float)):
+        return 1
+    if isinstance(node, dict):
+        return sum(_numeric_leaves(value) for value in node.values())
+    if isinstance(node, list):
+        return sum(_numeric_leaves(value) for value in node)
+    return 0
 
 
 def _print_summary(summary: dict) -> None:
@@ -476,12 +519,14 @@ def _print_summary(summary: dict) -> None:
               f"{counts.get('skipped', 0)} skipped")
     if "masses" in summary:
         masses = summary["masses"]
-        parts = [
-            f"{name} {masses[key]['value']:.4g} [{masses[key]['kind']}]"
-            for key, name in (("solid_kg", "solid"), ("print_kg", "print"),
-                              ("published_kg", "published"))
-            if key in masses
-        ]
+        parts = []
+        for key, name in (("solid_kg", "solid"), ("print_kg", "print"),
+                          ("published_kg", "published")):
+            if key not in masses:
+                continue
+            number = _number(_value_of(masses[key]))
+            shown = f"{number:.4g}" if number is not None else str(_value_of(masses[key]))
+            parts.append(f"{name} {shown} [{masses[key]['kind']}]")
         print("  masses: " + ", ".join(parts))
     if "torque" in summary and summary["torque"].get("static_poses"):
         rest = summary["torque"]["static_poses"][0]
@@ -490,11 +535,21 @@ def _print_summary(summary: dict) -> None:
               f"limit {summary['torque']['limit_stall_nm']['value']}")
     if "revision" in summary:
         revision = summary["revision"]
-        print(f"  revision infill {revision['infill_before']['value']} -> "
-              f"{revision['infill_after']['value']}: mass {revision['mass_before_kg']['value']:.4g}"
-              f" -> {revision['mass_after_kg']['value']:.4g} kg, "
+        before = _number(_value_of(revision.get("mass_before_kg")))
+        after = _number(_value_of(revision.get("mass_after_kg")))
+        print(f"  revision infill {_value_of(revision['infill_before'])} -> "
+              f"{_value_of(revision['infill_after'])}: mass "
+              f"{f'{before:.4g}' if before is not None else 'unreadable'} -> "
+              f"{f'{after:.4g}' if after is not None else 'unreadable'} kg, "
               f"{revision['links_changed']} links changed")
-    print(f"  synthetic figures: {summary['synthetic_count']} of {len(summary['provenance'])}")
+    figures = summary.get("synthetic_figures") or {}
+    if figures:
+        print(f"  synthetic figures: {figures.get('provenance', 0)} of "
+              f"{len(summary['provenance'])} provenance entries, "
+              f"{figures.get('calibration', 0)} in the calibration block")
+    else:
+        print(f"  synthetic figures: {summary['synthetic_count']} of "
+              f"{len(summary['provenance'])} provenance entries")
     for key, entry in summary["provenance"].items():
         if entry["kind"] in SYNTHETIC_KINDS:
             print(f"    {key:34s} {entry['kind']:10s} {entry['basis']}")
@@ -643,14 +698,18 @@ def unpack_zip(zip_path: Path, out: Path, verify_sha: str | None = None) -> dict
         )
 
     with zipfile.ZipFile(zip_path) as archive:
-        infos = [info for info in archive.infolist() if not info.is_dir()]
+        # The cap counts every entry, directory entries included: a zip of 10 000 files and 10 000
+        # directory entries is 20 000 records to carry through extraction, and counting only the
+        # files would let the number of records climb past the limit the constant names.
+        every = archive.infolist()
+        if len(every) > MAX_MEMBERS:
+            raise ArchiveError(f"{zip_path} has {len(every)} entries: past the {MAX_MEMBERS} cap")
+        infos = [info for info in every if not info.is_dir()]
         names = [info.filename for info in infos]
 
-        # Resource checks before any write: a declared expansion past the cap, or an entry count no
-        # demo plausibly has, is refused rather than attempted. Declared sizes can lie low, so the
-        # resolved-path containment check below remains the guarantee about *where* bytes land.
-        if len(infos) > MAX_MEMBERS:
-            raise ArchiveError(f"{zip_path} has {len(infos)} entries: past the {MAX_MEMBERS} cap")
+        # Resource checks before any write: a declared expansion past the cap is refused rather than
+        # attempted. Declared sizes can lie low, so the resolved-path containment check below remains
+        # the guarantee about *where* bytes land.
         expanded = sum(info.file_size for info in infos)
         if expanded > MAX_EXPANDED_BYTES:
             raise ArchiveError(
@@ -841,6 +900,15 @@ def main(argv: list[str] | None = None) -> int:
             print(f"error: {error}", file=sys.stderr)
             if args.json:
                 print(json.dumps({"schema_version": SUMMARY_SCHEMA, "error": str(error)}))
+            return 2
+        except Exception as error:  # noqa: BLE001 - a documented JSON contract, not a traceback
+            # A bundle is untrusted input: it arrives inside an extracted archive. Whatever shape it
+            # turns out to have, the caller gets the same error line and exit code as for a missing
+            # bundle, because a stack trace on stdout is not a contract.
+            message = f"{type(error).__name__}: {error}"
+            print(f"error: {args.bundle} is not a readable bundle: {message}", file=sys.stderr)
+            if args.json:
+                print(json.dumps({"schema_version": SUMMARY_SCHEMA, "error": message}))
             return 2
         if args.json:
             print(json.dumps(document, indent=2))

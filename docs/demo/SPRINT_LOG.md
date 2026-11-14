@@ -459,3 +459,64 @@ the revision section inventing 0.20/0.30. She has asked for the real schema to b
 not as specified, once F2 lands, and has proposed torque `static_poses` carry one scalar per pose
 (peak over joints) rather than arrays. Both accepted: readers go against the artifact, and the torque
 scalar-plus-`per_joint` split is what the page already does.
+
+**F2 shipped (`cfbb0d8`).** The same command now prints, after the check lines:
+
+```
+  checks 5 pass  1 fail  1 skipped
+  masses: solid 1.332 [modelled], print 0.9017 [modelled], published 0.632 [stated]
+  torque at rest: 0.7668 compiled vs 0.5377 published N m, limit 2.941995
+  revision infill 0.2 -> 0.3: mass 0.9017 -> 0.9555 kg, 7 links changed
+  synthetic figures: 0 of 31
+```
+
+`--json` carries `check_counts`, `masses` (with `wall_mm 1.2`, `infill 0.2`,
+`density_kg_m3 1240`, `servo_g 55`), `residuals` (`axis_rms_deg 1.054`, `axis_worst_deg 2.1408`,
+`origin_median_mm 2.5`, `origin_p90_mm 5.95`, `origin_max_mm 11.25`, `link_length_mm 1.69`),
+`torque` (rest/quarter/half as one scalar per pose, `limit_stall_nm 2.941995`,
+`rated_nm 0.980665`, `dynamic_comparable false`, `pose_gate_mm 70.69`, and a `dynamic_reason` that
+names 70.69 mm), `revision` (`0.20 -> 0.30`, `0.9017 -> 0.9555 kg`, 7 links, no added or removed),
+and `calibration` (`position_only.snr 0.1 / status insufficient`, four current-channel parameters
+each with `lo`/`hi`, `synthetic true`). Every number is copied out of the bundle's own files; the
+four payloads the summary needed but the bundle lacked (`torque.json`, `diff.json`,
+`identification.json`, `identifiability_scenarios.json`) were added to it rather than recomputed in
+the reader. `synthetic_count` is 0 of 31 provenance entries, and every leaf outside `calibration`
+has a non-`synthetic` kind — the test asserts both by walking the document.
+`python -m pytest -q tests/test_twin_cli.py` → `32 passed, 2 deselected in 13.08s`.
+
+**F3 + F5 shipped, and the three review findings that came with them.**
+
+*F3 — one fixture, exported, not written.* `python scripts/export_summary_fixture.py` unpacks
+`docs/demo/so101_demo.zip` with the digest `docs/demo/verify.json` records and writes
+`docs/demo/robocad_summary.v1.json` (53 505 bytes) verbatim, plus
+`docs/demo/robocad_summary.v1.sha256` in `sha256sum` format. Run against the **v1.1** zip it reported
+`sections: check_counts, masses, residuals, revision` / `missing: torque, calibration`, which is the
+proof the exporter reads the package rather than the tree: those two payloads are simply not in the
+old archive. Run against the rebuilt zip all six sections are present.
+
+*F5 — the page answers one message.* `docs/demo/page/sections.js` maps
+`overview→#hud, checks→#checks-grp, comparison→#cmp-grp, torque→#torque-grp, revision→#rev-grp,
+twin→#twin-grp`, scrolls the panel into view and flashes it for 1 500 ms. It accepts
+`{type:"robocad.section", section}` only when `event.origin === location.origin` and the page is
+served over http(s); `#section` in the URL works on load and on `hashchange`. Node test:
+`node --test docs/demo/page/sections.test.mjs` → `8 passed`, covering right origin, five wrong
+origins, unknown section, wrong type, `file://` refusal, the 1.5 s flash, a hidden empty panel
+refusing the jump, and wired message/hash delivery. Real browser, packaged zip served over
+`http://127.0.0.1:<port>`: `scroll_before 0 → scroll_after 2699`, flash present at 900 ms and gone
+after 2 s, `wrong_origin_accepted: null`, `page_errors: []`.
+
+*Review findings, all three addressed.* (1) Member cap counted only non-directory entries; it now
+counts `infolist()`, regression test writes 4 directory entries + 1 file against a cap of 3.
+(2) `synthetic_count` read as fail-open; `synthetic_figures {provenance, calibration,
+calibration_is_synthetic}` now reports 0 provenance and 18 calibration figures, and the printed line
+says both. (3) Arithmetic on untrusted bundle JSON could traceback; `_number()` returns `None` for a
+non-number so the figure is omitted, `_print_summary` formats through it, and `main()` turns any
+`build_summary` failure into the same exit-2 JSON error line. Two regression tests: a `"heavy"`
+mass and a `"not a number"` spacing still produce a summary, and a `{"checks": "not a list"}`
+report exits 2 with a JSON error line.
+`python -m pytest -q tests/test_twin_cli.py` → `38 passed, 2 deselected in 43.10s`.
+
+*Rebuild.* `python teardown_export/package_demo.py` → `PACKAGE OK`; zip is now **29 entries**,
+sha256 `fa16ff010b4d295854b14cb47461a9a0e76f805afc66a82fe3c02d32fc8eb889`.
+`python scripts/verify_demo_zip.py docs/demo/so101_demo.zip --out docs/demo/verify.json` → four
+PASS rows, `VERIFIED`.

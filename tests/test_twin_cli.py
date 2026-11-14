@@ -387,6 +387,20 @@ def test_unpack_refuses_an_archive_that_expands_past_the_cap(tmp_path, monkeypat
         twin_cli.unpack_zip(archive, tmp_path / "out")
 
 
+def test_the_member_cap_counts_directory_entries_too(tmp_path, monkeypatch):
+    """Files alone would let a zip of 3 files and 100 directories carry 103 records past the cap."""
+    import zipfile
+
+    archive = tmp_path / "demo.zip"
+    with zipfile.ZipFile(archive, "w") as handle:
+        for i in range(4):
+            handle.writestr(f"so101_demo/dir{i}/", "")
+        handle.writestr("so101_demo/report.json", "{}")
+    monkeypatch.setattr(twin_cli, "MAX_MEMBERS", 3)
+    with pytest.raises(twin_cli.ArchiveError, match="past the 3 cap"):
+        twin_cli.unpack_zip(archive, tmp_path / "out")
+
+
 def test_unpack_refuses_more_members_than_a_demo_can_have(tmp_path, monkeypatch):
     archive = _make_zip(
         tmp_path / "demo.zip",
@@ -526,6 +540,51 @@ def test_a_bundle_without_the_demo_payloads_has_no_invented_sections(tmp_path):
     assert document["check_counts"] == {"pass": 0, "fail": 0, "skipped": 0}
 
 
+def test_every_count_of_synthetic_figures_says_which_block_it_counts(tmp_path):
+    """A zero over the provenance block is honest, and would read as "nothing is synthetic" alone."""
+    (tmp_path / "report.json").write_text(json.dumps({
+        "name": "bare", "totals": {"bodies": 1}, "checks": [],
+    }), encoding="utf-8")
+    bare = twin_cli.build_summary(tmp_path)
+    assert bare["synthetic_count"] == 0
+    assert bare["synthetic_figures"] == {
+        "provenance": 0, "calibration": 0, "calibration_is_synthetic": False,
+    }
+
+    (tmp_path / "identifiability_scenarios.json").write_text(
+        json.dumps([{"snr": 0.1, "crosses_snr_3": False, "scenario": "position only"}]),
+        encoding="utf-8",
+    )
+    calibrated = twin_cli.build_summary(tmp_path)
+    assert calibrated["synthetic_figures"]["provenance"] == 0
+    assert calibrated["synthetic_figures"]["calibration"] >= 1
+    assert calibrated["synthetic_figures"]["calibration_is_synthetic"] is True
+
+
+def test_a_number_the_bundle_cannot_parse_is_omitted_not_raised(tmp_path, capsys):
+    """The bundle arrives inside an extracted archive, so arithmetic on it must not raise."""
+    (tmp_path / "report.json").write_text(json.dumps({
+        "name": "junk", "totals": {"bodies": 1, "total_mass_kg": "heavy"}, "checks": [],
+    }), encoding="utf-8")
+    (tmp_path / "comparison.json").write_text(json.dumps({
+        "link_spacings": [{"delta_m": "not a number"}, {"delta_m": 0.00169}],
+        "alignment": {"rms_axis_deg": 1.054},
+    }), encoding="utf-8")
+    document = twin_cli.build_summary(tmp_path)
+    assert document["residuals"]["link_length_mm"]["value"] == 1.69
+    assert twin_cli.main(["summary", "--bundle", str(tmp_path)]) == 0
+    assert "heavy" in capsys.readouterr().out
+
+
+def test_a_bundle_of_the_wrong_shape_ends_in_an_error_line_not_a_traceback(tmp_path, capsys):
+    """Valid JSON of the wrong type is the case a `json.loads` guard cannot catch."""
+    (tmp_path / "report.json").write_text(json.dumps({"checks": "not a list"}), encoding="utf-8")
+    assert twin_cli.main(["summary", "--bundle", str(tmp_path), "--json"]) == 2
+    line = capsys.readouterr().out.strip().splitlines()[-1]
+    assert json.loads(line)["schema_version"] == "robocad.twin.summary/1"
+    assert "error" in json.loads(line)
+
+
 @pytest.mark.skipif(not (BUNDLE / "report.json").exists(), reason="no published bundle checked out")
 def test_calibration_carries_an_interval_for_every_recovered_parameter():
     """'Every identified parameter carries uncertainty' only holds if the interval is in the data."""
@@ -537,3 +596,43 @@ def test_calibration_carries_an_interval_for_every_recovered_parameter():
         assert param["true"] is not None
     assert document["calibration"]["position_only"]["snr"] == 0.1
     assert document["calibration"]["position_only"]["status"] == "insufficient"
+
+
+def _export_script():
+    """The fixture exporter as a module, so a test can ask it to refuse."""
+    import importlib.util
+
+    path = REPO / "scripts" / "export_summary_fixture.py"
+    spec = importlib.util.spec_from_file_location("export_summary_fixture", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.mark.skipif(not DEMO_ZIP.exists(), reason="no shipped demo zip checked out")
+def test_the_fixture_exporter_writes_the_summary_and_the_digest_it_read(tmp_path):
+    """The cross-repo fixture is only worth having if its sidecar pins the archive it came from."""
+    code = _export_script().main([
+        "--out-dir", str(tmp_path / "fixtures"),
+    ])
+    assert code == 0
+    fixture = tmp_path / "fixtures" / "robocad_summary.v1.json"
+    sidecar = tmp_path / "fixtures" / "robocad_summary.v1.sha256"
+    digest, name = sidecar.read_text(encoding="utf-8").split()
+    assert name == DEMO_ZIP.name
+    assert digest == twin_cli.sha256_file(DEMO_ZIP)
+    document = json.loads(fixture.read_text(encoding="utf-8"))
+    assert document["schema_version"] == "robocad.twin.summary/1"
+    assert document["synthetic_count"] == 0
+
+
+def test_the_fixture_exporter_refuses_when_verify_json_does_not_name_the_archive(tmp_path):
+    """An export against an unverified archive is the divergence the fixture exists to stop."""
+    verify = tmp_path / "verify.json"
+    verify.write_text(json.dumps({"sha256": "0" * 64}), encoding="utf-8")
+    archive = _make_zip(tmp_path / "demo.zip", {"so101_demo/report.json": "{}"})
+    out = tmp_path / "fixtures"
+    assert _export_script().main([
+        "--zip", str(archive), "--verify-json", str(verify), "--out-dir", str(out),
+    ]) == 2
+    assert not out.exists() or not any(out.iterdir())

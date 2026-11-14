@@ -569,3 +569,26 @@ makes that ordering checkable, so an array would invite a consumer to read the w
 therefore carries `static_poses[].compiled_nm`/`published_nm` as scalars (the peak over joints, stated
 as such), with per-joint values, if present, keyed by joint name. Lane B proposed this from the
 consumer side; the joint-index argument is the reason it is adopted.
+
+**Decision: the cross-repo fixture is exported from the archive `verify.json` names, and its digest
+travels beside it.** A test fixture written by hand tests what the reader wanted, not what the
+package says. `scripts/export_summary_fixture.py` unpacks the shipped zip with its digest, runs the
+same `build_summary` the CLI runs, and writes the JSON unmodified, plus a `sha256sum`-format sidecar
+naming the archive. A consumer whose zip has been replaced is detectable rather than silently stale.
+The fixture is not reshaped for a test: if a test needs a different shape, the reader is wrong.
+
+**Decision: the page accepts exactly one message, from its own origin, naming one of six sections.**
+The voice shell has to be able to say "show me the torque" and have the page answer. The narrow
+contract is `{type: "robocad.section", section}` posted to the frame, valid only when `event.origin`
+equals the page's own origin, and only for `overview|checks|comparison|torque|revision|twin`.
+Anything else is ignored without a reply, because an error message is also a map of what to try
+next. From `file://` (opaque origin) the listener accepts nothing; the page stays usable standalone
+and `#torque` in the URL still scrolls, which is what a README link does.
+
+**Decision: `synthetic_count` stays scoped to the provenance block and a second count names the
+calibration block.** A security review read one zero and called it fail-open: the summary said "0 of
+31" while 18 calibration figures beside it come from simulated logs. The zero is true and the
+reading was fair, so `synthetic_figures` now reports `{provenance, calibration,
+calibration_is_synthetic}` and the printed line says both. `synthetic_count` is kept unchanged
+because a consumer already reads it; the schema stays `/1` because nothing was removed or
+reinterpreted, only added beside it.
