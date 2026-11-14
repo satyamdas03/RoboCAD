@@ -512,3 +512,36 @@ and goes to zero when gravity is off.
 not comparable at the jaw tip, because the jaw frame is a separate known-unknown (5.74 mm off at rest,
 and no constant gripper offset fixes a translation). The 11.25 mm figure is the anchor residual over
 100 poses, not a jaw-tip residual, and a tip gate cannot be met with the offsets this bundle carries.
+
+## v1.1, 2026-11-14: the CLI contract, and fail-closed provenance
+
+**Decision: Hi-EV calls a subprocess, never an import.** The two repos stay separate, so the contract
+is `python -m robocad twin …` and JSON on stdout. The cost is a process spawn per call; the benefit is
+that a renamed field is a visible schema failure instead of an import that still resolves and silently
+returns something else.
+
+**Decision: every figure in a summary carries a provenance label, and an unanticipated one defaults to
+`synthetic`.** The summary's job is to be readable by a consumer that will render it in a panel, and
+the panel is where an assumption gets read as a measurement. So `provenance` covers every key of
+`totals` — with a fallback entry for any figure no rule anticipates — and the `synthetic` flag is
+computed from `kind` rather than written by hand, so a new figure cannot arrive unflagged and an entry
+cannot disagree with its own label. Nine of thirty-one figures on this bundle come out `derived`, which
+is the honest count: the two masses are a CAD volume at an assumed density.
+
+**Decision: the progress stream has a fixed stage set and a JSON error line.** A GUI that scrapes text
+breaks when the text changes; a GUI that waits on a stream hangs when the process dies. So the stages
+are a closed list (`import|joints|properties|collision|bundle|checks|done`), an unknown stage is
+refused rather than passed through, a failure is emitted through the same sink as the stages, and the
+exit code distinguishes built (0) from built-and-red (3) from failed (2).
+
+**Decision: `twin page` says which payloads it rebuilt and which it copied.** The torque comparison
+needs the published model as well as the compiled one, so a bundle alone cannot regenerate it. Copying
+it silently would put last week's number beside this week's bundle; refusing to build without it would
+make the command useless offline. It copies, names what it copied, and checks that every local `src`
+the page links exists before calling the page complete.
+
+**Decision: the blade treats its own iframe as untrusted.** It is a local page on a local port, but it
+is a separate document, so `src` is restricted to the `/robocad/page/` mount (no `..`, backslashes,
+schemes or control characters), the frame is sandboxed `allow-scripts` without `allow-same-origin`,
+and messages from it are accepted only from that frame's window at the expected origin in the expected
+shape. All three checks are tested; any one alone would be enough to be fooled.

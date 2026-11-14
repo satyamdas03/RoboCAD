@@ -15,6 +15,7 @@ from __future__ import annotations
 import html
 import json
 from collections import Counter
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -162,6 +163,7 @@ def compile_bundle(
     actuator: ActuatorSpec | None = None,
     visual: bool = False,
     conventions: Conventions | None = None,
+    progress: Callable[[str, int, str], None] | None = None,
 ) -> Report:
     """Run every stage and write the bundle. Raises rather than emitting a partial report.
 
@@ -187,12 +189,20 @@ def compile_bundle(
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     chain = chain or SO101_CHAIN
+    # ``progress`` is a status sink, not a hook that changes what runs: the stages it names are the
+    # stages this function already executes in order, and the percentages are emitted after each one
+    # finishes. A caller that reports progress therefore cannot report a stage as done that was not.
+    def emit(stage: str, pct: int, msg: str) -> None:
+        if progress is not None:
+            progress(stage, pct, msg)
+
     if notice is None:
         notice = read_notice(out)
     if (limits is None) != (limits_source is None):
         raise ValueError("limits and limits_source must be supplied together, or neither")
 
     assembly = import_step(str(step_path))
+    emit("import", 10, f"{assembly.part_count} parts, {assembly.instance_count} instances")
     part_of = {instance.instance_id: instance.part_id for instance in assembly.instances}
     if (actuator_mass_kg is None) != (actuator_mass_source is None):
         raise ValueError(
@@ -213,6 +223,7 @@ def compile_bundle(
     if limits:
         skeleton = apply_limits(skeleton, limits, limits_source)
     write_skeleton(skeleton, out / "robot.joints.yaml", notice=notice)
+    emit("joints", 25, f"{len(skeleton.joints)} joints, {len(skeleton.bodies)} bodies")
 
     visuals: dict[str, object] = {}
     visual_warnings: list[str] = []
@@ -236,6 +247,11 @@ def compile_bundle(
         actuator=actuator,
         visual=visuals or None,
     )
+    emit(
+        "properties",
+        45,
+        f"{len(model.bodies)} bodies, {model.total_mass_kg:.3f} kg modelled",
+    )
     mesh_dir = write_meshes(model, assembly, meshes, out / "meshes")
     if visuals:
         # Same directory as the hulls: MuJoCo joins every mesh file to one meshdir, and a second
@@ -243,6 +259,12 @@ def compile_bundle(
         write_visual_meshes(model, assembly, visuals, mesh_dir)
     visual_bytes = (
         sum(p.stat().st_size for p in mesh_dir.glob("*_vis.obj")) if visuals else 0
+    )
+    emit(
+        "collision",
+        70,
+        f"{sum(len(b.hull_files) for b in model.bodies)} hulls, "
+        f"{sum(len(b.visual_files) for b in model.bodies)} visual meshes",
     )
     mjcf_path = write_mjcf(model, out / "model.mjcf", conventions=conventions)
     urdf_path = write_urdf(model, out / "model.urdf")
@@ -324,6 +346,7 @@ def compile_bundle(
     # instead of out of here keeps working after this bundle is recompiled with a different
     # convention, and is wrong without saying so.
     write_manifest(out, model.name, conventions or Conventions())
+    emit("bundle", 85, "bundle.json, model.mjcf, model.urdf and manifest.json written")
 
     limits = {j.joint_id: j.limits for j in skeleton.joints}
     # Collision volume over solid volume per body. When the self-collision check finds an overlap,
@@ -364,6 +387,11 @@ def compile_bundle(
         ),
         bundle_checks.check_free_base_stand(),
     ]
+
+    worst = "fail" if any(c.status == "fail" for c in checks) else (
+        "warn" if any(c.status == "warn" for c in checks) else "pass"
+    )
+    emit("checks", 97, f"{len(checks)} checks, worst {worst}")
 
     # One PLA density over every part of the assembly produces a total that means nothing in
     # particular, because a servo is not a solid block of plastic and a screw is not printed. The
@@ -460,6 +488,7 @@ def compile_bundle(
     )
     (out / "report.json").write_text(report.model_dump_json(indent=2), encoding="utf-8")
     (out / "report.html").write_text(render_html(report), encoding="utf-8")
+    emit("done", 100, f"bundle written to {out}")
     return report
 
 

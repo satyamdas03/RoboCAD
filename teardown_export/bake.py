@@ -118,7 +118,7 @@ def _b64(array: np.ndarray) -> str:
     return base64.b64encode(np.ascontiguousarray(array).tobytes()).decode("ascii")
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("model")
     parser.add_argument("out_dir")
@@ -127,7 +127,7 @@ def main() -> int:
     parser.add_argument("--triangles", type=int, default=2500)
     parser.add_argument("--visual-only", action="store_true", default=True)
     parser.add_argument("--collision-only", dest="visual_only", action="store_false")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     import mujoco
 

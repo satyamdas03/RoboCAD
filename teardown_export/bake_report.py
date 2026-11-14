@@ -104,12 +104,12 @@ def _revision(rev: dict | None) -> dict | None:
     }
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("report", help="report.json from a compiled bundle")
     parser.add_argument("out", help="report.js next to the page")
     parser.add_argument("--bundle", default=None, help="bundle.json, for the model name and warnings")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     report = json.loads(pathlib.Path(args.report).read_text(encoding="utf-8"))
     bundle = {}

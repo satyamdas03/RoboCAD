@@ -280,3 +280,61 @@ now reads `qfrc_bias` at rest, which is the gravity term by definition and is un
 limit constraint forces. Six tests pin all three: the load does not equal the limit, does not scale
 with it, does not pick up a limit force outside the range, and goes to zero when gravity is switched
 off.                                                    [verified-ran, 6 passed in 0.83s]
+
+### 2026-11-14 13:10 Sydney, v1.1 session, Lane A, H0 and H5
+
+**H0, the JSON CLI Hi-EV calls.** `robocad/twin_cli.py`, wired into `python -m robocad twin`:
+`summary --bundle DIR [--json]`, `page --bundle DIR --out DIR`, `compile --step FILE --joints FILE
+--out DIR [--json-progress]`. No Hi-EV import; a subprocess and JSON, so a changed field is a schema
+failure rather than an import that happens to still resolve.
+
+    python -m robocad twin summary --bundle docs/twin/so101/bundle
+    so101: .../docs/twin/so101/bundle
+      bodies 7  joints 6  parts 83  instances 259
+      mass 0.901658836 kg modelled, 1.332012393 kg solid bound [derived]
+      worst check fail
+      conventions: measured, P0-a registration ...
+      synthetic figures: 9 of 31                        [verified-ran]
+
+The summary's content is its `provenance` block: every key of `totals` carries `{kind, synthetic,
+basis}`, and `synthetic` is derived from `kind` (`derived` and `synthetic` are true) so the flag cannot
+disagree with the label in a hand-written entry. Anything no rule anticipated defaults to `derived`
+with the basis "no provenance rule for this figure: treat it as a model output, not a measurement" —
+fail-closed, because the alternative is an unlabelled model output in a panel a reader takes as
+measurement. On this bundle that is 9 of 31 figures, the two masses chief among them.
+
+`compile --json-progress` emits one JSON object per line over a fixed stage set
+(`import|joints|properties|collision|bundle|checks|done`, last line `done` at 100, no other name
+accepted), and a failure ends with `{"stage":"error",...}` and exit 2 through the same sink, so a GUI
+waiting on the stream cannot hang on a dead pipe. Exit 3 means "built, and its own checks are red".
+`--joints` adopts the limits of a reviewed `robot.joints.yaml` with that file's own provenance
+sentence, and refuses a file that states two sources.
+
+    python -m robocad twin page --bundle docs/twin/so101/bundle --out <tmp> --json
+    rebuilt_from_this_bundle: meshes.js, report.js, trajectory.js
+    copied_from_page_assets: diff.js, identification.js, index.html, three.min.js, torque.js, twin.js
+    referenced_but_absent: []   complete: true        [verified-ran, 3.7 s]
+
+`twin page` names what it rebuilt from this bundle and what it copied, because the torque payload needs
+the published model as well as the compiled one and a page that silently carried last week's torque
+number beside this week's bundle would be the worst of both. It also checks every local `src` the page
+links and refuses to call the result complete while one is missing. Default triangle budget is 500 to
+match the shipped page (3.1 MB) rather than bake's 2500 (10.9 MB for the same robot).
+
+Tests: `tests/test_twin_cli.py`, 17 tests, all passing (15 default + 2 `-m mujoco`). [verified-ran]
+
+**H5, the blade, delivered as a tested handoff.** Lane B sent the exact `BridgeEvent` union and the
+route prefix `/robocad/page/`, so the blade is written against both and against a fixture rather than
+discovered on live events. `docs/twin/hiev_blade/`: `panel.ts` (all the rules), `Blade.tsx` (iframe,
+postMessage, presenter mode), `fixture.mjs` (`phase -> panel -> delta -> done`, then Esc),
+`panel.test.mjs`, `INTEGRATION.md` (six hunks for the Hi-EV tree).
+
+    cd docs/twin/hiev_blade && node --test
+    tests 10   pass 10   fail 0                       [verified-ran]
+
+Pinned there: the six sections and no others; a `src` outside `/robocad/page/` is refused, including
+`..`, backslashes, schemes and control characters; Esc closes the blade **and** hushes the voice in one
+action; frame messages need the frame's own window, the expected origin and the right shape; the frame
+is `sandbox="allow-scripts"` with no `allow-same-origin`; the CSP fragment is exactly
+`frame-src http://127.0.0.1:7345`. `panel.ts` is imported by the tests through node's type stripping,
+so the tests exercise the file that ships rather than a JS copy that can drift.
