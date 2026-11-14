@@ -20,6 +20,8 @@ list changes either of those.
 | rtree | 1.4.1 | MIT |
 | httpx | 0.28.1 | BSD-3-Clause |
 | coacd | 1.0.14 | MIT |
+| pyyaml | 6.0.3 | MIT |
+| defusedxml | 0.7.1 | Python-2.0 |
 | mujoco | 3.11.0 | Apache-2.0 |
 | anthropic | 1.1.0 | MIT |
 

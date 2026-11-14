@@ -47,7 +47,14 @@ ai = ["anthropic>=0.30.0"]
 voice = ["livekit-agents>=0.12.0", "livekit-api>=0.8.0"]
 # Physics. Required for every check that loads a bundle.
 sim = ["mujoco>=3.1.0"]
-dev = ["pytest>=8.0.0", "pytest-timeout>=2.3.0", "playwright>=1.40.0"]
+dev = [
+  "pytest>=8.0.0",
+  "pytest-timeout>=2.3.0",
+  "playwright>=1.40.0",
+  # tests/test_packaging_docs.py imports setuptools to assert the proprietary package is excluded
+  # from the wheel; Python 3.12+ venvs no longer install it, so a clean `.[dev]` failed that test.
+  "setuptools>=69",
+]
 
 [project.scripts]
 robocad = "robocad.__main__:main"
