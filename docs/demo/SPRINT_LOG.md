@@ -338,3 +338,37 @@ action; frame messages need the frame's own window, the expected origin and the 
 is `sandbox="allow-scripts"` with no `allow-same-origin`; the CSP fragment is exactly
 `frame-src http://127.0.0.1:7345`. `panel.ts` is imported by the tests through node's type stripping,
 so the tests exercise the file that ships rather than a JS copy that can drift.
+
+### 2026-11-14, v1.1 session, Lane A, H7 cross-check and the R5 wording
+
+Timestamps in this file's earlier headers were written against a clock that ran ahead of the machine;
+this entry and later ones use the machine's own time (local 12:14 AUSEDT, 01:14 UTC). Flagging it
+rather than back-dating, because an entry whose time is invented is not evidence.
+
+**H7, Lane A checks Lane B's spoken numbers.** She sent eleven H6 narration figures. Each was checked
+by loading the artifact it cites and rounding to the precision she speaks, not by reading the page.
+Ten match. Two do not. `verified-ran`, table in `docs/demo/H7_cross_check.md`:
+
+- `revision_f030/diff.json` `totals.mass_after_kg` = **0.9554530302470398**. At three decimals that is
+  **0.955**, and her line says 0.956. The before figure (0.902) is right.
+- `docs/demo/twin/identification.json` has two current-channel rungs and **both carry
+  `reached: true`**, so "1 of 2 rungs recovered" contradicts the field the rest of the panel uses.
+  The number is reachable another way — the 25% tolerance on *damping*, where `elbow_flex` reads
+  24.86% and `shoulder_lift` 45.53% — but that is a different sentence and must be spoken as one.
+- Minor, reported not fixed: her torque line says "at matched static poses" while
+  `static_gravity[0]` is the rest pose only.
+
+Everything else survived, including the figures that carry the most weight: 7 bodies / 6 joints,
+5 pass / 1 fail / 1 skipped, 7.9 mm hull overlap, P0-a's 2.50 median and 11.25 worst, 0.902 vs 0.632
+published with a 1.332 solid bound, 0.767 vs 0.538 static gravity, and the jaw's 70.7 mm.
+
+**Her origin caveat, answered in code.** `Blade.tsx` now warns on an origin mismatch
+(`refused a frame message from <origin>; expected <origin>`), and `INTEGRATION.md` states that the
+origin is a setting rather than a constant, with the build-time-read option named for the case where
+the shell ships more than one port configuration. `panel.ts` is unchanged and its 10 tests still pass
+(`verified-ran`, `node --test panel.test.mjs` from that directory: 10 pass, 0 fail).
+
+**Ownership call, logged in `docs/DECISIONS.md`.** The v1.1 tag, the zip rebuild and the fresh-folder
+verification stay with Lane B, because she is still editing `docs/demo/page/index.html` and
+`torque.js`; a zip built mid-edit is worse than one built last. I own the `FINAL_STATUS.md` wording and
+will state the package's status as hers, with her evidence, plus the three-number check she runs.

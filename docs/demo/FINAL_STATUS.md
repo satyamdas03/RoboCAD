@@ -2,8 +2,28 @@
 
 Owner of this file: build session (Lane A, `robocad-61`), with the show-path rows contributed by the
 monitor session (Lane B) and every one of them re-derived before it was written here. Updated
-2026-11-14, 11:00. Every claim carries a tag:
+2026-11-14, 12:30, for **v1.1**. Every claim carries a tag:
 `verified-ran`, `verified-read`, `claimed`. Deadline: hard freeze Sat 14 Nov 2026, 13:15 Sydney.
+
+## v1.1: what changed, and what it costs
+
+v1.1 is not a new demo. It is the same robot and the same page, with four defects fixed and two
+handover artifacts added. The rows below are the delta; the sections after them are still true.
+
+| # | Change | State | Evidence |
+|---|---|---|---|
+| R1 | Torque contradiction, official vs compiled | **resolved as a definition, not a number**: static load is `qfrc_bias` at rest, and the earlier 2.942 N·m readings were `mj_inverse` reporting the servo's own force limit | `verified-ran`, `tests/test_demo_static_load.py` 6 pass |
+| R1.4 | Retest the live hold with the corrected pose mapping | **Still fails, and now says why**: 573.23 mrad steady error, 64 contacts active, `qfrc_constraint` up to 3.29 N·m against a 2.942 N·m limit and 0.254 N·m of gravity. Contact geometry, not gain and not torque | `verified-ran`, `robocad demo so101 --mode hold` |
+| R2 | Zero-pose conventions inside the bundle | done: `manifest.json` plus an MJCF comment, both rendered from one `Conventions` object, pinned by a mutation test that breaks the reader | `verified-ran`, `tests/test_conventions.py` 8 pass |
+| R3 | Mesh resolution stated | done: the page payload carries `triangle_budget`, so the 500-triangle decimation is disclosed rather than silent | `verified-ran`, `tests/test_mesh_resolution.py` |
+| R4 | Calibration against the current channel | **SYNTHETIC**, Lane B, `e1312b1`; the bench protocol carries joint and torque limits, a stop condition and the supervision note | `claimed` by Lane B, protocol read here |
+| R5 | Tag, zip, fresh-folder verification | `demo-bundle-v1.1` at `cb33678`, zip rebuilt and verified at sha256 `86beadf5…`, 22 files | `verified-ran`, see "Freeze state" |
+| H0 | JSON CLI for Hi-EV | done: `python -m robocad twin summary|page|compile`, fixed stage set, JSON progress lines, exit codes 0/2/3, every figure labelled | `verified-ran`, `tests/test_twin_cli.py` 15 pass (+2 MuJoCo) |
+| H5 | RoboCAD blade for the Hi-EV HUD | done as a drop-in in `docs/twin/hiev_blade/` with its own tests; Hi-EV copies it, the repos stay separate | `verified-ran`, `node --test panel.test.mjs` 10 pass |
+| H7 | Cross-verification | Lane A checked eleven of Lane B's spoken figures against the artifacts: ten matched, two were rewritten, and the packaged zip was checked separately | `verified-ran`, `docs/demo/H7_cross_check.md` |
+
+Cost of v1.1, stated plainly: the hold still fails, and it fails for a reason no gain change fixes.
+Collision geometry has to be fixed before this robot can be driven, and that is post-demo work.
 
 ## Open this first, in this order
 
@@ -240,14 +260,27 @@ and base-frame difference, which is exactly what `CONVENTIONS.md` now prevents.
 
 ## Freeze state, Sat 14 Nov
 
-- Package: `docs/demo/so101_demo.zip`, 3,892,730 bytes, 20 files, sha256
+- **Package, v1 (superseded by the v1.1 package below, kept so the two can be compared).**
+  `docs/demo/so101_demo.zip`, 3,892,730 bytes, 20 files, sha256
   `fff730639bc40ca7e4f7efc924a092fed0bebae4f01ec659291da1ea8920c26f`, built by
   `teardown_export/package_demo.py` from commit `430c77e` (the packager's statement; nothing in this
   repo can check a zip against a commit, so it is recorded as a claim), which copies the artefacts,
   zips them, extracts the zip into a fresh temporary directory and opens that copy from `file://` with
   the network off. The package test is the deliverable, not the folder.
-- Frozen bundle tag: **`demo-bundle-v1` at `f202c12`**. Nothing inside `docs/twin/so101/bundle/`
-  changed after the tag; the revision compile and the diff live in sibling directories.
+- Frozen bundle tag: **`demo-bundle-v1` at `f202c12`**, and nothing inside `docs/twin/so101/bundle/`
+  changed under that tag. The v1.1 tag adds `manifest.json` and the MJCF conventions comment and
+  rebakes `report.html`'s timestamp; those changes belong to `demo-bundle-v1.1` at `cb33678`, not to
+  v1, and the diff between the two tags is the honest way to see them.
+- Live viewer: `python -m robocad.demo so101 --bundle docs/twin/so101/bundle --mode replay` replays
+  the bundle's trajectory. **Hold fails and the failure ships as documentation, not as a caveat**:
+  573.23 mrad steady error, and the v1.1 diagnostic says what the error is made of. It is **not** the
+  force limit that stops the servo: gravity at the held pose is 0.000 to 0.254 N·m against a 2.942 N·m
+  limit, while `qfrc_constraint` reaches **3.29 N·m** with **64 contacts** active. The earlier
+  explanation here ("all six joints at the 2.942 N·m force limit, because `kp` = 20 asks for 10 N·m")
+  was the measurement artefact R1.4 was written to settle: `mj_inverse` with a position servo at
+  `ctrl = 0` reports the servo's own saturation as load. Per-joint numbers in
+  `docs/twin/so101/live_hold.md`; verdict and the test that pins it in `docs/DECISIONS.md`. Replay
+  stays the demo path. `verified-ran`
 - Independent verification of the package: `scripts/verify_demo_zip.py` names three numbers before
   computing any of them (printed mass 0.901658836 kg; revision 0.901658836 to 0.955453030 kg; seven
   check rows at 5 pass / 1 fail / 1 skipped), extracts the zip to a fresh directory, and re-derives
@@ -258,10 +291,6 @@ and base-frame difference, which is exactly what `CONVENTIONS.md` now prevents.
   place: the 10:52 package passed the other three and failed that one, because `diff.json` had been
   written with `str(path)`; the artifact was fixed at `cdb1662` and the page rebaked, and the check
   is what forced the rebake rather than a reader noticing a `\` in a document.
-- Live viewer: `python -m robocad.demo so101 --bundle docs/twin/so101/bundle --mode replay` replays
-  the bundle's trajectory. **Hold fails and the failure ships as documentation, not as a caveat**:
-  573.26 mrad steady error, all six joints at the 2.942 N·m force limit, because `kp` = 20 asks for
-  10 N·m to take a 0.5 rad step. Per-joint numbers in `docs/twin/so101/live_hold.md`. `verified-ran`
 - Page rendered from the bundle's own visual meshes at 128,073 triangles, 56 fps, zero network
   requests. The triangle count is `verified-ran` two ways: decoded here out of `page/meshes.js`, where
   each mesh's packed index buffer sums to exactly 128,073 triangles across 259 meshes, and the
@@ -270,10 +299,24 @@ and base-frame difference, which is exactly what `CONVENTIONS.md` now prevents.
   two, and the conventions note with the 1.69 mm frame-free link-length agreement.
 - Torque panel reads its limit from the bundle's actuators, 2.94 N·m, and is not saturated on this
   trajectory: peak 1.26 N·m official against 0.63 N·m compiled.
-- Not pushed. `master` is 67 commits ahead of `origin/master` and stays local until Satyam says
-  otherwise: the sprint order authorised publishing `docs/twin/so101/` but said nothing about pushing
-  the branch, and a push is the one action here that cannot be taken back. The freeze commit is
-  `be74ebd`; `git push origin master` is his call.
+- **Pushed, on a branch.** `feat/v1.1` is on `origin` at `cb33678` plus the lane's follow-up commits,
+  and the tag `demo-bundle-v1.1` points at `cb33678` on both sides (`git ls-remote --tags origin`
+  agrees with the local tag). `master` is still local and still ahead of `origin/master`: the sprint
+  order says push, and a branch push is reversible whereas moving `master` is not the lane's call. If
+  Satyam wants this on `master`, that is his merge, and nothing here has been rebased or forced.
+- **Package, v1.1.** `docs/demo/so101_demo.zip`, 3,896,897 bytes, 22 files, sha256
+  `86beadf56d2ba4dca45a3b83417cb111a32939772976731ece54ad4eb5ac87ee`, rebuilt by Lane B against the
+  regenerated bundle and verified by her fresh-folder run. Lane A re-ran
+  `scripts/verify_demo_zip.py` on it: the four named checks pass and it prints **VERIFIED**. It is 22
+  files rather than v1's 20 because `manifest.json` and `BENCH_PROTOCOL.md` were added. `verified-ran`
+- **What the v1.1 package still gets wrong, found by reading inside it rather than around it.** Lane A
+  extracted the zip to an empty directory and read only its contents: `manifest.json` names five files
+  the package does not carry (`robot.joints.yaml`, `model.mjcf`, `model.urdf`, `bundle.json`,
+  `meshes/`), so a consumer that follows that map finds a dead end everywhere except `report.json`;
+  and the spoken figure "the jaw frame differs by 70.7 mm" appears nowhere in the package, whose
+  torque payload says only "tens of mm". Both are reported to Lane B with the fix each wants. They
+  are stated here rather than fixed here because the package is her artifact and a zip rebuilt
+  mid-edit is the failure this section exists to prevent. `verified-ran`
 - M2 review recorded as PASS by the lane that did not write it, 4 of 4 criteria, with the official
   URDF's sha256 verified against the pinned digest before the check ran.
 

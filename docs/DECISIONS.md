@@ -545,3 +545,10 @@ is a separate document, so `src` is restricted to the `/robocad/page/` mount (no
 schemes or control characters), the frame is sandboxed `allow-scripts` without `allow-same-origin`,
 and messages from it are accepted only from that frame's window at the expected origin in the expected
 shape. All three checks are tested; any one alone would be enough to be fooled.
+
+**Decision: the twin CLI rides on `feat/v1.1` rather than opening `feat/twin-cli`.** The order names
+two branches, but Lane B is already pulling `feat/v1.1` for the blade handoff, and a second branch
+from the same commit would mean two histories carrying the same files, with the risk that her
+integration lands on one and my fixes on the other. One branch, linear, pushed, is the smaller risk
+while two lanes share the tree. If Satyam wants the split for review, `feat/twin-cli` can be created
+at `84fd2bf` afterwards without rewriting anything, because nothing has been rebased or forced.
