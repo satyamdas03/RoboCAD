@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 
 from ai_cad.compiler.actuators import ActuatorSpec, actuators_for
 from ai_cad.compiler.collision import CollisionError, CollisionMesh, collision_mesh, write_obj
+from ai_cad.compiler.conventions import Conventions
 from ai_cad.compiler.kinematics import Skeleton
 from ai_cad.compiler.properties import (
     LinkMassProperties,
@@ -357,7 +358,12 @@ def write_visual_meshes(
     return directory
 
 
-def write_mjcf(model: BundleModel, path: Path, meshdir: str = "meshes") -> Path:
+def write_mjcf(
+    model: BundleModel,
+    path: Path,
+    meshdir: str = "meshes",
+    conventions: Conventions | None = None,
+) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     by_id = {b.body_id: b for b in model.bodies}
     children: dict[str, list[BodyModel]] = {}
@@ -381,8 +387,13 @@ def write_mjcf(model: BundleModel, path: Path, meshdir: str = "meshes") -> Path:
                 )
             seen[stem] = body.body_id
 
-    lines = [
-        f'<mujoco model="{model.name}">',
+    lines = [f'<mujoco model="{model.name}">']
+    if conventions is not None:
+        # The model file is what a simulator opens and what a reader opens first, so the convention
+        # that makes this model comparable with another one belongs here and not only in a sibling.
+        # Rendered from the same object that fills manifest.json, so the two cannot drift apart.
+        lines.append(conventions.mjcf_comment())
+    lines += [
         f'  <compiler angle="radian" meshdir="{meshdir}"/>',
         "  <asset>",
     ]

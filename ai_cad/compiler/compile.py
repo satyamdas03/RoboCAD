@@ -23,6 +23,7 @@ from pydantic import BaseModel, Field
 from ai_cad.compiler import bundle_checks
 from ai_cad.compiler.actuators import ActuatorSpec
 from ai_cad.compiler.collision import MAX_FILL_RATIO
+from ai_cad.compiler.conventions import Conventions, write_manifest
 from ai_cad.compiler.kinematics import apply_limits, derive_skeleton, write_skeleton
 from ai_cad.compiler.materials import MATERIALS, Density, datasheet_density
 from ai_cad.compiler.print_model import PrintModel
@@ -160,6 +161,7 @@ def compile_bundle(
     actuator_mass_source: str | None = None,
     actuator: ActuatorSpec | None = None,
     visual: bool = False,
+    conventions: Conventions | None = None,
 ) -> Report:
     """Run every stage and write the bundle. Raises rather than emitting a partial report.
 
@@ -175,6 +177,12 @@ def compile_bundle(
     applied to every part the name classifier calls an actuator: those parts are bought, not printed,
     and their CAD solids are envelopes rather than material. An explicit ``density_by_part`` entry
     wins over both.
+
+    ``conventions`` is the measured zero-pose offset and base translation that make this bundle
+    comparable with another model of the same robot. It is written twice, from one object: a comment
+    block in ``model.mjcf`` (what a simulator opens) and the ``conventions`` block of
+    ``manifest.json`` (what a consumer reads). Omitted, the bundle states that no convention was
+    measured rather than shipping a zero vector that reads like a finding.
     """
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -236,7 +244,7 @@ def compile_bundle(
     visual_bytes = (
         sum(p.stat().st_size for p in mesh_dir.glob("*_vis.obj")) if visuals else 0
     )
-    mjcf_path = write_mjcf(model, out / "model.mjcf")
+    mjcf_path = write_mjcf(model, out / "model.mjcf", conventions=conventions)
     urdf_path = write_urdf(model, out / "model.urdf")
     assumed = [b.body_id for b in model.bodies if b.rests_on_an_assumed_density]
     body_rows = [
@@ -310,6 +318,12 @@ def compile_bundle(
         ),
         encoding="utf-8",
     )
+
+    # What the bundle is and how to read it, in one file a consumer can open without this repo. The
+    # conventions block is the point of it: a comparison that reads the offsets out of its own source
+    # instead of out of here keeps working after this bundle is recompiled with a different
+    # convention, and is wrong without saying so.
+    write_manifest(out, model.name, conventions or Conventions())
 
     limits = {j.joint_id: j.limits for j in skeleton.joints}
     # Collision volume over solid volume per body. When the self-collision check finds an overlap,
