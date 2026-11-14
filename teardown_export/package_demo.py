@@ -141,6 +141,11 @@ def main() -> int:
         # the bundle's own conventions block: a packaged page that reads offsets from the bundle must
         # find them in the zip, or it works in the repo and silently fails for a recipient
         "manifest.json": "docs/twin/so101/bundle/manifest.json",
+        # ship what the manifest points at: a map whose entries 404 is worse than no map, because
+        # the conventions note tells a consumer to read from here and they will
+        "model.mjcf": "docs/twin/so101/bundle/model.mjcf",
+        "bundle.json": "docs/twin/so101/bundle/bundle.json",
+        "robot.joints.yaml": "docs/twin/so101/bundle/robot.joints.yaml",
         "BENCH_PROTOCOL.md": "docs/twin/so101/BENCH_PROTOCOL.md",
         "diff.js": "docs/demo/page/diff.js",
     }
@@ -154,6 +159,24 @@ def main() -> int:
         _copy(repo / rel, out / name, repo)
 
     _copy(repo / "docs/demo/README.md", out / "README.md", repo)
+
+    # annotate the packaged manifest so every entry resolves: the 692 mesh files stay in the tagged
+    # bundle because the page renders meshes.js, and the manifest now says so instead of pointing at
+    # a directory the package does not carry
+    manifest_path = out / "manifest.json"
+    if manifest_path.exists():
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        files = manifest.get("files") or {}
+        absent = {}
+        for key, rel in list(files.items()):
+            if not (out / str(rel)).exists():
+                absent[str(rel)] = ("not in this package: the page renders meshes.js; the model and "
+                                    "its meshes live in the tagged bundle")
+                files.pop(key)
+        if absent:
+            manifest["not_in_package"] = absent
+        manifest["files"] = files
+        manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
     # The packaged README says how much of the bundle's geometry this copy actually renders. Appended
     # here rather than written into docs/demo/README.md, because the repo README describes the source
@@ -234,9 +257,21 @@ def main() -> int:
         missing = [h for h in links if not (root / h).exists()]
         browser.close()
 
+    # the manifest is a map of where the model lives; an entry that does not resolve is a dead end a
+    # consumer will walk into, so it is checked against the EXTRACTED copy, not the repo
+    manifest_dead: list[str] = []
+    manifest_file = root / "manifest.json"
+    if manifest_file.exists():
+        manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
+        for key, rel in (manifest.get("files") or {}).items():
+            if not (root / str(rel)).exists():
+                manifest_dead.append(f"{key} -> {rel}")
+
     print(json.dumps({"panels": panels, "page_errors": errors, "external_requests": external,
-                      "missing_relative_links": missing, "unpacked_at": str(root)}, indent=2))
-    ok = not errors and not external and not missing and panels["checks"] == 7 and panels["links"] >= 7
+                      "missing_relative_links": missing, "manifest_dead_entries": manifest_dead,
+                      "unpacked_at": str(root)}, indent=2))
+    ok = (not errors and not external and not missing and not manifest_dead
+          and panels["checks"] == 7 and panels["links"] >= 7)
     print("PACKAGE OK" if ok else "PACKAGE PROBLEM")
     return 0 if ok else 3
 

@@ -191,6 +191,37 @@ def main() -> int:
 
     conv = from_bundle(str(compiled_path.parent))
     offsets = np.asarray(conv.offset_vector_rad([f"joint_{i+1}" for i in range(compiled.njnt)]))
+    translation = np.asarray(conv.base_translation_mm, dtype=float) / 1000.0
+    # pose gate: how far apart the two models put the same world point, which is why the moving-arm
+    # comparison is refused. It has to travel WITH the payload, or a demo quoting it is quoting a
+    # number the viewer cannot reach.
+    def _tip(m, body_name):
+        d = mujoco.MjData(m); mujoco.mj_forward(m, d)
+        body = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_BODY, body_name)
+        pts = []
+        for g in range(m.ngeom):
+            if m.geom_bodyid[g] != body or m.geom_type[g] != mujoco.mjtGeom.mjGEOM_MESH:
+                continue
+            mesh = int(m.geom_dataid[g]); a, n = m.mesh_vertadr[mesh], m.mesh_vertnum[mesh]
+            verts = np.asarray(m.mesh_vert[a:a + n], dtype=float)
+            pts.append(verts @ d.geom_xmat[g].reshape(3, 3).T + d.geom_xpos[g])
+        world = np.vstack(pts).mean(axis=0)
+        return d.xmat[body].reshape(3, 3).T @ (world - d.xpos[body])
+
+    tip_o = _tip(official, "moving_jaw_so101_v1")
+    tip_c = _tip(compiled, "moving_jaw_so101")
+    body_o = mujoco.mj_name2id(official, mujoco.mjtObj.mjOBJ_BODY, "moving_jaw_so101_v1")
+    body_c = mujoco.mj_name2id(compiled, mujoco.mjtObj.mjOBJ_BODY, "moving_jaw_so101")
+    do2, dc2 = mujoco.MjData(official), mujoco.MjData(compiled)
+    gate = []
+    for i in np.linspace(0, len(qpos) - 1, 5).astype(int):
+        do2.qpos[:] = qpos[i]; mujoco.mj_forward(official, do2)
+        dc2.qpos[:] = qpos[i] + offsets; mujoco.mj_forward(compiled, dc2)
+        w_o = do2.xmat[body_o].reshape(3, 3) @ tip_o + do2.xpos[body_o]
+        w_c = dc2.xmat[body_c].reshape(3, 3) @ tip_c + dc2.xpos[body_c] + translation
+        gate.append(float(np.linalg.norm(w_c - w_o)) * 1000.0)
+    pose_gate_worst_mm = round(max(gate), 2)
+
     static_compiled = _static(compiled, offsets)
     static_official = _static(official, np.zeros(official.njnt))
 
@@ -209,6 +240,8 @@ def main() -> int:
         "static_by_pose": [{"pose": a["pose"], "compiled_nm": a["peak_nm"], "published_nm": b["peak_nm"]}
                            for a, b in zip(static_compiled, static_official)],
         "dynamic_comparable": False,
+        "pose_gate_worst_mm": pose_gate_worst_mm,
+        "pose_gate_samples_mm": [round(v, 2) for v in gate],
         "dynamic_reason": "jaw frame differs by tens of mm; a constant offset cannot map a joint "
                           "vector to a matching tip",
         "axis_angle_deg": [round(v, 1) for v in axis_angle_deg],
