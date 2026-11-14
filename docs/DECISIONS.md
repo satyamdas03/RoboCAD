@@ -478,3 +478,37 @@ slicer default; the wall thickness is three perimeters at a nozzle size nobody s
 The bundle now carries `solid_mass_kg` and `printed_mass_kg` side by side, and the comparison carries
 both columns and says they move with the infill setting, so the range is visible rather than the
 midpoint. Nothing in this entry makes a link mass a measurement, and only a scale does.
+
+## v1.1, 2026-11-14: the hold fails on collision geometry, and replay ships instead
+
+The question v1.1 asked was whether the live hold fails on gains or on limits. It fails on neither,
+and the answer came out of a measurement rather than a reading of the numbers.
+
+At the commanded pose the gravity torque is at most 0.254 N·m against a 2.942 N·m actuator limit, so
+the servo is not short of torque to hold the arm up. The force the position servo asks for is
+`kp * error` = 11.46 N·m on joint_1, which it cannot supply, so it saturates — and what is eating the
+difference is the collision solver: 64 contacts active at the last step, `qfrc_constraint` up to
+3.29 N·m on joint_1, above the actuator's own limit. This is the bundle's `self_collision` check
+(reported **fail**, deepest overlap −7.939e−03 m) reproduced under a controller. The hold is not a
+control question at all; it is a geometry question wearing one.
+
+**Decision: replay only for the demo, hold retained as a diagnostic.** The alternative — raising gains
+or torque until the arm appears to hold — would buy a shivering model that spends its whole torque
+budget pushing its own hulls apart, in front of an audience. The honest fix is better collision
+geometry (per-part groups, adjacent pairs disabled, tighter hulls), which is a compile-side change that
+changes the bundle, and the demo sprint is frozen: `demo-bundle-v1` stays as it is and v1.1 adds none
+of that.
+
+**Decision: the diagnostic prints its own reason, and is tested.** Three different causes produce the
+same steady error and have three different fixes, so the run now measures all three — `qfrc_bias` at
+rest for the load, `kp * error` for the demand, `qfrc_constraint` and the live contact count for the
+solver — and names the binding one. Two earlier versions of that measurement printed confident wrong
+answers (the actuator forcerange on every joint; then exactly zero), which is worse than printing
+nothing, so `tests/test_demo_static_load.py` pins that the reported load equals the real gravity term,
+does not scale with the forcerange, does not pick up a limit force at a pose outside the joint range,
+and goes to zero when gravity is off.
+
+**One caveat on the residual.** None of this changes R1's other half: the dynamic torque comparison is
+not comparable at the jaw tip, because the jaw frame is a separate known-unknown (5.74 mm off at rest,
+and no constant gripper offset fixes a translation). The 11.25 mm figure is the anchor residual over
+100 poses, not a jaw-tip residual, and a tip gate cannot be met with the offsets this bundle carries.

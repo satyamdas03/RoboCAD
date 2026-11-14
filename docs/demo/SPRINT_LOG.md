@@ -225,3 +225,58 @@ on a checkout with different line endings; and the security section described th
 when all three were fixed in source. The status file now says what the artifacts say.
 
 Next: the three post-demo steps in `FINAL_STATUS.md`. Nothing else in this lane waits on the sprint.
+
+### 2026-11-14 12:05 Sydney, v1.1 session, Lane A
+
+`feat/v1.1` is cut from the freeze and carries four commits so far: P0 (`699da53`, torque
+contradiction) and P1 (`e1312b1`, current channel) from Lane B, R2 (`d24a0d0`, conventions inside the
+bundle) and R3 (`3b0a1e8`, the package states how much of the bundle it renders) from this lane.
+
+**R2, conventions inside the bundle.** `manifest.json` and a comment block in `model.mjcf` now carry
+the five zero-pose offsets, the gripper offset, the base translation and the residual, rendered from
+one `Conventions` object so the two copies cannot drift. The test that matters is a mutation: it edits
+the bundle's own manifest and requires the second read to return the edited value, so a reader taking
+the numbers from its own constants passes every round-trip test and fails that one.
+
+    python -m pytest tests/test_conventions.py tests/test_revision_f030_artifact.py -q
+    31 passed in 36.19s                                       [verified-ran]
+
+**R3, mesh resolution.** The bundle keeps the full-resolution visuals; the packager decimates for the
+page, computes the ratio from the packaged payload and the bundle's own `report.json` rather than
+quoting it, records the bake's triangle budget (now written into `trajectory.js`), and states that no
+decimated mesh is ever written back. Seven tests, including one that fails if `bake.py` stops
+recording the budget.
+
+    python -m pytest tests/test_mesh_resolution.py -q
+    7 passed in 1.76s                                         [verified-ran]
+
+**R1.4, the live hold retest, and why it still fails.** The corrected pose mapping lands every joint
+inside its own range (no clamp fired, and the ranges are wide enough that no legal target needed one),
+so the previous explanation — a target outside the range held by a limit constraint — is disproved,
+not confirmed. The retest was run headless because that is where the numbers are, and it fails:
+
+    python -m robocad demo so101 --bundle docs/twin/so101/bundle --mode hold
+    steady-state joint error 573.23 mrad (peak 828.63 mrad)
+    actuator saturation: 113698 step-instances at or above 99.9% of forcerange
+    what the steady error is made of (contacts active at the end: 64):
+      joint_1  asks 11.46  gravity 0.000  contacts 3.29  limit 2.94
+      joint_3  asks 10.24  gravity 0.254  contacts 2.71  limit 2.94
+      joint_6  asks  6.40  gravity 0.004  contacts 2.59  limit 2.94
+                                                              [verified-ran]
+
+Neither of the two candidates the order named is the cause. Gravity at the commanded pose is at most
+0.254 N*m against a 2.942 N*m limit, so the servo is not short of torque for the load; and the demand
+`kp * error` is 11.46 N*m, which the servo cannot supply, so it saturates. What consumes the budget is
+the collision solver: 64 contacts are active at the last step and `qfrc_constraint` reaches 3.29 N*m on
+joint_1, more than the actuator has. That is the bundle's own `self_collision` check showing through —
+it reports **fail**, deepest overlap −7.939e−03 m, and the hold is that number with a controller on
+top. No gain or torque change fixes it. **The demo path stays replay only,** and hold stays available
+as a diagnostic that prints its own reason.
+
+Two wrong versions of the diagnostic were shipped to a terminal before this one and are recorded in
+the code: `mj_inverse` with a default `ctrl` reported the forcerange (2.942 N*m) on every joint, and
+`mj_forward` before `mj_inverse` recomputed `qacc` and made the answer exactly zero. The measurement
+now reads `qfrc_bias` at rest, which is the gravity term by definition and is untouched by contact or
+limit constraint forces. Six tests pin all three: the load does not equal the limit, does not scale
+with it, does not pick up a limit force outside the range, and goes to zero when gravity is switched
+off.                                                    [verified-ran, 6 passed in 0.83s]
