@@ -63,6 +63,11 @@ export function safeSrc(value: unknown): string | null {
   if (typeof value !== 'string' || value.length === 0 || value.length > 300) return null
   if (!value.startsWith(PAGE_PREFIX)) return null
   if (value.includes('..') || value.includes('\\')) return null
+  // Percent-encoding is refused outright rather than decoded and re-checked. The baked page is a
+  // fixed set of plain filenames, so nothing legitimate here needs an escape, and a reader that
+  // decodes and compares is a parser differential waiting to happen: `%2e%2e`, `.%2e` and `%2E%2E`
+  // all reach the same directory while none of them contains the literal `..` the check above sees.
+  if (value.includes('%')) return null
   if (/^[a-z][a-z0-9+.-]*:/i.test(value)) return null
   // Control characters would let a crafted value break out of the attribute it is rendered into.
   if (/[\u0000-\u001f\u007f]/.test(value)) return null

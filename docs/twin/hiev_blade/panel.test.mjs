@@ -66,6 +66,15 @@ test('only the daemon page mount can be loaded in the frame', () => {
     '/etc/passwd',
     '/robocad/pagex/index.html',
     '/robocad/page/index.html\u0000',
+    // Encoded traversal: none of these contains the literal `..` the raw check looks for, and the
+    // browser decodes all of them into one. Refused by refusing `%` at all.
+    '/robocad/page/%2e%2e/secrets',
+    '/robocad/page/.%2e/secrets',
+    '/robocad/page/%2E%2E/secrets',
+    '/robocad/page/..%2fsecrets',
+    '/robocad/page/%2fetc%2fpasswd',
+    '/robocad/page/index%5C.html',
+    '/robocad/page/%252e%252e/secrets',
     '',
     null,
     undefined,
