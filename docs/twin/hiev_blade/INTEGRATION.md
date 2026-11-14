@@ -114,6 +114,18 @@ frame-src http://127.0.0.1:7345
 
 Only that origin, no wildcard, and no `child-src`.
 
+## The origin is a setting, not a constant
+
+`Blade.tsx` carries `PAGE_ORIGIN = 'http://127.0.0.1:7345'`, matching `ev/config.py`'s `base_url`.
+Lane B confirmed that default. If anyone overrides `EV_BASE_URL` to another port, or to `localhost`,
+three things move together: the CSP `frame-src`, the `src` the frame loads, and the `origin` check on
+messages coming back. The blade then refuses every message in silence and looks like a dead page.
+
+Two ways out, and the handoff does the cheap one: `Blade.tsx` logs `refused a frame message from
+<origin>; expected <origin>` on any origin mismatch, so the cause is one console line away. The
+thorough one is to read `base_url` at build time instead of hardcoding it, which is worth doing if the
+desktop shell ever ships with more than one port configuration.
+
 ## The daemon side, which is Lane B's
 
 `/robocad/page/` must be a read-only `StaticFiles` mount with no directory listing, resolved inside

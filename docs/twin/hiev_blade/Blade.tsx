@@ -75,7 +75,16 @@ export function Blade() {
         event.origin,
         PAGE_ORIGIN,
       )
-      if (section === null) return
+      if (section === null) {
+        // A refused message is silent by design, but silence that cannot be told from "the page
+        // never spoke" costs an hour. The common cause is a daemon on a different origin than the
+        // one configured here (an EV_BASE_URL override onto another port or `localhost`), which
+        // changes the origin check and the CSP together and looks exactly like a dead page.
+        if (event.origin !== PAGE_ORIGIN) {
+          console.warn(`[robocad blade] refused a frame message from ${event.origin}; expected ${PAGE_ORIGIN}`)
+        }
+        return
+      }
       const current = useStore.getState().panel
       if (!current.open) return
       setPanel(selectSection(current, section))
