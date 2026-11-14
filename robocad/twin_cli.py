@@ -1216,13 +1216,15 @@ def revise_cli(step: Path, before: Path, out: Path, infill: float | None, wall_m
             print(json.dumps({"schema_version": REVISE_SCHEMA, "error": provenance_error}))
         return 2
 
+    # Imported before the compiler runs, not after: `revision.py` imports PyYAML at module scope, so
+    # a missing dependency has to fail in a second rather than at the end of a 26-minute compile.
+    from ai_cad.compiler.revision import diff_links, from_bundle, render_markdown  # noqa: PLC0415
+
     bundle_out = Path(out) / "bundle"
     code = compile_bundle_cli(Path(step), joints, bundle_out, json_progress, print_model,
                               servo_mass_kg, servo_source, emit)
     if code == 2:
         return 2  # the compiler reported through the same sink; there is nothing to diff
-
-    from ai_cad.compiler.revision import diff_links, from_bundle, render_markdown  # noqa: PLC0415
 
     try:
         after_document = _bundle_document(bundle_out)
