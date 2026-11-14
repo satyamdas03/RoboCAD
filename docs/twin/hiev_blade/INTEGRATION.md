@@ -23,8 +23,11 @@ under node 25's type stripping, so the tests exercise the file that ships rather
 | `Blade.tsx` | `web/src/ui/Blade.tsx` |
 | `fixture.mjs`, `panel.test.mjs` | `web/src/robocad/` (or keep outside `src/`; they are node tests) |
 
-`Blade.tsx` imports `'../../robocad/panel'`, which is correct once `panel.ts` sits at
-`web/src/robocad/panel.ts`.
+`Blade.tsx` imports `'../robocad/panel'`, which is correct once `panel.ts` sits at
+`web/src/robocad/panel.ts` and `Blade.tsx` at `web/src/ui/Blade.tsx`: from `ui/`, `../` is `src/`, so
+`../robocad/panel` is `src/robocad/panel`. An earlier version of the file said `'../../robocad/panel'`,
+one level too high, which resolves to `web/robocad/panel` and fails the build; Lane B hit it on
+integration and corrected it, and the file and this table now agree.
 
 ## Hunk 1: `web/src/lib/bridge.ts`, extend the union
 

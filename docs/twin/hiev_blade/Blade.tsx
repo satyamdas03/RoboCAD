@@ -24,7 +24,7 @@ import {
   applyEscape,
   sectionMessage,
   selectSection,
-} from '../../robocad/panel'
+} from '../robocad/panel'
 
 /** The daemon's page origin, as the desktop shell loads it. */
 const PAGE_ORIGIN = 'http://127.0.0.1:7345'
