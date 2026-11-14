@@ -197,3 +197,55 @@ test('a #section in the URL navigates on load and on hashchange', () => {
   window.dispatch('hashchange', {})
   assert.equal(window.document.getElementById('masses').scrolled, 1)
 })
+
+test('an infill message from the page own origin is accepted in range only', () => {
+  const { window } = fakeWindow()
+  const sections = load(window)
+  const here = 'http://localhost:8000'
+  assert.equal(sections.acceptInfill({ type: 'robocad.infill', infill: 0.3 }, here,
+    window.location), 0.3)
+  assert.equal(sections.acceptInfill({ type: 'robocad.infill', infill: 0 }, here,
+    window.location), 0)
+  assert.equal(sections.acceptInfill({ type: 'robocad.infill', infill: 1 }, here,
+    window.location), 1)
+})
+
+test('an infill outside 0..1, a string, or a NaN is refused', () => {
+  const { window } = fakeWindow()
+  const sections = load(window)
+  const here = 'http://localhost:8000'
+  for (const infill of [1.4, -0.1, '0.3', NaN, Infinity, null, undefined]) {
+    assert.equal(sections.acceptInfill({ type: 'robocad.infill', infill }, here,
+      window.location), null, `infill ${String(infill)} must be refused`)
+  }
+})
+
+test('an infill message from another origin, or of another type, is refused', () => {
+  const { window } = fakeWindow()
+  const sections = load(window)
+  for (const origin of ['http://evil.example', 'null', '', null]) {
+    assert.equal(sections.acceptInfill({ type: 'robocad.infill', infill: 0.3 }, origin,
+      window.location), null, `origin ${origin} must be refused`)
+  }
+  assert.equal(sections.acceptInfill({ type: 'robocad.section', infill: 0.3 },
+    'http://localhost:8000', window.location), null)
+  // A section message carries no infill, and the two must not be confused in either direction.
+  assert.equal(sections.accept({ type: 'robocad.infill', infill: 0.3 },
+    'http://localhost:8000', window.location), null)
+})
+
+test('wired, an infill message dispatches robocad:infill and nothing else', () => {
+  const { window, dispatched } = fakeWindow({ panels: PANELS })
+  const sections = load(window)
+  sections.wire(window.document, window)
+
+  window.dispatch('message', { origin: 'http://evil.example', source: window.parent,
+    data: { type: 'robocad.infill', infill: 0.3 } })
+  assert.equal(dispatched.length, 0)
+
+  window.dispatch('message', { origin: 'http://localhost:8000', source: window.parent,
+    data: { type: 'robocad.infill', infill: 0.3 } })
+  assert.equal(dispatched.length, 1)
+  assert.equal(dispatched[0].type, 'robocad:infill')
+  assert.equal(dispatched[0].detail.infill, 0.3)
+})

@@ -1544,6 +1544,13 @@
     var section = ev && ev.detail ? ev.detail.section : null;
     if (section && drawerFor[section]) openDrawer(drawerFor[section]);
   });
+  // "change infill to 30 percent" is an answer in chat AND a number on this page. sections.js has
+  // already checked the sender's origin and refused anything that is not a finite fraction in 0..1,
+  // so this listener only has to write the value the page already knows how to display.
+  document.addEventListener("robocad:infill", function(ev){
+    var f = ev && ev.detail ? ev.detail.infill : null;
+    if (typeof f === "number" && isFinite(f) && f >= 0 && f <= 1) setInfill(f);
+  });
 
   // hook the film recorder and the verifier drive: frames deterministic, state inspectable
   // Debug handles the page's own geometry tests read: the body names and the body groups whose

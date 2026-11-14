@@ -12,6 +12,11 @@
  * so the page can open the matching drawer entry in presenter mode without this file knowing what a
  * drawer is.
  *
+ * A second message type, `{type: "robocad.infill", infill: 0.30}`, names a print fraction instead of
+ * a card. It travels the same channel under the same origin rule and dispatches `robocad:infill`, so
+ * "change infill to 30 percent" moves the switch the audience is looking at rather than answering in
+ * chat while the card behind it still shows the other bake.
+ *
  * Opened from `file://` there is no parent frame and the origin is opaque, so the listener never
  * accepts anything and the page behaves exactly as it did before. The `#torque` fragment still
  * works, which is what a person following a link in the README gets.
@@ -33,12 +38,27 @@
     twin: "twin-grp",
   };
   var TYPE = "robocad.section";
+  // The second thing the voice can change: the infill fraction. It travels on the same channel and
+  // under the same origin rule, because it drives numbers the audience reads off the page -- the
+  // print mass, the delta, the saving and the whole torque card -- and a stranger who can set it is
+  // a stranger who can make the page say a weight the bundle never measured.
+  var TYPE_INFILL = "robocad.infill";
   // Two seconds, not one: the card is flashed while a spoken sentence is still running, and a
   // 1.5 s glow that ends mid-sentence reads as a page that flickered rather than one that answered.
   var FLASH_MS = 2000;
 
   function owns(object, key) {
     return Object.prototype.hasOwnProperty.call(object, key);
+  }
+
+  /** True when this origin may drive the page at all. Shared by both message types. */
+  function trusted(origin, location) {
+    if (!location) return false;
+    if (location.protocol !== "http:" && location.protocol !== "https:") return false;
+    // A sandboxed frame and its sender both report the origin "null", so comparing the two would
+    // accept a stranger. An opaque origin is never a caller with authority over this page.
+    if (!origin || origin === "null" || !location.origin || location.origin === "null") return false;
+    return origin === location.origin;
   }
 
   /**
@@ -48,14 +68,23 @@
    * and so that a page served from `file://` can be refused explicitly instead of by accident.
    */
   function accept(data, origin, location) {
-    if (!location) return null;
-    if (location.protocol !== "http:" && location.protocol !== "https:") return null;
-    // A sandboxed frame and its sender both report the origin "null", so comparing the two would
-    // accept a stranger. An opaque origin is never a caller with authority over this page.
-    if (!origin || origin === "null" || !location.origin || location.origin === "null") return null;
-    if (origin !== location.origin) return null;
+    if (!trusted(origin, location)) return null;
     if (!data || data.type !== TYPE || typeof data.section !== "string") return null;
     return owns(MAP, data.section) ? data.section : null;
+  }
+
+  /**
+   * The infill fraction a message names, or null if this page must ignore it.
+   *
+   * A fraction outside 0..1, a string that looks like a number, and a NaN are all refusals: the page
+   * prints whatever it is given as a mass, so the only accepted value is a finite number in range.
+   */
+  function acceptInfill(data, origin, location) {
+    if (!trusted(origin, location)) return null;
+    if (!data || data.type !== TYPE_INFILL) return null;
+    var value = data.infill;
+    if (typeof value !== "number" || !isFinite(value) || value < 0 || value > 1) return null;
+    return value;
   }
 
   function filled(element) {
@@ -102,13 +131,22 @@
     view = view || root;
     if (!document || typeof view.addEventListener !== "function") return;
 
+    function dispatch(name, detail) {
+      if (typeof document.dispatchEvent === "function" && typeof root.CustomEvent === "function") {
+        document.dispatchEvent(new root.CustomEvent(name, { detail: detail }));
+      }
+    }
+
     view.addEventListener("message", function (event) {
       // Only the embedding frame may drive this page. `event.source` is set by the browser and cannot
       // be forged, so it pins the sender to the parent even when origins are spoofed, mirrored, or
       // opaque. A page opened standalone has no usable parent and refuses everything.
       if (!view.parent || event.source !== view.parent) return;
+      var reduced = reducedMotion(view);
       var section = accept(event.data, event.origin, view.location);
-      if (section) show(document, section, { reducedMotion: reducedMotion(view) });
+      if (section) show(document, section, { reducedMotion: reduced });
+      var infill = acceptInfill(event.data, event.origin, view.location);
+      if (infill !== null) dispatch("robocad:infill", { infill: infill });
     });
 
     function fromHash() {
@@ -127,5 +165,6 @@
     }
   }
 
-  root.ROBOCAD_SECTIONS = { MAP: MAP, TYPE: TYPE, FLASH_MS: FLASH_MS, accept: accept, show: show, wire: wire };
+  root.ROBOCAD_SECTIONS = { MAP: MAP, TYPE: TYPE, TYPE_INFILL: TYPE_INFILL, FLASH_MS: FLASH_MS,
+                            accept: accept, acceptInfill: acceptInfill, show: show, wire: wire };
 })(this);
