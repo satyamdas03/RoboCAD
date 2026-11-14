@@ -29,23 +29,49 @@
     overflow:hidden;text-overflow:ellipsis}
   #kpis{display:flex;gap:6px;margin-left:auto;min-width:0;overflow:hidden}
   .kpi{border:1px solid var(--line);border-radius:6px;background:var(--panel2);padding:3px 8px;
-    min-width:0;display:flex;flex-direction:column;justify-content:center}
+    min-width:0;flex:none;display:flex;flex-direction:column;justify-content:center}
   /* 11 px is the floor for every piece of functional text on this page, including these labels: they
      are read off a projector, and 8 px caps at arm's length is not text, it is texture. */
   .kpi .k{font-size:11px;letter-spacing:.04em;color:var(--faint);text-transform:uppercase;white-space:nowrap}
   .kpi .v{font-family:var(--mono);font-size:13px;white-space:nowrap;color:var(--ink);
     overflow:hidden;text-overflow:ellipsis;max-width:150px}
   .kpi .v em{font-style:normal;color:var(--dim);font-size:11px}
+  /* The package tile carries a value AND a pill. As one ellipsised string the pill was clipped off
+     the end at 150 px, so the tile that is supposed to say "tagged" said only a tag. The value line
+     is a row here: the tag shrinks, the pill never does. */
+  .kpi .v.pkgv{display:flex;align-items:center;gap:6px;max-width:230px}
+  .kpi .v.pkgv .tagtext{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+  .kpi .v.pkgv .pill{flex:none}
   .pill{display:inline-block;border-radius:10px;padding:0 6px;font-size:11px;line-height:16px;
     border:1px solid var(--line2);color:var(--dim);white-space:nowrap;font-family:var(--mono)}
   .pill.ok{border-color:#2f6a53;color:#bff3dc;background:#17241f}
   .pill.no{border-color:#6b2a2a;color:#f3b6b6;background:#241617}
   .pill.wa{border-color:#6b4a1c;color:#f8d7a5;background:#241d14}
-  .col{display:grid;gap:var(--gap);min-height:0;min-width:0;align-content:start;
-    grid-auto-rows:max-content}
-  /* Cards are as tall as their figures, not stretched to fill the column: a card with two rows of
-     numbers and 90 px of empty panel below it reads as a panel that failed to load. */
+  /* The columns fill their height instead of leaving a dead band under the last card. Rows grow to
+     share the spare height and never shrink below their own content, and each card's body spreads
+     its rows into that height, so the extra space reads as spacing inside a full panel rather than
+     as a panel that stopped loading. */
+  .col{display:grid;gap:var(--gap);min-height:0;min-width:0;align-content:stretch;
+    grid-auto-rows:minmax(max-content,1fr)}
   #left,#right{grid-template-rows:none}
+  /* Below 780 px of window there is no spare height for the two extra cards, so they are hidden
+     rather than clipped: a card whose bottom row is cut off is worse than a shorter column. */
+  @media (max-height: 779px){ #same-grp,#prov-grp{display:none} }
+  /* The page is opened inside the HUD's blade, which is 68% of the window: on a 1280x720 projector
+     that is an 870 px page, and the three-column grid handed the stage 198 px of width -- a viewer
+     you cannot see. The rails shrink first, then the right rail goes: its four cards are counts and
+     provenance that the header tiles and the drawers still carry. The stage is what the demo is. */
+  @media (max-width: 1180px){
+    #app{grid-template-columns:264px minmax(0,1fr) 300px}
+    /* The last tile ended one letter short of PACKAGE at a blade width: letter-spacing on the label
+       is what overflowed, so the tight header pays for it with the gaps and the padding instead. */
+    #kpis{gap:4px}
+    .kpi{padding:3px 6px}
+  }
+  @media (max-width: 1119px){
+    #app{grid-template-columns:260px minmax(0,1fr)}
+    #right{display:none}
+  }
   .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;
     display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden;padding:6px 9px}
   /* the flash the voice leaves behind: a card it asked for says so */
@@ -57,7 +83,8 @@
   .card h2 button.i{border:1px solid var(--line2);background:none;color:var(--faint);border-radius:50%;
     width:16px;height:16px;font-size:11px;line-height:1;cursor:pointer;padding:0;flex:none}
   .card h2 button.i:hover{color:var(--ink);border-color:var(--accent)}
-  .card .body{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:1px}
+  .card .body{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:1px;
+    justify-content:space-between}
   .row{display:flex;align-items:baseline;gap:6px;min-width:0;font-family:var(--mono);font-size:11px;
     line-height:15px}
   .row .l{flex:1;min-width:0;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -71,7 +98,19 @@
   .minis{display:flex;gap:2px;align-items:flex-end;height:24px;margin-top:2px}
   .minis div{flex:1;background:#243040;border-radius:1px 1px 0 0;min-height:2px}
   .minis div.hi{background:#57d3a0}
-  .checkgrid{display:grid;grid-template-columns:1fr 1fr;gap:1px 10px;align-content:start}
+  /* Every bar and every curve on the page carries a name in the open. A colour a reader has to
+     infer from a drawer is a colour that means nothing on the projector. */
+  .legend{display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-family:var(--mono);
+    font-size:11px;line-height:15px;color:var(--faint);flex:none}
+  .legend span{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+  .legend i{display:inline-block;width:10px;height:3px;border-radius:1px;background:#6c7f93;flex:none}
+  .legend i.acc{background:var(--accent)} .legend i.solid{background:#6c7f93}
+  .legend i.dash{height:0;background:none;border-top:1px dashed #6b4a1c}
+  .checkgrid{display:grid;grid-template-columns:1fr 1fr;gap:1px 10px;align-content:start;flex:1}
+  /* The toggles and the check rows are lists, so spare height goes between the rows of the list
+     rather than into a gap under it. */
+  #togs,#checks{align-content:space-between}
+  #togs{flex:1}
   .crow{display:flex;align-items:center;gap:4px;font-family:var(--mono);font-size:11px;line-height:15px;
     min-width:0;cursor:pointer;background:none;border:0;color:var(--ink);padding:0;text-align:left}
   .crow .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dim)}
@@ -109,7 +148,7 @@
   #hud{position:absolute;left:10px;top:8px;font-family:var(--mono);font-size:11px;color:var(--dim);
     display:flex;gap:8px;align-items:center}
   #hud .mode{border:1px solid var(--line2);border-radius:3px;padding:1px 5px;color:#9fd8c6;letter-spacing:.05em}
-  #callout{position:absolute;left:0;top:0;transform:translate(-50%,-100%);pointer-events:none;
+  #callout{position:absolute;left:0;top:0;transform:translate(0,-100%);pointer-events:none;
     font-family:var(--mono);font-size:11px;line-height:1.3;color:var(--ink);
     background:rgba(13,18,25,.9);border:1px solid #6b2a2a;border-radius:5px;padding:2px 6px;white-space:nowrap}
   #callout b{color:#ffb4b4;font-weight:600}
@@ -182,6 +221,11 @@
         <button class="i" data-drawer="joints" title="detail">i</button></h2>
       <div class="body" id="joint-body"></div>
     </section>
+    <section class="card" id="prov-grp">
+      <h2><span class="num">04</span><span class="grow">Provenance</span>
+        <button class="i" data-drawer="prov" title="detail">i</button></h2>
+      <div class="body" id="prov-body"></div>
+    </section>
   </div>
 
   <div id="stage">
@@ -191,7 +235,8 @@
       <circle cx="50" cy="64" r="14" fill="none" stroke="#1b2735" stroke-width="0.1" stroke-dasharray="1.2 1.6"/>
     </svg>
     <svg id="leader" aria-hidden="true"><line id="leaderline" x1="0" y1="0" x2="0" y2="0"
-      stroke="#8a4a4a" stroke-width="1" stroke-dasharray="3 3"/></svg>
+      stroke="#8a4a4a" stroke-width="1" stroke-dasharray="3 3"/>
+      <circle id="contactdot" cx="0" cy="0" r="2.6" fill="#ff8a8a"/></svg>
     <div id="hud"><span class="mode" id="mode">REPLAY · REST POSE</span><span id="hud-t"></span></div>
     <div id="callout"></div>
     <div id="load">loading baked trajectory…</div>
@@ -199,23 +244,23 @@
 
   <div class="col" id="right">
     <section class="card" id="checks-grp">
-      <h2><span class="num">04</span><span class="grow">Checks</span>
+      <h2><span class="num">05</span><span class="grow">Checks</span>
         <span class="mono" id="c-count">–</span>
         <button class="i" data-drawer="checks" title="detail">i</button></h2>
       <div class="body"><div class="checkgrid" id="checks"></div></div>
     </section>
     <section class="card" id="links">
-      <h2><span class="num">05</span><span class="grow">Links</span>
+      <h2><span class="num">06</span><span class="grow">Links</span>
         <button class="i" data-drawer="links" title="detail">i</button></h2>
       <div class="body"><div class="chiplist" id="link-list"></div></div>
     </section>
     <section class="card" id="display">
-      <h2><span class="num">06</span><span class="grow">Display</span>
+      <h2><span class="num">07</span><span class="grow">Display</span>
         <button class="i" data-drawer="display" title="detail">i</button></h2>
       <div class="body"><div class="togs" id="togs"></div></div>
     </section>
     <section class="card" id="twin-grp">
-      <h2><span class="num">07</span><span class="grow">Twin calibration</span>
+      <h2><span class="num">08</span><span class="grow">Twin calibration</span>
         <span class="pill wa">SYNTHETIC</span>
         <button class="i" data-drawer="twin" title="detail">i</button></h2>
       <div class="body">
@@ -223,6 +268,12 @@
         <div class="mono" id="twin-line"></div>
         <div class="mono" id="twin-snr"></div>
       </div>
+    </section>
+    <section class="card" id="same-grp">
+      <h2><span class="num">09</span><span class="grow">Same robot</span>
+        <span class="pill" id="same-pill">matched</span>
+        <button class="i" data-drawer="same" title="detail">i</button></h2>
+      <div class="body" id="same-body"></div>
     </section>
   </div>
 
@@ -336,6 +387,16 @@
     bodies: (R.bodies || []).map(function(b){
       return { name: b.name, mass: b.mass_kg, assumed: !!b.assumed_density,
                parts: b.parts, hulls: b.hulls }; }),
+    // The compiled model calls its joints joint_1..joint_6; the published URDF the comparison was
+    // run against calls them shoulder_pan, shoulder_lift, elbow_flex, wrist_flex, wrist_roll and
+    // gripper. A presenter says the second set, and a page that printed the first set was read as
+    // "the numbers are placeholder". The pairing comes from the comparison block, so it is the
+    // comparison's own mapping rather than a table typed into this file.
+    jointNames: (function(){
+      var map = {}, rows = ((R.comparison || {}).joints || []);
+      rows.forEach(function(r){ if (r.ours && r.theirs) map[r.ours] = r.theirs; });
+      return map;
+    })(),
     residuals: {
       axisRms: num(RES.axis_rms_deg), axisWorst: num(RES.axis_worst_deg),
       originMedian: num(RES.origin_median_mm), originP90: num(RES.origin_p90_mm),
@@ -379,6 +440,11 @@
   function row(label, value, cls){ var r = mk("div","row");
     r.appendChild(mk("span","l",label)); r.appendChild(mk("span","v"+(cls?" "+cls:""),value));
     return r; }
+  function legend(items){ var box = mk("div","legend");
+    items.forEach(function(pair){ var s = mk("span");
+      s.appendChild(mk("i", pair[0])); s.appendChild(document.createTextNode(pair[1]));
+      box.appendChild(s); });
+    return box; }
   function bar(fraction, pub){ var b = mk("div","bar"+(pub?" pub":"")); var i = mk("i");
     i.style.width = Math.max(0, Math.min(100, fraction*100)).toFixed(1)+"%"; b.appendChild(i); return b; }
   function el(id){ return document.getElementById(id); }
@@ -386,7 +452,10 @@
   // header: product line, then the five tiles the voice's overview section points at
   (function header(){
     var parts = ["compiled from STEP"];
-    if (DATA.tag) parts.push("demo-bundle-" + DATA.tag);
+    // The manifest records the tag's whole name (`demo-bundle-v1.4`), so the header prints it as it
+    // is. Prefixing it again produced "demo-bundle-demo-bundle-v1.4" on the packaged page, which is
+    // the header of the demo.
+    if (DATA.tag) parts.push(DATA.tag);
     el("subline").textContent = parts.join(" · ");
     var kpis = el("kpis");
     function add(id, k, v, extra){
@@ -401,14 +470,36 @@
     add("kpi-mass", "mass", fixed(DATA.masses.print, 3) + " kg", mk("em", null, " modelled"));
     add(null, "axes", fixed(DATA.residuals.axisWorst, 2) + "°", mk("em", null, " worst"));
     add(null, "origins", fixed(DATA.residuals.originMedian, 2) + " mm", mk("em", null, " median"));
-    // No tag or digest exists in the page payloads, so the tile says so rather than naming a hash
-    // nobody can check. The pill is the value line: beside a filename it overflowed the tile, and
-    // the ellipsis ate the words "no tag recorded", which is the one phrase here that must survive.
-    add("kpi-package", "package", DATA.tag ? DATA.tag : "",
-      mk("span", "pill " + (DATA.tag ? "ok" : "wa"), DATA.tag ? "tagged" : "no tag recorded"));
+    // The page cannot read verify.json, so the pill says what the page can see: manifest.json names
+    // a tag. Whether that tag's bytes are the verified ones is check 5 of scripts/verify_demo_zip.py,
+    // which writes verify.json; a page claiming "verified" would be a claim it cannot make. The pill
+    // sits beside the tag instead of behind it: as one ellipsised string at 150 px the pill was
+    // clipped off, so the tile said only a tag.
+    var pkgv = mk("div", "v pkgv");
+    pkgv.appendChild(mk("span", "tagtext", DATA.tag ? DATA.tag : ""));
+    pkgv.appendChild(mk("span", "pill " + (DATA.tag ? "ok" : "wa"),
+                        DATA.tag ? "tagged" : "no tag recorded"));
+    add("kpi-package", "package", "", pkgv);
   })();
 
   // ---- 01 mass: the comparison the voice calls "comparison" -----------------------------------
+  // The infill switch is the one control on this page that changes numbers, so it owns them all:
+  // every dependent value is written from setInfill below, and nothing keeps a copy of the value it
+  // was built with. The defect this replaces: the switch moved the print mass and left the row
+  // label reading "0.20 infill", the delta and the saving rows at 0.20, and the torque card
+  // untouched -- four numbers on one screen that disagreed about which bake they described.
+  var printRefs = null;
+  // The print model is linear in infill fraction: wall volume does not move when the interior does.
+  // Two compiled bakes (0.20 and 0.30) therefore determine every other value exactly, and the two
+  // compiled endpoints are used as they are rather than re-derived through the line.
+  function massAtInfill(f){
+    var r = DATA.revision;
+    if (f == null || r.massBefore == null || r.massAfter == null) return null;
+    if (r.before != null && f === r.before) return r.massBefore;
+    if (r.after != null && f === r.after) return r.massAfter;
+    if (r.before == null || r.after == null || r.after === r.before) return null;
+    return r.massBefore + (f - r.before) * (r.massAfter - r.massBefore) / (r.after - r.before);
+  }
   (function massCard(){
     var box = el("cmp");
     var solid = DATA.masses.solid, print = DATA.masses.print, pub = DATA.masses.published;
@@ -417,16 +508,22 @@
     // width, which the browser drops, so every bar drew full width and the three masses looked equal.
     function line(label, valueKg, text, cls){
       var wrap = mk("div","mline");
-      wrap.appendChild(row(label, text, cls));
+      var r = row(label, text, cls);
+      wrap.appendChild(r);
       wrap.appendChild(bar((valueKg == null ? 0 : valueKg) / top, cls !== "acc"));
       box.appendChild(wrap);
+      return { wrap: wrap, row: r, label: r.querySelector(".l"), value: r.querySelector(".v"),
+               fill: wrap.querySelector(".bar i") };
     }
     line("solid · CAD volume × density", solid, fixed(solid, 3) + " kg");
-    line("print · " + fixed(DATA.masses.wall, 2) + " mm wall, " + fixed(DATA.masses.infill, 2) + " infill",
-         print, fixed(print, 3) + " kg", "acc");
+    var printLine = line("print · " + fixed(DATA.masses.wall, 2) + " mm wall, " +
+                         fixed(DATA.masses.infill, 2) + " infill", print, fixed(print, 3) + " kg", "acc");
     line("published model (stated)", pub, fixed(pub, 3) + " kg");
-    box.appendChild(row("delta, print vs published", "+" + fixed(DATA.masses.deltaPercent, 1) + " %"));
-    box.appendChild(row("infill saves", fixed(DATA.masses.infillSaving, 0) + " % of solid"));
+    box.appendChild(legend([["acc","printed, this infill"],["solid","solid and published"]]));
+    var deltaRow = row("delta, print vs published", "+" + fixed(DATA.masses.deltaPercent, 1) + " %");
+    box.appendChild(deltaRow);
+    var saveRow = row("infill saves", fixed(DATA.masses.infillSaving, 0) + " % of solid");
+    box.appendChild(saveRow);
 
     var minis = mk("div","minis");
     var bodies = DATA.bodies.slice();
@@ -439,18 +536,54 @@
     });
     box.appendChild(minis);
     box.appendChild(mk("div","mono", bodies.length + " links · assumed density flagged in detail"));
+    // Where the switched value comes from, in one line, so nobody has to read the drawer to know
+    // whether a number on screen was baked or interpolated between two bakes that were.
+    var basis = mk("div","cap"); box.appendChild(basis);
     el("m-mass-kind").textContent = DATA.masses.printKind || "modelled";
+    printRefs = { print: printLine, delta: deltaRow.querySelector(".v"),
+                  save: saveRow.querySelector(".v"), basis: basis, top: top };
+    printRefs.pub = pub; printRefs.solid = solid;
   })();
 
   // ---- 02 torque ------------------------------------------------------------------------------
+  var torqueRefs = null;
   (function torqueCard(){
     var c = el("torque-chart"), ctx = c.getContext("2d");
     var w = c.width, h = c.height, pad = 3;
     var joint = 1; // shoulder_lift, the joint the kinematics note flags
-    var off = ((T.official || []).map(function(f){ return f[joint]; })),
-        comp = ((T.compiled || []).map(function(f){ return f[joint]; }));
     var rated = DATA.torque.rated;
-    if (off.length && comp.length) {
+    // The moving-arm curves describe two different poses, so the rows below them are static ones
+    el("t-badge").textContent = DATA.torque.dynamicComparable ? "trajectory" : "static poses";
+    var statics = el("t-static");
+    // "compiled / published" is stated once, above the rows, because repeating it in every row
+    // ellipsised the pose name at 11 px and left three rows that all read "quarter span · compiled / p…"
+    // The chart draws three strokes; each one is named under it, in its own colour.
+    el("torque-body").insertBefore(
+      legend([["acc","compiled"],["solid","published"],["dash","±rated"]]),
+      el("t-static"));
+    var cap = mk("div","cap");
+    cap.textContent = "compiled / published · N·m";
+    statics.appendChild(cap);
+    var poseRows = DATA.torque.poses.map(function(p){
+      var r = row(p.pose, fixed(p.compiled, 3) + " / " + fixed(p.published, 3));
+      statics.appendChild(r);
+      return { pose: p, value: r.querySelector(".v") };
+    });
+    statics.appendChild(row("stall / rated (datasheet)",
+      fixed(DATA.torque.stall, 2) + " / " + fixed(DATA.torque.rated, 2) + " N·m"));
+    var gateRow = null;
+    if (DATA.torque.poseGate != null) {
+      gateRow = row("moving-arm gate", fixed(DATA.torque.poseGate, 2) + " mm");
+      statics.appendChild(gateRow);
+    }
+    var effortRow = row("revision bake at 0.30", "");
+    effortRow.style.display = "none";
+    statics.appendChild(effortRow);
+
+    function draw(scale){
+      var off = ((T.official || []).map(function(f){ return f[joint]; })),
+          comp = ((T.compiled || []).map(function(f){ return f[joint] * scale; }));
+      if (!off.length || !comp.length) return;
       var all = off.concat(comp);
       var lo = Math.min.apply(null, all.concat(rated == null ? [] : [-rated])),
           hi = Math.max.apply(null, all.concat(rated == null ? [] : [rated]));
@@ -468,24 +601,10 @@
       ctx.strokeStyle = "#57d3a0"; ctx.lineWidth = 1.4; ctx.beginPath();
       comp.forEach(function(v,i){ i ? ctx.lineTo(x(i),y(v)) : ctx.moveTo(x(i),y(v)); }); ctx.stroke();
     }
-    // the moving-arm curves describe two different poses, so the rows below them are static ones
-    el("t-badge").textContent = DATA.torque.dynamicComparable ? "trajectory" : "static poses";
-    var statics = el("t-static");
-    // "compiled / published" is stated once, above the rows, because repeating it in every row
-    // ellipsised the pose name at 11 px and left three rows that all read "quarter span · compiled / p…"
-    var cap = document.createElement("div");
-    cap.className = "cap";
-    cap.textContent = "compiled / published · N·m";
-    statics.appendChild(cap);
-    DATA.torque.poses.forEach(function(p){
-      statics.appendChild(row(p.pose,
-        fixed(p.compiled, 3) + " / " + fixed(p.published, 3)));
-    });
-    statics.appendChild(row("stall / rated (datasheet)",
-      fixed(DATA.torque.stall, 2) + " / " + fixed(DATA.torque.rated, 2) + " N·m"));
-    if (DATA.torque.poseGate != null) {
-      statics.appendChild(row("moving-arm gate", fixed(DATA.torque.poseGate, 2) + " mm"));
-    }
+    draw(1);
+    torqueRefs = { draw: draw, cap: cap, poses: poseRows, effort: effortRow,
+                   badge: el("t-badge"),
+                   trajectory: DATA.torque.dynamicComparable };
   })();
 
   // ---- 03 joints ------------------------------------------------------------------------------
@@ -496,11 +615,14 @@
     joints.forEach(function(j){
       var wrap = mk("div","mline");
       var r = mk("div","row");
-      var label = j.name;
+      var real = DATA.jointNames[j.name] || null;
+      var label = real ? real : j.name;
       if (j.range) {
         label += " " + Number(j.range[0]).toFixed(2) + "…" + Number(j.range[1]).toFixed(2);
       }
       r.appendChild(mk("span","l", label));
+      r.title = (real ? j.name + " in the compiled model · " : "") +
+        "official name where the comparison paired one";
       var v = mk("span","v","–"); r.appendChild(v);
       wrap.appendChild(r);
       var track = mk("div","bar"); var fill = mk("i"); fill.style.width = "50%";
@@ -596,6 +718,61 @@
     el("twin-snr").textContent = DATA.twin.snr.value == null
       ? "SNR not in the bundle"
       : "SNR " + fixed(DATA.twin.snr.value, 2) + " · " + DATA.twin.snr.label;
+  })();
+
+  // ---- 08 same robot --------------------------------------------------------------------------
+  // "Is this the same arm?" answered from the comparison payload: the published SO-ARM100 URDF is
+  // the reference the whole bundle is registered against, and these are its own figures. The pair
+  // table is the one the drawer expands; the card carries the summary a viewer asks for first.
+  var SAME = (function(){
+    var C = R.comparison || {};
+    var bodies = C.bodies || [], joints = C.joints || [];
+    var mapped = bodies.filter(function(b){ return b.ours && b.theirs; }).length;
+    var axes = joints.map(function(j){ return Number(j.axis_angle_deg); })
+      .filter(function(v){ return isFinite(v); });
+    var conv = (M.conventions || {}).residual_mm || {};
+    return {
+      ours: num(C.ours_total_kg), theirs: num(C.theirs_total_kg),
+      deltaPercent: num(C.delta_percent),
+      bodiesMapped: mapped, bodiesTotal: bodies.length,
+      jointsMatched: joints.length, axisWorst: axes.length ? Math.max.apply(null, axes) : null,
+      residualMedian: num(conv.median), residualP90: num(conv.p90),
+      theirsName: C.theirs || "the published URDF"
+    };
+  })();
+  (function sameCard(){
+    var box = el("same-body");
+    function line(label, value, cls){
+      var r = row(label, value, cls);
+      // A row is the whole line here, so the value can carry the accent without moving the label.
+      box.appendChild(r);
+    }
+    line("mass, ours / theirs", fixed(SAME.ours, 3) + " / " + fixed(SAME.theirs, 3) + " kg");
+    line("difference", SAME.deltaPercent == null ? "not in the bundle"
+      : (SAME.deltaPercent >= 0 ? "+" : "") + fixed(SAME.deltaPercent, 1) + " %", "acc");
+    line("bodies mapped", SAME.bodiesMapped + " / " + SAME.bodiesTotal);
+    line("joints matched", SAME.jointsMatched + " / " + SAME.jointsMatched +
+      (SAME.axisWorst == null ? "" : " · " + fixed(SAME.axisWorst, 2) + "° worst axis"));
+    line("base origin residual", fixed(SAME.residualMedian, 2) + " / " +
+      fixed(SAME.residualP90, 2) + " mm median / p90");
+    el("same-pill").textContent = SAME.bodiesMapped + " / " + SAME.bodiesTotal;
+    el("same-pill").className = "pill " + (SAME.bodiesMapped === SAME.bodiesTotal &&
+      SAME.bodiesTotal > 0 ? "ok" : "wa");
+  })();
+
+  // ---- 09 provenance --------------------------------------------------------------------------
+  (function provenanceCard(){
+    var box = el("prov-body");
+    var seconds = (META.frames && META.hz) ? META.frames / META.hz : null;
+    box.appendChild(row("compiled from", DATA.source || "not in the bundle"));
+    box.appendChild(row("replay", seconds == null ? "not in the bundle"
+      : fixed(seconds, 2) + " s · " + META.frames + " frames · " + META.hz + " Hz"));
+    box.appendChild(row("report", String(R.generated_at || "not in the bundle").slice(0, 10)));
+    box.appendChild(row("package", DATA.tag ? DATA.tag : "no tag in this copy"));
+    box.appendChild(row("calibration", DATA.twin.synthetic
+      ? "SYNTHETIC · simulated logs" : "measured logs"));
+    box.appendChild(mk("div","cap",
+      "figures read from the report, torque, comparison and manifest files in this package"));
   })();
 
   // ---------------------------------------------------------------------------------------------
@@ -782,8 +959,49 @@
     if (!w || !h) return;
     renderer.setSize(w, h, false);
     camera.aspect = w/h; camera.updateProjectionMatrix();
+    // The hero is the point of the page, so a narrower stage re-fits the robot rather than
+    // cropping it: the fit below is a property of the stage, not of the first window size.
+    if (modelBox) fitHero();
   }
   addEventListener("resize", resize);
+
+  // Fit the robot to the stage by measurement, not by a guessed multiple of its size.
+  // The old camera distance was ``size.length() * 1.20``, which is a diagonal, and on a 3/4 view of
+  // a long thin arm that number is too close: the wrist left the top of the frame. This projects the
+  // model's eight bounding-box corners and moves the camera until the furthest corner sits at 80% of
+  // the half-frame, so nothing is cropped at any aspect and the robot is as large as that allows.
+  var modelBox = null;
+  function boxCorners(box){
+    var pts = [], i;
+    for (i=0;i<8;i++){
+      pts.push(new THREE.Vector3(i&1?box.max.x:box.min.x, i&2?box.max.y:box.min.y,
+                                 i&4?box.max.z:box.min.z));
+    }
+    return pts;
+  }
+  function projectBox(box){
+    var maxAbs = 0, minY = 1e9, maxY = -1e9;
+    boxCorners(box).forEach(function(p){
+      var v = p.clone().project(camera);
+      var a = Math.max(Math.abs(v.x), Math.abs(v.y));
+      if (a > maxAbs) maxAbs = a;
+      if (v.y < minY) minY = v.y;
+      if (v.y > maxY) maxY = v.y;
+    });
+    return { maxAbs: maxAbs, heightFraction: (maxY - minY) / 2 };
+  }
+  function fitHero(){
+    if (!modelBox || modelBox.isEmpty()) return;
+    for (var i=0;i<6;i++){
+      placeCamera(); camera.updateMatrixWorld(); camera.updateProjectionMatrix();
+      var r = projectBox(modelBox);
+      if (!isFinite(r.maxAbs) || r.maxAbs <= 0) break;
+      dist = Math.max(0.12, Math.min(3.0, dist * (r.maxAbs / 0.80)));
+    }
+    placeCamera(); camera.updateMatrixWorld(); camera.updateProjectionMatrix();
+    var fit = projectBox(modelBox);
+    window.__heroFit = fit;
+  }
 
   // opening pose: the frame whose body origins span the largest box, the most readable shape
   (function pickReadableFrame(){
@@ -809,11 +1027,14 @@
     if (!box.isEmpty()){
       box.getCenter(target);
       var size = box.getSize(new THREE.Vector3());
-      dist = Math.max(0.25, size.length()*1.20);
+      // A starting distance; fitHero below measures the projection and corrects it.
+      dist = Math.max(0.25, size.length()*1.60);
       grid.position.y = box.min.y - size.y*0.02;
       grid.scale.setScalar(Math.max(0.5, Math.max(size.x, size.z)/1.2));
       az = Math.atan2(size.z, size.x) + Math.PI*0.25;
       po = 0.30;
+      modelBox = box.clone();
+      fitHero();
     }
   })();
   placeCamera(); resize();
@@ -832,21 +1053,139 @@
         " · solids touch " + DATA.selfCollision.solidMm3.toFixed(2) + " mm³"));
     }
   })();
-  var wristIndex = flagged.length ? flagged[0] : Math.max(1, nbody-1);
+  // The callout is anchored to the contact it names, not floated over the stage. It used to sit on
+  // the wrist's origin, which for a wrist and a jaw a few millimetres apart reads as a label about
+  // the arm rather than about the pair. The anchor here is the midpoint of the closest pair of the
+  // two bodies' rendered vertices: that is where the drawn parts meet. The label's numbers stay the
+  // check's own measurements (hull depth, B-rep intersection), because the sampled surface is not
+  // the CAD solid and this page does not pretend one number is the other.
+  var contactDot = el("contactdot");
+  var pairIdx = (function(){
+    var names = DATA.selfCollision.pairs[0] || [], out = [];
+    names.forEach(function(name){
+      for (var i=1;i<BODIES.length;i++){
+        if (String(BODIES[i].name).toLowerCase() === String(name).toLowerCase()){ out.push(i); break; }
+      }
+    });
+    return out.length === 2 ? out : null;
+  })();
+  var SAMPLE_MAX = 96, localSamples = [null, null];
+  (function samplePair(){
+    if (!pairIdx) return;
+    pairIdx.forEach(function(idx, k){
+      var group = bodyGroups[idx], total = 0, pts = [];
+      if (!group) return;
+      group.children.forEach(function(mesh){
+        var pos = mesh.geometry && mesh.geometry.getAttribute("position");
+        if (pos) total += pos.count;
+      });
+      if (!total) return;
+      var stride = Math.max(1, Math.floor(total / SAMPLE_MAX));
+      group.children.forEach(function(mesh){
+        var pos = mesh.geometry && mesh.geometry.getAttribute("position");
+        if (!pos) return;
+        mesh.updateMatrix();
+        for (var i=0;i<pos.count;i+=stride){
+          var v = new THREE.Vector3(pos.getX(i), pos.getY(i), pos.getZ(i)).applyMatrix4(mesh.matrix);
+          pts.push(v.x, v.y, v.z);
+        }
+      });
+      localSamples[k] = new Float32Array(pts.slice(0, Math.min(pts.length, SAMPLE_MAX*3)));
+    });
+  })();
+  var worldSamples = [new Float32Array(0), new Float32Array(0)];
+  if (localSamples[0]) worldSamples[0] = new Float32Array(localSamples[0].length);
+  if (localSamples[1]) worldSamples[1] = new Float32Array(localSamples[1].length);
+  var contactPoint = new THREE.Vector3();
+  function projectContact(){
+    if (!pairIdx || !localSamples[0] || !localSamples[1]) return false;
+    for (var k=0;k<2;k++){
+      var src = localSamples[k], dst = worldSamples[k];
+      var m = bodyGroups[pairIdx[k]].matrix.elements;
+      for (var i=0;i<src.length;i+=3){
+        var x = src[i], y = src[i+1], z = src[i+2];
+        dst[i]   = m[0]*x + m[4]*y + m[8]*z  + m[12];
+        dst[i+1] = m[1]*x + m[5]*y + m[9]*z  + m[13];
+        dst[i+2] = m[2]*x + m[6]*y + m[10]*z + m[14];
+      }
+    }
+    var a = worldSamples[0], b = worldSamples[1], best = Infinity, bx = 0, by = 0, bz = 0;
+    for (var p=0;p<a.length;p+=3){
+      var ax = a[p], ay = a[p+1], az = a[p+2];
+      for (var q=0;q<b.length;q+=3){
+        var dx = ax-b[q], dy = ay-b[q+1], dz = az-b[q+2];
+        var d2 = dx*dx + dy*dy + dz*dz;
+        if (d2 < best){
+          best = d2;
+          bx = (ax + b[q]) * 0.5; by = (ay + b[q+1]) * 0.5; bz = (az + b[q+2]) * 0.5;
+        }
+      }
+    }
+    if (!isFinite(best)) return false;
+    contactPoint.set(bx, by, bz);
+    return true;
+  }
+
   var projV = new THREE.Vector3();
+  window.__callout = { visible: false };
+  function showCallout(on){
+    callout.style.display = on ? "" : "none";
+    leader.style.display = on ? "" : "none";
+    contactDot.style.display = on ? "" : "none";
+    window.__callout.visible = on;
+  }
   function positionCallout(){
-    if (callout.style.display === "none") return;
+    // LABELS is the presenter's switch; off-screen is the geometry's. Either one hides the label
+    // and its leader, so a camera orbit can never leave a line pointing at nothing.
+    var want = state.labels && DATA.selfCollision.deepestMm != null;
+    if (!want || !projectContact()){ showCallout(false); return; }
     var w = stage.clientWidth, h = stage.clientHeight;
-    if (!w || !h) return;
-    var bp = frame*nbody*3;
-    projV.set(bodyPos[bp+wristIndex*3], bodyPos[bp+wristIndex*3+1], bodyPos[bp+wristIndex*3+2]);
-    projV.project(camera);
-    var x = Math.max(72, Math.min(w-72, (projV.x*0.5+0.5)*w));
-    var y = Math.max(42, Math.min(h-8, (-projV.y*0.5+0.5)*h));
-    callout.style.left = x + "px";
-    callout.style.top = (y - 12) + "px";
-    leader.setAttribute("x1", x); leader.setAttribute("y1", y - 12);
-    leader.setAttribute("x2", x + 14); leader.setAttribute("y2", y + 10);
+    if (!w || !h){ showCallout(false); return; }
+    camera.updateMatrixWorld();
+    projV.copy(contactPoint).project(camera);
+    if (!(projV.z < 1) || Math.abs(projV.x) > 1 || Math.abs(projV.y) > 1){
+      showCallout(false); return;
+    }
+    var px = (projV.x*0.5 + 0.5) * w, py = (-projV.y*0.5 + 0.5) * h;
+    var below = py < 96, right = px < w * 0.62;
+    function place(onRight){
+      callout.style.transform = below
+        ? (onRight ? "translate(0,0)" : "translate(-100%,0)")
+        : (onRight ? "translate(0,-100%)" : "translate(-100%,-100%)");
+      callout.style.left = (px + (onRight ? 16 : -16)) + "px";
+      callout.style.top = (below ? py + 12 : py - 12) + "px";
+      showCallout(true);
+      return callout.getBoundingClientRect();
+    }
+    var cr = place(right), sr = stage.getBoundingClientRect();
+    // A label wider than the room on its side is clipped by the stage, which at a blade width is
+    // the common case: flip to the other side and, if that still overflows, pin it inside the stage
+    // and let the leader carry the distance. The label never leaves the frame.
+    if (right && cr.right > sr.right){ right = false; cr = place(right); }
+    if (!right && cr.left < sr.left){ right = true; cr = place(right); }
+    if (cr.right > sr.right){
+      callout.style.left = (parseFloat(callout.style.left) - (cr.right - sr.right) - 6) + "px";
+      cr = callout.getBoundingClientRect();
+    }
+    if (cr.left < sr.left){
+      callout.style.left = (parseFloat(callout.style.left) + (sr.left - cr.left) + 6) + "px";
+      cr = callout.getBoundingClientRect();
+    }
+    var edgeX = (right ? cr.left : cr.right) - sr.left;
+    var edgeY = (below ? cr.top : cr.bottom) - sr.top;
+    leader.setAttribute("x1", px.toFixed(1)); leader.setAttribute("y1", py.toFixed(1));
+    leader.setAttribute("x2", edgeX.toFixed(1)); leader.setAttribute("y2", edgeY.toFixed(1));
+    contactDot.setAttribute("cx", px.toFixed(1)); contactDot.setAttribute("cy", py.toFixed(1));
+    window.__callout = {
+      visible: true,
+      anchor: {x: px, y: py},
+      world: [contactPoint.x, contactPoint.y, contactPoint.z],
+      pair: DATA.selfCollision.pairs[0] || [],
+      leader: {x1: px, y1: py, x2: edgeX, y2: edgeY},
+      callout: {left: cr.left - sr.left, top: cr.top - sr.top,
+                right: cr.right - sr.left, bottom: cr.bottom - sr.top},
+      side: below ? "below" : (right ? "right" : "left")
+    };
   }
 
   var playing = true, tPrev = performance.now();
@@ -880,36 +1219,80 @@
   requestAnimationFrame(loop);
 
   // ---------------------------------------------------------------------------------------------
-  // revision switch: one toggle, two bakes, the delta named as a delta
+  // infill switch: one state, and every number on the page is written from it
   // ---------------------------------------------------------------------------------------------
+  // The switch used to move the print mass and leave the row label, the delta, the saving and the
+  // whole torque card describing the other bake. A page whose numbers disagree about which bake they
+  // came from is worse than a page with no switch, so this function is now the only writer of
+  // anything that depends on the infill fraction.
   var revBefore = el("rev-before"), revAfter = el("rev-after");
-  function setRevision(which){
-    var after = which === "after";
-    revBefore.setAttribute("aria-pressed", String(!after));
-    revAfter.setAttribute("aria-pressed", String(after));
+  function setInfill(f){
     var r = DATA.revision;
-    var printValue = after ? r.massAfter : r.massBefore;
-    var massLines = el("cmp").querySelectorAll(".mline");
-    if (massLines[1]) {
-      massLines[1].querySelector(".row .v").textContent = fixed(printValue, 3) + " kg";
-      var top = Math.max(DATA.masses.solid || 0, printValue || 0, DATA.masses.published || 0) || 1;
-      massLines[1].querySelector(".bar i").style.width = (100*((printValue||0)/top)).toFixed(1) + "%";
+    var mass = massAtInfill(f);
+    var atCompiled = mass != null && ((f === r.before) || (f === r.after));
+    revBefore.setAttribute("aria-pressed", String(r.before != null && f === r.before));
+    revAfter.setAttribute("aria-pressed", String(r.after != null && f === r.after));
+    if (mass == null) {
+      // Endpoints missing: say so on the control rather than leaving the last bake's numbers up.
+      el("revdelta").textContent = "no second bake";
+      return;
     }
-    el("revdelta").textContent = after && r.deltaPercent != null
+    var refs = printRefs;
+    refs.print.label.textContent = "print · " + fixed(DATA.masses.wall, 2) + " mm wall, " +
+      fixed(f, 2) + " infill";
+    refs.print.value.textContent = fixed(mass, 3) + " kg";
+    var top = Math.max(refs.solid || 0, mass, refs.pub || 0) || 1;
+    refs.print.fill.style.width = (100*(mass/top)).toFixed(1) + "%";
+    refs.delta.textContent = "+" + fixed(100*((mass/(refs.pub || 1)) - 1), 1) + " %";
+    refs.save.textContent = fixed(100*((refs.solid - mass)/(refs.solid || 1)), 0) + " % of solid";
+    refs.basis.textContent = atCompiled
+      ? "compiled at this infill"
+      : "linear between the compiled bakes at " + fixed(r.before, 2) + " and " + fixed(r.after, 2) +
+        " · the wall does not move with infill, so this line is the model, not a re-bake";
+    el("revdelta").textContent = (r.after != null && f === r.after && r.deltaPercent != null)
       ? "+" + fixed(r.deltaPercent, 1) + " % printed" : "";
     var tile = el("kpi-mass");
     if (tile) {
       var v = tile.querySelector(".v");
       if (v) {
-        v.textContent = fixed(printValue, 3) + " kg";
-        v.appendChild(mk("em", null, after ? " +" + fixed(r.deltaPercent, 1) + "%" : " modelled"));
+        v.textContent = fixed(mass, 3) + " kg";
+        v.appendChild(mk("em", null,
+          (r.after != null && f === r.after && r.deltaPercent != null)
+            ? " +" + fixed(r.deltaPercent, 1) + "%" : " modelled"));
       }
     }
-    el("m-mass-kind").textContent = DATA.masses.printKind || "modelled";
+    // Torque: the print model holds every part's centre of mass, so a gravity torque scales with
+    // the mass ratio. That is the compiler's own assumption, not a measured fact, and the row that
+    // names the revision's second bake is where the two can be compared: at 0.30 the scaling says
+    // one number and the bake says another, and the difference is the size of the approximation.
+    var ratio = (r.massBefore && r.massBefore > 0) ? mass / r.massBefore : 1;
+    var tr = torqueRefs;
+    if (tr) {
+      tr.poses.forEach(function(p){
+        p.value.textContent = fixed(p.pose.compiled * ratio, 3) + " / " +
+          fixed(p.pose.published, 3);
+      });
+      tr.cap.textContent = ratio === 1
+        ? "compiled / published · N·m"
+        : "compiled × mass ratio / published · N·m";
+      tr.badge.textContent = (tr.trajectory ? "trajectory" : "static poses") +
+        (ratio === 1 ? "" : " · scaled");
+      tr.draw(ratio);
+      var bake = DATA.revision.effortAfter, scaleOfBake = DATA.revision.effortBefore;
+      if (bake != null && scaleOfBake != null && ratio !== 1) {
+        tr.effort.style.display = "";
+        tr.effort.querySelector(".v").textContent =
+          fixed(bake, 3) + " baked / " + fixed(scaleOfBake * ratio, 3) + " scaled";
+      } else {
+        tr.effort.style.display = "none";
+      }
+    }
   }
-  revBefore.addEventListener("click", function(){ setRevision("before"); });
-  revAfter.addEventListener("click", function(){ setRevision("after"); });
+  revBefore.addEventListener("click", function(){ setInfill(DATA.revision.before); });
+  revAfter.addEventListener("click", function(){ setInfill(DATA.revision.after); });
   el("revdelta").title = "printed mass change between the two bakes, as a percentage of the first";
+  setInfill(DATA.masses.infill);
+
 
   // ---------------------------------------------------------------------------------------------
   // drawer: every long sentence lives here, so no card has to scroll to hold one
@@ -982,7 +1365,7 @@
     }
     return { kvs: DATA.checks.map(function(c){ return [c.id, c.status]; }), paras: paras };
   });
-  entry("links", "05 · per-link mass, from the compiled report", function(){
+  entry("links", "06 · per-link mass, from the compiled report", function(){
     return {
       kvs: DATA.bodies.map(function(b){
         return [b.name, fixed(b.mass,4) + " kg" + (b.assumed ? " · assumed" : "") +
@@ -992,7 +1375,7 @@
         "from the published model the meshes came from."]
     };
   });
-  entry("display", "06 · what the toggles do", function(){
+  entry("display", "07 · what the toggles do", function(){
     return { paras: [
       "LABELS shows the self-collision callout anchored on the wrist. EXPLODED offsets each link " +
       "along its parent-to-child direction. TURNTABLE orbits slowly until someone touches the view. " +
@@ -1003,7 +1386,7 @@
       "drawer; the geometry is not in this bundle."
     ]};
   });
-  entry("twin", "07 · calibration, and the data it would need", function(){
+  entry("twin", "08 · calibration, and the data it would need", function(){
     var kvs = [["signal to noise", fixed(DATA.twin.snr.value,2) + " · " + DATA.twin.snr.label]];
     if (DATA.twin.snr.scenario) kvs.push(["scenario", DATA.twin.snr.scenario]);
     if (DATA.twin.coulomb) {
@@ -1028,6 +1411,42 @@
       "argument.",
       "A blocked rung is the answer, not a failure: no estimator recovers a parameter buried ten " +
       "times under noise."
+    ]};
+  });
+  entry("same", "09 · the compiled model against the published SO-ARM100 URDF", function(){
+    var C = R.comparison || {};
+    var rows = (C.bodies || []).map(function(b){
+      return [b.ours + " ↔ " + b.theirs, fixed(num(b.ours_kg), 3) + " vs " +
+        fixed(num(b.theirs_kg), 3) + " kg"];
+    });
+    var joints = (C.joints || []).map(function(j){
+      return [j.ours + " → " + j.theirs, fixed(Number(j.axis_angle_deg), 2) + "° axis"];
+    });
+    return { kvs: rows.concat(joints), paras: [
+      "The reference is " + (C.theirs || "the published URDF") + ". Both masses are what each " +
+      "side states for the same seven links; the difference is the printed-mass model, not a " +
+      "different robot.",
+      "Axis agreement is the angle between this model's joint axis and the reference's, after the " +
+      "zero-pose conventions are applied. Origins are compared at five joint origins over 100 poses " +
+      "from a seeded generator."
+    ]};
+  });
+  entry("prov", "04 · where every figure on this page came from", function(){
+    return { kvs: [
+      ["compiled from", DATA.source || "not in the bundle"],
+      ["report generated", String(R.generated_at || "not in the bundle")],
+      ["bundle name", M.name || DATA.name || "not in the bundle"],
+      ["package tag", DATA.tag || "no tag recorded in this copy"],
+      ["replay source", META.source || "not in the bundle"],
+      ["calibration", DATA.twin.synthetic ? "SYNTHETIC (simulated logs)" : "measured logs"]
+    ], paras: [
+      "Every number on this page is read from a file in this package at load time: report.js, " +
+      "torque.js, comparison.json, identification.js and manifest.js. None is typed into the page.",
+      DATA.tag
+        ? "This copy names package tag " + DATA.tag + " in its manifest, and the packager's verifier " +
+          "proves that tag's committed zip is these bytes."
+        : "This copy's manifest records no package tag, so the header says so rather than naming a " +
+          "tag nobody could fetch."
     ]};
   });
   entry("checks_kpi", "header · checks, mass, axis and origin agreement, package", function(){
@@ -1122,6 +1541,10 @@
   });
 
   // hook the film recorder and the verifier drive: frames deterministic, state inspectable
+  // Debug handles the page's own geometry tests read: the body names and the body groups whose
+  // matrices the callout anchors against. They are read-only views, not controls.
+  window.__pageBodies = BODIES;
+  window.__pageGroups = bodyGroups;
   window.SO101_PAGE = {
     data: DATA,
     setFrame: function(f){
@@ -1134,7 +1557,7 @@
       playing = false;
       var b = el("b-play"); b.textContent = "play"; b.setAttribute("aria-pressed","false");
     },
-    openDrawer: openDrawer, closeDrawer: closeDrawer, setRevision: setRevision,
+    openDrawer: openDrawer, closeDrawer: closeDrawer, setInfill: setInfill,
     triangulate: function(){ return triTotal; },
     state: state,
     meshWorldSample: function(geomIndex){
