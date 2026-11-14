@@ -10,6 +10,7 @@ Commands::
     robocad twin summary --bundle DIR [--json]
     robocad twin page    --bundle DIR --out PAGE_DIR [--seconds S] [--hz N] [--triangles N]
     robocad twin compile --step FILE --joints FILE --out DIR [--json-progress]
+    robocad twin unpack  --zip FILE --out DIR [--verify-sha SHA]
 
 ``summary`` describes a bundle as JSON. Its contract is ``robocad.twin.summary/1`` and its point is
 the ``provenance`` block: every figure the bundle reports is labelled with what kind of claim it is,
@@ -19,6 +20,12 @@ consumer that renders "mass: 0.9017 kg" without that label is quoting a density 
 ``page`` builds the offline living page from a bundle. ``compile`` runs the compiler and, with
 ``--json-progress``, writes one JSON object per line so a GUI can show progress without scraping text.
 
+``unpack`` is the one source of truth for a shipped demo. It extracts the zip and, given
+``--verify-sha``, refuses before writing anything when the archive does not hash to that digest. A
+consumer then points at the extracted directory and nowhere else: a second copy of the page or the
+report that a human serves by hand is a copy that can disagree with the package, and the v1.1 review
+found exactly that, one injected `<div>` apart.
+
 Exit codes: 0 success, 2 bad input (missing file or unreadable bundle), 3 the command ran but the
 result is a failure (the page could not be built, or the bundle's own checks failed). With
 ``--json-progress`` a failing run still ends with a JSON error line and a non-zero exit, because a
@@ -27,12 +34,15 @@ GUI that is waiting on a progress stream must not have to parse a stack trace to
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import shutil
 import sys
+import zipfile
 from pathlib import Path
 
 SUMMARY_SCHEMA = "robocad.twin.summary/1"
+UNPACK_SCHEMA = "robocad.twin.unpack/1"
 
 # The stages `twin compile` emits, in order. A consumer may rely on this list: no other stage name is
 # produced, and "done" is only ever the last line of a successful run.
@@ -321,6 +331,108 @@ def build_page(bundle_dir: Path, out: Path, seconds: float, hz: int, triangles: 
     }
 
 
+def sha256_file(path: Path) -> str:
+    """The digest of a file, in the form ``verify.json`` and the tag check both use."""
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+class ArchiveError(ValueError):
+    """An archive that cannot be extracted as given: a bad digest, a bad path, a dirty target."""
+
+
+def _member_problem(name: str) -> str | None:
+    """Why this archive member would be written outside the target, or None if it is safe.
+
+    An archive is untrusted input even when this project made it: the name is attacker-controlled in
+    general, and `zipfile.extractall` honours absolute paths and `..` on some platforms. The check is
+    on the member name as written, not on the resolved path, so it cannot be defeated by a symlink
+    that exists at extraction time.
+    """
+    normalised = name.replace("\\", "/")
+    if normalised.startswith("/"):
+        return "absolute path"
+    if len(normalised) > 1 and normalised[1] == ":":
+        return "drive-qualified path"
+    parts = [part for part in normalised.split("/") if part not in ("", ".")]
+    if ".." in parts:
+        return "parent-directory escape"
+    return None
+
+
+def unpack_zip(zip_path: Path, out: Path, verify_sha: str | None = None) -> dict:
+    """Extract a shipped demo zip, refusing on a digest mismatch or an unsafe member.
+
+    Order matters: the digest is checked, then every member name, and only then is anything written.
+    A refusal therefore leaves the target untouched rather than half-populated, which is the state a
+    consumer would otherwise read as a partial success.
+    """
+    zip_path = Path(zip_path)
+    out = Path(out)
+    if not zip_path.is_file():
+        raise FileNotFoundError(f"no zip at {zip_path}")
+
+    actual = sha256_file(zip_path)
+    expected = (verify_sha or "").strip().lower()
+    if expected and expected != actual:
+        raise ArchiveError(
+            f"{zip_path} hashes to {actual}, not the {expected} this caller verified: refusing to "
+            "extract it. A demo that reads an archive other than the one that was checked is the "
+            "defect unpack exists to prevent."
+        )
+
+    with zipfile.ZipFile(zip_path) as archive:
+        infos = [info for info in archive.infolist() if not info.is_dir()]
+        problems = [(info.filename, _member_problem(info.filename)) for info in infos]
+        unsafe = [(name, why) for name, why in problems if why]
+        if unsafe:
+            raise ArchiveError(
+                "refusing to extract: unsafe member path(s) "
+                + ", ".join(f"{name!r} ({why})" for name, why in unsafe[:5])
+            )
+        names = [info.filename for info in infos]
+
+        # A populated target is refused rather than merged. Extraction over yesterday's files leaves
+        # a directory holding both packages, and the next reader cannot tell which report.json it got.
+        if out.exists() and any(out.iterdir()):
+            raise ArchiveError(f"{out} already has files in it: unpack into a new directory")
+        out.mkdir(parents=True, exist_ok=True)
+        archive.extractall(out)
+
+    # The zip may carry one top-level folder (`so101_demo/`) or its files at the root. Both are
+    # normal; the caller wants the directory with the bundle in it, not a path to guess at.
+    bundle = out
+    if not (bundle / "report.json").exists():
+        candidates = [p for p in out.iterdir() if p.is_dir() and (p / "report.json").exists()]
+        if len(candidates) == 1:
+            bundle = candidates[0]
+        elif len(candidates) > 1:
+            raise ArchiveError(
+                f"{out} carries {len(candidates)} bundle directories: refusing to guess which one "
+                "this package means"
+            )
+
+    return {
+        "schema_version": UNPACK_SCHEMA,
+        "zip": {
+            "path": zip_path.resolve().as_posix(),
+            "sha256": actual,
+            "bytes": zip_path.stat().st_size,
+            "entries": len(names),
+        },
+        "verified": bool(expected),
+        "expected_sha256": expected or None,
+        "out": out.resolve().as_posix(),
+        # What a consumer sets ROBOCAD_BUNDLE_DIR to: the directory whose report.json and page are
+        # the shipped ones, never a sibling copy.
+        "bundle": bundle.resolve().as_posix(),
+        "files": sorted(names),
+    }
+
+
 def _limits_from_joints(path: Path) -> tuple[dict[str, dict], str]:
     """Travel limits and their provenance, read from a reviewed ``robot.joints.yaml``.
 
@@ -427,6 +539,15 @@ def main(argv: list[str] | None = None) -> int:
     compile_cmd.add_argument("--json-progress", action="store_true",
                              help="emit one JSON object per line instead of text")
 
+    unpack_cmd = sub.add_parser("unpack", help="extract a shipped demo zip, refusing a bad digest")
+    unpack_cmd.add_argument("--zip", type=Path, required=True)
+    unpack_cmd.add_argument("--out", type=Path, required=True)
+    unpack_cmd.add_argument(
+        "--verify-sha", default=None,
+        help="sha256 the archive must have; the digest recorded in verify.json",
+    )
+    unpack_cmd.add_argument("--json", action="store_true", help="machine-readable output")
+
     args = parser.parse_args(argv)
     if args.command == "summary":
         try:
@@ -460,6 +581,22 @@ def main(argv: list[str] | None = None) -> int:
             if payload["referenced_but_absent"]:
                 print(f"  MISSING, the page links these: {', '.join(payload['referenced_but_absent'])}")
         return 0 if payload["complete"] else 3
+    if args.command == "unpack":
+        try:
+            payload = unpack_zip(args.zip, args.out, args.verify_sha)
+        except (FileNotFoundError, ArchiveError) as error:
+            print(f"error: {error}", file=sys.stderr)
+            if args.json:
+                print(json.dumps({"schema_version": UNPACK_SCHEMA, "error": str(error)}))
+            return 2
+        if args.json:
+            print(json.dumps(payload, indent=2))
+        else:
+            print(f"unpacked {payload['zip']['path']}")
+            print(f"  sha256 {payload['zip']['sha256']} ({'verified' if payload['verified'] else 'NOT CHECKED'})")
+            print(f"  {len(payload['files'])} files into {payload['out']}")
+            print(f"  bundle (set ROBOCAD_BUNDLE_DIR to this): {payload['bundle']}")
+        return 0
     return compile_bundle_cli(args.step, args.joints, args.out, args.json_progress)
 
 

@@ -410,3 +410,52 @@ the file and `INTEGRATION.md` now agree (`aa5566b`). Blade tests 10 of 10 after 
 **Not done, and said so.** The heavy/slow tier was not run in full. Only the MuJoCo-marked tests in
 the two files v1.1 changed were run, because the rest of the heavy tier's cost is unrelated to this
 change and the freeze already records that tier as stopped by instruction.
+
+### 2026-11-14 13:08 AUSEDT (02:08 UTC), v1.2 fix-up, Lane A, F1 and F2 reproduced before touching anything
+
+Order: the pasted v1.2 fix-up, F1–F7. Standing rule for this sprint is reproduce-then-fix with the
+reproduction pasted here. Both P0 items were run against the shipped zip first.
+
+**F1 reproduction.** Extracted `docs/demo/so101_demo.zip` to a fresh temp directory and hashed the
+artifacts the review named, `verified-ran`:
+
+```
+zip             : 46b848e90ff12d5189e009f38a2fb25d4950646d26166a9c9132ac622a067d4b 3919227
+zip report.json : 34caf7e857e94f1ee50d30d616efb0e23c1af543b4509fa4c50d5be1c90130d9
+tree report.json: 34caf7e857e94f1ee50d30d616efb0e23c1af543b4509fa4c50d5be1c90130d9
+zip index.html  : 613fc09fc8fbf1588e8f4923fb06e0a4f31050d199639210e63c4e0db2b27621
+page index.html : edd42ab68fd2908b54adc783011cd9fe2c56fa8ca930fbf234f50038ac25b79d
+zip torque.js   : 8e90eb1d24a7ae7d70d35f7ff2250bac24d501471bb035fb668f59c67a3b4e35
+page torque.js  : 8e90eb1d24a7ae7d70d35f7ff2250bac24d501471bb035fb668f59c67a3b4e35
+zip  report.html stamp: Generated 2026-11-14T00:52:14+00:00 from
+tree report.html stamp: Generated 2026-11-14T00:52:14+00:00 from
+```
+
+Two findings, one against the order and one for it:
+
+- **The report.json divergence the order cites is not reproducible.** The zip's `report.json` and
+  `docs/twin/so101/bundle/report.json` are byte-identical at `34caf7e8…`. The order says the tree's is
+  `1d0699cc…`, which was true before the bundle was regenerated at `2f2920c`; it is not true of HEAD.
+  Stated plainly rather than "reproduced" because a review whose evidence has expired is still right
+  about the defect only if the defect is still there, and this half of it is not.
+- **The page divergence is real and is the whole of what remains.** A unified diff of the two
+  `index.html` files is four lines: 730 → 731, one `<div>` added at line 49. That div is the
+  packaged-demo nav block `teardown_export/package_demo.py` injects into the zip copy. So the blade
+  serving `docs/demo/page/index.html` shows a page the zip does not contain, and the fix is to stop
+  serving a second copy at all.
+
+**F2 reproduction.** `python -m robocad twin summary --bundle docs/twin/so101/bundle --json` today
+carries `schema_version, name, bundle, totals, checks, worst_status, conventions, provenance,
+synthetic_count, warnings, notes` and nothing else. Grepping those numbers in the summary:
+0.632 **absent**, 2.14 **absent**, 2.50 appears only as the manifest's `residual_mm.median` inside
+`conventions` and has no section of its own, 0.767 **absent**, 0.538 **absent**, 70.69 **absent**,
+0.955 **absent**, 0.147 **absent**. Only the totals the report already had (1.332 solid, 0.902
+printed) come through. The numbers exist in the bundle under other keys and other files
+(`comparison.json` alignment, `diff.json`, the torque and identification payloads), which is exactly
+the review's point: the summary is a subset, and the voice reads the subset.
+
+Lane B independently reproduced both and reports 4 of 7 sections falling to "not in the report" and
+the revision section inventing 0.20/0.30. She has asked for the real schema to be sent as it prints,
+not as specified, once F2 lands, and has proposed torque `static_poses` carry one scalar per pose
+(peak over joints) rather than arrays. Both accepted: readers go against the artifact, and the torque
+scalar-plus-`per_joint` split is what the page already does.

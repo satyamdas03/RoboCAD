@@ -282,3 +282,89 @@ def test_a_missing_trajectory_payload_is_a_refusal_not_a_half_page(tmp_path):
     with pytest.raises(FileNotFoundError, match="no model.mjcf"):
         twin_cli.build_page(empty, tmp_path / "page", seconds=0.1, hz=10, triangles=10)
     assert not (tmp_path / "page" / "index.html").exists()
+
+
+# ------------------------------------------------------------------------------------------------
+# unpack: the one source of truth for a shipped demo
+# ------------------------------------------------------------------------------------------------
+DEMO_ZIP = REPO / "docs" / "demo" / "so101_demo.zip"
+
+
+def _make_zip(path: Path, members: dict[str, str]) -> Path:
+    import zipfile
+
+    with zipfile.ZipFile(path, "w") as archive:
+        for name, text in members.items():
+            archive.writestr(name, text)
+    return path
+
+
+def test_unpack_extracts_the_package_and_names_the_bundle_directory(tmp_path):
+    source = tmp_path / "src"
+    source.mkdir()
+    (source / "report.json").write_text('{"name": "so101"}', encoding="utf-8")
+    (source / "index.html").write_text("<html></html>", encoding="utf-8")
+    archive = tmp_path / "demo.zip"
+    with __import__("zipfile").ZipFile(archive, "w") as zf:
+        for file in source.iterdir():
+            zf.write(file, f"so101_demo/{file.name}")
+
+    payload = twin_cli.unpack_zip(archive, tmp_path / "out", twin_cli.sha256_file(archive))
+
+    assert payload["schema_version"] == "robocad.twin.unpack/1"
+    assert payload["verified"] is True
+    assert payload["zip"]["sha256"] == twin_cli.sha256_file(archive)
+    # The zip carries one top-level folder; the caller needs the folder with the bundle in it.
+    assert Path(payload["bundle"]).name == "so101_demo"
+    assert (Path(payload["bundle"]) / "report.json").exists()
+    assert "\\" not in payload["bundle"]
+
+
+def test_unpack_refuses_a_digest_mismatch_before_writing_anything(tmp_path):
+    archive = _make_zip(tmp_path / "demo.zip", {"so101_demo/report.json": "{}"})
+    target = tmp_path / "out"
+    with pytest.raises(twin_cli.ArchiveError, match="not the 0{4}"):
+        twin_cli.unpack_zip(archive, target, "0" * 64)
+    # A refusal that leaves a half-extracted directory is read as a partial success by the next step.
+    assert not target.exists()
+
+
+def test_unpack_refuses_an_archive_member_that_would_escape_the_target(tmp_path):
+    archive = _make_zip(tmp_path / "demo.zip", {
+        "so101_demo/report.json": "{}",
+        "../escaped.json": "{}",
+    })
+    with pytest.raises(twin_cli.ArchiveError, match="parent-directory escape"):
+        twin_cli.unpack_zip(archive, tmp_path / "out")
+    assert not (tmp_path / "escaped.json").exists()
+    assert not (tmp_path / "out").exists()
+
+
+def test_unpack_refuses_a_populated_target_rather_than_merging_two_packages(tmp_path):
+    archive = _make_zip(tmp_path / "demo.zip", {"so101_demo/report.json": "{}"})
+    target = tmp_path / "out"
+    target.mkdir()
+    (target / "yesterday.json").write_text("{}", encoding="utf-8")
+    with pytest.raises(twin_cli.ArchiveError, match="new directory"):
+        twin_cli.unpack_zip(archive, target)
+    assert sorted(p.name for p in target.iterdir()) == ["yesterday.json"]
+
+
+def test_unpack_without_a_digest_says_it_did_not_check(tmp_path, capsys):
+    archive = _make_zip(tmp_path / "demo.zip", {"so101_demo/report.json": "{}"})
+    assert twin_cli.main([
+        "unpack", "--zip", str(archive), "--out", str(tmp_path / "out"),
+    ]) == 0
+    out = capsys.readouterr().out
+    assert "NOT CHECKED" in out
+
+
+@pytest.mark.skipif(not DEMO_ZIP.exists(), reason="no shipped demo zip checked out")
+def test_unpack_on_the_shipped_zip_reproduces_the_digest_the_tag_claims(tmp_path):
+    digest = twin_cli.sha256_file(DEMO_ZIP)
+    payload = twin_cli.unpack_zip(DEMO_ZIP, tmp_path / "out", digest)
+    assert payload["zip"]["sha256"] == digest
+    assert payload["zip"]["entries"] == len(payload["files"])
+    bundle = Path(payload["bundle"])
+    for name in ("report.json", "index.html", "manifest.json"):
+        assert (bundle / name).exists(), name

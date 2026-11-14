@@ -552,3 +552,20 @@ from the same commit would mean two histories carrying the same files, with the 
 integration lands on one and my fixes on the other. One branch, linear, pushed, is the smaller risk
 while two lanes share the tree. If Satyam wants the split for review, `feat/twin-cli` can be created
 at `84fd2bf` afterwards without rewriting anything, because nothing has been rebased or forced.
+
+**Decision: `twin unpack` is the only way a consumer obtains a shipped demo, and it fails closed.**
+The v1.2 review found three artifacts claiming to be the demo: the zip, a working-tree page the blade
+served, and a bundle directory. Two of them disagreed, one injected `<div>` apart. Rather than tell a
+consumer which copy to trust, the CLI now produces the copy: it checks the archive's sha256 before
+writing anything, refuses an archive whose member names would escape the target, refuses a populated
+target instead of merging two packages into one directory, and reports the `bundle` path (the
+directory holding the shipped `report.json`) so `ROBOCAD_BUNDLE_DIR` has one obvious value. A refused
+unpack leaves the target untouched, because a half-populated directory reads as a partial success.
+
+**Decision: torque in the summary is one number per pose, not a per-joint array, plus name-keyed
+detail.** The page reads a peak per pose and the narration speaks a peak per pose. An array indexed
+by joint position is only meaningful if both sides agree on joint order, and nothing in the bundle
+makes that ordering checkable, so an array would invite a consumer to read the wrong joint. `torque`
+therefore carries `static_poses[].compiled_nm`/`published_nm` as scalars (the peak over joints, stated
+as such), with per-joint values, if present, keyed by joint name. Lane B proposed this from the
+consumer side; the joint-index argument is the reason it is adopted.
