@@ -711,3 +711,23 @@ and the freeze actually allow.
   v1.3's page; v1.3 is frozen and was not rebuilt. The cockpit page exists in the tree only. The
   page-text test reads the tree page, as it always did, so the divergence is expected rather than
   silent.
+
+### The legibility pass, after the design hook flagged the page
+
+The design detector returned 28 findings on the new page, all of one kind: functional text under the
+11 px floor and a quiet grey below the 4.5:1 contrast bar. Both were real, and both were mine.
+
+- **Type floor.** Every functional size was between 8 px and 10.5 px (8 px KPI labels, 8.5 px status
+  words and rung pills, 9 px card headings and rows). All of it is now **11 px**, and the drawer body
+  and card titles 13 px. The one-screen gate was re-run after the change and still passes at all three
+  viewports, which was the risk: the page was dense enough that bigger type could have reflowed it.
+- **Contrast.** `--faint` was `#5b6878`, which measures **3.2:1** on `--panel` — below AA for body
+  text. It is now `#7d8a9b` at **5.2:1**. The card number that used `#3d5265` now uses `--faint`.
+- **Two things the bigger type broke, fixed rather than accepted.** The torque rows repeated
+  "compiled / published" in every label, so at 11 px all three read "quarter span · compiled / p…";
+  the phrase is now a single caption above the rows. The package tile's pill was being clipped by the
+  tile's own ellipsis, so the pill is the value line: "no tag recorded" survives intact.
+
+`verified-ran` after the pass: cockpit layout **5 passed**, `check_page_numbers.py` "32 numeric tokens
+all trace to the summary", page-text test **2 passed**, `sections.test.mjs` **11 passed**. Screenshots
+regenerated. No figure changed; only what the figures are set in.
