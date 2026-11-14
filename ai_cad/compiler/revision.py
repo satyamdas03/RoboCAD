@@ -24,6 +24,7 @@ diff that reports deletions that never happened is worse than no diff.
 from __future__ import annotations
 
 from pathlib import Path
+import re
 
 import yaml
 from pydantic import BaseModel, Field
@@ -32,6 +33,23 @@ from pydantic import BaseModel, Field
 # is deliberately lenient: a revision may rename a link or two, but when the overlap collapses to a
 # single name out of seven the documents are describing different things, not different revisions.
 _MIN_SHARED_FRACTION = 0.5
+
+# Control characters, which can rewrite a line a reader has already seen.
+_CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f]")
+
+
+def _md(text) -> str:
+    """Untrusted text made safe for a markdown table cell or a bullet.
+
+    A link id and a revision label arrive from documents this process did not write -- a compiled
+    bundle comes out of an extracted zip, and the revision labels are paths a caller named. Two
+    characters break markdown structure: ``|`` splits a table cell into two, and a newline ends the
+    row or the bullet and starts whatever the next line spells. Both are escaped here rather than at
+    each format string, because a renderer that escapes cell three and not cell four is the bug this
+    function exists to make impossible.
+    """
+    return _CONTROL.sub(" ", str(text)).replace("|", "\\|").replace("`", "\\`")
+
 
 
 class LinkRow(BaseModel):
@@ -297,12 +315,13 @@ def from_bundle(bundle: dict) -> dict[str, LinkRow]:
 
 
 def render_markdown(revision: Revision) -> str:
+    """The revision as markdown. Every string that reaches it may come from an untrusted document."""
     lines = [
-        f"## Revision diff: {revision.before} -> {revision.after}",
+        f"## Revision diff: {_md(revision.before)} -> {_md(revision.after)}",
         "",
     ]
     if not revision.comparable:
-        lines.append(f"**Not comparable.** {revision.incomparable_reason}")
+        lines.append(f"**Not comparable.** {_md(revision.incomparable_reason)}")
         lines.append("")
         return "\n".join(lines) + "\n"
     lines.extend([
@@ -317,14 +336,14 @@ def render_markdown(revision: Revision) -> str:
         after = "—" if link.volume_after_m3 is None else f"{link.volume_after_m3 * 1e6:.3f}"
         mass = "—" if link.mass_delta_kg is None else f"{link.mass_delta_kg * 1e3:+.2f}"
         lines.append(
-            f"| `{link.link_id}` | {link.status} | "
+            f"| `{_md(link.link_id)}` | {_md(link.status)} | "
             f"{'—' if link.quantity_before is None else link.quantity_before} | "
             f"{'—' if link.quantity_after is None else link.quantity_after} | "
             f"{'—' if link.quantity_delta is None else f'{link.quantity_delta:+d}'} | "
             f"{before} | {after} | {volume_change} | {mass} |"
         )
     lines.append("")
-    lines.extend(f"- {note}" for note in revision.notes)
+    lines.extend(f"- {_md(note)}" for note in revision.notes)
     return "\n".join(lines) + "\n"
 
 

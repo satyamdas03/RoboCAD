@@ -757,3 +757,28 @@ rather than left for someone to notice.
 fallback on this machine, not the page: the same payload renders at 61 fps headless and 145 fps headed
 through D3D11. A gate that fails on the harness teaches people to ignore the gate. The test pins the
 GPU path and prints the renderer name on failure, and both numbers are recorded.
+
+## The release package is tagged demo-bundle-v1.5, not v1.4
+
+**Decision.** The final visual stretch package is published as `demo-bundle-v1.5`. The existing
+annotated tag `demo-bundle-v1.4` (commit `f7ebbac`, zip sha256 `d27f4d2d…`) is left exactly where it
+is, and the release follows the same procedure as every earlier package: bake the zip with its tag
+name written into `manifest.js` while the tag is still pending, commit the zip, create the tag once on
+that commit, then prove the tag's blob equals the zip in `verify.json` and that the zip's own
+`manifest.js` records the same name.
+
+**Why not re-create v1.4 on the release commit.** `v1.4` is already referenced by `verify.json`, by
+the package header in the HUD gate, and by other lanes' digests. Whether or not `git ls-remote --tags
+origin` lists it (today it does not: origin carries `v1`, `v1.1`, `v1.2`, `v1.3` only), a tag that a
+document of record already names is a published name here. Renumbering the release costs one word and
+removes the question permanently, which is a cheaper trade than an exception to a rule that exists to
+keep digests honest.
+
+**What that means for the release brief.** The brief asks for `demo-bundle-v1.4`. It gets `v1.5`,
+because `v1.4` already names a package whose zip does not ship `meshes/`, so its `--live` phrase fails
+on a missing OBJ. FINAL_STATUS names `v1.5` and its commit; nothing else in the brief changes.
+
+**Considered and rejected.** Deleting the local `v1.4` and creating it once on the release commit: it
+would have satisfied the letter of the brief, but it makes a tag that documents and other lanes
+already carry mean something different from what they recorded, and the only argument for it was a
+version number.

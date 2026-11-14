@@ -262,7 +262,13 @@ def test_the_page_builds_from_the_published_bundle_and_every_link_resolves(tmp_p
     payload = twin_cli.build_page(BUNDLE, tmp_path / "page", seconds=0.2, hz=10, triangles=50)
     assert payload["complete"], payload
     assert payload["referenced_but_absent"] == []
-    assert payload["rebuilt_from_this_bundle"] == ["meshes.js", "report.js", "trajectory.js"]
+    # Every payload that is regenerated from this bundle, named so a reader can tell a rebuilt script
+    # from a copied asset. `summary.js` and `manifest.js` belong on this list: the voice speaks from
+    # the summary and the header prints the tag from the manifest, so both are bundle-derived, and a
+    # copied stale copy of either would print another build's numbers.
+    assert payload["rebuilt_from_this_bundle"] == [
+        "manifest.js", "meshes.js", "report.js", "summary.js", "trajectory.js"
+    ]
     # The three that come out of this bundle carry this bundle's numbers.
     report_js = (tmp_path / "page" / "report.js").read_text(encoding="utf-8")
     assert "window.SO101_REPORT = " in report_js

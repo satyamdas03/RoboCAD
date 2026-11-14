@@ -24,6 +24,7 @@ recompile cannot drift into two different definitions of "20 percent infill".
 """
 from __future__ import annotations
 
+import math
 import re
 from typing import Any
 
@@ -36,17 +37,49 @@ class BundlePrintError(ValueError):
 
 # The print model string the compiler writes into every bundle: "1.20 mm wall over 20% infill".
 _PRINT_MODEL = re.compile(r"([\d.]+)\s*mm wall over\s*([\d.]+)\s*%\s*infill")
+_CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f]")
+
+
+def safe_text(value: Any, limit: int = 120) -> str:
+    """Bundle-supplied text made safe for a terminal, a log or a chat line.
+
+    A bundle arrives inside an archive from somewhere else, so a body id can carry escape sequences
+    that move a cursor or recolour a terminal. The caller prints ids, and the caller's reader may be
+    a speech tool: no control characters and a bounded length here means neither ever sees them.
+    """
+    return _CONTROL.sub("", str(value))[:limit]
+
+
+def _finite(value: Any, what: str) -> float:
+    """A number from the bundle, or a refusal.
+
+    ``float("nan")`` parses fine and then poisons every sum it enters, and a string where a number
+    belongs raises ``TypeError`` from deep inside the arithmetic. Both become the same declared
+    error, so a caller's ``except BundlePrintError`` covers every malformed shape.
+    """
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        raise BundlePrintError(f"{what} is not a number: {safe_text(value)!r}") from None
+    if not math.isfinite(number):
+        raise BundlePrintError(f"{what} is not finite: {safe_text(value)!r}")
+    return number
 
 
 def bundle_print_model(bundle: dict[str, Any]) -> PrintModel | None:
     """The print assumption the bundle was compiled at, read from its own print-model string."""
-    match = _PRINT_MODEL.search(str(bundle.get("print_model") or ""))
+    text = bundle.get("print_model")
+    match = _PRINT_MODEL.search(str(text or ""))
     if not match:
         return None
-    return PrintModel(
-        wall_thickness_m=float(match.group(1)) / 1000.0,
-        infill_fraction=round(float(match.group(2)) / 100.0, 6),
-    )
+    wall = _finite(match.group(1), "print-model wall") / 1000.0
+    infill = round(_finite(match.group(2), "print-model infill") / 100.0, 6)
+    try:
+        return PrintModel(wall_thickness_m=wall, infill_fraction=infill)
+    except ValueError as error:  # pydantic ValidationError is a ValueError
+        raise BundlePrintError(
+            f"the bundle's print model is not a printable assumption: {safe_text(error)}"
+        ) from None
 
 
 def body_print_terms(body: dict, model: PrintModel) -> tuple[float, float]:
@@ -68,12 +101,18 @@ def body_print_terms(body: dict, model: PrintModel) -> tuple[float, float]:
     solid = body.get("solid_mass_kg")
     if printed is None or solid is None:
         raise BundlePrintError(
-            f"body {body.get('body_id')!r} records no printed_mass_kg and solid_mass_kg pair, so its"
-            " shell cannot be separated from its interior without the CAD kernel"
+            f"body {safe_text(body.get('body_id'))!r} records no printed_mass_kg and solid_mass_kg"
+            " pair, so its shell cannot be separated from its interior without the CAD kernel"
         )
-    shell = (float(printed) - model.infill_fraction * float(solid)) / (1.0 - model.infill_fraction)
-    shell = max(0.0, min(shell, float(solid)))
-    return shell, float(solid) - shell
+    printed_kg = _finite(printed, "printed_mass_kg")
+    solid_kg = _finite(solid, "solid_mass_kg")
+    if solid_kg < 0.0 or printed_kg < 0.0:
+        raise BundlePrintError(
+            f"body {safe_text(body.get('body_id'))!r} records a negative mass, which is not a body"
+        )
+    shell = (printed_kg - model.infill_fraction * solid_kg) / (1.0 - model.infill_fraction)
+    shell = max(0.0, min(shell, solid_kg))
+    return shell, solid_kg - shell
 
 
 def printed_mass_at(
@@ -102,14 +141,24 @@ def printed_mass_at(
     bodies = bundle.get("bodies")
     if not isinstance(bodies, list) or not bodies:
         raise BundlePrintError("bundle carries no bodies")
+    if not all(isinstance(body, dict) for body in bodies):
+        raise BundlePrintError("bundle carries a body that is not an object")
 
-    if own is not None:
-        fraction = own.infill_fraction if infill is None else float(infill)
-        wall = own.wall_thickness_m if wall_mm is None else float(wall_mm) / 1000.0
-    else:
-        fraction = 0.20 if infill is None else float(infill)
-        wall = 0.0012 if wall_mm is None else float(wall_mm) / 1000.0
-    target = PrintModel(wall_thickness_m=wall, infill_fraction=fraction)
+    # The caller's numbers, before anything is built on them: a string or a NaN here would reach the
+    # model and the refusal would come from pydantic or from the middle of a sum.
+    fraction = _finite(
+        0.20 if infill is None and own is None else (own.infill_fraction if infill is None else infill),
+        "infill",
+    )
+    wall = _finite(
+        1.2 if wall_mm is None and own is None
+        else (own.wall_thickness_m * 1000.0 if wall_mm is None else wall_mm),
+        "wall_mm",
+    ) / 1000.0
+    try:
+        target = PrintModel(wall_thickness_m=wall, infill_fraction=fraction)
+    except ValueError as error:  # pydantic ValidationError is a ValueError
+        raise BundlePrintError(f"not a printable assumption: {safe_text(error)}") from None
     if not (0.0 <= fraction < 1.0):
         raise BundlePrintError(f"infill {fraction:g} is outside the printable range 0-1")
 
@@ -144,11 +193,12 @@ def printed_mass_at(
         scaled_shell = min(solid, shell * wall_ratio)
         if shell * wall_ratio > solid + 1e-12:
             warnings.append(
-                f"{body.get('body_id')}: the shell reaches the whole solid at {wall * 1000:.2f} mm "
-                "wall, so this body is reported solid rather than shelled"
+                f"{safe_text(body.get('body_id') or body.get('name') or '?')}: the shell reaches the"
+                f" whole solid at {wall * 1000:.2f} mm wall, so this body is reported solid rather "
+                "than shelled"
             )
         mass = scaled_shell + fraction * (solid - scaled_shell)
-        by_body[str(body.get("body_id") or body.get("name") or "?")] = mass
+        by_body[safe_text(body.get("body_id") or body.get("name") or "?")] = mass
         total += mass
         solid_total += solid
     return {
@@ -163,18 +213,28 @@ def printed_mass_at(
 
 
 def _part_row(part: dict) -> dict:
+    if not isinstance(part, dict):
+        raise BundlePrintError(f"a part row is {type(part).__name__}, not an object")
     for key in ("part_id", "instances", "volume_m3", "density_kg_m3"):
         if key not in part:
             raise BundlePrintError(f"part row carries no {key!r}: {sorted(part)}")
     return part
 
 
+def _instances(value: Any) -> int:
+    """A count of placed parts, or a refusal. Half an instance is not a quantity."""
+    number = _finite(value, "instances")
+    if number < 0 or number != int(number):
+        raise BundlePrintError(f"instances {safe_text(value)!r} is not a whole count")
+    return int(number)
+
+
 def part_mass_kg(part: dict, model: PrintModel) -> float:
     """One part's mass at one print assumption. No kernel, no file, just its recorded numbers."""
     row = _part_row(part)
-    instances = int(row["instances"])
-    volume = float(row["volume_m3"])
-    density = float(row["density_kg_m3"])
+    instances = _instances(row["instances"])
+    volume = _finite(row["volume_m3"], "volume_m3")
+    density = _finite(row["density_kg_m3"], "density_kg_m3")
     printed = bool(row.get("printed", False)) and not bool(row.get("bought_in", False))
     if not printed:
         # Bought in, or a material that is not printed: the solid is the part.
@@ -182,10 +242,12 @@ def part_mass_kg(part: dict, model: PrintModel) -> float:
     area = row.get("surface_area_m2")
     if area is None:
         raise BundlePrintError(
-            f"part {row['part_id']!r} is printed but carries no surface_area_m2, so its wall cannot "
-            "be modelled: recompile the bundle to record it"
+            f"part {safe_text(row['part_id'])!r} is printed but carries no surface_area_m2, so its"
+            " wall cannot be modelled: recompile the bundle to record it"
         )
-    return instances * density * model.effective_volume_m3(volume, float(area))
+    return instances * density * model.effective_volume_m3(
+        volume, _finite(area, "surface_area_m2")
+    )
 
 
 def printed_mass_from_bundle(bundle: dict[str, Any], model: PrintModel) -> dict[str, Any]:
@@ -198,13 +260,17 @@ def printed_mass_from_bundle(bundle: dict[str, Any], model: PrintModel) -> dict[
     bodies = bundle.get("bodies")
     if not isinstance(bodies, list) or not bodies:
         raise BundlePrintError("bundle carries no bodies")
+    if not all(isinstance(body, dict) for body in bodies):
+        raise BundlePrintError("bundle carries a body that is not an object")
     total = 0.0
     solid = 0.0
     by_body: dict[str, float | None] = {}
     modelled = 0
     bought_in = 0
     for body in bodies:
-        body_id = str(body.get("body_id") or body.get("name") or "?")
+        # The key is printed by the caller and may be spoken aloud: control characters and unbounded
+        # length come out here, once, rather than at each of a caller's print sites.
+        body_id = safe_text(body.get("body_id") or body.get("name") or "?")
         rows = body.get("part_properties")
         if not records_per_part(rows):
             by_body[body_id] = None
@@ -212,7 +278,13 @@ def printed_mass_from_bundle(bundle: dict[str, Any], model: PrintModel) -> dict[
         body_total = 0.0
         for row in rows:
             body_total += part_mass_kg(row, model)
-            solid += int(row["instances"]) * float(row["volume_m3"]) * float(row["density_kg_m3"])
+            # The same validated triple `part_mass_kg` just read: one definition of a malformed row.
+            _part_row(row)
+            solid += (
+                _instances(row["instances"])
+                * _finite(row["volume_m3"], "volume_m3")
+                * _finite(row["density_kg_m3"], "density_kg_m3")
+            )
             if bool(row.get("printed", False)) and not bool(row.get("bought_in", False)):
                 modelled += 1
             else:
@@ -236,7 +308,12 @@ def records_per_part(rows: Any) -> bool:
 
 def mass_at_infill(bundle: dict[str, Any], infill: float, wall_m: float | None = None) -> dict:
     """Convenience: the total at one infill fraction, optionally at another wall."""
-    model = PrintModel(infill_fraction=infill) if wall_m is None else PrintModel(
-        wall_thickness_m=wall_m, infill_fraction=infill
-    )
+    fraction = _finite(infill, "infill")
+    wall = None if wall_m is None else _finite(wall_m, "wall_m")
+    try:
+        model = PrintModel(infill_fraction=fraction) if wall is None else PrintModel(
+            wall_thickness_m=wall, infill_fraction=fraction
+        )
+    except ValueError as error:  # pydantic ValidationError is a ValueError
+        raise BundlePrintError(f"not a printable assumption: {safe_text(error)}") from None
     return printed_mass_from_bundle(bundle, model)

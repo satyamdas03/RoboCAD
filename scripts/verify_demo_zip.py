@@ -258,16 +258,25 @@ def main(argv: list[str] | None = None) -> int:
             recorded = json.loads(
                 manifest_js[len("window.SO101_MANIFEST = "):].rstrip().rstrip(";")
             ).get("package", {}).get("tag")
-            ok = tagged_digest == digest and recorded == args.tag
+            ok = tagged_digest == digest and recorded == args.tag and tag_on_page == args.tag
             print(f"[{'PASS' if ok else 'FAIL'}] 5  tag            {args.tag} -> {commit[:8]}, "
                   f"zip in tag {'matches' if tagged_digest == digest else 'differs from'} these "
-                  f"bytes, manifest.js records {recorded!r}")
+                  f"bytes, manifest.js records {recorded!r}, page reads {tag_on_page!r}")
             if tagged_digest != digest:
                 failures.append(f"tag: {args.tag}'s zip is not the zip that was verified")
             if recorded != args.tag:
                 failures.append(f"tag: the zip's manifest.js records {recorded!r}, not {args.tag}")
+            # Three sources can disagree: the git tag, the file the page loads, and the value the
+            # loaded page actually holds once its script has run. The first two are checked above;
+            # this is the third, and it is the one a viewer sees. `tag_on_page` was already being
+            # read and thrown away, which is the shape of a check that is not a check.
+            if tag_on_page != args.tag:
+                failures.append(
+                    f"tag: the rendered page holds {tag_on_page!r}, not {args.tag}"
+                )
             tag_claim = {"tag": args.tag, "commit": commit, "zip_in_tag": zip_rel,
-                         "manifest_records": recorded, "tagged_sha256": tagged_digest}
+                         "manifest_records": recorded, "page_reports": tag_on_page,
+                         "tagged_sha256": tagged_digest}
 
     result = {
         "zip": str(zip_path),

@@ -1193,7 +1193,9 @@ def _revise_from_bundle(before: Path, out: Path, print_model, before_document: d
 
     It refuses rather than guesses when the bundle carries no per-body printed/solid pair.
     """
-    from ai_cad.compiler.print_from_bundle import BundlePrintError, printed_mass_at  # noqa: PLC0415
+    from ai_cad.compiler.print_from_bundle import (  # noqa: PLC0415
+        BundlePrintError, printed_mass_at, safe_text,
+    )
     from ai_cad.compiler.revision import diff_links, from_bundle, render_markdown  # noqa: PLC0415
 
     infill = None if print_model is None else print_model.infill_fraction
@@ -1205,7 +1207,7 @@ def _revise_from_bundle(before: Path, out: Path, print_model, before_document: d
             f"{error}. Set ROBOCAD_STEP and recompile, or use a bundle compiled by a version that "
             "records part_properties."
         )
-        print(f"error: {message}", file=sys.stderr)
+        print(f"error: {_safe(message)}", file=sys.stderr)
         if json_out:
             print(json.dumps({"schema_version": REVISE_SCHEMA, "error": message}))
         return 2
@@ -1213,7 +1215,9 @@ def _revise_from_bundle(before: Path, out: Path, print_model, before_document: d
     after_document = copy.deepcopy(before_document)
     total = 0.0
     for body in after_document.get("bodies") or []:
-        body_id = str(body.get("body_id") or body.get("name") or "?")
+        # `by_body` is keyed by the sanitised id, so the lookup has to be made the same way: a bundle
+        # whose body id carries a control character would otherwise silently keep its old mass.
+        body_id = safe_text(body.get("body_id") or body.get("name") or "?")
         new_printed = derived["by_body"].get(body_id)
         if new_printed is None:
             continue
@@ -1296,9 +1300,9 @@ def _revise_from_bundle(before: Path, out: Path, print_model, before_document: d
         print(json.dumps(payload, indent=2))
     else:
         model = derived["print_model"]
-        print(f"revised at {model} (bundle arithmetic, no CAD kernel)")
+        print(f"revised at {_safe(model)} (bundle arithmetic, no CAD kernel)")
         if not revision.comparable:
-            print(f"NOT COMPARABLE: {revision.incomparable_reason}")
+            print(f"NOT COMPARABLE: {_safe(revision.incomparable_reason)}")
         else:
             if change is not None:
                 print(f"printed mass {mass_before:.4f} kg -> {mass_after:.4f} kg ({change:+.1f}%)")
@@ -1306,7 +1310,7 @@ def _revise_from_bundle(before: Path, out: Path, print_model, before_document: d
                   "(the solid is not a print assumption)")
             print(f"diff written {Path(out) / 'diff.md'}")
         for warning in derived["warnings"]:
-            print(f"warning: {warning}", file=sys.stderr)
+            print(f"warning: {_safe(warning)}", file=sys.stderr)
     return 0 if revision.comparable else 3
 
 

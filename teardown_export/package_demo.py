@@ -195,6 +195,12 @@ def main() -> int:
         # The summary the page renders from and the voice speaks from: one generator, shipped as a
         # script because the page runs from file://, where fetch() is blocked. `manifest.js` is
         # written below instead of copied, because it must carry the tag this package is cut from.
+        # The B-rep meshes the MJCF names. The page renders meshes.js (a decimation), but the live
+        # viewer runs MuJoCo from the extracted package and MuJoCo opens `meshes/*.obj` by name: a
+        # zip without them is a package whose `--live` phrase fails with a missing file, which the
+        # recipient sees as a broken demo rather than as a smaller download. 19.4 MB of OBJ, and it
+        # compresses to a few MB inside the zip.
+        "meshes": "docs/twin/so101/bundle/meshes",
         "summary.js": "docs/demo/page/summary.js",
     }
     for name, rel in wanted.items():
