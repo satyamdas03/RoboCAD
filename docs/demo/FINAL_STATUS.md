@@ -22,6 +22,7 @@ No "should work": each line is either something nobody ran or something the arti
 | The Hi-EV half of E2 was not re-run here | `[claimed: peer report, a6d2e18]`; the RoboCAD half is re-run below |
 | `demo-v1.0` exists, but this file inside it was written before the tag | the tagged blob carries the earlier row saying the tag did not exist; the E5 section below is the later, true statement, and it is not inside `demo-v1.0` |
 | Nothing has been measured on hardware | no robot was commanded, no printed part was weighed; mic, speakers and the stopwatch are Satyam's |
+| The packaged page is v1.3's, the cockpit exists in the tree only | anything shipped — the zip, the film, a recipient's extract — shows the older scrolling layout; the single-screen cockpit below is `docs/demo/page/index.html` on `master`, not in any bundle |
 
 ## v1.3: the artifact of record
 
@@ -658,9 +659,14 @@ means a new digest on a verified package:
 - `docs/demo/robocad_summary.v1.json`
 
 `verified-ran`: `grep -o "signal to noise ratio of [0-9.]*"` over each of the four prints the 0.04
-sentence on all four. Anything reading the **package** therefore still reads 0.04; anything reading
-the **living page** reads 0.10 from the summary payload. The fix reaches the package at the next
-bake, and this paragraph is what tells the next person to rebake it.
+sentence on all four. Anything reading those four **JSON artifacts** therefore still reads 0.04;
+anything reading the **living page** reads 0.10 from the summary payload. The fix reaches the
+package at the next bake, and this paragraph is what tells the next person to rebake it.
+
+The stale prose does not reach a reader through the UI, which was checked against the artifact rather
+than the tree: the reviewer extracted `demo-bundle-v1.3` and grepped its `index.html` — four `0.04`
+occurrences, all JS constants in colour and explode maths, and the SNR sentence reads
+`calibration.scenarios`, i.e. 0.10. `[claimed: peer report, gates on f9a8184]`
 
 ### U1, the page as a single-screen cockpit
 
@@ -702,11 +708,14 @@ and the freeze actually allow.
   places, and the reason is written into the card's own drawer entry, "06 · what the toggles do".
 - **The 70.69 mm marker sits at the end of the scrubber.** The trajectory samples are poses, not
   numbered frames, so there is no honest frame index to plant it at.
-- **The turntable frame rate is a property of the harness, not the page.** Headless Chromium here
-  renders through SwiftShader, a CPU rasteriser, at 7 fps. On the GPU path (`--use-angle=d3d11`,
-  Intel UHD) the same 533,262-triangle payload renders at 61 fps headless and 145 fps headed. The
-  test asserts on the GPU path and puts the renderer name in its failure message, so the next
-  machine to fail says why.
+- **The turntable frame rate is a property of the machine, not the page.** Three readings on the same
+  533,262-triangle payload at 1440x900, each with its renderer, none of them a claim about a
+  viewer's laptop: **7 fps** on SwiftShader, a software rasteriser (headless Chromium's default);
+  **61 fps** headless on `ANGLE (Intel, Intel(R) UHD Graphics (0x46A8) Direct3D11)`; **61 fps**
+  independently on `ANGLE (Intel, Intel(R) UHD Graphics (0x0000A788) Direct3D11)` (reviewer's
+  measurement, same flags); and **145 fps** headed on the first. The test asserts on the GPU path
+  with `--enable-gpu --use-angle=d3d11 --ignore-gpu-blocklist` and puts the renderer name in its
+  failure message, so the next machine to fail says why rather than reporting a number in isolation.
 - **Tree and package now diverge, by design.** The packaged page at `docs/demo/so101_demo/` is still
   v1.3's page; v1.3 is frozen and was not rebuilt. The cockpit page exists in the tree only. The
   page-text test reads the tree page, as it always did, so the divergence is expected rather than
