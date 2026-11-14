@@ -98,6 +98,39 @@ def _volume_by_role(assembly, instance_ids: list[str], part_of: dict[str, str]) 
     return out
 
 
+def _part_rows(parts) -> list[dict]:
+    """One row per unique part on a body: the kernel numbers a print recompute needs.
+
+    Surface area is a kernel call per unique B-rep, and it is the one number a shell-and-infill
+    model cannot do without. Recording it here is what makes a later "what does this weigh at 30
+    percent" a subtraction rather than another compile.
+    """
+    rows: dict[str, dict] = {}
+    for part in parts:
+        row = rows.get(part.part_id)
+        if row is None:
+            row = rows[part.part_id] = {
+                "part_id": part.part_id,
+                "instances": 0,
+                "volume_m3": round(part.volume_m3, 15),
+                "surface_area_m2": (
+                    round(part.surface_area_m2, 15)
+                    if part.surface_area_m2 is not None
+                    else None
+                ),
+                "density_kg_m3": part.density.value_kg_m3,
+                "density_source": part.density.source,
+                "material": part.density.material,
+                # True only when the compiler actually applied the print model to this part. A
+                # bought-in part is a datasheet mass over an envelope volume; thinning it with an
+                # infill slider would be arithmetic on the wrong quantity.
+                "printed": bool(part.print_modelled),
+                "bought_in": bool(part.density.bought_in),
+            }
+        row["instances"] += max(1, len(part.instance_ids))
+    return [rows[key] for key in sorted(rows)]
+
+
 def actuator_densities(
     assembly, mass_kg: float, source: str
 ) -> tuple[dict[str, Density], list[str]]:
@@ -295,6 +328,12 @@ def compile_bundle(
             # lets a reader ask "what fill fraction would reproduce their published mass",
             # which is a question with an answer, rather than a guess at one.
             "solid_volume_m3": round(sum(p.volume_m3 for p in properties[b.body_id].parts), 15),
+            # Per-part rows, so a bundle can answer a different print assumption by arithmetic
+            # instead of by re-importing the STEP: solid volume and surface area are kernel work,
+            # and this is the only place they exist once the compile has finished. The shipped
+            # bundle of record predates this row, which is why print_from_bundle says so rather
+            # than estimating an area from the collision hulls.
+            "part_properties": _part_rows(properties[b.body_id].parts),
             "role_volume_m3": {
                 role: round(value, 15)
                 for role, value in _volume_by_role(
@@ -316,6 +355,9 @@ def compile_bundle(
         row = extra.get(body.body_id, {})
         entry["solid_volume_m3"] = row.get("solid_volume_m3")
         entry["role_volume_m3"] = row.get("role_volume_m3")
+        # The kernel numbers travel in bundle.json too, not only in the report: the playground reads
+        # the bundle, and a report-only row would leave it re-importing a STEP file to move a slider.
+        entry["part_properties"] = row.get("part_properties")
         bundle_bodies.append(entry)
     (out / "bundle.json").write_text(
         json.dumps(

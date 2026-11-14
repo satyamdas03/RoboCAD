@@ -11,9 +11,9 @@ Commands::
     robocad twin page    --bundle DIR --out PAGE_DIR [--seconds S] [--hz N] [--triangles N]
     robocad twin compile --step FILE --joints FILE --out DIR [--json-progress]
                          [--infill F] [--wall-mm W] [--servo-mass-kg KG --servo-source TEXT]
-    robocad twin revise  --step FILE --before DIR --out DIR [--infill F] [--wall-mm W]
-                         [--joints FILE] [--servo-mass-kg KG --servo-source TEXT]
-                         [--json-progress] [--json]
+    robocad twin revise  --before DIR --out DIR [--infill F] [--wall-mm W]
+                         [--step FILE] [--joints FILE]
+                         [--servo-mass-kg KG --servo-source TEXT] [--json-progress] [--json]
     robocad twin unpack  --zip FILE --out DIR [--verify-sha SHA]
 
 ``summary`` describes a bundle as JSON. Its contract is ``robocad.twin.summary/1`` and its point is
@@ -46,6 +46,7 @@ GUI that is waiting on a progress stream must not have to parse a stack trace to
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import json
 import math
@@ -1179,7 +1180,137 @@ def _servo_provenance_error(before_document: dict, servo_mass_kg: float | None,
     return None
 
 
-def revise_cli(step: Path, before: Path, out: Path, infill: float | None, wall_mm: float | None,
+def _revise_from_bundle(before: Path, out: Path, print_model, before_document: dict,
+                        json_out: bool) -> int:
+    """Revise a bundle's print assumption by arithmetic, with no STEP file and no CAD kernel.
+
+    The recipient of the zip has the bundle and neither of the others, and "change the infill to 30
+    percent" is the phrase an audience tries first. A compile is not needed to answer it: the bundle
+    records, per body, what it weighs at its own print model and what it would weigh cast solid, and
+    those two numbers are the shell and the interior of the same model the compiler applied. The
+    derived bundle is written to ``out/bundle/bundle.json`` and carries the derivation in its own
+    text, so nobody downstream can mistake it for a compile.
+
+    It refuses rather than guesses when the bundle carries no per-body printed/solid pair.
+    """
+    from ai_cad.compiler.print_from_bundle import BundlePrintError, printed_mass_at  # noqa: PLC0415
+    from ai_cad.compiler.revision import diff_links, from_bundle, render_markdown  # noqa: PLC0415
+
+    infill = None if print_model is None else print_model.infill_fraction
+    wall_mm = None if print_model is None else print_model.wall_thickness_m * 1000.0
+    try:
+        derived = printed_mass_at(before_document, infill=infill, wall_mm=wall_mm)
+    except BundlePrintError as error:
+        message = (
+            f"{error}. Set ROBOCAD_STEP and recompile, or use a bundle compiled by a version that "
+            "records part_properties."
+        )
+        print(f"error: {message}", file=sys.stderr)
+        if json_out:
+            print(json.dumps({"schema_version": REVISE_SCHEMA, "error": message}))
+        return 2
+
+    after_document = copy.deepcopy(before_document)
+    total = 0.0
+    for body in after_document.get("bodies") or []:
+        body_id = str(body.get("body_id") or body.get("name") or "?")
+        new_printed = derived["by_body"].get(body_id)
+        if new_printed is None:
+            continue
+        body["printed_mass_kg"] = new_printed
+        body["mass_kg"] = new_printed
+        total += new_printed
+    after_document["total_mass_kg"] = total
+    after_document["print_model"] = derived["print_model"]
+    after_document["derivation"] = {
+        "method": derived["method"],
+        "kernel": False,
+        "step": None,
+        "from": Path(before).as_posix(),
+        "note": (
+            "computed from the source bundle's own printed and solid masses by the compiler's "
+            "shell-and-infill model; no CAD kernel ran and no STEP file was read"
+        ),
+        "warnings": derived["warnings"],
+    }
+
+    bundle_out = Path(out) / "bundle"
+    bundle_out.mkdir(parents=True, exist_ok=True)
+    (bundle_out / "bundle.json").write_text(
+        json.dumps(after_document, indent=2, sort_keys=True), encoding="utf-8"
+    )
+
+    revision = diff_links(
+        from_bundle(before_document),
+        from_bundle(after_document),
+        before_label=Path(before).as_posix(),
+        after_label=bundle_out.as_posix(),
+    )
+    Path(out).mkdir(parents=True, exist_ok=True)
+    (Path(out) / "diff.json").write_text(revision.model_dump_json(indent=2), encoding="utf-8")
+    markdown = render_markdown(revision)
+    (Path(out) / "diff.md").write_text(markdown, encoding="utf-8")
+
+    mass_before = before_document.get("total_mass_kg")
+    mass_after = after_document.get("total_mass_kg")
+    change = None
+    if mass_before and mass_after is not None and mass_before > 0:
+        change = 100.0 * (mass_after - mass_before) / mass_before
+    payload = {
+        "schema_version": REVISE_SCHEMA,
+        "before": Path(before).as_posix(),
+        "after": bundle_out.as_posix(),
+        "method": derived["method"],
+        "kernel": False,
+        "step": None,
+        "print_model": {
+            "wall_thickness_m": wall_mm / 1000.0 if wall_mm is not None else None,
+            "infill_fraction": infill,
+        },
+        "totals": {
+            "printed_mass_before_kg": mass_before,
+            "printed_mass_after_kg": mass_after,
+            "printed_mass_change_percent": change,
+            "solid_mass_before_kg": before_document.get("total_solid_mass_kg"),
+            "solid_mass_after_kg": after_document.get("total_solid_mass_kg"),
+        },
+        "links": {
+            "added": [],
+            "removed": [],
+            "changed": len(revision.changed),
+        },
+        "solid_bound_moved": False,
+        "comparable": revision.comparable,
+        "incomparable_reason": revision.incomparable_reason,
+        "warnings": derived["warnings"],
+        "written": [str(bundle_out / "bundle.json"), str(Path(out) / "diff.json"),
+                    str(Path(out) / "diff.md")],
+    }
+    for link in revision.links:
+        if link.status == "added":
+            payload["links"]["added"].append(link.link_id)
+        elif link.status == "removed":
+            payload["links"]["removed"].append(link.link_id)
+
+    if json_out:
+        print(json.dumps(payload, indent=2))
+    else:
+        model = derived["print_model"]
+        print(f"revised at {model} (bundle arithmetic, no CAD kernel)")
+        if not revision.comparable:
+            print(f"NOT COMPARABLE: {revision.incomparable_reason}")
+        else:
+            if change is not None:
+                print(f"printed mass {mass_before:.4f} kg -> {mass_after:.4f} kg ({change:+.1f}%)")
+            print(f"solid bound  {before_document.get('total_solid_mass_kg')} kg, unchanged "
+                  "(the solid is not a print assumption)")
+            print(f"diff written {Path(out) / 'diff.md'}")
+        for warning in derived["warnings"]:
+            print(f"warning: {warning}", file=sys.stderr)
+    return 0 if revision.comparable else 3
+
+
+def revise_cli(step: Path | None, before: Path, out: Path, infill: float | None, wall_mm: float | None,
                joints: Path | None, json_progress: bool, json_out: bool,
                servo_mass_kg: float | None = None, servo_source: str | None = None,
                emit=None) -> int:
@@ -1210,6 +1341,10 @@ def revise_cli(step: Path, before: Path, out: Path, infill: float | None, wall_m
             print(json.dumps({"schema_version": REVISE_SCHEMA, "error": str(error)}))
         return 2
     provenance_error = _servo_provenance_error(before_document, servo_mass_kg, servo_source)
+    if step is None:
+        # No STEP means no recompile, so the servo provenance check above is not the question: no
+        # bought-in envelope is being recounted. The bundle answers from its own recorded masses.
+        return _revise_from_bundle(before, out, print_model, before_document, json_out)
     if provenance_error is not None:
         print(f"error: {provenance_error}", file=sys.stderr)
         if json_out:
@@ -1391,7 +1526,11 @@ def main(argv: list[str] | None = None) -> int:
     revise_cmd = sub.add_parser(
         "revise", help="recompile a bundle's robot at a new print model and diff the two compiles"
     )
-    revise_cmd.add_argument("--step", type=Path, required=True)
+    revise_cmd.add_argument(
+        "--step", type=Path, default=None,
+        help="STEP assembly to recompile; omit to revise the bundle by arithmetic alone (no kernel, "
+             "no STEP file), which is the path the zip's own playground uses",
+    )
     revise_cmd.add_argument("--before", type=Path, required=True,
                             help="the compiled bundle the revision is measured against")
     revise_cmd.add_argument("--out", type=Path, required=True,
