@@ -139,6 +139,20 @@ def test_render_markdown_escapes_a_refusal_reason() -> None:
     assert "two schemes \\| no overlap second line" in markdown
 
 
+def test_a_backslash_cannot_neutralise_the_pipe_escape() -> None:
+    """Input ``\\|`` must not become ``\\\\|``: markdown reads that as a literal ``\\`` then a cell break."""
+    revision = Revision(
+        before="a", after="b",
+        links=[LinkDelta(link_id="jaw\\|x", status="changed",
+                         quantity_before=1, quantity_after=2, quantity_delta=1)],
+    )
+    markdown = render_markdown(revision)
+    for line in markdown.splitlines():
+        if line.startswith("|") and not line.startswith("|---"):
+            assert len(UNESCAPED_PIPE.findall(line)) == 10, f"a cell was split: {line!r}"
+    assert "jaw\\\\\\|x" in markdown
+
+
 # --------------------------------------------------------------------------------------------
 # 3. Arithmetic sinks: a type-confused bundle is the declared error, never a traceback.
 
@@ -152,6 +166,7 @@ def test_render_markdown_escapes_a_refusal_reason() -> None:
         ("volume_m3", "big"),
         ("volume_m3", float("nan")),   # parses, then poisons every sum it enters
         ("density_kg_m3", float("inf")),
+        ("volume_m3", 10 ** 400),      # past the float range: float() raises OverflowError
     ],
 )
 def test_a_malformed_part_row_raises_the_declared_error(field: str, value) -> None:
@@ -209,3 +224,28 @@ def test_mass_at_infill_refuses_rather_than_leaking_a_validation_error() -> None
             mass_at_infill(_bundle(), bad)
     with pytest.raises(BundlePrintError):
         mass_at_infill(_bundle(), 0.3, wall_m="thick")
+
+
+def test_two_bodies_that_sanitise_to_one_id_are_refused() -> None:
+    """Two links whose ids differ only by a stripped control character cannot share one weight."""
+    bundle = _bundle()
+    twin = dict(bundle["bodies"][0], body_id="shoulder_pan\x1b")
+    bundle["bodies"].append(twin)
+    with pytest.raises(BundlePrintError) as caught:
+        printed_mass_at(bundle, infill=0.30)
+    assert "display id" in str(caught.value)
+
+
+def test_two_part_row_bodies_with_one_id_are_refused() -> None:
+    row = {"part_id": "jaw", "instances": 1, "volume_m3": 1.0e-6,
+           "surface_area_m2": 1.0e-4, "density_kg_m3": 1240.0, "printed": True}
+    bundle = {
+        "print_model": "1.20 mm wall over 20% infill",
+        "bodies": [
+            {"body_id": "jaw", "part_properties": [dict(row)]},
+            {"body_id": "jaw\x00", "part_properties": [dict(row)]},
+        ],
+    }
+    with pytest.raises(BundlePrintError) as caught:
+        printed_mass_at(bundle, infill=0.30)
+    assert "display id" in str(caught.value)

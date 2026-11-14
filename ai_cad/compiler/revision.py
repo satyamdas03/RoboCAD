@@ -47,8 +47,17 @@ def _md(text) -> str:
     row or the bullet and starts whatever the next line spells. Both are escaped here rather than at
     each format string, because a renderer that escapes cell three and not cell four is the bug this
     function exists to make impossible.
+
+    Backslashes are doubled first. Escaping only the pipe means input ``\\|`` becomes ``\\\\|``, and
+    markdown reads that as a literal backslash followed by a live cell break: the escape this
+    function adds is neutralised by a backslash the input supplied.
     """
-    return _CONTROL.sub(" ", str(text)).replace("|", "\\|").replace("`", "\\`")
+    return (
+        _CONTROL.sub(" ", str(text))
+        .replace("\\", "\\\\")
+        .replace("|", "\\|")
+        .replace("`", "\\`")
+    )
 
 
 

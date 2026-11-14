@@ -54,12 +54,14 @@ def _finite(value: Any, what: str) -> float:
     """A number from the bundle, or a refusal.
 
     ``float("nan")`` parses fine and then poisons every sum it enters, and a string where a number
-    belongs raises ``TypeError`` from deep inside the arithmetic. Both become the same declared
-    error, so a caller's ``except BundlePrintError`` covers every malformed shape.
+    belongs raises ``TypeError`` from deep inside the arithmetic. An integer past the float range
+    raises ``OverflowError``, which is neither of those and would otherwise escape a caller's
+    ``except BundlePrintError`` as a crash. All three become the same declared error, so a caller's
+    ``except BundlePrintError`` covers every malformed shape.
     """
     try:
         number = float(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         raise BundlePrintError(f"{what} is not a number: {safe_text(value)!r}") from None
     if not math.isfinite(number):
         raise BundlePrintError(f"{what} is not finite: {safe_text(value)!r}")
@@ -198,7 +200,7 @@ def printed_mass_at(
                 "than shelled"
             )
         mass = scaled_shell + fraction * (solid - scaled_shell)
-        by_body[safe_text(body.get("body_id") or body.get("name") or "?")] = mass
+        by_body[_body_key(body, by_body)] = mass
         total += mass
         solid_total += solid
     return {
@@ -210,6 +212,22 @@ def printed_mass_at(
         "warnings": warnings,
     }
 
+
+
+def _body_key(body: dict[str, Any], seen: dict[str, Any]) -> str:
+    """The display id for a body, refused when it collides with one already reported.
+
+    Two body ids that differ only in characters ``safe_text`` strips would share a key, and the
+    second body's mass would overwrite the first: the caller then prints a per-body weight that
+    belongs to a different link. A bundle naming two bodies the same thing is malformed, not a typo
+    to paper over, so this is a refusal rather than a rename.
+    """
+    key = safe_text(body.get("body_id") or body.get("name") or "?")
+    if key in seen:
+        raise BundlePrintError(
+            f"two bodies share the display id {key!r}: per-body mass could not be attributed"
+        )
+    return key
 
 
 def _part_row(part: dict) -> dict:
@@ -269,8 +287,9 @@ def printed_mass_from_bundle(bundle: dict[str, Any], model: PrintModel) -> dict[
     bought_in = 0
     for body in bodies:
         # The key is printed by the caller and may be spoken aloud: control characters and unbounded
-        # length come out here, once, rather than at each of a caller's print sites.
-        body_id = safe_text(body.get("body_id") or body.get("name") or "?")
+        # length come out here, once, rather than at each of a caller's print sites. A collision is a
+        # refusal: two bodies with one display id cannot each carry their own weight.
+        body_id = _body_key(body, by_body)
         rows = body.get("part_properties")
         if not records_per_part(rows):
             by_body[body_id] = None

@@ -32,16 +32,21 @@
     min-width:0;flex:none;display:flex;flex-direction:column;justify-content:center}
   /* 11 px is the floor for every piece of functional text on this page, including these labels: they
      are read off a projector, and 8 px caps at arm's length is not text, it is texture. */
-  .kpi .k{font-size:11px;letter-spacing:.04em;color:var(--faint);text-transform:uppercase;white-space:nowrap}
+  /* The package tile carries a tag AND a pill. Side by side in one 150 px value line they need
+     170 px, so the tag was ellipsised at every width and the tile that exists to say "tagged" said
+     "demo-bundle-v1.". The pill is a qualifier of the label, not of the tag, so it sits on the
+     label line: "PACKAGE tagged" is 102 px, the tag alone is 114 px, and neither has to shrink. */
+  .kpi .k{font-size:11px;letter-spacing:.04em;color:var(--faint);text-transform:uppercase;
+    white-space:nowrap;display:flex;align-items:center;gap:6px}
   .kpi .v{font-family:var(--mono);font-size:13px;white-space:nowrap;color:var(--ink);
     overflow:hidden;text-overflow:ellipsis;max-width:150px}
   .kpi .v em{font-style:normal;color:var(--dim);font-size:11px}
-  /* The package tile carries a value AND a pill. As one ellipsised string the pill was clipped off
-     the end at 150 px, so the tile that is supposed to say "tagged" said only a tag. The value line
-     is a row here: the tag shrinks, the pill never does. */
   .kpi .v.pkgv{display:flex;align-items:center;gap:6px;max-width:230px}
   .kpi .v.pkgv .tagtext{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
   .kpi .v.pkgv .pill{flex:none}
+  /* The label line is caps; the pill is a value token and keeps its own casing, so it reads
+     "PACKAGE tagged", not "PACKAGE TAGGED". */
+  .kpi .k .pill{flex:none;text-transform:none}
   .pill{display:inline-block;border-radius:10px;padding:0 6px;font-size:11px;line-height:16px;
     border:1px solid var(--line2);color:var(--dim);white-space:nowrap;font-family:var(--mono)}
   .pill.ok{border-color:#2f6a53;color:#bff3dc;background:#17241f}
@@ -473,13 +478,13 @@
     // The page cannot read verify.json, so the pill says what the page can see: manifest.json names
     // a tag. Whether that tag's bytes are the verified ones is check 5 of scripts/verify_demo_zip.py,
     // which writes verify.json; a page claiming "verified" would be a claim it cannot make. The pill
-    // sits beside the tag instead of behind it: as one ellipsised string at 150 px the pill was
-    // clipped off, so the tile said only a tag.
+    // sits on the label line beside "PACKAGE", and the tag gets the value line to itself: side by
+    // side they needed 170 px of a 150 px line, and the tag lost.
     var pkgv = mk("div", "v pkgv");
     pkgv.appendChild(mk("span", "tagtext", DATA.tag ? DATA.tag : ""));
-    pkgv.appendChild(mk("span", "pill " + (DATA.tag ? "ok" : "wa"),
-                        DATA.tag ? "tagged" : "no tag recorded"));
-    add("kpi-package", "package", "", pkgv);
+    var pkg = add("kpi-package", "package", "", pkgv);
+    pkg.querySelector(".k").appendChild(mk("span", "pill " + (DATA.tag ? "ok" : "wa"),
+                                          DATA.tag ? "tagged" : "no tag recorded"));
   })();
 
   // ---- 01 mass: the comparison the voice calls "comparison" -----------------------------------
