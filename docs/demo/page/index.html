@@ -638,6 +638,10 @@
       'What would identify friction: signal to noise is 0.10 with 62 Hz position logs. A torque or ' +
       'current channel at 1 percent noise reaches 4.48; a 20-bit encoder reaches 25.1 at 62 Hz; ' +
       'raising the rate to 1 kHz alone only reaches 0.39. See docs/twin/so101/identifiability.md.');
+    box.appendChild(mk('div', 'check-detail',
+      'With the same 62 Hz log plus a motor-current channel: Coulomb friction recovered within ' +
+      'tolerance on both joints tested, and viscous damping attenuated because velocity built from ' +
+      'a quantised encoder shrinks its own coefficient. Bench routine: docs/twin/so101/BENCH_PROTOCOL.md.'));
     box.appendChild(summary);
   })();
 

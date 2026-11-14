@@ -71,6 +71,10 @@ def main() -> int:
         "comparison.md": "docs/demo/so101_vs_official.md",
         "identifiability.md": "docs/twin/so101/identifiability.md",
         "NOTICE.md": "docs/twin/so101/NOTICE.md",
+        # the bundle's own conventions block: a packaged page that reads offsets from the bundle must
+        # find them in the zip, or it works in the repo and silently fails for a recipient
+        "manifest.json": "docs/twin/so101/bundle/manifest.json",
+        "BENCH_PROTOCOL.md": "docs/twin/so101/BENCH_PROTOCOL.md",
         "diff.js": "docs/demo/page/diff.js",
     }
     for name, rel in wanted.items():
