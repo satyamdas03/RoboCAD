@@ -270,6 +270,10 @@ and base-frame difference, which is exactly what `CONVENTIONS.md` now prevents.
   two, and the conventions note with the 1.69 mm frame-free link-length agreement.
 - Torque panel reads its limit from the bundle's actuators, 2.94 N·m, and is not saturated on this
   trajectory: peak 1.26 N·m official against 0.63 N·m compiled.
+- Not pushed. `master` is 67 commits ahead of `origin/master` and stays local until Satyam says
+  otherwise: the sprint order authorised publishing `docs/twin/so101/` but said nothing about pushing
+  the branch, and a push is the one action here that cannot be taken back. The freeze commit is
+  `be74ebd`; `git push origin master` is his call.
 - M2 review recorded as PASS by the lane that did not write it, 4 of 4 criteria, with the official
   URDF's sha256 verified against the pinned digest before the check ran.
 
