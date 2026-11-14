@@ -55,9 +55,11 @@ moved.
 * Heavy, slow, mujoco and benchmark tiers were run for the page tests only (`-m ""`); the rest of the
   default selection is reported in the release message, not here.
 * The two slow phrases have about 280 ms of headroom on this machine, and the headroom is interpreter
-  startup, not RoboCAD work. Whoever owns the caller can take almost all of it back by calling
-  `twin_cli.main` in-process (0.27 s) instead of spawning `python -m robocad twin revise` (1.08 s);
-  the caller is Hi-EV's `robocad_tool.py`. Not changed here, because it is a peer-lane call site.
+  startup, not RoboCAD work. The caller (Hi-EV `robocad_tool.py`) **declined** to call
+  `twin_cli.main` in-process and kept the subprocess boundary, so the 0.9 s stays: their rule is that
+  every RoboCAD call is a killable `python -m robocad` subprocess with a timeout, and an in-process
+  call cannot be timed out safely. The margin is now stated in their runbook instead (1.2 s cold,
+  1.64 s seen on a loaded machine, run those two phrases first). `DECISIONS.md` records the trade.
 * Nothing has been measured on hardware.
 
 

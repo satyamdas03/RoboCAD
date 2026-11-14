@@ -3,6 +3,24 @@
 Newest first. One entry per decision, with the date, what was decided, why, and what it rules out.
 A decision without a reason is a preference; it does not belong here.
 
+## 2026-11-14 The voice keeps calling RoboCAD as a subprocess, and eats 0.9 s of startup per call
+
+Decided: Hi-EV's `src/ev/tools/robocad_tool.py` keeps spawning `python -m robocad twin revise`
+instead of calling `twin_cli.main` in-process, even though the second is ~0.27 s against ~1.22 s. The
+margin is documented in their runbook and module docstring rather than removed.
+
+Why: the file's whole design rests on the repository boundary — argv lists, one killable process per
+call with a timeout, and no RoboCAD import that can take the voice down. A bundle that hangs inside
+`twin_cli.main` cannot be timed out in-process, because Python cannot safely kill a thread. The
+measured split made the choice explicit rather than accidental: 0.75–0.77 s interpreter start on this
+machine (`python -S -c pass` is 0.07 s, so a site-packages `.pth` owns it), 0.003 s to import
+`robocad.twin_cli`, 0.27 s of work.
+
+Rules out: blaming RoboCAD imports for the slow phrase. There is nothing there to shave, and the
+release result does not depend on it. It also rules out a per-phrase in-process shortcut as a demo
+optimisation: if the boundary is ever traded, it needs a worker process with its own timeout, not a
+library call on the daemon thread.
+
 ## 2026-11-14 The HUD half of the release needs `demo-v1.2`; `demo-v1.1` stays where it is
 
 Decided: `demo-v1.1` in Hi-EV stays on `2b46fa0`, even though it predates the sender fix at
