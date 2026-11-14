@@ -5,6 +5,24 @@ monitor session (Lane B) and every one of them re-derived before it was written 
 2026-11-14, 15:40, for **v1.3**. Every claim carries a tag:
 `verified-ran`, `verified-read`, `claimed`. Deadline: hard freeze Sat 14 Nov 2026, 13:15 Sydney.
 
+## Everything that is not done, in one place
+
+No "should work": each line is either something nobody ran or something the artifact does not contain.
+
+| Not done | What that means for a reader |
+|---|---|
+| `film.mp4` is v1.2's | no frame was re-rendered for v1.3; the film shows v1.2's page |
+| `docs/twin/so101/comparison.md` in the working tree is the pre-S3 render | it still repeats the hull sentence; it is **not** in the package, and regenerating it needs a bundle re-render this sprint did not spend |
+| The live hold fails | `robocad.demo --mode hold` does not hold: 573 mrad steady-state error with every joint pinned at 2.942 N·m. Replay works. This is contact geometry, not a parameter to tune |
+| `twin revise` reports mass and the link diff only | no effort check and no torque comparison on the new masses; the frozen 0.652 → 0.687 N·m pair came from the scripted path, not the CLI |
+| `revise` cannot run from a clean clone | the SO-101 STEP is third-party and deliberately not in the repo; the command needs that file, `--joints`, `--servo-mass-kg` and `--servo-source` |
+| The bundle records no `actuator_mass_kg` | so `revise` cannot read the assumption back from `--before`; it asks instead. A next-bundle change, not one to make under a frozen tag |
+| The test suite does not run on `.[dev]` | needs `pip install -e ".[dev,web,sim,ai,voice]"`; the CLI itself needs none of `ai`, `voice`, `web` |
+| Heavy, slow, mujoco and benchmark tiers were deselected | 309 tests by configuration; this file does not claim they ran |
+| The Hi-EV half of E2 was not re-run here | `[claimed: peer report, a6d2e18]`; the RoboCAD half is re-run below |
+| `demo-v1.0` does not exist yet | E5 merges both branches and tags it after; until then v1.3 is the artifact of record |
+| Nothing has been measured on hardware | no robot was commanded, no printed part was weighed; mic, speakers and the stopwatch are Satyam's |
+
 ## v1.3: the artifact of record
 
 Updated 2026-11-14, 15:40 Sydney, for **v1.3**. `demo-bundle-v1.3` replaces v1.2 as the package to
@@ -76,6 +94,47 @@ the tool is run against. The fix is to record `actuator_mass_kg` and its source 
 `revise` reads them from `--before` — a next-bundle change, not one to make under a frozen tag. The
 SO-101 STEP is still not in the repo, so `revise` cannot run from a clean clone without fetching the
 third-party file.
+
+### E2 — a clean machine, from the pushed branch [verified: ran]
+
+Fresh directory, fresh clone of `feat/v1.1` at `9f15a15`, fresh `python -m venv`, no repository
+history, no cached wheels beyond pip's own. Nothing here was run in the working checkout.
+
+| Install | `twin summary` | `twin page` | `twin unpack --verify-sha` | `twin compile` / `revise` | `python -m pytest` |
+|---|---|---|---|---|---|
+| `.[dev]` | yes | refuses and names `[sim]` | yes | refuses out-of-range in ~1 s | 30 collection errors |
+| `.[dev,web,sim]` | yes | yes, 5.27 s | yes | — | 27 collection errors |
+| `.[dev,web,sim,ai,voice]` | yes | yes | yes | — | **853 passed, 309 deselected**, 4m37s, exit 0 |
+
+Proof the CLI does not need the LLM path: in the `.[dev]` venv, `anthropic`, `mujoco`, `fastapi` and
+`openai` are all `ABSENT`, and `twin summary --json` still prints `robocad.twin.summary/1` with every
+section. `twin unpack --zip docs/demo/so101_demo.zip --verify-sha f86c28f7…` prints
+`sha256 … (verified)` and `32 files match the FILES.sha256 the package ships`.
+
+**Three dependencies were undeclared, and a clean machine is the only thing that finds that.**
+
+| Defect | What a clean install did | Fix |
+|---|---|---|
+| `mujoco` absent, `twin page` | died inside `teardown_export/bake.py` with a bare `ModuleNotFoundError` from a helper module the caller has never heard of | `build_page` checks and refuses with one sentence naming `pip install -e ".[sim]"`, exit 2; `test_a_clean_machine_without_mujoco_is_told_what_to_install` | `0b63ab0` |
+| `pyyaml` undeclared | `ai_cad/compiler/revision.py` imports it at module scope and `revise` imported that module **after** compiling, so a clean install would spend 26 minutes then crash on the import | `pyyaml>=6.0` in dependencies; the diff module is imported before the compiler runs | `043b06f` |
+| `defusedxml` undeclared | `ai_cad/compiler/compare.py` imports it at module scope; any path reaching the comparison failed on import | `defusedxml>=0.7.1` in dependencies | `9f15a15` |
+
+The full default tier in that fresh venv, at `4f56da0`:
+
+```
+$ python -m pytest -q
+853 passed, 309 deselected, 3 warnings in 277.56s (0:04:37)
+```
+
+The 309 are `heavy`, `slow`, `mujoco` and `benchmark`, deselected by `pytest.ini`'s own `addopts`;
+this file does not claim they ran.
+
+**Not done, stated plainly:** the test suite does not run on `.[dev]`. With `[dev,web,sim]` it still
+reports 27 collection errors, because 22 test modules import `anthropic` and 4 import `livekit` at
+module scope. Making them import lazily or `importorskip` would mean editing 26 test files to get
+green, which this sprint's own rules forbid, so the requirement is stated instead: running the suite
+needs `pip install -e ".[dev,web,sim,ai,voice]"`, and the CLI does not. The Hi-EV half of E2 was run
+by the monitor lane on the same day (`[claimed: peer report, a6d2e18]`, not re-run here).
 
 ## v1.2: superseded, kept for the record
 

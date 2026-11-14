@@ -895,3 +895,51 @@ $ python -m pytest -q
 
 309 are the heavy/slow/mujoco tests, deselected by the default tier's own marker configuration; they
 are not skipped-with-reasons and this line does not claim they ran.
+
+## E2 — a clean machine, and the four things it found [verified: ran]
+
+Fresh directory, `git clone --branch feat/v1.1 --depth 1` from origin, fresh `python -m venv`, then
+`pip install -e ".[dev]"`. Nothing ran in the working checkout, and every command below was typed
+into that clone.
+
+What worked on `.[dev]` alone, with `anthropic`, `mujoco`, `fastapi` and `openai` all **absent**:
+
+```
+$ python -m robocad twin summary --bundle docs/twin/so101/bundle --json
+{"schema_version": "robocad.twin.summary/1", ...}   exit 0
+$ python -m robocad twin unpack --zip docs/demo/so101_demo.zip --out unpacked \
+    --verify-sha f86c28f703f84ccfcb3269233ad7a0ef88e2843172387728f5af7c01b6b569f3
+  sha256 f86c28f7… (verified)
+  33 files into …/unpacked
+  32 files match the FILES.sha256 the package ships   exit 0
+$ python -m robocad twin compile --step missing.step --out out --infill 1.5
+error: infill 1.5 is outside 0.1-1: …                  exit 2
+$ python -m robocad twin --help
+usage: robocad twin [-h] {summary,page,compile,revise,unpack} ...
+```
+
+What did not work, and why each one matters:
+
+1. **`twin page` died in a helper module.** `teardown_export/bake.py` raised
+   `ModuleNotFoundError: No module named 'mujoco'` and the caller saw a traceback from a file they
+   had never opened. MuJoCo is the `sim` extra on purpose, so `build_page` now checks and refuses:
+   `error: building the page needs MuJoCo: … Install it with `pip install -e ".[sim]"`, or use the
+   packaged so101_demo.zip, which is already baked` — exit 2. With `[sim]` installed the same command
+   builds the page in **5.27 s**.
+2. **PyYAML was in no dependency list.** `ai_cad/compiler/revision.py` imports it at module scope and
+   `revise` imported that module *after* compiling, so the failure mode was 26 minutes of work
+   followed by `ModuleNotFoundError: No module named 'yaml'`. Declared, and the import moved ahead of
+   the compile so it fails in a second.
+3. **`defusedxml` was in no dependency list.** `ai_cad/compiler/compare.py` imports it at module
+   scope; anything that reached the comparison failed on import.
+4. **The suite does not run on `.[dev]`.** 22 test modules import `anthropic`, 4 import `livekit`, and
+   the packaging test imports `setuptools`, which a 3.12+ venv does not ship. The last one is fixed
+   (`setuptools>=69` in `[dev]`); the first two are deliberate extras, and adding `importorskip` to 26
+   test files to get green is exactly what this sprint's rules forbid. The requirement is stated
+   instead: **the suite needs `pip install -e ".[dev,web,sim,ai,voice]"`, the CLI does not.**
+
+The packaging tests earned their keep here: they refused a dependency with no licence row, so
+`docs/THIRD_PARTY.md` gained `pyyaml 6.0.3 MIT` and `defusedxml 0.7.1 Python-2.0`.
+
+Commits, each on `feat/v1.1`: `0b63ab0` (MuJoCo sentence), `043b06f` (pyyaml), `9f15a15`
+(defusedxml), `4f56da0` (notice rows and setuptools).
