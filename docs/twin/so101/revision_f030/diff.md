@@ -38,6 +38,8 @@ Mass, centre of mass and inertia are reported together because the infill assump
 
 The solid bound is printed beside the estimate in both bundles and does not move, which is the point of keeping it: it is the number that cannot be wrong in the direction that matters.
 
+Both mass figures are print-model estimates under a stated wall thickness and infill fraction, not measurements of a printed part. Nothing here is synthetic *data* and nothing here was weighed: the two compiles read the same STEP file and differ in one stated assumption.
+
 ## What the extra mass costs at the joint
 
 The same effort check runs inside both bundles, so the revision's cost can be read rather than argued:

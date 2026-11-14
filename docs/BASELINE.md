@@ -100,6 +100,7 @@ measured yet. It is the first thing to measure before any demo timing appears in
 | `33e30d1` | 809 | 288 |
 | `af75fdd` plus in-flight edits | 968 | 300 |
 | `f202c12` (`demo-bundle-v1`) | 1045 | 300 |
+| `4af81f5` | 1052 | 300 |
 
 The `af75fdd` run is labelled with that caveat on purpose. It ran while Lane A had three files modified
 but uncommitted in the same tree, so it measures the commit plus those edits, not the commit alone. The
@@ -149,3 +150,20 @@ seven tests in that file were run on their own at `70ce42c`: `7 passed in 1.03 s
 count at `70ce42c` is **752 of 1052, 300 deselected**, measured with
 `python -m pytest --collect-only -q -p no:cacheprovider` rather than derived from the row above. A
 single run covering all 752 is recorded at the freeze commit.
+
+## The freeze commit
+
+| item | value |
+|---|---|
+| tree | `4af81f5` (the last commit before this run; the working tree also held uncommitted edits to `docs/demo/FINAL_STATUS.md`, `docs/demo/README.md`, `docs/twin/so101/revision_f030/diff.md`, `scripts/diff_revision_f030.py` and `scripts/verify_demo_zip.py`) |
+| command | `python -m pytest -q` |
+| result | **752 passed, 300 deselected, 3 warnings, exit 0, 367.27 s (6:07)** |
+| collected | 752 of 1052 |
+
+No caveat on the count: 752 is every test the default marker selection collects at this tree, and the
+seven artifact tests that the earlier post-tag run missed are inside it. The uncommitted edits named
+above are documents and two standalone scripts that no test imports — collection happened at the start
+of the run, before they were made, and the same 752 tests ran to completion. The three warnings remain
+the pre-existing JWT `InsecureKeyLengthWarning`s. 367.27 s is the fastest default-tier figure recorded
+here against 391.13 s at the tag and 432.76 s at `0ef337c`; the three runs are the same tests and the
+differences are machine load, so none of them is a performance claim.

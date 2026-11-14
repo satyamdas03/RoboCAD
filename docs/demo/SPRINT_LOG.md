@@ -196,3 +196,32 @@ of defect a repo-side test cannot see.
 `verify.json` records the build commit under the key `built_from_claimed`, which is the honest name:
 a zip is not a git object and re-running the packager would not reproduce its bytes, so the verifier
 records what the packager asserted and labels it as an assertion.
+
+### 2026-11-14 11:30 Sydney, build session, Lane A freeze
+
+Frozen. Nothing in `docs/twin/so101/bundle/` was touched after the tag `demo-bundle-v1` at `f202c12`;
+the revision compile, the diff and every document live beside it.
+
+The deliverable:
+
+    docs/demo/so101_demo.zip
+    sha256 fff730639bc40ca7e4f7efc924a092fed0bebae4f01ec659291da1ea8920c26f
+    3,892,730 bytes, 20 files, built from commit 430c77e
+
+Final default tier, every test the selection collects:
+
+    python -m pytest -q
+    752 passed, 300 deselected, 3 warnings in 367.27s (0:06:07), exit 0
+
+collected 752 of 1052 at the tree `4af81f5`. In `docs/BASELINE.md` under "The freeze commit", with the
+uncommitted-during-the-run edits named so the row is not cleaner than the truth.
+
+Four things this lane changed after the tag, all recorded because each was a claim that had stopped
+being true: the bundle was said to carry no visual meshes when it carries 259 beside the 433 hulls; a
+mass-consistency line quoted a 1.04134 kg total and "exactly 1240.0 kg/m3" for every body, both of
+which were true before the print model existed; two `sha256` values were quoted for `model.mjcf` and
+`model.urdf` that no longer matched anything and, being working-tree hashes, could never have matched
+on a checkout with different line endings; and the security section described three findings as open
+when all three were fixed in source. The status file now says what the artifacts say.
+
+Next: the three post-demo steps in `FINAL_STATUS.md`. Nothing else in this lane waits on the sprint.

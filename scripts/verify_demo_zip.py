@@ -97,6 +97,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("zip", help="packaged demo zip")
     parser.add_argument("--out", default=None, help="where to write verify.json")
+    parser.add_argument(
+        "--built-from",
+        default=None,
+        help="commit the packager says the zip was built from; recorded as a claim, not verified here",
+    )
     args = parser.parse_args(argv)
 
     zip_path = pathlib.Path(args.zip)
@@ -217,6 +222,10 @@ def main(argv: list[str] | None = None) -> int:
     result = {
         "zip": str(zip_path),
         "sha256": hashlib.sha256(zip_path.read_bytes()).hexdigest(),
+        # The packager's statement about which commit produced the bytes. Nothing here can check it:
+        # the zip is not a git object, and re-running the compiler to compare would produce different
+        # bytes. It is recorded so the claim has a home rather than living in a chat message.
+        "built_from_claimed": args.built_from,
         "named": {
             "printed_kg": EXPECTED_PRINTED_KG,
             "revision_kg": list(EXPECTED_REVISION_KG),

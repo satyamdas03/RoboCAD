@@ -34,8 +34,9 @@ monitor session (Lane B) and every one of them re-derived before it was written 
 - Page geometry matches MuJoCo to **0.000 to 0.001 mm** on three mesh geoms. `verified-ran`
 - Render 54 to 56 fps headless at the shipped page's 128,073 triangles over 600 frames, zero network
   requests, zero console errors. `verified-ran`
-- Compiled bundle, frozen tag `demo-bundle-v1` at `f202c12`: 7 bodies, 6 hinge joints, 433 collision
-  hulls, **0.9017 kg** printed / **1.3320 kg** solid bound. Checks: `meshes_load` pass,
+- Compiled bundle, frozen tag `demo-bundle-v1` at `f202c12`: 7 bodies, 6 hinge joints, 692 mesh files
+  (433 collision hulls + 259 visual meshes), **0.9017 kg** printed / **1.3320 kg** solid bound. Checks:
+  `meshes_load` pass,
   `inertia_valid` pass, `pose_equivalence` pass at 0.000 m over 100 configurations, `mujoco_load`
   pass, `self_collision` **fail**, `limits_and_effort` **pass** (0.652 N·m on `joint_2`, 22% of the
   servo's 2.942 N·m stall, contacts disabled), `free_base_stand` skipped. `verified-read` from
@@ -70,28 +71,39 @@ monitor session (Lane B) and every one of them re-derived before it was written 
   do not interfere. `verified-read` from Lane A, corrected after their unit bug
 - Identification rungs 0, 1, 2 and 4 recover (0.57, 1.6/0.86, latency exact, 0.12/0.56 percent).
   Rung 3 is blocked. `verified-ran`
-- Default test tier: `745 passed, 300 deselected, 3 warnings in 391.13 s`, exit 0, run in a worktree
-  at `demo-bundle-v1` (`f202c12`), so the tree and the tag are the same thing. `verified-ran`
-- Post-tag commits (`42b50ba`, `0ef337c`, `70ce42c`) touch `robocad/demo.py`,
-  `scripts/diff_revision_f030.py`, `scripts/verify_demo_zip.py` and one new test file. The default
-  tier was re-run over that tree: **745 passed, 300 deselected, 3 warnings, 432.76 s, exit 0** at
-  `0ef337c`, which did not yet collect the seven new artifact tests; those ran separately, `7 passed`.
-  Both the run and its gap are recorded in `docs/BASELINE.md`, and a single run over all 752 is
-  recorded at the freeze commit.
+- The freeze run, over every test the default selection collects: **752 passed, 300 deselected, 3
+  warnings, 367.27 s, exit 0**, collected 752 of 1052, on the tree at `4af81f5`. This is the row that
+  covers the seven artifact tests the earlier post-tag run missed. `verified-ran`, in
+  `docs/BASELINE.md` under "The freeze commit".
 
 ## Cross-verification of Lane A's published bundle
 
 Three targets were named before computing them, so the choice could not flatter the result.
 
-1. **Hashes**: `model.mjcf` `c427c3e1...`, `model.urdf` `86ce5502...`, computed here. Both match
-   the values Lane A published, and the MJCF digest being byte-identical to the pre-fix run is what
-   proves the units defect lived in the measuring code rather than in the geometry. `verified-ran`
-2. **Pose equivalence**, re-derived rather than read: both models loaded in MuJoCo, bodies keyed by
-   name, world position and rotation compared at the zero pose and at 20 random configurations.
-   Worst error **0.000e+00** everywhere. `verified-ran`
-3. **Mass consistency**: heaviest body `Base_SO101` 0.2539 kg against a 2.0473e-04 m3 solid volume
-   implies exactly 1240.0 kg/m3, and the body masses sum to the reported 1.04134 kg total.
-   `verified-ran`
+1. **Hashes, quoted so that they mean the same thing on any machine.** Git blob ids at the tag:
+   `model.mjcf` `1f18f38adf3e...`, `model.urdf` `760c668dff45...`; sha256 of the repository blobs
+   (LF line endings, as `git show` emits them): `model.mjcf`
+   `5aa5912b34f79cdfda2fb4d358716c0bf6cfc0e393d2b6b7ffa8c8de7810c2d7`, `model.urdf`
+   `50c8cbc66e06961f8bf41df31e3d942d2156262594f2dcb20fb6b39b702030fd`. `verified-ran`. The earlier
+   values here (`c427c3e1...`, `86ce5502...`) are withdrawn: they were sha256 of a working-tree copy
+   of an earlier bundle, and a working-tree hash depends on `core.autocrlf` — this machine checks
+   those files out with CRLF, the repository stores LF, so the same commit produces different bytes
+   in different checkouts. That is the same defect as a path printing its producer's separator, and
+   it is why the byte-identity argument the earlier text rested on no longer holds: the bundle was
+   deliberately regenerated at `f202c12` to add actuators and visual meshes, so its digest moved for
+   a stated reason, not an unexplained one.
+2. **Pose equivalence**, re-derived on the frozen bundle rather than read: both models loaded in
+   MuJoCo, bodies keyed by name, world position and rotation compared at the zero pose and at 20
+   random configurations inside the joint limits. 147 body comparisons, worst error
+   **0.000e+00** everywhere on both position and rotation. `verified-ran`
+3. **Mass consistency**, re-derived from `bundle.json` rather than read: the seven `solid_mass_kg`
+   values sum to 1.3320123928506593 kg, equal to `total_solid_mass_kg` to the last bit, and the seven
+   `mass_kg` values sum to 0.9016588355893798 kg, equal to `total_mass_kg`. Implied density is
+   **1240.0 kg/m³ exactly** on the two all-printed bodies (`upper_arm_so101`, `moving_jaw_so101`) and
+   **1476.6 to 2048.9** on the others, which is the datasheet-density path doing its job: a body that
+   carries bought-in servos is heavier than PLA alone would explain. The earlier version of this line
+   claimed "exactly 1240.0" and a 1.04134 kg total for every body; both were true of the bundle before
+   the print model existed and neither is true of the frozen one. `verified-ran`
 
 **The revision diff that shipped.** The `revision.json` published earlier
 with the bundle compared `robot.joints.proposed.yaml` against `so101_demo` and reported **19 links
@@ -134,7 +146,8 @@ same mistake will be made again.
 ## Assumptions Satyam must confirm
 
 1. **The print model's two inputs: wall 1.2 mm, infill 0.20.** Printed mass is `0.9017 kg` at those
-   settings, against a `1.3320 kg` solid boundary at the same density. Both are the model's stated
+   settings, against a `1.3320 kg` solid bound on the same geometry with no print model at all. Both
+   are the model's stated
    assumptions, not measurements, and the bundle prints both figures side by side so the range is
    visible: `print_model` reads `"1.20 mm wall over 20% infill"` in `bundle.json`. The infill value
    is live code, not prose — the `f = 0.30` revision in this report was produced by passing it to the
@@ -145,6 +158,8 @@ same mistake will be made again.
    comparison only, as the figure that reconciles our mass against the published mass. It does **not**
    enter the bundle's mass properties, which is why `actuator_mass_kg` is null; a reader who assumes
    55 g is already inside our body masses would overstate every body. `verified-read` from Lane A.
+   **What Satyam must confirm:** that the STS3215 variant cited is the one the partner ships, because
+   a different servo changes the comparison against the published model and not the compiled masses.
 3. **Publishing `docs/twin/so101/`.** Satyam authorised this in the sprint directive, verbatim:
    "Publish docs/twin/so101/: YES. Add docs/twin/so101/NOTICE.md crediting the SO-101 project, its
    Apache-2.0 licence, the pinned commit, and a list of what we changed." **Done:** the directory is
@@ -156,11 +171,7 @@ same mistake will be made again.
    pins before the check ran. The skeleton and the review record are committed
    (`docs/twin/so101/robot.joints.yaml`, `docs/twin/so101/JOINT_REVIEW.md`), and the tracker row is
    `[x]`. `verified-ran`.
-5. **The servo mass, 55 g, is the one figure no artifact here can check.** It is sourced to the
-   Feetech STS3215 specification and it enters only the comparison against the published model, never
-   the bundle's mass properties. **What Satyam must confirm:** that the source is the right variant,
-   because a different servo changes the comparison and not the compiled masses.
-6. **Actuator gains are assumptions.** `kp` = 20 and `kv` = 1 are labelled as assumptions in the
+5. **Actuator gains are assumptions.** `kp` = 20 and `kv` = 1 are labelled as assumptions in the
    bundle; the real servo closes its own loop and publishes no stiffness. The live hold in
    `docs/twin/so101/live_hold.md` fails at those gains and the failure is kept. **What Satyam must
    confirm:** whether the partner can supply measured gains, which is Phase 2 calibration.
@@ -182,8 +193,10 @@ same mistake will be made again.
 1. Attribute the ~54 mm perpendicular joint-origin offset. The hypothesis on the table is that the
    axis point is taken on a mating cylindrical face rather than at the bore centre, which would make
    the offset look like a radius. Lane A is testing it against the six bore radii.
-2. Carry visual meshes in the bundle, then switch the page and re-record the film against compiled
-   geometry.
+2. Measure what the page's 500-triangle-per-mesh decimation costs in millimetres against the bundle
+   meshes. The bundle's own budget was held to 1.20 mm worst vertex displacement under a stated
+   measurement; the page goes coarser without one, and a partner who compares the page to the CAD
+   will be the one who notices.
 3. Widen the identification to a real torque or current channel so a partner's bench log can be
    identified at 62 Hz, which is the only way the Twin's central claim becomes checkable outside
    this machine.
@@ -196,35 +209,43 @@ was wired. `verified-ran`: the film inside the zip is byte-identical to `docs/de
 shipped. The earlier note here about a two-word provenance difference is withdrawn: the shipped
 `twin.js` contains no "being regenerated" string, so there was nothing for the film to differ on.
 
-## Security review findings that change what the demo claims
+## Security review findings, and where each stands
 
-Three of five findings affect what an artifact says rather than what an attacker can do. All three were
-verified in the source, not taken from the report.
+Five findings were raised; three of them changed what an artifact says rather than what an attacker
+can do. All three have since been fixed in source, and each is listed with the code path that would
+have to regress and the artifact that would show it. Verified by reading the source and the
+artifacts, not by taking the report's word.
 
-(The earlier sentence "the compiled robot moves wrongly by seven centimetres" is withdrawn. It
-described the same-q difference without first removing the zero-pose and base-frame difference, and
-Lane A's reachable-set comparison is the reason to doubt the strong reading: the reachable shapes
-agree to 15 mm at the 99th percentile.)
+1. **Assumed-density disclosure was suppressed in the comparison.** `bundle.json` bodies carry
+   `rests_on_an_assumed_density`; `compare.py` read only `assumed_density`, so every body read
+   False. **Fixed** at `ai_cad/compiler/compare.py:568`, which reads the short spelling and falls
+   back to the bundle's long one. Evidence in the frozen artifact: all seven comparison bodies now
+   read True, which is the correct answer and the one the old code could not produce.
+   `verified-ran`
+2. **`limits_and_effort` passed on provenance, not measurement.** It ended with
+   `status = "pass" if source else "warn"`. **Fixed** in `ai_cad/compiler/bundle_checks.py:616`: a
+   joint whose inverse-dynamics demand exceeds its `forcerange` now **fails** the check; actuators
+   that state no force limit **warn**, because a command range is not an effort limit; and `pass`
+   requires travel limits, stated force limits, a source, and every sampled pose under the ceiling.
+   The bundle's pass reads "largest demand ... 0.652 N*m on joint_2, 22% of its 2.942 N*m limit,
+   measured with contacts disabled". `verified-ran`
+3. **The limits provenance stamped a pinned revision it never verified.** `scripts/demo_so101_twin.py`
+   wrote `a758567...` unconditionally. **Fixed**: the revision is claimed only for the bytes whose
+   sha256 equals `PINNED_LIMITS_SHA256`, and any other file gets a provenance string that says it is
+   not that file and names the digest it does have. `verified-read`
 
-1. **Assumed-density disclosure is silently suppressed in the comparison.** `bundle.json` bodies carry
-   `rests_on_an_assumed_density`; `compare.py` reads `assumed_density`, so every body reads False. The
-   report and the page read the short key and are correct; the comparison is the surface losing the
-   flag. Until it is fixed the page's comparison note states the flags are missing and that every
-   printed body should be treated as assumed. `verified-ran`
-2. **`limits_and_effort` passes on provenance, not on measurement.** The check ends with
-   `status = "pass" if source else "warn"`, so it reports pass when a source string exists, without
-   comparing the ranges or requiring an actuator force range. The page still shows 5 of 7 pass because
-   that is what the report says; this line is the qualification. `verified-ran`
-3. **The limits provenance stamps a pinned revision it never verified.** `scripts/demo_so101_twin.py`
-   writes `a758567...` into the provenance without hashing the URDF it was handed. `verified-read`
+The withdrawal that stands: the earlier sentence "the compiled robot moves wrongly by seven
+centimetres" is withdrawn. It described the same-q difference without first removing the zero-pose
+and base-frame difference, which is exactly what `CONVENTIONS.md` now prevents.
 
 ## Freeze state, Sat 14 Nov
 
-- Package: `docs/demo/so101_demo.zip`, 3,892,620 bytes, 20 files, sha256
-  `5977d7f4e50d87edc5d904fad39401a3e383d14403c0f91e38b4d749e5050b69`, built by
-  `teardown_export/package_demo.py`, which copies the artefacts, zips them, extracts the zip into a
-  fresh temporary directory and opens that copy from `file://` with the network off. The package test
-  is the deliverable, not the folder.
+- Package: `docs/demo/so101_demo.zip`, 3,892,730 bytes, 20 files, sha256
+  `fff730639bc40ca7e4f7efc924a092fed0bebae4f01ec659291da1ea8920c26f`, built by
+  `teardown_export/package_demo.py` from commit `430c77e` (the packager's statement; nothing in this
+  repo can check a zip against a commit, so it is recorded as a claim), which copies the artefacts,
+  zips them, extracts the zip into a fresh temporary directory and opens that copy from `file://` with
+  the network off. The package test is the deliverable, not the folder.
 - Frozen bundle tag: **`demo-bundle-v1` at `f202c12`**. Nothing inside `docs/twin/so101/bundle/`
   changed after the tag; the revision compile and the diff live in sibling directories.
 - Independent verification of the package: `scripts/verify_demo_zip.py` names three numbers before

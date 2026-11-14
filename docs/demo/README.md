@@ -29,7 +29,8 @@ and the provenance line at the top says which bundle and which checks are shown.
 5. **2:00, what that does to the motors.** Torque panel: required torque for the same trajectory on
    both models, with the bundle's own 2.94 N m actuator limit drawn as a dashed line. Peak 1.26 N m
    official against 0.63 N m compiled, so neither saturates on this motion.
-6. **2:20, the revision.** `docs/twin/so101/revision_f030/diff.md`: the same pipeline recompiled at
+6. **2:20, the revision.** `diff.md` beside this file (in the repo at
+   `docs/twin/so101/revision_f030/diff.md`): the same pipeline recompiled at
    0.30 infill against the frozen bundle's 0.20, diffed per link on the same link names from
    `robot.joints.yaml`. 0 links added, 0 removed, all seven printed links heavier, servos unchanged.
    Printed mass 0.902 to 0.956 kg, +6.0%; the solid bound stays 1.332 kg because the solid is not a

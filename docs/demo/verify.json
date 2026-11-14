@@ -1,6 +1,7 @@
 {
   "zip": "docs\\demo\\so101_demo.zip",
-  "sha256": "5977d7f4e50d87edc5d904fad39401a3e383d14403c0f91e38b4d749e5050b69",
+  "sha256": "fff730639bc40ca7e4f7efc924a092fed0bebae4f01ec659291da1ea8920c26f",
+  "built_from_claimed": "430c77e",
   "named": {
     "printed_kg": 0.901658836,
     "revision_kg": [
