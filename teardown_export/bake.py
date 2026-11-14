@@ -166,6 +166,10 @@ def main() -> int:
         "total_mass_kg": float(model.body_mass.sum()),
         "body_mass": [float(v) for v in model.body_mass],
         "timestep": float(model.opt.timestep),
+        # The per-mesh cap this bake was fitted to. Recorded rather than inferred: a package that
+        # states "the page is decimated" without the budget it was fitted to has stated a fact and
+        # withheld the number that makes it checkable.
+        "triangle_budget": int(args.triangles),
         "synthetic": False,
         "geoms": mesh_geoms,
     }

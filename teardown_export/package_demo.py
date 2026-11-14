@@ -42,6 +42,73 @@ def _copy(src: pathlib.Path, dest: pathlib.Path, repo: pathlib.Path) -> None:
         shutil.copy2(resolved, dest)
 
 
+def mesh_resolution(repo: pathlib.Path, out: pathlib.Path) -> str:
+    """The page's triangles against the bundle's, computed from the two files that hold them.
+
+    The bundle is the source of truth and carries full-resolution visual meshes; the page is a
+    build-time decimation of them, and this script writes no reduced mesh back into the bundle. A
+    recipient who reads "the page renders the bundle's meshes" without the ratio would be
+    overestimating what they are looking at, and a ratio quoted from memory would be a number nobody
+    could re-derive, so both figures come out of the packaged payload and the bundle's own report.
+
+    Returns the markdown section, and says the budget is unknown rather than guessing it when the
+    bake that produced the payload did not record one.
+    """
+    page_triangles = None
+    per_mesh_max = None
+    meshes = out / "meshes.js"
+    if meshes.exists():
+        text = meshes.read_text(encoding="utf-8").strip()
+        marker = "window.SO101_MESHES = "
+        if text.startswith(marker):
+            payload = json.loads(text[len(marker):].rstrip().rstrip(";"))
+            counts = [int(m.get("count", 0)) for m in payload]
+            page_triangles = sum(counts)
+            per_mesh_max = max(counts) if counts else None
+
+    bundle_triangles = None
+    budget = None
+    report = repo / "docs" / "twin" / "so101" / "bundle" / "report.json"
+    if report.exists():
+        data = json.loads(report.read_text(encoding="utf-8"))
+        bundle_triangles = (data.get("totals") or {}).get("visual_triangles")
+    meta = out / "trajectory.js"
+    if meta.exists():
+        for line in meta.read_text(encoding="utf-8").splitlines():
+            if line.startswith("window.SO101_META = "):
+                budget = json.loads(line[len("window.SO101_META = "):].rstrip().rstrip(";")).get(
+                    "triangle_budget"
+                )
+                break
+
+    if page_triangles is None or bundle_triangles in (None, 0):
+        return (
+            "## Mesh resolution\n\n"
+            "The page's triangle count or the bundle's could not be read, so this package states no "
+            "ratio. That is a gap in the package, not a property of the model.\n"
+        )
+
+    ratio = 100.0 * page_triangles / float(bundle_triangles)
+    budget_text = (
+        f"each mesh reduced toward a {int(budget)}-triangle budget (the largest mesh in the payload "
+        f"carries {per_mesh_max})"
+        if budget
+        else f"the bake that produced this payload did not record its triangle budget; the largest "
+        f"mesh in the payload carries {per_mesh_max} triangles"
+    )
+    return (
+        "## Mesh resolution\n\n"
+        f"The bundle carries full-resolution visual meshes: **{bundle_triangles:,} triangles** across "
+        f"259 meshes, and that stays the source of truth. This page is a build-time decimation of "
+        f"them: **{page_triangles:,} triangles**, {budget_text}. The ratio is "
+        f"**{ratio:.1f}%** of the bundle's figure.\n\n"
+        "The two numbers measure different things and neither replaces the other. The bundle's count "
+        "is the geometry the compiled model actually holds; the page's count is what this copy "
+        "renders. No decimated mesh is ever written back into the bundle: the reduction happens here, "
+        "at packaging time, and the bundle you compile is the bundle you get.\n"
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo", default=".")
@@ -87,6 +154,17 @@ def main() -> int:
         _copy(repo / rel, out / name, repo)
 
     _copy(repo / "docs/demo/README.md", out / "README.md", repo)
+
+    # The packaged README says how much of the bundle's geometry this copy actually renders. Appended
+    # here rather than written into docs/demo/README.md, because the repo README describes the source
+    # document and the page is a build-time reduction of it.
+    readme = out / "README.md"
+    if readme.exists():
+        section = mesh_resolution(repo, out)
+        readme.write_text(
+            readme.read_text(encoding="utf-8").rstrip() + "\n\n" + section, encoding="utf-8"
+        )
+        print(section.strip().splitlines()[2] if len(section.strip().splitlines()) > 2 else section)
 
     index = out / "index.html"
     if index.exists():
