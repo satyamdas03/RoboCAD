@@ -31,6 +31,8 @@ moved.
 | Release tag in both repos | `demo-v1.1` → RoboCAD, on the commit that holds this file (so the tag carries this table); Hi-EV `2b46fa0`; package tag `demo-bundle-v1.7` → RoboCAD `656d244` | verified-ran |
 | A sandboxed frame really receives the sentence | `pytest tests/test_page_sandboxed_delivery.py -m ""` → 1 passed: a message addressed to the frame's origin is dropped by the browser, the same message with a wildcard target moves the card from 0.902/0.20 to 0.955/0.30 and presses the switch | verified-ran |
 | …and the journey now reads the card, not only chat | `scripts/release_journey.py` reads the embedded page after "change infill to 30 percent" and fails the run when the card disagrees with the sentence | verified-read (script; the peer's packaged run printed `PAGE shows 0.955 kg at 0.30 infill`) |
+| Packaged run in the peer lane | fresh Hi-EV clone `e088d2b`, fresh home, `start_demo.sh` on 7414: unpacked `f14291bf…` (725 files, meshes in), fourteen PASS lines including `setup hidden  needs_setup false, demo true`, nine phrases 17–56 ms, zero unanswered, `PAGE shows 0.955 kg at 0.30 infill`; extracted package replays 500 headless steps | claimed (reported by `coordinate-exporter-fixes`; not re-run in this lane) |
+| Peer lane's suite, including the flake | 427 passed, 9 skipped, 0 failed at `0522afc`, **with** `tests/test_ingestion_watcher.py::test_watcher_ingests_new_note` named as intermittent (passes in suite, fails alone) | claimed (not fixed, not absorbed) |
 
 **What is still not done, plainly.**
 
