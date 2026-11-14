@@ -339,7 +339,14 @@ and base-frame difference, which is exactly what `CONVENTIONS.md` now prevents.
 - **One wording nit left in the package.** `torque.js`'s `dynamic_reason` still says "tens of mm"
   while `pose_gate_worst_mm` beside it says 70.69, so the package holds the number and does not use
   it in the sentence. True either way, and a rebake to change one clause is not worth the risk this
-  late; noted so the next bake fixes it.
+  late — a rebake means a new digest, and this digest has been verified and recorded. Noted so the
+  next bake fixes it. `verified-read`
+- **The pose gate now has its own test.** Lane B added `tests/test_package_pose_gate.py` (`4b993eb`),
+  which reads the committed zip rather than rebuilding it, so it cannot move the digest above. Four
+  assertions: the gate ships beside the verdict it explains, it equals the worst of its own five
+  samples, it matches 70.69 mm, and it is larger than the 11.25 mm anchor residual — that last one is
+  what would have caught the version of the gate that read 97.37 mm. Lane A ran it on the pulled tree:
+  **4 passed**. `verified-ran`
 - M2 review recorded as PASS by the lane that did not write it, 4 of 4 criteria, with the official
   URDF's sha256 verified against the pinned digest before the check ran.
 

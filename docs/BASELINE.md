@@ -167,3 +167,26 @@ of the run, before they were made, and the same 752 tests ran to completion. The
 the pre-existing JWT `InsecureKeyLengthWarning`s. 367.27 s is the fastest default-tier figure recorded
 here against 391.13 s at the tag and 432.76 s at `0ef337c`; the three runs are the same tests and the
 differences are machine load, so none of them is a performance claim.
+
+## v1.1: the scoped-green pattern
+
+| | |
+|---|---|
+| tree | the working tree during the run; `2d0498c` when it finished |
+| command | `python -m pytest -q -p no:cacheprovider` |
+| result | **798 passed, 308 deselected, 3 warnings, exit 0, 957.27 s (15:57)** |
+| collected | 798 default-tier tests, 46 more than the freeze run (the four v1.1 files) |
+
+This row carries a caveat, so it is written differently from the freeze row. `teardown_export/bake_torque.py`,
+`package_demo.py` and `torque_matched.py` changed **after the run started**, so the 798 does not describe
+the python at HEAD. The scoped-green pattern, which is the reusable part of this row:
+
+1. name what moved since the run started;
+2. run the tests that cover exactly those files, on the moved tree;
+3. say in one sentence what in the suite, if anything, also touches them.
+
+Applied here: `python -m pytest tests -k "package or bake or mesh_resolution or torque"` → **17 passed**;
+`python -m pytest tests/test_demo_static_load.py tests/test_twin_cli.py -m mujoco` → **8 passed**; nothing
+else in the default tier imports those three files. A whole-suite re-run would have cost sixteen minutes
+to describe a tree that no longer exists — the scoped green plus its scope named is the stronger claim,
+because a stale green without that sentence is exactly the failure this section exists to prevent.
