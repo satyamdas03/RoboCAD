@@ -20,7 +20,7 @@ No "should work": each line is either something nobody ran or something the arti
 | The test suite does not run on `.[dev]` | needs `pip install -e ".[dev,web,sim,ai,voice]"`; the CLI itself needs none of `ai`, `voice`, `web` |
 | Heavy, slow, mujoco and benchmark tiers were deselected | 309 tests by configuration; this file does not claim they ran |
 | The Hi-EV half of E2 was not re-run here | `[claimed: peer report, a6d2e18]`; the RoboCAD half is re-run below |
-| `demo-v1.0` does not exist yet | E5 merges both branches and tags it after; until then v1.3 is the artifact of record |
+| `demo-v1.0` exists, but this file inside it was written before the tag | the tagged blob carries the earlier row saying the tag did not exist; the E5 section below is the later, true statement, and it is not inside `demo-v1.0` |
 | Nothing has been measured on hardware | no robot was commanded, no printed part was weighed; mic, speakers and the stopwatch are Satyam's |
 
 ## v1.3: the artifact of record
@@ -135,6 +135,41 @@ module scope. Making them import lazily or `importorskip` would mean editing 26 
 green, which this sprint's own rules forbid, so the requirement is stated instead: running the suite
 needs `pip install -e ".[dev,web,sim,ai,voice]"`, and the CLI does not. The Hi-EV half of E2 was run
 by the monitor lane on the same day (`[claimed: peer report, a6d2e18]`, not re-run here).
+
+### E5 — both PRs merged, both heads tagged, the merged head starts [verified: ran]
+
+| Step | Result |
+|---|---|
+| RoboCAD PR | https://github.com/satyamdas03/RoboCAD/pull/1, `feat/v1.1` → `master`, **MERGED** |
+| RoboCAD merge commit | `1ac923c`, two parents `df95d33` (master) + `dca41f4` (feat/v1.1) — a merge commit, not a squash |
+| Hi-EV PR | https://github.com/satyamdas03/Hi-EV/pull/1, `feat/robocad-shell` → `main`, **MERGED** |
+| Hi-EV merge commit | `c76fd47`, merge commit, not a squash |
+| Tag `demo-v1.0`, RoboCAD | annotated, object `2b51da8`, peels to `1ac923c` |
+| Tag `demo-v1.0`, Hi-EV | annotated, object `c90cc71`, peels to `c76fd47` |
+| `demo-bundle-v1.3` | untouched: object `dfcb119`, peels to `7b37d90`, blob still `f86c28f7…` |
+
+Post-merge head proven to start, in a fresh clone of **`origin/master` at `1ac923c`** and
+**`origin/main` at `c76fd47`**, fresh `python -m venv`, `pip install -e "./RoboCAD[dev,web,sim]"`
+and `pip install -e "./Hi-EV[dev]"`, both exit 0, then:
+
+```
+pwsh -File scripts/start_demo.ps1 -RoboCadRoot .\RoboCAD -Port 7361 -Fresh
+  1/6 environment   PASS python 3.14, PASS both repos import
+  2/6 package       PASS digest f86c28f703f84ccf matches verify.json, 33 files, 32 match FILES.sha256
+  3/6 demo profile  PASS EV_PROFILE=demo
+  4/6 pre-flight    PASS digest, PASS summary 6 sections, PASS demo profile, PASS tool allowlist,
+                    PASS fast path offline 'show me the torque' -> robocad_show/torque
+  5/6 daemon        PASS pid 33984 health ok, PASS page served http://127.0.0.1:7361/robocad/page/
+  6/6 open the page
+```
+
+Daemon stopped afterwards (`Stop-Process -Id 33984`). The HUD itself (`cd web && npm run dev`) was
+not started in that clone; the six-phrase table is exercised by the pre-flight fast-path check, and
+the mic, speakers and stopwatch are Satyam's.
+
+**Not done:** the `demo-v1.0` tag points at the merge commits, so the FINAL_STATUS blob inside the
+tag is the pre-tag one. Re-tagging is forbidden this sprint, so the correction lives in this commit
+instead of under the tag.
 
 ## v1.2: superseded, kept for the record
 
