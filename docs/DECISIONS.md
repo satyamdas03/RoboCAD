@@ -782,3 +782,29 @@ on a missing OBJ. FINAL_STATUS names `v1.5` and its commit; nothing else in the 
 would have satisfied the letter of the brief, but it makes a tag that documents and other lanes
 already carry mean something different from what they recorded, and the only argument for it was a
 version number.
+
+## The release package is demo-bundle-v1.6; v1.5 stays where it is
+
+**Decision.** The published package of record is `demo-bundle-v1.6` at commit `d5615d3`, zip sha256
+`49d75172…`. `demo-bundle-v1.5` (commit `2422af4`, zip `19701ec2…`) is left untouched, even though it
+was created minutes earlier in this same sprint and never pushed or announced.
+
+**Why v1.5 could not simply be moved.** After the v1.5 tag was created, the packaged page failed its
+own visual gate: at 1440, 1024 and 870 px the PACKAGE tile clipped its tag to "demo-bundle-v1."
+because the tag and its status pill shared one 150 px value line. Fixing that changes the page, which
+changes the zip, which changes the sha256 that v1.5's `verify.json` proves. A tag whose recorded zip
+is not the zip we ship is precisely what the "no re-tagging" rule exists to prevent, and the rule does
+not have an unpushed exception: the exception is the thing that gets widened until a digest no longer
+means anything.
+
+**What the cost actually was.** One tag name and one paragraph of explanation. A reader comparing the
+tag list sees v1.5 and v1.6 next to each other; this section is why, and the honest reading is that
+the visual gate ran after the tag instead of before it. That ordering is the process defect, not the
+version number: the tile test now exists, and it should have been red in the tree before the first
+bake, which is cheap and would have produced one tag.
+
+**Considered and rejected.** Deleting v1.5 and recreating it on `d5615d3`: the only argument is that
+the number is tidier, and the price is teaching every later digest-reading script that tags here can
+move. Rejected for the same reason `v1.3` was only ever recreated once, before it was referenced by
+anything.
+

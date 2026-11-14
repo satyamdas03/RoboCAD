@@ -1094,3 +1094,131 @@ instead of inventing one); `HULLS` and `OFFICIAL GHOST` were dropped because the
 visual meshes only, and `SELF-COLLISION` and `CoM` took their place with the reason in the drawer;
 the 70.69 mm marker sits at the end of the scrubber because samples are poses, not frames; the
 package page stays v1.3 so tree and package diverge on purpose.
+
+## Final visual stretch, Lane robocad-61 — V1, V6, V8 [verified: ran]
+
+Lane split: V2, V3, V4, V5, V7, V9 belong to `coordinate-exporter-fixes`. This lane took V1 (the
+package), V6 (the playground without a STEP file) and V8 (the cockpit page). Everything below was run
+on this machine; the screenshots are committed next to the claims.
+
+### V8.1 — the cockpit at the blade width, reproduced before it was fixed
+
+The HUD opens the page at 68 % of a 1280x720 window, which is an 870 px page. The pre-fix grid was
+`300px minmax(0,1fr) 340px`, so the stage got what was left. `scripts/reproduce_blade_defect.py`
+re-injects exactly those three rules and photographs the result:
+
+```
+$ python scripts/reproduce_blade_defect.py
+{"left": {"w": 300, "h": 538}, "stage": {"w": 198, "h": 538},
+ "right": {"w": 340, "h": 538}, "scroll": [870, 680], "viewport": [870, 680], "clipped": []}
+```
+
+198 px of stage on an 870 px page, photographed at
+`docs/demo/screens/v1.4/defect-blade-870x680.png`. The fix shrinks the rails below 1180 px and drops
+the right rail below 1120 px; the stage is 586 px at 870, 668 at 952, 740 at 1024, 804 at 1088.
+`tests/test_page_blade_width.py` asserts no page scroll, the stage share of the page, that the stage
+is taller than 200 px, that no KPI value is ellipsised, and that the right rail is either shown at
+more than 240 px or gone:
+
+```
+$ python -m pytest tests/test_page_blade_width.py -m "" -q
+1 passed
+```
+
+### V1 — the PACKAGE tile clipped its own tag
+
+The tile is the one place a recipient can read which bundle they were handed. With the tag and its
+status pill on one 150 px value line they need 170 px, so the tag was ellipsised:
+
+```
+tile w 168, value w 150, tag w 94 (needs 114), pill w 50
+-> rendered "demo-bundle-v1." at 1440, and the same at 1024 and 870
+```
+
+The pill qualifies the *label*, not the tag: it moved to the label line, where "PACKAGE" plus
+"tagged" is 102 px, and the value line now carries the tag alone. The label line caps do not
+propagate into the pill (`text-transform:none`), so it reads "PACKAGE tagged".
+
+`tests/test_page_package_tile.py` reads the tag from the package own `manifest.js`, opens the
+packaged page in Chromium, and asserts: no doubled `demo-bundle-` prefix, the tag appears exactly
+once, the pill says "tagged" with class `ok`, the pill box is inside the tile box, and no span in
+the tile is clipped. It writes `docs/demo/screens/release/package-tile.png`.
+
+```
+$ python -m pytest tests/test_page_package_tile.py tests/test_page_blade_width.py -m "" -q
+2 passed
+```
+
+### V6 — printed mass for any infill, with no CAD kernel and no STEP
+
+The bundle now stores per-part volume, surface area and density, recorded at compile time, so the
+playground answers "what does this weigh at 30 % infill" by arithmetic alone. The identity is
+`printed = shell + f*interior`, `solid = shell + interior`; bought-in mass cancels out of both sides,
+so `shell = (printed - f*solid)/(1 - f)`, and a wall change scales the shell by `wall_ratio` clamped
+at solid.
+
+Checked against an independent compile rather than against itself:
+
+```
+0.9554530302470396 predicted   (bundle arithmetic)
+0.9554530302470398 actual      (build123d compile at 30 %, 1.2 mm wall)
+```
+
+That is 1.1e-13 kg apart, which is float noise, not agreement by rounding. STEP stays optional: the
+"recompile" path is unchanged and still there for anyone who has the file.
+
+```
+$ python -m pytest tests/test_print_from_bundle.py tests/test_print_model.py \
+                   tests/test_revise_from_bundle.py -q
+40 passed
+```
+
+### The three hostile-input findings, closed with tests
+
+Automated review of the V6 arithmetic flagged three sinks; all three were real and all three are
+fixed at the source rather than at the call site:
+
+* `revision._md` now doubles backslashes before escaping. Input `\|` previously became `\\|`, which
+  markdown reads as a literal backslash followed by a live cell break.
+* `_finite` catches `OverflowError`. `float(10**400)` raised past the caller `except
+  BundlePrintError` as a crash instead of the declared error.
+* `_body_key` refuses two bodies that sanitise to one display id. The second body mass was
+  overwriting the first, so a printed per-body weight belonged to a different link.
+
+```
+$ python -m pytest tests/test_bundle_untrusted_input.py -q
+27 passed
+```
+
+### The package: demo-bundle-v1.6, and why not v1.5
+
+The zip is rebaked with the fixed page, committed at `d5615d3`, tagged `demo-bundle-v1.6`, and then
+proved from the zip alone:
+
+```
+$ python scripts/verify_demo_zip.py docs/demo/so101_demo.zip --tag demo-bundle-v1.6 \
+      --built-from d5615d3af47348a7a1caa6ffb28eb6346f774cd1 --out docs/demo/verify.json
+sha256     49d75172e2cac4822b1d9d3993c1462f12c1cc6cc3642e38ca8d80831f77563c
+[PASS] 1  printed mass  sum(bodies) 0.901658836 kg, totals 0.901658836 kg
+[PASS] 2  revision       0.901658836 -> 0.955453030 kg over 7 link(s)
+[PASS] 3  check rows     {'pass': 5, 'fail': 1, 'skipped': 1}
+[PASS] 4  page opens    7 check rows, 7 link rows, revision panel 284 chars over 7 rows,
+                        0 page errors, 0 non-file requests, 0 missing links
+[PASS] 5  tag            demo-bundle-v1.6 -> d5615d3a, zip in tag matches these bytes,
+                        manifest.js records 'demo-bundle-v1.6', page reads 'demo-bundle-v1.6'
+VERIFIED
+```
+
+`demo-bundle-v1.5` was created earlier in this sprint and the tag test failed after it: the visual
+gate ran after the tag instead of before it. v1.5 is left where it is and the release is v1.6. The
+decision, and why re-tagging was not the cheaper trade, is in `DECISIONS.md`.
+
+The summary fixture was re-exported from the same zip into both repos, and the Hi-EV contract test is
+green:
+
+```
+$ python scripts/export_summary_fixture.py --out-dir ../Hi-EV/tests/fixtures
+robocad_summary.v1.json 57755 bytes from so101_demo.zip 49d75172e2ca; synthetic figures: 0
+$ cd ../Hi-EV && python -m pytest tests/test_robocad_tool.py -q
+11 passed
+```
