@@ -35,6 +35,8 @@ moved.
 | The journey's own verdict on the packaged daemon | `python scripts/release_journey.py --base http://127.0.0.1:7415` from a `start_demo.sh` daemon with the tagged v1.7 package unpacked: 7 phrases in 12.6 s, 0 unanswered, 0 over the 1500 ms budget, 0 console errors, `page after the sentence PASS {'mass': 'MASS 0.955 kg +6.0%', 'masses': '… 0.30 infill 0.955 kg …', 'after': 'true'}`; Escape closes and `/` reopens | verified-ran (peer lane ran it; this lane read the frame it wrote) |
 | That frame, read in this lane | `docs/demo/screens/release/07-infill-30.png`: card `1.20 mm wall, 0.30 inf… 0.955 kg`, KPI `MASS 0.955 kg +6.0%`, footer switch on 0.30, chat says 0.955 — sentence and card agree | verified-read |
 | The HUD half's release tag | Hi-EV `demo-v1.2` → `57e29ed` (annotated, pushed; Hi-EV `main` one ahead at `e520495`, not moved for a doc sentence) | verified-ran (`git ls-remote`) |
+| Both tags, cloned from origin, run as the pair | RoboCAD `demo-v1.2` (tag `4d5944d` → `d0eaf91`) with Hi-EV `demo-v1.2` (tag `7a0b8c3` → `57e29ed`): `start_demo.sh` on 7417, never-used home, `RESULT: PASS  demo ready at http://127.0.0.1:7417`, after `PASS digest f14291bf796f01c6 matches verify.json`, `PASS EV_DEMO_BUNDLE_TAG=v1.7`, `PASS setup hidden  needs_setup false, demo true`; the tagged clone's own journey: `7 phrases in 12.3 s, 0 unanswered, 0 over the 1500 ms budget, 0 console error(s)`, `page after the sentence PASS {'mass': 'MASS 0.955 kg +6.0%', 'after': 'true'}`, Escape closes and `/` reopens | verified-ran (peer lane ran it; this lane checked both tag→commit lines against `git ls-remote`) |
+| The speed margin, measured rather than guessed | the two slow phrases sit at 1219.5/1219.6 ms against the 1500 ms budget; an earlier run with a test suite on the same machine put one at 1641 ms. On this machine `python -c pass` is **0.757–0.768 s** and `python -S -c pass` is **0.070–0.086 s**, so ~0.69 s is a site-packages `.pth` (`pip_system_certs`) before RoboCad runs at all; `import robocad.twin_cli` is **0.003 s** and the revise work in-process is **0.273 s**. The 1.08–1.15 s CLI figure is roughly 0.78 s interpreter startup plus 0.27 s work | verified-ran |
 | Peer lane's suite, including the flake | 427 passed, 9 skipped, 0 failed at `0522afc`, **with** `tests/test_ingestion_watcher.py::test_watcher_ingests_new_note` named as intermittent (passes in suite, fails alone) | claimed (not fixed, not absorbed) |
 
 **What is still not done, plainly.**
@@ -52,6 +54,10 @@ moved.
   commit. It is committed at `83ecc0f`.
 * Heavy, slow, mujoco and benchmark tiers were run for the page tests only (`-m ""`); the rest of the
   default selection is reported in the release message, not here.
+* The two slow phrases have about 280 ms of headroom on this machine, and the headroom is interpreter
+  startup, not RoboCAD work. Whoever owns the caller can take almost all of it back by calling
+  `twin_cli.main` in-process (0.27 s) instead of spawning `python -m robocad twin revise` (1.08 s);
+  the caller is Hi-EV's `robocad_tool.py`. Not changed here, because it is a peer-lane call site.
 * Nothing has been measured on hardware.
 
 
