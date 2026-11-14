@@ -2,11 +2,15 @@
  * Section navigation for the living page.
  *
  * The voice shell embeds this page and says "show me the torque". It sends exactly one message,
- * `{type: "robocad.section", section: "torque"}`, and this answers it by scrolling that panel into
- * view and flashing it for a second and a half. Two rules keep the channel from being a way for
- * anyone else to drive the page: only this page's own origin is obeyed, and only the six section
- * names below exist. Everything else is ignored silently -- a page that answers "I refused that"
- * tells a sender what to try next.
+ * `{type: "robocad.section", section: "torque"}`, and this answers it by flashing the card that
+ * section lives in. Two rules keep the channel from being a way for anyone else to drive the page:
+ * only this page's own origin is obeyed, and only the seven section names below exist. Everything
+ * else is ignored silently -- a page that answers "I refused that" tells a sender what to try next.
+ *
+ * On a cockpit page there is nothing to scroll: every card is on screen at once. The flash is
+ * therefore the whole answer, and `show` also dispatches a `robocad:section` event on the document
+ * so the page can open the matching drawer entry in presenter mode without this file knowing what a
+ * drawer is.
  *
  * Opened from `file://` there is no parent frame and the origin is opaque, so the listener never
  * accepts anything and the page behaves exactly as it did before. The `#torque` fragment still
@@ -15,18 +19,23 @@
 (function (root) {
   "use strict";
 
-  // The six sections the voice knows, and the element each lives in. `overview` is the HUD over the
-  // 3D stage rather than a side panel, which is why it has no panel row of its own.
+  // The seven sections the voice knows, and the card each lives in. `overview` is the HUD over the
+  // 3D stage. `comparison` and `masses` both lead to the mass card: comparison is the whole
+  // compiled-versus-published story, masses is the figure the spoken sentence names, and the KPI
+  // strip carries the same comparison in the header. `revision` is the switch in the footer.
   var MAP = {
     overview: "hud",
     checks: "checks-grp",
-    comparison: "cmp-grp",
+    comparison: "kpis",
+    masses: "masses",
     torque: "torque-grp",
-    revision: "rev-grp",
+    revision: "revswitch",
     twin: "twin-grp",
   };
   var TYPE = "robocad.section";
-  var FLASH_MS = 1500;
+  // Two seconds, not one: the card is flashed while a spoken sentence is still running, and a
+  // 1.5 s glow that ends mid-sentence reads as a page that flickered rather than one that answered.
+  var FLASH_MS = 2000;
 
   function owns(object, key) {
     return Object.prototype.hasOwnProperty.call(object, key);
@@ -55,9 +64,10 @@
   }
 
   /**
-   * Scroll a section into view and flash it. Returns false when there is nothing to show.
+   * Flash a section's card and tell the page which section was asked for. Returns false when there
+   * is nothing to show.
    *
-   * A panel the payload did not fill stays hidden: scrolling to an empty box answers "show me the
+   * A panel the payload did not fill stays hidden: flashing an empty box answers "show me the
    * torque" with nothing, and reads as a page that lost its numbers rather than one that never had
    * them.
    */
@@ -78,6 +88,11 @@
       if (typeof timer === "function") {
         timer(function () { element.classList.remove("nav-flash"); }, FLASH_MS);
       }
+    }
+    // The page decides what else a named section means -- opening a drawer entry, in presenter
+    // mode. Guarded because a page with no CustomEvent (and the node fake) must keep working.
+    if (typeof document.dispatchEvent === "function" && typeof root.CustomEvent === "function") {
+      document.dispatchEvent(new root.CustomEvent("robocad:section", { detail: { section: section } }));
     }
     return true;
   }

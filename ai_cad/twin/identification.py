@@ -35,6 +35,15 @@ import numpy as np
 # for the rest, written before the runs and not changed afterwards.
 TOL = {0: 0.01, 1: 0.02, 2: 0.02, 3: 0.25, 4: 0.02}
 
+# The signal-to-noise ratio in the rung 3 note uses one definition, the one the scenario table
+# (`identifiability_scenarios.json`) and `docs/twin/so101/identifiability.md` already publish:
+# friction torque at a reference joint speed of 1.9 rad/s, divided by the actuator torque error of
+# one encoder count. 1.9 rad/s is the peak speed of the SO-101's widest joint (joint 1, +/-1.92 rad)
+# under this harness's multi-sine, so it is the speed the published arithmetic describes. The ratio
+# is speed dependent; dividing by a *different* log's peak speed produced two ratios on one page
+# (0.04 in prose, 0.10 in the table), so the speed is now a constant and every note names it.
+REFERENCE_SPEED_RAD_S = 1.9
+
 
 @dataclass
 class RungResult:
@@ -232,6 +241,29 @@ def _fit(mujoco, xml_path: str, log: dict, joint: int, *, with_coulomb: bool):
     return sol, cond
 
 
+def rung3_note(*, kp: float, quant: float, damping: float, log_hz: int, cond: float) -> str:
+    """The rung 3 explanation, with the signal-to-noise ratio defined once and named in place.
+
+    Split out of `run` so the arithmetic that the page, the scenario table and the document all
+    quote can be tested without a MuJoCo run. The ratio is speed dependent, so the note states the
+    reference speed next to the number; a ratio quoted without its speed is what let 0.04 and 0.10
+    appear side by side on the same page.
+    """
+    torque_noise = abs(kp) * quant
+    signal = damping * REFERENCE_SPEED_RAD_S
+    snr = signal / torque_noise
+    return (
+        f"condition number {cond:.1f}, tolerance {TOL[3]:.0%}. Position quantisation is "
+        f"{quant * 1000:.2f} mrad and the servo stiffness is {abs(kp):.0f} N m per rad, so one count "
+        f"of position error is about {torque_noise:.2f} N m of actuator torque. At the reference "
+        f"joint speed of {REFERENCE_SPEED_RAD_S:.1f} rad/s the friction signal is about "
+        f"{signal:.2f} N m. The method cannot separate them at this rate, and no amount of fitting "
+        f"fixes a signal to noise ratio of {snr:.2f}, defined as friction torque at "
+        f"{REFERENCE_SPEED_RAD_S:.1f} rad/s over the torque error of one encoder count. A partner's "
+        f"bench log with a real torque channel escapes this; a {log_hz} Hz position log does not."
+    )
+
+
 def run(mujoco, xml_path: str, *, joint_name: str = "shoulder_lift", base_hz: int = 1000,
         log_hz: int = 62, seconds: float = 4.0) -> Report:
     model = mujoco.MjModel.from_xml_path(xml_path)
@@ -294,16 +326,8 @@ def run(mujoco, xml_path: str, *, joint_name: str = "shoulder_lift", base_hz: in
     ok3 = all(abs(rec3[k] - truth1[k]) <= TOL[3] * truth1[k] for k in truth1)
     kp = float(model.actuator_biasprm[0, 1])
     quant = 2.0 * math.pi / 4096.0
-    torque_noise = abs(kp) * quant
-    signal = truth1["damping"] * float(np.max(np.abs(log3["qvel"][:, joint_index])))
     add(3, f"{log_hz} Hz with noise and 4096 count quantisation", ok3, truth1, rec3,
-        f"condition number {cond3:.1f}, tolerance {TOL[3]:.0%}. Position quantisation is "
-        f"{quant*1000:.2f} mrad and the servo stiffness is {abs(kp):.0f} N m per rad, so one count of "
-        f"position error is about {torque_noise:.2f} N m of actuator torque, against a friction "
-        f"signal of roughly {signal:.2f} N m. The method cannot separate them at this rate, and no "
-        "amount of fitting fixes a signal to noise ratio of "
-        f"{signal/torque_noise:.2f}. A partner's bench log with a real torque channel escapes this; "
-        "a 62 Hz position log does not.")
+        rung3_note(kp=kp, quant=quant, damping=truth1["damping"], log_hz=log_hz, cond=cond3))
 
     # rung 5: the same 62 Hz log, but carrying motor current, which is rung 3 plus one channel
     current_fits, current_intervals = {}, {}

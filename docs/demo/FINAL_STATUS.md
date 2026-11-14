@@ -627,3 +627,87 @@ and base-frame difference, which is exactly what `CONVENTIONS.md` now prevents.
    honestly rather than passing quietly.
 5. **Publishing `docs/twin/so101/`** — done under the sprint directive; confirming it keeps the
    licence statement and the pinned commit on the page, film and report.
+
+## B5 and U1: one signal-to-noise number, and the page rebuilt as a cockpit
+
+Both were assigned by review after the v1.3 freeze. Neither rebuilds v1.2 and neither creates a tag.
+
+### B5, the two signal-to-noise numbers
+
+**What was wrong.** The twin panel printed "signal to noise ratio of 0.04" in one paragraph and the
+identifiability document printed 0.10 for the same physics. Both were real arithmetic on different
+denominators: the document divided friction torque at a stated reference speed by the actuator torque
+of one encoder count, and the generator divided by the peak speed of whichever log it happened to
+describe. Same robot, two answers, depending which log was in hand.
+
+**What it is now.** One definition — friction torque at reference speed divided by the torque of one
+encoder count — computed at `REFERENCE_SPEED_RAD_S = 1.9` rad/s in `ai_cad/twin/identification.py`
+(`rung3_note`), which names that speed in the sentence it prints so a reader can redo the division.
+The page quotes `calibration.position_only.snr` from the summary payload once, in the twin card,
+with that label beside it. The rung-3 note that used to carry 0.04 is not rendered anywhere.
+`verified-ran`: `pytest tests/test_identification_snr.py -m ""` gives 6 passed, including a test that
+the ratio does not move when the log rate changes, which is the bug in one assertion.
+
+**The caveat, plainly.** The generator is fixed; the **frozen artifacts are not**. These four still
+contain the old 0.04 sentence, byte for byte, because they were baked before the fix and a rebake
+means a new digest on a verified package:
+
+- `docs/demo/so101_demo/identification.json`
+- `docs/demo/twin/identification.json`
+- `docs/twin/so101/bundle/identification.json`
+- `docs/demo/robocad_summary.v1.json`
+
+`verified-ran`: `grep -o "signal to noise ratio of [0-9.]*"` over each of the four prints the 0.04
+sentence on all four. Anything reading the **package** therefore still reads 0.04; anything reading
+the **living page** reads 0.10 from the summary payload. The fix reaches the package at the next
+bake, and this paragraph is what tells the next person to rebake it.
+
+### U1, the page as a single-screen cockpit
+
+`docs/demo/page/index.html` was replaced. The old page scrolled with a 320 px rail, so at 1280x720
+the fourth panel fell below the fold and "show me the checks" was answered by a scroll. The new page
+is a fixed grid: top bar (product block and five KPI tiles), centre 3D hero with guide rings and the
+wrist/jaw callout, numbered cards down both sides, footer timeline with the revision switch, and a
+detail drawer that every card's "i" opens. Every figure comes from one adapter over the existing
+payloads (`summary.js`, `SO101_META`, `SO101_TRAJ`, `SO101_REPORT`, `SO101_TORQUE`,
+`SO101_REVISION`, `SO101_IDENT`), so the page-text test still traces every number to the summary.
+
+`verified-ran`, the gates:
+
+- `pytest tests/test_page_cockpit_layout.py -m ""` gives **5 passed**. One screen at 1280x720,
+  1440x900 and 1920x1080 (`scrollHeight <= innerHeight`, no `.card .body` with
+  `scrollHeight > clientHeight`, no horizontal overflow), zero console errors, zero requests that
+  are not `file:`, and each of the seven sections flashes the card it maps to.
+- `node --test docs/demo/page/sections.test.mjs` gives **11 passed**, including a new test that every
+  section in the JS map names an `id=` the shipped page really contains, so the map cannot drift.
+- `python scripts/check_page_numbers.py` reports "32 numeric tokens across torque-grp, cmp, checks,
+  twin-grp all trace to the summary".
+- `pytest tests/test_page_text_matches_summary.py -m ""` gives **2 passed**: the page quotes
+  `70.69 mm` in the torque card and never says "tens of mm".
+- Full default tier: **859 passed, 314 deselected, 3 warnings in 442.12 s** (the three warnings are
+  the pre-existing `InsecureKeyLengthWarning` from `tests/test_hermes_voice.py`).
+
+Screenshots committed: `docs/demo/screens/v1.4/cockpit-1280x720.png`, `cockpit-1440x900.png`,
+`cockpit-1920x1080.png`.
+
+**Deviations from the brief, and why.** None of these are "should work"; each is what the payloads
+and the freeze actually allow.
+
+- **No package sha or tag on the KPI tile.** The page payloads carry no package digest and
+  `SO101_MANIFEST` records no tag. Rather than invent either, the tile reads "manifest.json · no tag
+  recorded". The digest of record stays in this document and in the package's `FILES.sha256`.
+- **`HULLS` and `OFFICIAL GHOST` are not shipped as toggles.** The payload carries visual meshes only
+  (`SO101_MESHES` is 259 `_vis` entries, no collision hulls) and no published-model geometry.
+  Shipping them would have been two switches that do nothing. `SELF-COLLISION` and `CoM` took their
+  places, and the reason is written into the card's own drawer entry, "06 · what the toggles do".
+- **The 70.69 mm marker sits at the end of the scrubber.** The trajectory samples are poses, not
+  numbered frames, so there is no honest frame index to plant it at.
+- **The turntable frame rate is a property of the harness, not the page.** Headless Chromium here
+  renders through SwiftShader, a CPU rasteriser, at 7 fps. On the GPU path (`--use-angle=d3d11`,
+  Intel UHD) the same 533,262-triangle payload renders at 61 fps headless and 145 fps headed. The
+  test asserts on the GPU path and puts the renderer name in its failure message, so the next
+  machine to fail says why.
+- **Tree and package now diverge, by design.** The packaged page at `docs/demo/so101_demo/` is still
+  v1.3's page; v1.3 is frozen and was not rebuilt. The cockpit page exists in the tree only. The
+  page-text test reads the tree page, as it always did, so the divergence is expected rather than
+  silent.

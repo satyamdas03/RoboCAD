@@ -709,3 +709,51 @@ and the tag keeps the older sentence. Anyone reading the tag reads the older sen
 git and broken in practice. The gate ran `start_demo.ps1` from fresh clones of `origin/master` and
 `origin/main` with a fresh venv, so what was proven is exactly what a person would get from the
 remote.
+
+## B5: one signal-to-noise definition, and which of the two numbers is the number
+
+**Decision.** The ratio quoted anywhere is friction torque at a stated reference speed divided by the
+actuator torque of one encoder count, computed at `REFERENCE_SPEED_RAD_S = 1.9` rad/s. 0.10 for the
+SO-101 at `kp` 998 and a 12-bit encoder; 0.04 is retired.
+
+**Why the document's definition wins and not the generator's.** The generator's version was not a
+different estimate of the same thing, it was an estimate of a different thing: it divided by the peak
+speed of whichever log it happened to be describing. That made the same robot's physics print a
+different number depending on which log was in hand, which is not a property anyone can act on. A
+reference speed is a choice; a log's peak speed is an accident. The note now names the speed in the
+sentence it prints, so a reader can perform the division themselves and disagree with the exponent
+rather than with the prose.
+
+**Why the frozen artifacts were not rebaked to match.** A rebake produces a new package digest, and
+the current digest has been verified and recorded in FINAL_STATUS and in the package's `FILES.sha256`.
+Trading a verified digest for a cosmetic consistency fix, after the freeze, is the wrong trade. The
+cost is stated rather than hidden: the four JSON artifacts still carry the 0.04 sentence, and
+FINAL_STATUS lists all four by path so the next bake closes it.
+
+## U1: the page is a cockpit, and what that costs
+
+**Decision.** `docs/demo/page/index.html` is a single-screen cockpit at 1280x720 through 1920x1080:
+no page scroll, no scroll inside a card, everything a spoken sentence names visible at once. Content
+that does not fit lives in a drawer, opened by the card's "i" or by the section message in presenter
+mode.
+
+**Why not keep the scrolling page and fix its rail.** The page's job during a demo is to be an answer
+to a sentence. A scroll is not an answer: at 1280x720 the fourth panel was off-screen, so "show me the
+checks" scrolled to something the audience had not seen yet. A layout that guarantees every section is
+on screen makes the section message a flash instead of a navigation, and the flash is testable.
+
+**Why every number goes through one adapter.** Seven cards each reaching into five payloads is how a
+page ends up with two different values for the same quantity, which is exactly the defect B5 found in
+prose. One `DATA` object, built once from the globals, is the only place a figure enters the page; the
+page-text checker walks the same numbers back to the summary.
+
+**Why `HULLS` and `OFFICIAL GHOST` are not switches.** The packaged payload carries visual meshes only
+(`SO101_MESHES`, 259 `_vis` entries) and no published-model geometry. A toggle that turns nothing on
+is worse than a missing toggle: it promises a comparison the page cannot make. `SELF-COLLISION` and
+`CoM` were shipped instead, and the omission is explained in the display card's own drawer entry
+rather than left for someone to notice.
+
+**Why the fps gate launches a GPU browser.** The 7 fps reading is headless Chromium's SwiftShader
+fallback on this machine, not the page: the same payload renders at 61 fps headless and 145 fps headed
+through D3D11. A gate that fails on the harness teaches people to ignore the gate. The test pins the
+GPU path and prints the renderer name on failure, and both numbers are recorded.

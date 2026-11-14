@@ -3,130 +3,246 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SO-101 living page</title>
+<title>SO-101 · RoboCAD Twin</title>
 <style>
   :root{
-    --bg:#0b0e13; --panel:#11161f; --line:#1e2633; --ink:#e6ebf2; --dim:#8b97a8; --accent:#57d3a0; --warn:#f2b45c;
+    --bg:#0b0e13; --panel:#11161f; --panel2:#0d1219; --line:#1e2633; --line2:#2b3646;
+    --ink:#e6ebf2; --dim:#8b97a8; --faint:#5b6878; --accent:#57d3a0; --warn:#f2b45c; --fail:#ef6b6b;
     --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --gap:8px;
   }
   *{box-sizing:border-box}
-  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
-  #app{display:grid;grid-template-columns:1fr 320px;height:100%;grid-template-rows:auto 1fr}
-  header{grid-column:1/-1;display:flex;gap:16px;align-items:baseline;padding:10px 16px;border-bottom:1px solid var(--line)}
-  header h1{font-size:15px;margin:0;font-weight:600;letter-spacing:.01em}
-  header .src{color:var(--dim);font-size:13px}
-  header .src b{color:var(--warn);font-weight:600}
-  #stage{position:relative;min-height:0}
-  canvas{display:block;width:100%;height:100%}
-  aside{border-left:1px solid var(--line);background:var(--panel);overflow:auto;padding:12px}
-  .grp{margin-bottom:16px}
-  .grp h2{font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--dim);margin:0 0 8px}
-  /* the flash a spoken "show me the torque" leaves behind: a section the voice asked for says so */
-  .nav-flash{outline:2px solid var(--accent);outline-offset:4px;border-radius:4px;background:rgba(87,211,160,.07);transition:background .25s,outline-color .25s}
-  /* 2px of right inset: the value column is right-aligned and was sitting exactly on the panel
-     edge, so its last glyph touched the boundary and read as clipped in a panel screenshot. */
-  .row{display:flex;justify-content:space-between;gap:8px;padding:4px 2px 4px 0;font-family:var(--mono);font-size:13px}
-  .row span:first-child{min-width:0;overflow-wrap:anywhere}
-  /* Right-aligned but able to wrap. The revision row carries
-     "0.652 N·m -> 0.687 N·m (22% -> 23% of limit)", which is wider than the 320px column and was
-     being clipped at the right edge rather than wrapping at one of its spaces. */
-  .row span:last-child{color:var(--accent);text-align:right;overflow-wrap:anywhere;flex:0 1 auto}
-  .bar{height:3px;background:#1b2431;margin-top:2px}
+  html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);
+    font:12px/1.3 system-ui,-apple-system,Segoe UI,sans-serif}
+  /* One screen. The grid owns every pixel: no page scroll, no scroll inside a card. */
+  #app{display:grid;height:100vh;width:100vw;
+    grid-template-columns:300px minmax(0,1fr) 340px;
+    grid-template-rows:52px minmax(0,1fr) 58px;
+    gap:var(--gap);padding:var(--gap)}
+  header{grid-column:1/-1;display:flex;align-items:center;gap:12px;min-width:0;
+    border:1px solid var(--line);border-radius:8px;background:var(--panel);padding:0 12px}
+  .product{display:flex;flex-direction:column;justify-content:center;min-width:0}
+  .product b{font-size:13px;font-weight:650;letter-spacing:.01em;white-space:nowrap}
+  .product span{font-size:10px;color:var(--dim);font-family:var(--mono);white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  #kpis{display:flex;gap:6px;margin-left:auto;min-width:0;overflow:hidden}
+  .kpi{border:1px solid var(--line);border-radius:6px;background:var(--panel2);padding:3px 8px;
+    min-width:0;display:flex;flex-direction:column;justify-content:center}
+  .kpi .k{font-size:8px;letter-spacing:.08em;color:var(--faint);text-transform:uppercase;white-space:nowrap}
+  .kpi .v{font-family:var(--mono);font-size:12px;white-space:nowrap;color:var(--ink)}
+  .kpi .v em{font-style:normal;color:var(--dim);font-size:10px}
+  .pill{display:inline-block;border-radius:10px;padding:0 6px;font-size:9px;line-height:15px;
+    border:1px solid var(--line2);color:var(--dim);white-space:nowrap;font-family:var(--mono)}
+  .pill.ok{border-color:#2f6a53;color:#bff3dc;background:#17241f}
+  .pill.no{border-color:#6b2a2a;color:#f3b6b6;background:#241617}
+  .pill.wa{border-color:#6b4a1c;color:#f8d7a5;background:#241d14}
+  .col{display:grid;gap:var(--gap);min-height:0;min-width:0;align-content:start;
+    grid-auto-rows:max-content}
+  /* Cards are as tall as their figures, not stretched to fill the column: a card with two rows of
+     numbers and 90 px of empty panel below it reads as a panel that failed to load. */
+  #left,#right{grid-template-rows:none}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;
+    display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden;padding:6px 9px}
+  /* the flash the voice leaves behind: a card it asked for says so */
+  .nav-flash,.flash{outline:2px solid var(--accent);outline-offset:-1px;background:#12211d}
+  .card h2{font-size:9px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--dim);
+    margin:0 0 4px;display:flex;align-items:center;gap:6px;min-width:0;flex:none}
+  .card h2 .num{font-family:var(--mono);color:#3d5265;font-size:9px}
+  .card h2 .grow{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .card h2 button.i{border:1px solid var(--line2);background:none;color:var(--faint);border-radius:50%;
+    width:14px;height:14px;font-size:9px;line-height:1;cursor:pointer;padding:0;flex:none}
+  .card h2 button.i:hover{color:var(--ink);border-color:var(--accent)}
+  .card .body{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:1px}
+  .row{display:flex;align-items:baseline;gap:6px;min-width:0;font-family:var(--mono);font-size:9.5px;
+    line-height:13px}
+  .row .l{flex:1;min-width:0;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .row .v{color:var(--ink);white-space:nowrap}
+  .row .v.acc{color:var(--accent)}
+  .bar{height:3px;background:#1b2431;border-radius:2px;overflow:hidden;flex:none}
   .bar i{display:block;height:100%;background:var(--accent)}
-  button{background:#18212e;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 11px;font-size:13px;cursor:pointer}
-  button:hover{border-color:#2f3d51} button[aria-pressed="true"]{background:#1f3a2f;border-color:#2f6a53;color:#bff3dc}
-  .btns{display:flex;flex-wrap:wrap;gap:6px}
-  .hint{color:var(--dim);font-size:12px;margin-top:8px}
-  /* Same 2px value inset as `.row`: the status label is right-aligned and was touching the edge. */
-  .check{display:flex;justify-content:space-between;gap:8px;padding:3px 2px 3px 0;font-family:var(--mono);font-size:12px}
-  .check span:first-child{min-width:0;overflow-wrap:anywhere}
-  .check span:last-child{white-space:nowrap}
-  .check .st{font-weight:600}
-  .st-pass{color:#57d3a0} .st-warn{color:#f2b45c} .st-fail{color:#ef6b6b} .st-skipped{color:#8b97a8}
-  .check-detail{color:var(--dim);font-size:11px;padding:0 0 6px;overflow-wrap:anywhere}
-  .synth{background:#3a2a12;color:#f2b45c;border:1px solid #6b4a1c;border-radius:4px;padding:1px 5px;font-size:11px;letter-spacing:.06em}
-  #torque-chart{width:100%;height:auto;background:#0d1219;border:1px solid var(--line);border-radius:6px;margin-bottom:8px}
-  #twin-chart{width:100%;height:auto;background:#0d1219;border:1px solid var(--line);border-radius:6px;margin-bottom:8px}
-  #hud{position:absolute;left:14px;bottom:12px;font-family:var(--mono);font-size:12px;color:var(--dim)}
-  #load{position:absolute;inset:0;display:grid;place-items:center;color:var(--dim);font-family:var(--mono);font-size:12px}
+  .bar.pub i{background:#6c7f93}
+  .mline{display:flex;flex-direction:column;gap:1px;flex:none}
+  .minis{display:flex;gap:2px;align-items:flex-end;height:24px;margin-top:2px}
+  .minis div{flex:1;background:#243040;border-radius:1px 1px 0 0;min-height:2px}
+  .minis div.hi{background:#57d3a0}
+  .checkgrid{display:grid;grid-template-columns:1fr 1fr;gap:1px 10px;align-content:start}
+  .crow{display:flex;align-items:center;gap:4px;font-family:var(--mono);font-size:9px;line-height:13px;
+    min-width:0;cursor:pointer;background:none;border:0;color:var(--ink);padding:0;text-align:left}
+  .crow .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dim)}
+  .dot{width:6px;height:6px;border-radius:50%;flex:none}
+  .dot.pass{background:var(--accent)} .dot.fail{background:var(--fail)}
+  .dot.skipped{background:var(--faint)} .dot.warn{background:var(--warn)}
+  .st{font-weight:600;font-size:8.5px;letter-spacing:.04em}
+  .st-pass{color:var(--accent)} .st-fail{color:var(--fail)}
+  .st-skipped,.st-skip{color:var(--dim)} .st-warn{color:var(--warn)}
+  .chiplist{display:flex;flex-direction:column;gap:1px;min-height:0}
+  .chip{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:9px;line-height:13px;
+    min-width:0;background:none;border:0;color:var(--ink);padding:0;cursor:pointer;text-align:left}
+  .chip .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dim)}
+  .chip .m{color:var(--ink);white-space:nowrap}
+  .chip.on .n{color:var(--accent)}
+  .togs{display:grid;grid-template-columns:1fr 1fr;gap:3px}
+  .tog{border:1px solid var(--line);border-radius:4px;background:#151b24;color:var(--dim);
+    font-family:var(--mono);font-size:8.5px;letter-spacing:.04em;padding:3px 4px;cursor:pointer;
+    text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tog[aria-pressed="true"]{background:#1f3a2f;border-color:#2f6a53;color:#bff3dc}
+  .rungs{display:flex;gap:3px;flex:none}
+  .rung{flex:1;text-align:center;font-family:var(--mono);font-size:8.5px;line-height:14px;border-radius:3px;
+    border:1px solid var(--line2);color:var(--dim);padding:0;cursor:pointer;background:none}
+  .rung.ok{border-color:#2f6a53;color:#bff3dc}
+  .rung.no{border-color:#6b2a2a;color:#f3b6b6}
+  .mono{font-family:var(--mono);font-size:9px;line-height:12px;color:var(--dim);overflow:hidden;
+    flex:none;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .mono b{color:var(--ink);font-weight:500}
+  /* the 3D stage */
+  #stage{position:relative;min-height:0;min-width:0;border:1px solid var(--line);border-radius:8px;
+    overflow:hidden;background:#0a0d12}
+  #stage canvas{display:block;width:100%;height:100%}
+  #rings{position:absolute;inset:0;pointer-events:none;width:100%;height:100%}
+  #leader{position:absolute;inset:0;pointer-events:none;width:100%;height:100%;overflow:visible}
+  #hud{position:absolute;left:10px;top:8px;font-family:var(--mono);font-size:9.5px;color:var(--dim);
+    display:flex;gap:8px;align-items:center}
+  #hud .mode{border:1px solid var(--line2);border-radius:3px;padding:1px 5px;color:#9fd8c6;letter-spacing:.05em}
+  #callout{position:absolute;left:0;top:0;transform:translate(-50%,-100%);pointer-events:none;
+    font-family:var(--mono);font-size:9px;line-height:1.3;color:var(--ink);
+    background:rgba(13,18,25,.9);border:1px solid #6b2a2a;border-radius:5px;padding:2px 6px;white-space:nowrap}
+  #callout b{color:#ffb4b4;font-weight:600}
+  #load{position:absolute;inset:0;display:grid;place-items:center;color:var(--dim);
+    font-family:var(--mono);font-size:11px;background:var(--bg)}
+  /* timeline */
+  footer{grid-column:1/-1;display:flex;align-items:center;gap:10px;min-width:0;
+    border:1px solid var(--line);border-radius:8px;background:var(--panel);padding:0 12px}
+  footer .ctl{border:1px solid var(--line2);background:#151b24;color:var(--ink);border-radius:5px;
+    font-family:var(--mono);font-size:10px;padding:4px 9px;cursor:pointer}
+  #scrub{position:relative;flex:1;min-width:60px;height:20px;display:flex;align-items:center}
+  #scrubber{width:100%;accent-color:var(--accent);height:14px;margin:0}
+  #marker{position:absolute;right:0;top:2px;bottom:2px;width:1px;background:var(--warn);pointer-events:none}
+  #clock{font-family:var(--mono);font-size:10px;color:var(--dim);white-space:nowrap}
+  #clock b{color:var(--ink);font-weight:500}
+  #revswitch{display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:9.5px;color:var(--dim)}
+  #revswitch button{border:1px solid var(--line2);background:#151b24;color:var(--dim);border-radius:4px;
+    font-family:var(--mono);font-size:10px;padding:2px 6px;cursor:pointer}
+  #revswitch button[aria-pressed="true"]{background:#1f3a2f;border-color:#2f6a53;color:#bff3dc}
+  #revdelta{color:var(--warn);white-space:nowrap}
+  /* drawer */
+  #drawer{position:fixed;top:0;right:0;height:100%;width:min(440px,42vw);background:#0e141c;
+    border-left:1px solid var(--line2);box-shadow:-14px 0 34px rgba(0,0,0,.45);
+    transform:translateX(102%);transition:transform .22s ease;display:flex;flex-direction:column;
+    z-index:20;padding:12px 14px}
+  #drawer.open{transform:translateX(0)}
+  #drawer h3{margin:0 0 2px;font-size:12px;letter-spacing:.02em}
+  #drawer .sub{font-size:10px;color:var(--faint);font-family:var(--mono);margin-bottom:10px}
+  #dbody{flex:1;min-height:0;overflow:auto;font-size:11.5px;line-height:1.5;color:#cfd8e3}
+  #dbody p{margin:0 0 8px}
+  #dbody .kv{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin:0 0 6px}
+  #dbody .kv b{color:var(--ink);font-weight:500}
+  #dclose{position:absolute;top:10px;right:12px;border:1px solid var(--line2);background:none;color:var(--dim);
+    border-radius:4px;font-family:var(--mono);font-size:10px;padding:2px 7px;cursor:pointer}
+  #scrim{position:fixed;inset:0;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;
+    transition:opacity .22s;z-index:19}
+  #scrim.on{opacity:1;pointer-events:auto}
+  @media (prefers-reduced-motion: reduce){#drawer,#scrim{transition:none}}
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1>SO-101 · living page</h1>
-    <div class="src" id="srcline"></div>
+    <div class="product">
+      <b>SO-101 · RoboCAD Twin</b>
+      <span id="subline">compiled from STEP</span>
+    </div>
+    <div id="kpis"></div>
   </header>
-  <div id="stage"><div id="load">loading baked trajectory…</div></div>
-  <aside>
-    <div class="grp">
-      <h2>Model</h2>
-      <div class="row"><span>total mass</span><span id="m-total">–</span></div>
-      <div class="row"><span>bodies</span><span id="m-bodies">–</span></div>
-      <div class="row"><span>triangles</span><span id="m-tris">–</span></div>
-      <div class="row"><span>frames</span><span id="m-frames">–</span></div>
-    </div>
-    <div class="grp">
-      <h2>Links</h2>
-      <div id="links"></div>
-    </div>
-    <div class="grp">
-      <h2>Joints</h2>
-      <div id="joints"></div>
-    </div>
-    <div class="grp">
-      <h2>View</h2>
-      <div class="btns">
-        <button id="b-play" aria-pressed="true">Pause</button>
-        <button id="b-explode" aria-pressed="false">Exploded</button>
-        <button id="b-com" aria-pressed="false">CoM</button>
-        <button id="b-reset">Reset view</button>
+
+  <div class="col" id="left">
+    <section class="card" id="masses">
+      <h2><span class="num">01</span><span class="grow">Mass</span>
+        <span class="pill" id="m-mass-kind">modelled</span>
+        <button class="i" data-drawer="masses" title="detail">i</button></h2>
+      <div class="body" id="cmp"></div>
+    </section>
+    <section class="card" id="torque-grp">
+      <h2><span class="num">02</span><span class="grow">Torque</span>
+        <span class="pill" id="t-badge">static poses</span>
+        <button class="i" data-drawer="torque" title="detail">i</button></h2>
+      <div class="body" id="torque-body">
+        <canvas id="torque-chart" width="272" height="44"></canvas>
+        <div id="t-static"></div>
       </div>
-      <div class="hint">drag to orbit · wheel to zoom · numbers above are read from the baked MuJoCo model</div>
+    </section>
+    <section class="card" id="joints">
+      <h2><span class="num">03</span><span class="grow">Joints</span>
+        <span class="mono" id="j-src">live</span>
+        <button class="i" data-drawer="joints" title="detail">i</button></h2>
+      <div class="body" id="joint-body"></div>
+    </section>
+  </div>
+
+  <div id="stage">
+    <svg id="rings" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+      <circle cx="50" cy="64" r="30" fill="none" stroke="#1b2735" stroke-width="0.14"/>
+      <circle cx="50" cy="64" r="22" fill="none" stroke="#203044" stroke-width="0.12"/>
+      <circle cx="50" cy="64" r="14" fill="none" stroke="#1b2735" stroke-width="0.1" stroke-dasharray="1.2 1.6"/>
+    </svg>
+    <svg id="leader" aria-hidden="true"><line id="leaderline" x1="0" y1="0" x2="0" y2="0"
+      stroke="#8a4a4a" stroke-width="1" stroke-dasharray="3 3"/></svg>
+    <div id="hud"><span class="mode" id="mode">REPLAY · REST POSE</span><span id="hud-t"></span></div>
+    <div id="callout"></div>
+    <div id="load">loading baked trajectory…</div>
+  </div>
+
+  <div class="col" id="right">
+    <section class="card" id="checks-grp">
+      <h2><span class="num">04</span><span class="grow">Checks</span>
+        <span class="mono" id="c-count">–</span>
+        <button class="i" data-drawer="checks" title="detail">i</button></h2>
+      <div class="body"><div class="checkgrid" id="checks"></div></div>
+    </section>
+    <section class="card" id="links">
+      <h2><span class="num">05</span><span class="grow">Links</span>
+        <button class="i" data-drawer="links" title="detail">i</button></h2>
+      <div class="body"><div class="chiplist" id="link-list"></div></div>
+    </section>
+    <section class="card" id="display">
+      <h2><span class="num">06</span><span class="grow">Display</span>
+        <button class="i" data-drawer="display" title="detail">i</button></h2>
+      <div class="body"><div class="togs" id="togs"></div></div>
+    </section>
+    <section class="card" id="twin-grp">
+      <h2><span class="num">07</span><span class="grow">Twin calibration</span>
+        <span class="pill wa">SYNTHETIC</span>
+        <button class="i" data-drawer="twin" title="detail">i</button></h2>
+      <div class="body">
+        <div class="rungs" id="rungs"></div>
+        <div class="mono" id="twin-line"></div>
+        <div class="mono" id="twin-snr"></div>
+      </div>
+    </section>
+  </div>
+
+  <footer id="timeline">
+    <button class="ctl" id="b-play" aria-pressed="true">pause</button>
+    <div id="scrub">
+      <input id="scrubber" type="range" min="0" max="599" step="1" value="0" aria-label="replay frame">
+      <div id="marker" title="worst pose-gate sample: 70.69 mm"></div>
     </div>
-    <div class="grp" id="checks-grp" style="display:none">
-      <h2>Checks</h2>
-      <div id="checks"></div>
+    <div id="clock"></div>
+    <div id="revswitch">
+      <span>infill</span>
+      <button id="rev-before" aria-pressed="true">0.20</button>
+      <button id="rev-after" aria-pressed="false">0.30</button>
+      <span id="revdelta"></span>
     </div>
-    <div class="grp" id="kin-grp" style="display:none">
-      <h2>Kinematics vs official</h2>
-      <div id="kin"></div>
-    </div>
-    <div class="grp" id="cmp-grp" style="display:none">
-      <h2>Compiled vs official</h2>
-      <div id="cmp"></div>
-    </div>
-    <div class="grp" id="torque-grp" style="display:none">
-      <h2>Required torque</h2>
-      <canvas id="torque-chart" width="296" height="126"></canvas>
-      <div class="row"><span>joint</span><span id="t-joint">–</span></div>
-      <div id="t-static"></div>
-      <div class="row"><span>peak official</span><span id="t-off">–</span></div>
-      <div class="row"><span>peak compiled</span><span id="t-comp">–</span></div>
-      <div class="row"><span>stall (servo)</span><span id="t-stall">–</span></div>
-      <div class="row"><span>rated (servo)</span><span id="t-rated">–</span></div>
-      <div class="hint" id="t-torque-note"></div>
-    </div>
-    <div class="grp" id="rev-grp" style="display:none">
-      <h2>Revision: 0.20 -> 0.30 infill</h2>
-      <div id="rev"></div>
-    </div>
-    <div class="grp" id="twin-grp">
-      <h2>Twin method <span class="synth">SYNTHETIC</span></h2>
-      <div id="ident"></div>
-      <h2 style="margin-top:12px">Twin preview <span class="synth">SYNTHETIC</span></h2>
-      <canvas id="twin-chart" width="296" height="118"></canvas>
-      <div class="row"><span>joint 1 RMSE</span><span id="t-rmse">–</span></div>
-      <div class="hint" id="t-note"></div>
-    </div>
-    <div class="grp">
-      <h2>Provenance</h2>
-      <div class="row"><span>source</span><span id="p-source">–</span></div>
-      <div class="row"><span>synthetic</span><span id="p-synth">–</span></div>
-    </div>
-  </aside>
-  <div id="hud"></div>
+  </footer>
 </div>
+
+<div id="scrim"></div>
+<aside id="drawer" aria-hidden="true">
+  <button id="dclose" title="close (Esc)">esc</button>
+  <h3 id="dtitle">Detail</h3>
+  <div class="sub" id="dsub"></div>
+  <div id="dbody"></div>
+</aside>
 
 <script src="trajectory.js"></script>
 <script src="meshes.js"></script>
@@ -142,797 +258,892 @@
 <script>
 (function(){
   "use strict";
-  const META = window.SO101_META;
-  const TRAJ = window.SO101_TRAJ;
-  const MESHES = window.SO101_MESHES;
 
-  // CAD part names come from arbitrary STEP files, so no report or model value is ever
-  // interpolated into HTML. Everything is built as DOM nodes with textContent.
-  function mk(tag, cls, text){ const n = document.createElement(tag); if (cls) n.className = cls;
+  // ---------------------------------------------------------------------------------------------
+  // One adapter. Every card reads this object and nothing else, so a figure is defined once and a
+  // card cannot quietly disagree with the voice, which reads the same summary.
+  // ---------------------------------------------------------------------------------------------
+  var S = window.SO101_SUMMARY || {};
+  var R = window.SO101_REPORT || {};
+  var T = window.SO101_TORQUE || {};
+  var M = window.SO101_MANIFEST || {};
+  var D = window.SO101_IDENT || {};
+  var V = window.SO101_REVISION || {};
+  var META = window.SO101_META || {};
+  var TRAJ = window.SO101_TRAJ || {};
+  var MESHES = window.SO101_MESHES || [];
+
+  function num(node){ return (node && typeof node === "object" && node.value != null) ? node.value
+                           : (typeof node === "number" ? node : null); }
+  function kind(node){ return (node && typeof node === "object" && node.kind) ? node.kind : null; }
+  function fixed(v, d){ return (v == null || isNaN(v)) ? "not in the bundle" : Number(v).toFixed(d); }
+
+  var CAL = S.calibration || {}, MASS = S.masses || {}, TQ = S.torque || {},
+      RES = S.residuals || {}, REV = S.revision || {}, PREV = CAL.twin_preview || {};
+
+  var statusQuoScenario = (CAL.scenarios || []).filter(function(s){
+    return /12-bit encoder, 62 Hz/i.test(String(s.scenario || "")); })[0] || null;
+  var currentScenario = (CAL.scenarios || []).filter(function(s){
+    return /torque or current logged, 1 percent/i.test(String(s.scenario || "")); })[0] || null;
+
+  // One signal-to-noise number on this page. The identifiability JSON, identifiability.md and this
+  // card all use the summary's position_only block, computed at the document's reference joint speed.
+  // Before this, one note divided by a single log's peak speed and printed 0.04 beside the table's
+  // 0.10, and both were "right" for their own log; the ratio is speed dependent, so it is quoted once.
+  var SNR = {
+    value: num(CAL.position_only ? CAL.position_only.snr : null),
+    scenario: (CAL.position_only || {}).scenario || (statusQuoScenario || {}).scenario || "",
+    label: "friction torque at reference speed ÷ torque of one encoder count"
+  };
+
+  var currentParams = (CAL.current_channel || {}).params || [];
+  var coulomb = currentParams.filter(function(p){
+    return p.name === "coulomb_friction" && /shoulder/i.test(p.joint); })[0]
+    || currentParams.filter(function(p){ return p.name === "coulomb_friction"; })[0] || null;
+
+  var selfCollision = (S.checks || []).filter(function(c){ return c.id === "self_collision"; })[0] || null;
+  var scMeasured = (selfCollision && selfCollision.measured) || {};
+
+  var DATA = {
+    name: M.name || "so101",
+    tag: (M.package || {}).tag || null,
+    synthetic: META.synthetic === true,
+    source: META.source || "unknown",
+    counts: S.check_counts || {},
+    checks: (S.checks || []).map(function(c){
+      return { id: c.id, status: c.status, explanation: c.explanation || "" }; }),
+    masses: {
+      solid: num(MASS.solid_kg), print: num(MASS.print_kg), published: num(MASS.published_kg),
+      solidKind: kind(MASS.solid_kg), printKind: kind(MASS.print_kg), publishedKind: kind(MASS.published_kg),
+      deltaPercent: num(MASS.delta_percent), infillSaving: num(MASS.infill_saving_percent),
+      wall: num((MASS.assumptions || {}).wall_mm), infill: num((MASS.assumptions || {}).infill),
+      density: num((MASS.assumptions || {}).density_kg_m3), servoG: num((MASS.assumptions || {}).servo_g)
+    },
+    torque: {
+      poses: (TQ.static_poses || []).map(function(p){
+        return { pose: p.pose, compiled: num(p.compiled_nm), published: num(p.published_nm) }; }),
+      stall: num(TQ.limit_stall_nm), rated: num(TQ.rated_nm),
+      saturated: TQ.saturated === true, dynamicComparable: TQ.dynamic_comparable !== false,
+      dynamicReason: TQ.dynamic_reason || "", poseGate: num(TQ.pose_gate_mm),
+      poseSamples: TQ.pose_gate_samples_mm || [], basis: TQ.basis || ""
+    },
+    bodies: (R.bodies || []).map(function(b){
+      return { name: b.name, mass: b.mass_kg, assumed: !!b.assumed_density,
+               parts: b.parts, hulls: b.hulls }; }),
+    residuals: {
+      axisRms: num(RES.axis_rms_deg), axisWorst: num(RES.axis_worst_deg),
+      originMedian: num(RES.origin_median_mm), originP90: num(RES.origin_p90_mm),
+      originMax: num(RES.origin_max_mm), originNoConv: num(RES.origin_worst_no_conventions_mm),
+      linkLength: num(RES.link_length_mm)
+    },
+    revision: {
+      before: num(REV.infill_before), after: num(REV.infill_after),
+      massBefore: num(REV.mass_before_kg), massAfter: num(REV.mass_after_kg),
+      linksChanged: REV.links_changed,
+      effortBefore: num(REV.effort_before_nm), effortAfter: num(REV.effort_after_nm),
+      pctBefore: REV.effort_before_percent, pctAfter: REV.effort_after_percent,
+      deltaPercent: num((V.totals || {}).mass_delta_percent)
+    },
+    twin: {
+      snr: SNR,
+      rungs: (CAL.rungs || D.rungs || []).map(function(r){
+        return { rung: r.rung, name: r.name, reached: r.reached, note: r.note || "" }; }),
+      rungsTotal: CAL.rungs_total, rungsRecovered: CAL.rungs_recovered, stoppedAt: CAL.stopped_at_rung,
+      coulomb: coulomb ? { joint: coulomb.joint, recovered: coulomb.recovered, truth: coulomb.true }
+                       : null,
+      currentScenario: currentScenario ? currentScenario.snr : null,
+      rmseBefore: num(PREV.rmse_uncalibrated_mrad), rmseAfter: num(PREV.rmse_calibrated_mrad),
+      identified: PREV.identified, total: PREV.total, synthetic: PREV.synthetic !== false
+    },
+    selfCollision: {
+      deepestMm: scMeasured.deepest_m != null ? Math.abs(scMeasured.deepest_m) * 1000 : null,
+      pairs: scMeasured.non_adjacent_overlaps || [],
+      solidMm3: (function(){
+        var first = scMeasured.brep_distance_m || {}, key = Object.keys(first)[0];
+        if (!key) return null;
+        var v = first[key].intersection_m3;
+        return v == null ? null : v * 1e9;
+      })()
+    }
+  };
+  DATA.selfCollision.hulls = DATA.selfCollision.pairs.map(function(p){ return p.join(" / "); });
+
+  function mk(tag, cls, text){ var n = document.createElement(tag); if (cls) n.className = cls;
     if (text !== undefined && text !== null) n.textContent = String(text); return n; }
-  function dataRow(label, value, extra){
-    const row = mk('div', 'row');
-    const left = mk('span', null, label);
-    if (extra) left.appendChild(extra);
-    row.appendChild(left);
-    row.appendChild(mk('span', null, value === undefined || value === null ? '' : String(value)));
-    return row;
-  }
+  function row(label, value, cls){ var r = mk("div","row");
+    r.appendChild(mk("span","l",label)); r.appendChild(mk("span","v"+(cls?" "+cls:""),value));
+    return r; }
+  function bar(fraction, pub){ var b = mk("div","bar"+(pub?" pub":"")); var i = mk("i");
+    i.style.width = Math.max(0, Math.min(100, fraction*100)).toFixed(1)+"%"; b.appendChild(i); return b; }
+  function el(id){ return document.getElementById(id); }
 
-  function b64ToBytes(b64){
-    const bin = atob(b64), out = new Uint8Array(bin.length);
-    for (let i=0;i<bin.length;i++) out[i] = bin.charCodeAt(i);
-    return out.buffer;
-  }
-  const f32 = b64 => new Float32Array(b64ToBytes(b64));
-  const u32 = b64 => new Uint32Array(b64ToBytes(b64));
+  // header: product line, then the five tiles the voice's overview section points at
+  (function header(){
+    var parts = ["compiled from STEP"];
+    if (DATA.tag) parts.push("demo-bundle-" + DATA.tag);
+    el("subline").textContent = parts.join(" · ");
+    var kpis = el("kpis");
+    function add(id, k, v, extra){
+      var box = mk("div","kpi"); if (id) box.id = id;
+      box.appendChild(mk("div","k",k));
+      var vv = mk("div","v", v); if (extra) vv.appendChild(extra);
+      box.appendChild(vv); kpis.appendChild(box); return box;
+    }
+    var c = DATA.counts;
+    add(null, "checks", (c.pass != null ? c.pass : "?") + "/" + (c.fail != null ? c.fail : "?") +
+        "/" + (c.skipped != null ? c.skipped : "?"));
+    add("kpi-mass", "mass", fixed(DATA.masses.print, 3) + " kg", mk("em", null, " modelled"));
+    add(null, "axes", fixed(DATA.residuals.axisWorst, 2) + "°", mk("em", null, " worst"));
+    add(null, "origins", fixed(DATA.residuals.originMedian, 2) + " mm", mk("em", null, " median"));
+    add("kpi-package", "package", DATA.tag ? DATA.tag : "manifest.json",
+      mk("span", "pill " + (DATA.tag ? "ok" : "wa"), DATA.tag ? "tagged" : "no tag recorded"));
+  })();
 
-  const qpos = f32(TRAJ.qpos), qfrc = f32(TRAJ.qfrc);
-  const bodyPos = f32(TRAJ.body_pos), bodyMat = f32(TRAJ.body_mat);
-  const frames = META.frames, nq = META.nq, nbody = META.nbody;
+  // ---- 01 mass: the comparison the voice calls "comparison" -----------------------------------
+  (function massCard(){
+    var box = el("cmp");
+    var solid = DATA.masses.solid, print = DATA.masses.print, pub = DATA.masses.published;
+    var top = Math.max(solid || 0, print || 0, pub || 0) || 1;
+    // The bar takes the number, not the formatted string: passing "1.332 kg" here produced a NaN
+    // width, which the browser drops, so every bar drew full width and the three masses looked equal.
+    function line(label, valueKg, text, cls){
+      var wrap = mk("div","mline");
+      wrap.appendChild(row(label, text, cls));
+      wrap.appendChild(bar((valueKg == null ? 0 : valueKg) / top, cls !== "acc"));
+      box.appendChild(wrap);
+    }
+    line("solid · CAD volume × density", solid, fixed(solid, 3) + " kg");
+    line("print · " + fixed(DATA.masses.wall, 2) + " mm wall, " + fixed(DATA.masses.infill, 2) + " infill",
+         print, fixed(print, 3) + " kg", "acc");
+    line("published model (stated)", pub, fixed(pub, 3) + " kg");
+    box.appendChild(row("delta, print vs published", "+" + fixed(DATA.masses.deltaPercent, 1) + " %"));
+    box.appendChild(row("infill saves", fixed(DATA.masses.infillSaving, 0) + " % of solid"));
 
-  (function(){ /* the source line is written below, once the payloads that feed it are loaded */ })();
-  document.getElementById('p-source').textContent = META.source || 'unknown';
-  document.getElementById('p-synth').textContent = META.synthetic ? 'yes' : 'no';
-  document.getElementById('m-total').textContent = META.total_mass_kg.toFixed(3) + ' kg';
-  document.getElementById('m-bodies').textContent = nbody;
-  document.getElementById('m-frames').textContent = frames;
+    var minis = mk("div","minis");
+    var bodies = DATA.bodies.slice();
+    var heaviest = Math.max.apply(null, bodies.map(function(b){ return b.mass || 0; }).concat([0.0001]));
+    bodies.forEach(function(b){
+      var d = mk("div", b.assumed ? "hi" : "");
+      d.style.height = Math.max(2, Math.round(24 * (b.mass || 0) / heaviest)) + "px";
+      d.title = b.name + " " + fixed(b.mass, 4) + " kg" + (b.assumed ? " (assumed density)" : "");
+      minis.appendChild(d);
+    });
+    box.appendChild(minis);
+    box.appendChild(mk("div","mono", bodies.length + " links · assumed density flagged in detail"));
+    el("m-mass-kind").textContent = DATA.masses.printKind || "modelled";
+  })();
 
-  // ---- three.js scene ----
-  const stage = document.getElementById('stage');
-  const renderer = new THREE.WebGLRenderer({antialias:true});
+  // ---- 02 torque ------------------------------------------------------------------------------
+  (function torqueCard(){
+    var c = el("torque-chart"), ctx = c.getContext("2d");
+    var w = c.width, h = c.height, pad = 3;
+    var joint = 1; // shoulder_lift, the joint the kinematics note flags
+    var off = ((T.official || []).map(function(f){ return f[joint]; })),
+        comp = ((T.compiled || []).map(function(f){ return f[joint]; }));
+    var rated = DATA.torque.rated;
+    if (off.length && comp.length) {
+      var all = off.concat(comp);
+      var lo = Math.min.apply(null, all.concat(rated == null ? [] : [-rated])),
+          hi = Math.max.apply(null, all.concat(rated == null ? [] : [rated]));
+      var y = function(v){ return h - pad - (h - 2*pad) * ((v - lo) / ((hi - lo) || 1)); };
+      var x = function(i){ return pad + (w - 2*pad) * i / Math.max(1, off.length - 1); };
+      ctx.clearRect(0,0,w,h);
+      if (rated != null) {
+        ctx.strokeStyle = "#6b4a1c"; ctx.setLineDash([3,3]); ctx.lineWidth = 1;
+        [rated, -rated].forEach(function(v){ ctx.beginPath(); ctx.moveTo(pad,y(v));
+          ctx.lineTo(w-pad,y(v)); ctx.stroke(); });
+        ctx.setLineDash([]);
+      }
+      ctx.strokeStyle = "#6c7f93"; ctx.lineWidth = 1.1; ctx.beginPath();
+      off.forEach(function(v,i){ i ? ctx.lineTo(x(i),y(v)) : ctx.moveTo(x(i),y(v)); }); ctx.stroke();
+      ctx.strokeStyle = "#57d3a0"; ctx.lineWidth = 1.4; ctx.beginPath();
+      comp.forEach(function(v,i){ i ? ctx.lineTo(x(i),y(v)) : ctx.moveTo(x(i),y(v)); }); ctx.stroke();
+    }
+    // the moving-arm curves describe two different poses, so the rows below them are static ones
+    el("t-badge").textContent = DATA.torque.dynamicComparable ? "trajectory" : "static poses";
+    var statics = el("t-static");
+    DATA.torque.poses.forEach(function(p){
+      statics.appendChild(row(p.pose + " · compiled / published",
+        fixed(p.compiled, 3) + " / " + fixed(p.published, 3) + " N·m"));
+    });
+    statics.appendChild(row("stall / rated (datasheet)",
+      fixed(DATA.torque.stall, 2) + " / " + fixed(DATA.torque.rated, 2) + " N·m"));
+    if (DATA.torque.poseGate != null) {
+      statics.appendChild(row("moving-arm gate", fixed(DATA.torque.poseGate, 2) + " mm"));
+    }
+  })();
+
+  // ---- 03 joints ------------------------------------------------------------------------------
+  var jointRows = [];
+  (function jointsCard(){
+    var box = el("joint-body");
+    var joints = META.joints || [];
+    joints.forEach(function(j){
+      var wrap = mk("div","mline");
+      var r = mk("div","row");
+      var label = j.name;
+      if (j.range) {
+        label += " " + Number(j.range[0]).toFixed(2) + "…" + Number(j.range[1]).toFixed(2);
+      }
+      r.appendChild(mk("span","l", label));
+      var v = mk("span","v","–"); r.appendChild(v);
+      wrap.appendChild(r);
+      var track = mk("div","bar"); var fill = mk("i"); fill.style.width = "50%";
+      track.appendChild(fill); wrap.appendChild(track);
+      box.appendChild(wrap);
+      jointRows.push({ v: v, fill: fill, range: j.range });
+    });
+    el("j-src").textContent = joints.length + " joints · live";
+  })();
+
+  // ---- 04 checks ------------------------------------------------------------------------------
+  (function checksCard(){
+    var box = el("checks");
+    DATA.checks.forEach(function(c){
+      var b = mk("button","crow"); b.dataset.check = c.id;
+      b.appendChild(mk("span","dot "+c.status));
+      b.appendChild(mk("span","n", c.id));
+      b.appendChild(mk("span","st st-"+c.status, c.status === "skipped" ? "skip" : c.status));
+      b.title = c.explanation || c.id;
+      b.addEventListener("click", function(){ openDrawer("checks"); });
+      box.appendChild(b);
+    });
+    var c = DATA.counts;
+    var counts = mk("div","mono");
+    counts.style.gridColumn = "1 / -1";
+    counts.textContent = (c.pass != null ? c.pass : "?") + " pass · " +
+      (c.fail != null ? c.fail : "?") + " fail · " + (c.skipped != null ? c.skipped : "?") + " skipped";
+    box.appendChild(counts);
+    el("c-count").textContent = DATA.checks.length + " checks";
+  })();
+
+  // ---- 05 links -------------------------------------------------------------------------------
+  var isolateBody = null;
+  var linkChips = [];
+  (function linksCard(){
+    var box = el("link-list");
+    var byName = {};
+    DATA.bodies.forEach(function(b){ byName[b.name] = b; });
+    (META.bodies || []).forEach(function(mb, i){
+      if (i === 0) return; // world
+      var b = byName[mb.name] || { name: mb.name, mass: mb.mass, assumed: false };
+      var chip = mk("button","chip");
+      chip.appendChild(mk("span","n", b.name));
+      chip.appendChild(mk("span","m", fixed(b.mass, 4) + " kg"));
+      chip.title = b.name + (b.assumed ? " · assumed density" : "") + " · click to isolate";
+      chip.addEventListener("click", function(){ isolate(i); });
+      box.appendChild(chip);
+      linkChips.push(chip);
+    });
+  })();
+
+  // ---- 06 display -----------------------------------------------------------------------------
+  var state = { labels: true, exploded: false, turntable: true, com: false, collision: false };
+  var toggles = [["LABELS","labels"], ["EXPLODED","exploded"], ["TURNTABLE","turntable"],
+                 ["CoM","com"], ["SELF-COLLISION","collision"]];
+  (function displayCard(){
+    var box = el("togs");
+    toggles.forEach(function(pair){
+      var b = mk("button","tog", pair[0]);
+      b.setAttribute("aria-pressed", String(!!state[pair[1]]));
+      b.addEventListener("click", function(){
+        state[pair[1]] = !state[pair[1]];
+        b.setAttribute("aria-pressed", String(state[pair[1]]));
+        applyState();
+      });
+      box.appendChild(b);
+    });
+  })();
+
+  // ---- 07 twin --------------------------------------------------------------------------------
+  (function twinCard(){
+    var box = el("rungs"), seen = new Map();
+    DATA.twin.rungs.forEach(function(r){
+      if (!seen.has(r.rung)) seen.set(r.rung, []);
+      seen.get(r.rung).push(r);
+    });
+    Array.from(seen.keys()).sort(function(a,b){ return a-b; }).forEach(function(n){
+      var rows = seen.get(n);
+      var reached = rows.every(function(r){ return r.reached; });
+      var b = mk("button","rung " + (reached ? "ok" : "no"), String(n));
+      b.title = "rung " + n + ": " + rows.map(function(r){ return r.name; }).join("; ") +
+        " — " + (reached ? "recovered" : "blocked");
+      b.addEventListener("click", function(){ openDrawer("twin"); });
+      box.appendChild(b);
+    });
+    var line = [];
+    if (DATA.twin.stoppedAt != null) line.push("position-only blocked at rung " + DATA.twin.stoppedAt);
+    if (DATA.twin.coulomb && DATA.twin.coulomb.recovered != null && DATA.twin.coulomb.truth != null) {
+      line.push("current channel recovers Coulomb " + fixed(DATA.twin.coulomb.recovered, 3) +
+        " vs " + fixed(DATA.twin.coulomb.truth, 3));
+    }
+    el("twin-line").textContent = line.join(" · ");
+    el("twin-snr").textContent = DATA.twin.snr.value == null
+      ? "SNR not in the bundle"
+      : "SNR " + fixed(DATA.twin.snr.value, 2) + " · " + DATA.twin.snr.label;
+  })();
+
+  // ---------------------------------------------------------------------------------------------
+  // 3D stage
+  // ---------------------------------------------------------------------------------------------
+  function b64ToBytes(b64){ var bin = atob(b64), out = new Uint8Array(bin.length);
+    for (var i=0;i<bin.length;i++) out[i] = bin.charCodeAt(i); return out.buffer; }
+  var f32 = function(b64){ return new Float32Array(b64ToBytes(b64)); };
+  var u32 = function(b64){ return new Uint32Array(b64ToBytes(b64)); };
+
+  var qpos = f32(TRAJ.qpos), bodyPos = f32(TRAJ.body_pos), bodyMat = f32(TRAJ.body_mat);
+  var frames = META.frames || 1, nq = META.nq || 0, nbody = META.nbody || 0;
+  var BODIES = META.bodies || [];
+
+  var stage = el("stage");
+  var renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   stage.appendChild(renderer.domElement);
-  const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0b0e13);
-  const camera = new THREE.PerspectiveCamera(38, 1, 0.005, 50);
-
+  var scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0a0d12);
+  var camera = new THREE.PerspectiveCamera(38, 1, 0.005, 50);
   scene.add(new THREE.HemisphereLight(0xdff0ff, 0x22303d, 1.15));
-  const key = new THREE.DirectionalLight(0xffffff, 1.5); key.position.set(0.4, 0.9, 0.7); scene.add(key);
-  const rim = new THREE.DirectionalLight(0x7fb6ff, 0.7); rim.position.set(-0.7, 0.4, -0.6); scene.add(rim);
-  // The grid is the floor, and it is moved to the model's own floor after the bounds are known.
-  // Left at y=0 it cuts straight through a robot whose base sits below the origin, which is what
-  // those horizontal lines across the arm were: the grid drawn through the body.
-  const grid = new THREE.GridHelper(1.2, 24, 0x24303f, 0x18212c);
-  grid.material.transparent = true; grid.material.opacity = 0.45;
-  scene.add(grid);
+  var key = new THREE.DirectionalLight(0xffffff, 1.5); key.position.set(0.4,0.9,0.7); scene.add(key);
+  var rim = new THREE.DirectionalLight(0x7fb6ff, 0.7); rim.position.set(-0.7,0.4,-0.6); scene.add(rim);
+  var grid = new THREE.GridHelper(1.2, 24, 0x24303f, 0x18212c);
+  grid.material.transparent = true; grid.material.opacity = 0.4; scene.add(grid);
 
-  const bodyGroups = [];
-  for (let b=0;b<nbody;b++){
-    const g = new THREE.Group();
-    g.matrixAutoUpdate = false;
-    scene.add(g); bodyGroups.push(g);
-  }
+  var bodyGroups = [];
+  for (var b0=0;b0<nbody;b0++){ var g0 = new THREE.Group(); g0.matrixAutoUpdate = false;
+    scene.add(g0); bodyGroups.push(g0); }
 
-  const geometries = new Map();
-  let triTotal = 0;
-  for (const m of MESHES){
-    const verts = f32(m.verts), idx = u32(m.faces);
-    const geom = new THREE.BufferGeometry();
-    geom.setAttribute('position', new THREE.BufferAttribute(verts.slice(), 3));
-    geom.setIndex(new THREE.BufferAttribute(idx.slice(), 1));
+  var geometries = new Map(), triTotal = 0;
+  MESHES.forEach(function(m){
+    var geom = new THREE.BufferGeometry();
+    geom.setAttribute("position", new THREE.BufferAttribute(f32(m.verts).slice(), 3));
+    geom.setIndex(new THREE.BufferAttribute(u32(m.faces).slice(), 1));
     geom.computeVertexNormals();
-    geometries.set(m.id, geom);
-    triTotal += m.count;
-  }
+    geometries.set(m.id, geom); triTotal += m.count;
+  });
 
-  const mats = new Map();
+  var mats = new Map();
   function materialFor(body){
     if (!mats.has(body)) mats.set(body, new THREE.MeshStandardMaterial({
       color: new THREE.Color().setHSL(0.56 - 0.04*body, 0.28, 0.62),
-      metalness:0.15, roughness:0.55, flatShading:false, side:THREE.DoubleSide
-    }));
+      metalness: 0.15, roughness: 0.55, side: THREE.DoubleSide }));
     return mats.get(body);
   }
-
-  for (const g of (META.geoms||[])){
-    const geom = geometries.get(g.mesh);
-    if (!geom) continue;
-    const mesh = new THREE.Mesh(geom, materialFor(g.body));
-    const q = g.quat || [1,0,0,0], p = g.pos || [0,0,0];
+  (META.geoms || []).forEach(function(g){
+    var geom = geometries.get(g.mesh); if (!geom) return;
+    var mesh = new THREE.Mesh(geom, materialFor(g.body));
+    var q = g.quat || [1,0,0,0], p = g.pos || [0,0,0];
     mesh.userData.geomIndex = g.geom;
     mesh.quaternion.set(q[1], q[2], q[3], q[0]);
     mesh.position.set(p[0], p[1], p[2]);
     bodyGroups[g.body].add(mesh);
-  }
+  });
 
-  // CoM markers, one per body
-  const comDots = [];
-  for (let b=0;b<nbody;b++){
-    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.006, 10, 8),
-      new THREE.MeshBasicMaterial({color:0xffd166}));
+  var comDots = [];
+  for (var b1=0;b1<nbody;b1++){
+    var dot = new THREE.Mesh(new THREE.SphereGeometry(0.006, 10, 8),
+      new THREE.MeshBasicMaterial({ color: 0xffd166 }));
     dot.visible = false; scene.add(dot); comDots.push(dot);
   }
 
-  let frame = Math.floor(frames/2);
-  const m4 = new THREE.Matrix4();
+  var frame = Math.floor(frames/2);
+  var m4 = new THREE.Matrix4();
   function applyFrame(f){
-    const base = f*nbody*3, mbase = f*nbody*9;
-    for (let b=0;b<nbody;b++){
-      const px=bodyPos[base+b*3], py=bodyPos[base+b*3+1], pz=bodyPos[base+b*3+2];
+    var base = f*nbody*3, mbase = f*nbody*9;
+    for (var b=0;b<nbody;b++){
       m4.set(
-        bodyMat[mbase+b*9+0], bodyMat[mbase+b*9+1], bodyMat[mbase+b*9+2], px,
-        bodyMat[mbase+b*9+3], bodyMat[mbase+b*9+4], bodyMat[mbase+b*9+5], py,
-        bodyMat[mbase+b*9+6], bodyMat[mbase+b*9+7], bodyMat[mbase+b*9+8], pz,
+        bodyMat[mbase+b*9],   bodyMat[mbase+b*9+1], bodyMat[mbase+b*9+2], bodyPos[base+b*3],
+        bodyMat[mbase+b*9+3], bodyMat[mbase+b*9+4], bodyMat[mbase+b*9+5], bodyPos[base+b*3+1],
+        bodyMat[mbase+b*9+6], bodyMat[mbase+b*9+7], bodyMat[mbase+b*9+8], bodyPos[base+b*3+2],
         0,0,0,1);
       bodyGroups[b].matrix.copy(m4);
       bodyGroups[b].matrixWorldNeedsUpdate = true;
-      comDots[b].position.set(px,py,pz);
+      comDots[b].position.set(bodyPos[base+b*3], bodyPos[base+b*3+1], bodyPos[base+b*3+2]);
     }
-    // joint readouts
-    const q0 = f*nq;
-    for (let j=0;j<nq;j++){
-      const el = jEls[j]; if(!el) continue;
-      el.angle.textContent = (qpos[q0+j]).toFixed(3) + ' rad';
-      el.torque.textContent = window.SO101_TORQUE ? 'see torque panel' : 'n/a (no actuators)';
+    var q0 = f*nq;
+    for (var j=0;j<nq;j++){
+      var r = jointRows[j]; if (!r) continue;
+      var angle = qpos[q0+j];
+      r.v.textContent = angle.toFixed(3) + " rad";
+      var lo = r.range ? r.range[0] : -1, hi = r.range ? r.range[1] : 1;
+      r.fill.style.width = ((Math.max(lo, Math.min(hi, angle)) - lo) / ((hi - lo) || 1) * 100)
+        .toFixed(1) + "%";
     }
-    hudEl.textContent = 't = ' + (f/META.hz).toFixed(2) + ' s  ·  frame ' + f + '/' + frames;
+    el("hud-t").textContent = "t " + (f/(META.hz || 100)).toFixed(2) + " s · frame " + f + "/" + frames;
+    el("clock").textContent = "";
+    el("clock").appendChild(mk("b", null, (f/(META.hz || 100)).toFixed(2) + " s"));
+    el("clock").appendChild(document.createTextNode(" · frame " + f + "/" + frames));
+    var scrub = el("scrubber");
+    if (scrub && String(scrub.value) !== String(f)) scrub.value = f;
   }
 
-  // panels
-  const linksEl = document.getElementById('links');
-  const maxMass = Math.max(...META.bodies.map(b=>b.mass));
-  const linkEls = [];
-  META.bodies.forEach((b,i)=>{
-    if (i===0) return; // world
-    const row = document.createElement('div');
-    row.appendChild(dataRow(b.name, b.mass.toFixed(4) + ' kg'));
-    const bar = mk('div', 'bar'); const fill = mk('i');
-    fill.style.width = (100*b.mass/maxMass).toFixed(1) + '%';
-    bar.appendChild(fill); row.appendChild(bar);
-    linksEl.appendChild(row);
-    linkEls.push({body:i, el:row});
-  });
-  linkEls.forEach(o=>{
-    o.el.style.cursor='pointer';
-    o.el.title='click to isolate this link';
-    o.el.addEventListener('click', ()=>isolate(o.body));
-  });
-
-  const jointsEl = document.getElementById('joints');
-  const jEls = META.joints.map(j=>{
-    const row = document.createElement('div');
-    const nameRow = dataRow(j.name, '');
-    const torqueRow = dataRow('actuator', '');
-    torqueRow.style.paddingTop = '0'; torqueRow.style.color = '#8b97a8';
-    row.appendChild(nameRow); row.appendChild(torqueRow);
-    jointsEl.appendChild(row);
-    return {angle: nameRow.lastChild, torque: torqueRow.lastChild};
-  });
-
-  document.getElementById('m-tris').textContent = triTotal.toLocaleString();
-
-  // The header's provenance line. Every figure in it comes from a payload: the tag from manifest.js,
-  // which the packager writes from manifest.json and checks against a real tag ref; the triangle
-  // counts from the meshes this page loaded and from the bundle's own report. A hard-coded
-  // "128k of 620k" kept saying that after the payload changed, and "demo-bundle-v1" kept naming a
-  // tag the package was not cut from.
-  function setSourceLine(){
-    const R = window.SO101_REPORT, M = window.SO101_MANIFEST;
-    const line = document.getElementById('srcline');
-    line.textContent = 'source: ';
-    line.appendChild(mk('b', null, (M && M.name) || META.source || 'unknown'));
-    const tag = M && M.package ? M.package.tag : null;
-    line.appendChild(document.createTextNode(
-      ' · packaged ' + (tag || 'tag not recorded in manifest.json')));
-    const bundleTris = R && R.totals ? R.totals.visual_triangles : null;
-    if (bundleTris) {
-      line.appendChild(document.createTextNode(
-        ' · ' + Math.round(triTotal / 1000) + 'k of ' + Math.round(bundleTris / 1000) +
-        'k triangles'));
-    }
-    if (R) {
-      line.appendChild(document.createTextNode(
-        ' · checks: ' + R.worst_check + ' (' + R.checks.filter(c => c.status === 'pass').length +
-        ' of ' + R.checks.length + ' pass)'));
-    }
-  }
-  setSourceLine();
-
-  // interaction
-  let az = 0.9, el = 0.35, dist = 0.75, target = new THREE.Vector3(0.0, 0.16, 0.0);
-  // The opening shot orbits slowly until someone touches it, and stays still after that: the page
-  // is left open in front of a person or on a recording, and a still edge-on view of a folded arm
-  // reads as a lump. `orbit` is cleared for good on the first pointer or wheel event.
-  let orbit = true;
-  const ORBIT_RADIANS_PER_SECOND = 0.12;
+  var az = 0.9, po = 0.35, dist = 0.75, target = new THREE.Vector3(0, 0.16, 0);
   function placeCamera(){
-    camera.position.set(
-      target.x + dist*Math.cos(el)*Math.cos(az),
-      target.y + dist*Math.sin(el),
-      target.z + dist*Math.cos(el)*Math.sin(az));
+    camera.position.set(target.x + dist*Math.cos(po)*Math.cos(az),
+                        target.y + dist*Math.sin(po),
+                        target.z + dist*Math.cos(po)*Math.sin(az));
     camera.lookAt(target);
   }
-  let drag=false, lx=0, ly=0;
-  renderer.domElement.addEventListener('pointerdown', e=>{drag=true;orbit=false;lx=e.clientX;ly=e.clientY;});
-  addEventListener('pointerup', ()=>drag=false);
-  addEventListener('pointermove', e=>{
-    if(!drag) return;
-    az -= (e.clientX-lx)*0.008; el = Math.max(-1.2, Math.min(1.3, el + (e.clientY-ly)*0.006));
-    lx=e.clientX; ly=e.clientY; placeCamera();
+  var drag = false, lx = 0, ly = 0;
+  renderer.domElement.addEventListener("pointerdown", function(e){
+    drag = true; state.turntable = false; syncToggles(); lx = e.clientX; ly = e.clientY; });
+  addEventListener("pointerup", function(){ drag = false; });
+  addEventListener("pointermove", function(e){
+    if (!drag) return;
+    az -= (e.clientX-lx)*0.008;
+    po = Math.max(-1.2, Math.min(1.3, po + (e.clientY-ly)*0.006));
+    lx = e.clientX; ly = e.clientY; placeCamera();
   });
-  renderer.domElement.addEventListener('wheel', e=>{
-    e.preventDefault(); orbit=false;
+  renderer.domElement.addEventListener("wheel", function(e){
+    e.preventDefault(); state.turntable = false; syncToggles();
     dist = Math.max(0.18, Math.min(3.0, dist * (1 + Math.sign(e.deltaY)*0.08)));
     placeCamera();
-  }, {passive:false});
+  }, { passive: false });
 
-  let playing = true, exploded = false, showCom = false, isolated = null;
-  const playBtn = document.getElementById('b-play');
-  playBtn.onclick = ()=>{ playing = !playing; playBtn.textContent = playing?'Pause':'Play';
-                          playBtn.setAttribute('aria-pressed', String(playing)); };
-  const expBtn = document.getElementById('b-explode');
-  expBtn.onclick = ()=>{ exploded = !exploded; expBtn.setAttribute('aria-pressed', String(exploded));
-    bodyGroups.forEach((g,i)=>{ g.position.setScalar(0); });
-    if (exploded) applyExplode(); };
-  const comBtn = document.getElementById('b-com');
-  comBtn.onclick = ()=>{ showCom = !showCom; comBtn.setAttribute('aria-pressed', String(showCom));
-    comDots.forEach(d=>d.visible = showCom); };
-  document.getElementById('b-reset').onclick = ()=>{ az=0.9; el=0.35; dist=0.75; placeCamera(); isolate(null); };
-
-  const explodeOffsets = new Map();
-  function applyExplode(){
-    // offset each body along its parent-to-child direction in world space
-    for (let b=1;b<nbody;b++){
-      const parent = META.bodies[b].parent;
-      const f = frame;
-      const bp = f*nbody*3;
-      const dx = bodyPos[bp+b*3] - bodyPos[bp+parent*3];
-      const dy = bodyPos[bp+b*3+1] - bodyPos[bp+parent*3+1];
-      const dz = bodyPos[bp+b*3+2] - bodyPos[bp+parent*3+2];
-      const len = Math.hypot(dx,dy,dz) || 1;
-      explodedOffsets.set(b, [dx/len*0.045, dy/len*0.045, dz/len*0.045]);
-    }
+  function syncToggles(){
+    var box = el("togs");
+    toggles.forEach(function(pair, i){
+      var b = box.children[i];
+      if (b) b.setAttribute("aria-pressed", String(!!state[pair[1]]));
+    });
   }
 
-  function isolate(body){
-    isolated = (isolated === body) ? null : body;
-    bodyGroups.forEach((g,i)=>{ g.visible = (isolated===null) || (i===isolated); });
-    linkEls.forEach(o=>{ o.el.style.opacity = (isolated===null||o.body===isolated) ? '1' : '0.35'; });
+  // self-collision: the pair the checks found, tinted rather than described. Names come from the
+  // report, so a bundle whose overlap is elsewhere tints that pair instead.
+  var flagged = [];
+  DATA.selfCollision.pairs.forEach(function(pair){
+    pair.forEach(function(name){
+      for (var i=1;i<BODIES.length;i++){
+        if (String(BODIES[i].name).toLowerCase() === String(name).toLowerCase() && flagged.indexOf(i) < 0) {
+          flagged.push(i);
+        }
+      }
+    });
+  });
+  function applyState(){
+    comDots.forEach(function(d){ d.visible = state.com; });
+    bodyGroups.forEach(function(g, i){
+      var on = state.collision && flagged.indexOf(i) >= 0;
+      g.traverse(function(o){
+        if (o.isMesh && o.material && o.material.emissive) {
+          o.material.emissive.setHex(on ? 0x5a1f1f : 0x000000);
+        }
+      });
+      g.visible = (isolateBody == null) || (i === isolateBody);
+    });
+    callout.style.display = (state.labels && DATA.selfCollision.deepestMm != null) ? "" : "none";
+    leader.style.display = callout.style.display;
+  }
+
+  var explosion = new Map();
+  function updateExplosion(){
+    for (var b=1;b<nbody;b++){
+      var parent = (BODIES[b] || {}).parent;
+      if (parent == null) continue;
+      var bp = frame*nbody*3;
+      var dx = bodyPos[bp+b*3] - bodyPos[bp+parent*3];
+      var dy = bodyPos[bp+b*3+1] - bodyPos[bp+parent*3+1];
+      var dz = bodyPos[bp+b*3+2] - bodyPos[bp+parent*3+2];
+      var len = Math.hypot(dx,dy,dz) || 1;
+      explosion.set(b, [dx/len*0.04, dy/len*0.04, dz/len*0.04]);
+    }
+  }
+  var offMatrix = new THREE.Matrix4();
+  function applyExplosion(){
+    for (var b=1;b<nbody;b++){
+      var o = explosion.get(b); if (!o) continue;
+      offMatrix.makeTranslation(o[0], o[1], o[2]);
+      bodyGroups[b].matrix.premultiply(offMatrix);
+      bodyGroups[b].matrixWorldNeedsUpdate = true;
+    }
+  }
+  function isolate(idx){
+    isolateBody = (isolateBody === idx) ? null : idx;
+    applyState();
+    linkChips.forEach(function(c, i){ c.classList.toggle("on", isolateBody === i); });
   }
 
   function resize(){
-    const w = stage.clientWidth, h = stage.clientHeight;
+    var w = stage.clientWidth, h = stage.clientHeight;
+    if (!w || !h) return;
     renderer.setSize(w, h, false);
     camera.aspect = w/h; camera.updateProjectionMatrix();
   }
-  addEventListener('resize', resize);
+  addEventListener("resize", resize);
 
-  const hudEl = document.getElementById('hud');
-  // The opening pose: the frame whose body origins span the largest box, which is the most extended
-  // and so the most readable shape the trajectory contains. The old choice (frames/2) opened on a
-  // folded arm seen down its own axis: a lump, not a robot.
+  // opening pose: the frame whose body origins span the largest box, the most readable shape
   (function pickReadableFrame(){
-    let best = frame, bestSpan = -1;
-    const step = Math.max(1, Math.round(frames / 150));
-    for (let f = 0; f < frames; f += step){
-      const base = f*nbody*3;
-      let minX=Infinity, minY=Infinity, minZ=Infinity, maxX=-Infinity, maxY=-Infinity, maxZ=-Infinity;
-      for (let b=0;b<nbody;b++){
-        const x=bodyPos[base+b*3], y=bodyPos[base+b*3+1], z=bodyPos[base+b*3+2];
-        if (x<minX) minX=x; if (x>maxX) maxX=x;
-        if (y<minY) minY=y; if (y>maxY) maxY=y;
-        if (z<minZ) minZ=z; if (z>maxZ) maxZ=z;
+    var best = frame, bestSpan = -1, step = Math.max(1, Math.round(frames/150));
+    for (var f=0; f<frames; f+=step){
+      var base = f*nbody*3;
+      var mnx=1e9,mny=1e9,mnz=1e9,mxx=-1e9,mxy=-1e9,mxz=-1e9;
+      for (var b=0;b<nbody;b++){
+        var x=bodyPos[base+b*3], y=bodyPos[base+b*3+1], z=bodyPos[base+b*3+2];
+        if (x<mnx) mnx=x; if (x>mxx) mxx=x;
+        if (y<mny) mny=y; if (y>mxy) mxy=y;
+        if (z<mnz) mnz=z; if (z>mxz) mxz=z;
       }
-      const span = Math.hypot(maxX-minX, maxY-minY, maxZ-minZ);
+      var span = Math.hypot(mxx-mnx, mxy-mny, mxz-mnz);
       if (span > bestSpan){ bestSpan = span; best = f; }
     }
     frame = best;
   })();
   applyFrame(frame);
-  // frame the model from its own bounds instead of a guessed camera distance
   (function frameModel(){
-    const box = new THREE.Box3();
-    bodyGroups.forEach(g => { g.updateMatrixWorld(true); box.expandByObject(g); });
+    var box = new THREE.Box3();
+    bodyGroups.forEach(function(g){ g.updateMatrixWorld(true); box.expandByObject(g); });
     if (!box.isEmpty()){
       box.getCenter(target);
-      const size = box.getSize(new THREE.Vector3());
-      dist = Math.max(0.25, size.length() * 1.45);
-      // the grid is the floor: put it under the model and size it to the model's footprint, so it
-      // does not draw lines through the body
-      grid.position.y = box.min.y - size.y * 0.02;
-      grid.scale.setScalar(Math.max(0.5, Math.max(size.x, size.z) / 1.2));
-      // a 3/4 view, 45 degrees off the model's longest horizontal axis rather than down it
-      az = Math.atan2(size.z, size.x) + Math.PI * 0.25;
-      el = 0.30;
+      var size = box.getSize(new THREE.Vector3());
+      dist = Math.max(0.25, size.length()*1.20);
+      grid.position.y = box.min.y - size.y*0.02;
+      grid.scale.setScalar(Math.max(0.5, Math.max(size.x, size.z)/1.2));
+      az = Math.atan2(size.z, size.x) + Math.PI*0.25;
+      po = 0.30;
     }
   })();
   placeCamera(); resize();
-  document.getElementById('load').remove();
+  var loadEl = el("load"); if (loadEl && loadEl.parentNode) loadEl.parentNode.removeChild(loadEl);
 
-  let t0 = performance.now(), last = 0;
+  // callout: anchored on the first body of the overlapping pair, projected each frame
+  var callout = el("callout"), leader = el("leaderline");
+  (function fillCallout(){
+    callout.textContent = "";
+    if (DATA.selfCollision.deepestMm == null) return;
+    callout.appendChild(mk("b", null, "self-collision"));
+    callout.appendChild(document.createTextNode(
+      " · hulls " + DATA.selfCollision.deepestMm.toFixed(1) + " mm"));
+    if (DATA.selfCollision.solidMm3 != null) {
+      callout.appendChild(document.createTextNode(
+        " · solids touch " + DATA.selfCollision.solidMm3.toFixed(2) + " mm³"));
+    }
+  })();
+  var wristIndex = flagged.length ? flagged[0] : Math.max(1, nbody-1);
+  var projV = new THREE.Vector3();
+  function positionCallout(){
+    if (callout.style.display === "none") return;
+    var w = stage.clientWidth, h = stage.clientHeight;
+    if (!w || !h) return;
+    var bp = frame*nbody*3;
+    projV.set(bodyPos[bp+wristIndex*3], bodyPos[bp+wristIndex*3+1], bodyPos[bp+wristIndex*3+2]);
+    projV.project(camera);
+    var x = Math.max(72, Math.min(w-72, (projV.x*0.5+0.5)*w));
+    var y = Math.max(42, Math.min(h-8, (-projV.y*0.5+0.5)*h));
+    callout.style.left = x + "px";
+    callout.style.top = (y - 12) + "px";
+    leader.setAttribute("x1", x); leader.setAttribute("y1", y - 12);
+    leader.setAttribute("x2", x + 14); leader.setAttribute("y2", y + 10);
+  }
+
+  var playing = true, tPrev = performance.now();
+  el("b-play").addEventListener("click", function(){
+    playing = !playing;
+    var b = el("b-play");
+    b.textContent = playing ? "pause" : "play";
+    b.setAttribute("aria-pressed", String(playing));
+  });
+  el("scrubber").addEventListener("input", function(e){
+    playing = false;
+    var b = el("b-play"); b.textContent = "play"; b.setAttribute("aria-pressed","false");
+    frame = Number(e.target.value) % frames; applyFrame(frame);
+  });
+
   function loop(now){
     requestAnimationFrame(loop);
-    const dt = (now - t0)/1000; t0 = now;
-    if (orbit && !drag){
-      az += ORBIT_RADIANS_PER_SECOND * Math.min(dt, 0.1);
-      placeCamera();
-    }
+    var dt = (now - tPrev)/1000; tPrev = now;
+    if (state.turntable && !drag){ az += 0.12 * Math.min(dt, 0.1); placeCamera(); }
     if (playing){
-      frame = (frame + Math.round(dt*META.hz)) % frames;
+      frame = (frame + Math.round(dt*(META.hz||100))) % frames;
       applyFrame(frame);
-      if (exploded){
-        applyExplode();
-        for (let b=1;b<nbody;b++){
-          const o = explodedOffsets.get(b); if(!o) continue;
-          const off = new THREE.Matrix4().makeTranslation(o[0],o[1],o[2]);
-          bodyGroups[b].matrix.premultiply(off);
-        }
-      }
+      if (state.exploded) { updateExplosion(); applyExplosion(); }
     }
+    positionCallout();
     renderer.render(scene, camera);
   }
-  applyFrame(frame);
+  updateExplosion();
+  applyState();
+  resize();
   requestAnimationFrame(loop);
 
-  // ---- compiled report panel: checks, comparison, revision, and the provenance line ----
-  (function reportPanel(){
-    const R = window.SO101_REPORT;
-    if (!R) return;
-    const order = ['pass','skipped','warn','fail'];
-    const grp = document.getElementById('checks-grp');
-    grp.style.display = '';
-    const box = document.getElementById('checks');
-    R.checks.forEach(c => {
-      const allowed = {pass: 1, warn: 1, fail: 1, skipped: 1};
-      const status = allowed[c.status] ? c.status : 'skipped';
-      const row = mk('div', 'check');
-      row.appendChild(mk('span', null, c.id));
-      row.appendChild(mk('span', 'st st-' + status, status));
-      box.appendChild(row);
-      const detail = document.createElement('div');
-      detail.className = 'check-detail';
-      const m = c.measured || {};
-      let txt = c.explanation || '';
-      if (c.id === 'self_collision' && m.non_adjacent_overlaps && m.non_adjacent_overlaps.length) {
-        const deepest = m.deepest_m !== undefined ? ' overlaps ' +
-          Math.abs(m.deepest_m * 1000).toFixed(1) + ' mm at rest' : '';
-        // the hulls overlap; the CAD solids do not. Saying only the first would overclaim, and
-        // saying only the second would hide what the simulator will actually do.
-        txt = m.non_adjacent_overlaps.map(p => p.join(' / ')).join('; ') + deepest +
-              '. Convex hulls overlap there; the B-rep solids touch and share 0.52 mm3, which is ' +
-              'contact-scale, not a joint. MuJoCo will act on a contact the CAD does not have.';
-      } else if (c.id === 'pose_equivalence' && m.rest_error_m !== undefined) {
-        txt = 'rest error ' + m.rest_error_m + ' m over ' + (m.samples||0) + ' configurations';
-      } else if (c.id === 'limits_and_effort' && m.no_limit && m.no_limit.length) {
-        txt = m.no_limit.length + ' joints carry no limits; source unstated';
-      }
-      if (txt) detail.textContent = txt;
-      if (!txt) return;
-      box.appendChild(detail);
-    });
-
-    const cmpGrp = document.getElementById('cmp-grp');
-    const cmp = R.comparison;
-    if (cmp && cmp.ours_total_kg != null && cmp.theirs_total_kg != null) {
-      cmpGrp.style.display = '';
-      const el = document.getElementById('cmp');
-      // Four columns once the print model exists: solid upper bound, print estimate, the interval
-      // around that estimate, and the published figure. Falling back to two columns while the fields
-      // are absent, so the page is honest either way rather than showing a stale pair as if new.
-      // solid upper bound, print model estimate, published figure, and the gap between the last two.
-      // A single "ours" number would hide that the printed mass is a model, not a measurement.
-      const rows = [];
-      const S = window.SO101_SUMMARY || {};
-      const MASS = S.masses || {};
-      const val0 = node => (node && node.value != null ? node.value : null);
-      const solidKg = val0(MASS.solid_kg), printKg = val0(MASS.print_kg);
-      const publishedKg = val0(MASS.published_kg);
-      const deltaPct = val0(MASS.delta_percent), savingPct = val0(MASS.infill_saving_percent);
-      if (solidKg != null) rows.push(['solid upper bound', solidKg.toFixed(3) + ' kg']);
-      if (printKg != null) rows.push(['print model', printKg.toFixed(3) + ' kg']);
-      if (publishedKg != null) rows.push(['published', publishedKg.toFixed(3) + ' kg']);
-      if (deltaPct != null) {
-        rows.push(['delta, print vs published', (deltaPct >= 0 ? '+' : '') + deltaPct.toFixed(1) + ' %']);
-      }
-      if (savingPct != null) rows.push(['infill saves', savingPct.toFixed(0) + ' % of solid']);
-      rows.forEach(([k, v]) => el.appendChild(dataRow(k, v)));
-      const note = document.createElement('div'); note.className = 'hint';
-      const flagged = (cmp.bodies || []).filter(b => b.assumed_density).length;
-      note.textContent = 'print model assumes 1.2 mm walls and 0.20 infill, so printed mass is a ' +
-        'range rather than a measurement; ' + flagged + ' of ' + (cmp.bodies || []).length +
-        ' bodies rest on an assumed density. Servos use datasheet mass through their CAD envelope.';
-      const al = cmp.alignment;
-      if (al) {
-        // Every figure in this paragraph comes from the summary section, which reads the same
-        // files. "2.50 mm median" was typed in here before, and a typed number is one edit away
-        // from contradicting the JSON that the voice quotes.
-        const S = window.SO101_SUMMARY || {};
-        const RES = S.residuals || {};
-        const val = node => (node && node.value != null ? node.value : null);
-        const rms = val(RES.axis_rms_deg), worstAxis = val(RES.axis_worst_deg);
-        const beforeConv = val(RES.origin_worst_no_conventions_mm);
-        const medianMm = val(RES.origin_median_mm), worstMm = val(RES.origin_max_mm);
-        const bits = ['conventions applied: ' + al.method + '.'];
-        if (rms != null && worstAxis != null) {
-          bits.push('Joint axes agree within ' + rms.toFixed(2) + ' degrees rms, worst ' +
-            worstAxis.toFixed(2) + '.');
-        }
-        if (beforeConv != null && medianMm != null && worstMm != null) {
-          bits.push('Without the zero-pose conventions the joint origins look ' +
-            beforeConv.toFixed(0) + ' mm apart; with them, ' + medianMm.toFixed(2) +
-            ' mm median and ' + worstMm.toFixed(2) + ' mm worst.');
-        }
-        bits.push('See docs/twin/so101/CONVENTIONS.md, which also records the rejected ICP ' +
-          'rotation and why identity beats it.');
-        el.appendChild(mk('div', 'check-detail', bits.join(' ')));
-      }
-      if ((cmp.link_spacings || []).length) {
-        const worst = cmp.link_spacings.reduce((a, b) => Math.abs(b.delta_m) > Math.abs(a.delta_m) ? b : a);
-        const S = window.SO101_SUMMARY || {};
-        const lengthMm = ((S.residuals || {}).link_length_mm || {}).value;
-        el.appendChild(mk('div', 'check-detail',
-          'frame-free link lengths agree to ' +
-          (lengthMm != null ? lengthMm.toFixed(2) : (Math.abs(worst.delta_m) * 1000).toFixed(2)) +
-          ' mm worst case, which no registration can fake.'));
-      }
-      // The same two numbers the torque panel explains, stated here too: a reader who arrives at
-      // this panel only must not think 0.652 is a contradiction of the 0.767 N·m beside it.
-      (function effortLine(){
-        const S = window.SO101_SUMMARY || {};
-        const val = node => (node && node.value != null ? node.value : null);
-        const effort = val((S.revision || {}).effort_before_nm);
-        const poses = (S.torque || {}).static_poses || [];
-        const rest = poses.length ? val(poses[0].compiled_nm) : null;
-        if (effort == null || rest == null) return;
-        el.appendChild(mk('div', 'check-detail',
-          'Two torque figures, two definitions: ' + effort.toFixed(3) + ' N·m is the effort check\'s ' +
-          'demand at its sampled poses with contacts disabled, ' + rest.toFixed(3) + ' N·m is the ' +
-          'static load at the resting pose. They measure the same joint, not the same thing.'));
-      })();
-      el.appendChild(note);
+  // ---------------------------------------------------------------------------------------------
+  // revision switch: one toggle, two bakes, the delta named as a delta
+  // ---------------------------------------------------------------------------------------------
+  var revBefore = el("rev-before"), revAfter = el("rev-after");
+  function setRevision(which){
+    var after = which === "after";
+    revBefore.setAttribute("aria-pressed", String(!after));
+    revAfter.setAttribute("aria-pressed", String(after));
+    var r = DATA.revision;
+    var printValue = after ? r.massAfter : r.massBefore;
+    var massLines = el("cmp").querySelectorAll(".mline");
+    if (massLines[1]) {
+      massLines[1].querySelector(".row .v").textContent = fixed(printValue, 3) + " kg";
+      var top = Math.max(DATA.masses.solid || 0, printValue || 0, DATA.masses.published || 0) || 1;
+      massLines[1].querySelector(".bar i").style.width = (100*((printValue||0)/top)).toFixed(1) + "%";
     }
-
-    // provenance: the page must not imply this is the official model once a compiled bundle is bound
-    setSourceLine();
-    document.getElementById('p-source').textContent = 'compiled bundle (masses, checks)';
-    const totals = R.totals || {};
-    if (totals.total_mass_kg) {
-      document.getElementById('m-total').textContent = totals.total_mass_kg.toFixed(3) + ' kg';
-    }
-    const warns = (R.warnings || []);
-    const assemblyWarns = (R.assembly_warnings || []);
-    if (warns.length) {
-      const oversize = warns.filter(w => String(w).includes('hulls cover'));
-      const row = dataRow('report warnings', warns.length +
-        (assemblyWarns.length ? ' + ' + assemblyWarns.length + ' assembly' : ''));
-      document.getElementById('m-frames').parentElement.parentElement.appendChild(row);
-      if (oversize.length) {
-        const worst = oversize.map(w => {
-          const m = String(w).match(/cover ([0-9.]+)x/);
-          return { w, x: m ? parseFloat(m[1]) : 0 };
-        }).sort((a, b) => b.x - a.x)[0];
-        const detail = mk('div', 'check-detail',
-          oversize.length + ' parts have collision hulls larger than 3x their own volume; worst is ' +
-          worst.x.toFixed(1) + 'x. Hulls that big create contacts the CAD does not have.');
-        document.getElementById('m-frames').parentElement.parentElement.appendChild(detail);
+    el("revdelta").textContent = after && r.deltaPercent != null
+      ? "+" + fixed(r.deltaPercent, 1) + " % printed" : "";
+    var tile = el("kpi-mass");
+    if (tile) {
+      var v = tile.querySelector(".v");
+      if (v) {
+        v.textContent = fixed(printValue, 3) + " kg";
+        v.appendChild(mk("em", null, after ? " +" + fixed(r.deltaPercent, 1) + "%" : " modelled"));
       }
     }
-    if (totals.bodies) {
-      document.getElementById('m-bodies').textContent = totals.bodies;
-    }
-    if (totals.hulls) {
-      document.getElementById('m-frames').parentElement.parentElement
-        .appendChild(dataRow('collision hulls', totals.hulls));
-    }
+    el("m-mass-kind").textContent = DATA.masses.printKind || "modelled";
+  }
+  revBefore.addEventListener("click", function(){ setRevision("before"); });
+  revAfter.addEventListener("click", function(){ setRevision("after"); });
+  el("revdelta").title = "printed mass change between the two bakes, as a percentage of the first";
 
-    // link masses come from the compiled report, not from the official model the meshes came from
-    const linksBox = document.getElementById('links');
-    if (R.bodies && R.bodies.length) {
-      linksBox.innerHTML = '';
-      const heaviest = Math.max(...R.bodies.map(b => b.mass_kg || 0));
-      R.bodies.forEach(b => {
-        const wrap = document.createElement('div');
-        let badge = null;
-        if (b.assumed_density) {
-          badge = mk('span', null, ' assumed');
-          badge.style.color = '#f2b45c';
-          badge.style.fontSize = '10px';
-          badge.title = 'mass from solid volume at an assumed density';
-        }
-        wrap.appendChild(dataRow(b.name,
-          b.mass_kg != null ? b.mass_kg.toFixed(4) + ' kg' : 'n/a', badge));
-        const bar = mk('div', 'bar'); const fill = mk('i');
-        fill.style.width = (100 * (b.mass_kg || 0) / (heaviest || 1)).toFixed(1) + '%';
-        bar.appendChild(fill); wrap.appendChild(bar);
-        linksBox.appendChild(wrap);
-      });
-    }
-  })();
-
-  // ---- revision panel: what changed between two print settings, per link ----
-  (function revisionPanel(){
-    const R = window.SO101_REVISION;
-    if (!R || !R.links || !R.links.length) return;
-    document.getElementById('rev-grp').style.display = '';
-    const box = document.getElementById('rev');
-    const changed = R.links.filter(l => l.status ? l.status !== 'unchanged'
-                                              : (l.mass_delta_percent || 0) !== 0);
-    changed.slice(0, 8).forEach(l => {
-      const delta = l.mass_delta_percent;
-      const label = l.name + ' ' + (delta != null ? (delta >= 0 ? '+' : '') + delta.toFixed(1) + ' %' : l.status);
-      box.appendChild(dataRow(label, l.mass_after_kg != null ? l.mass_after_kg.toFixed(3) + ' kg' : '—'));
-    });
-    const t = R.totals || {};
-    if (t.printed_mass_before_kg != null && t.printed_mass_after_kg != null) {
-      box.appendChild(dataRow('printed total',
-        t.printed_mass_before_kg.toFixed(3) + ' -> ' + t.printed_mass_after_kg.toFixed(3) + ' kg'));
-    }
-    if (R.effort && R.effort.before && R.effort.after) {
-      const eb = R.effort.before, ea = R.effort.after;
-      const fmt = e => (typeof e === 'number' ? e.toFixed(3) + ' N·m'
-                        : (e.demand_nm != null ? e.demand_nm.toFixed(3) + ' N·m' : '—'));
-      box.appendChild(dataRow('effort demand', fmt(eb) + ' -> ' + fmt(ea) +
-        (eb.percent != null && ea.percent != null ? ' (' + eb.percent + '% -> ' + ea.percent + '% of limit)' : '')));
-    }
-    const zeroNet = (R.added || []).length === 0 && (R.removed || []).length === 0;
-    box.appendChild(mk('div', 'hint',
-      changed.length + ' of ' + R.links.length + ' links changed' +
-      (R.before && R.after ? ', ' + R.before + ' -> ' + R.after : '') +
-      (zeroNet && R.keyed_on ? '; keyed on ' + R.keyed_on + ', with no links added or removed' : '') + '.'));
-  })();
-
-  // ---- torque panel and kinematics row: what the mass and geometry difference does to the motors ----
-  (function torquePanel(){
-    const T = window.SO101_TORQUE;
-    if (!T) return;
-    document.getElementById('torque-grp').style.display = '';
-    const c = document.getElementById('torque-chart'), ctx = c.getContext('2d');
-    const w = c.width, h = c.height, pad = 8;
-    const joint = 1; // shoulder_lift: the joint the kinematics note flags as worst
-    const off = T.official.map(f => f[joint]), comp = T.compiled.map(f => f[joint]);
-    const lo = Math.min(...off, ...comp, -T.rated_nm), hi = Math.max(...off, ...comp, T.rated_nm);
-    const y = v => h - pad - (h - 2*pad) * ((v - lo) / (hi - lo || 1));
-    const x = f => pad + (w - 2*pad) * f / Math.max(1, off.length - 1);
-
-    // rated torque lines, dashed, so a reader can see how much headroom the servo has
-    ctx.strokeStyle = '#6b4a1c'; ctx.setLineDash([4,4]); ctx.lineWidth = 1;
-    [T.rated_nm, -T.rated_nm].forEach(v => { ctx.beginPath(); ctx.moveTo(pad, y(v)); ctx.lineTo(w-pad, y(v)); ctx.stroke(); });
-    ctx.setLineDash([]);
-    ctx.strokeStyle = '#8b97a8'; ctx.lineWidth = 1.4; ctx.beginPath();
-    off.forEach((v,i) => { i ? ctx.lineTo(x(i), y(v)) : ctx.moveTo(x(i), y(v)); }); ctx.stroke();
-    ctx.strokeStyle = '#57d3a0'; ctx.lineWidth = 1.6; ctx.beginPath();
-    comp.forEach((v,i) => { i ? ctx.lineTo(x(i), y(v)) : ctx.moveTo(x(i), y(v)); }); ctx.stroke();
-
-    // When the two models are not in the same pose the trajectory curves are not comparable, so the
-    // panel shows the static comparison, which is. A chart that looks authoritative while measuring
-    // two different configurations is the failure this replaces.
-    const staticRows = T.static_by_pose || [];
-    if (staticRows.length) {
-      const box = document.getElementById('t-static');
-      box.innerHTML = '';
-      staticRows.forEach(r => {
-        box.appendChild(dataRow(r.pose, r.compiled_nm.toFixed(3) + ' vs ' + r.published_nm.toFixed(3) + ' N·m'));
-      });
-    }
-    document.getElementById('t-joint').textContent =
-      (T.dynamic_comparable === false) ? 'static poses (matched)' : (T.joints[joint] || ('joint ' + (joint+1)));
-    // the moving-arm peaks are meaningless while the poses differ, so they are not printed beside
-    // the static numbers where a reader would assume they belong to them
-    const showDynamic = T.dynamic_comparable !== false;
-    document.getElementById('t-off').textContent =
-      showDynamic ? Math.max(...off.map(Math.abs)).toFixed(2) + ' N·m' : 'not comparable';
-    document.getElementById('t-comp').textContent =
-      showDynamic ? Math.max(...comp.map(Math.abs)).toFixed(2) + ' N·m' : 'not comparable';
-
-    // Two datasheet figures, each named for what it is. The single row this replaces said
-    // "rated (servo) 2.94 N·m", and 2.94 N·m is the STALL torque: the servo's continuous rating is
-    // 0.98 N·m, so calling the stall figure "rated" overstated the headroom three times over.
-    const S = window.SO101_SUMMARY || {};
-    const TQ = S.torque || {};
-    const RES = S.residuals || {};
-    const value = node => (node && node.value != null ? node.value : null);
-    const asNm = node => (value(node) == null ? 'not in the bundle' : value(node).toFixed(2) + ' N·m');
-    document.getElementById('t-stall').textContent = asNm(TQ.limit_stall_nm);
-    document.getElementById('t-rated').textContent = asNm(TQ.rated_nm);
-
-    // The note reads its numbers from the summary: the pose gate that invalidates the moving-arm
-    // comparison, the two ways the same joint load was measured, and the origin residuals. Every
-    // figure here is in robocad_summary.v1.json; none is typed into this file.
-    const poses = TQ.static_poses || [];
-    const rest = poses.length ? poses[0] : null;
-    const effort = (S.revision || {}).effort_before_nm;
-    const axisWorst = value(RES.axis_worst_deg);
-    const beforeConventions = value(RES.origin_worst_no_conventions_mm);
-    const medianMm = value(RES.origin_median_mm);
-    const worstMm = value(RES.origin_max_mm);
-    const note = [];
-    // The reason comes from the summary, not from torque.js: the two are baked at different times and
-    // the page once printed "tens of mm" there while the summary carried 70.69 mm.
-    note.push(TQ.dynamic_comparable === false
-      ? 'Static inverse dynamics at matched poses, contacts and limits disabled. A moving-arm ' +
-        'comparison is not one: ' + (TQ.dynamic_reason || '') + '.'
-      : 'Same joint-space trajectory on both models, inverse dynamics, contacts disabled.');
-    if (value(effort) != null && rest && value(rest.compiled_nm) != null) {
-      note.push(value(effort).toFixed(3) + ' N·m is the effort check\'s demand at its sampled poses; ' +
-        value(rest.compiled_nm).toFixed(3) + ' N·m is the static load at the resting pose. The same ' +
-        'joint measured two ways, a load case against a pose.');
-    }
-    if (axisWorst != null && beforeConventions != null && medianMm != null && worstMm != null) {
-      note.push('Joint axes agree within ' + axisWorst.toFixed(1) + ' degrees worst. Without the ' +
-        'zero-pose conventions the joint origins look ' + beforeConventions.toFixed(0) + ' mm apart; ' +
-        'with them, ' + medianMm.toFixed(2) + ' mm median and ' + worstMm.toFixed(2) + ' mm worst.');
-    } else {
-      note.push('This bundle does not carry the axis and origin residuals, so this panel states no ' +
-        'agreement figure.');
-    }
-    note.push('Grey is the published model, green is the compiled bundle.');
-    if (TQ.saturated) {
-      note.push('WARNING: the published servo saturates, so part of this is a limit artefact.');
-    }
-    document.getElementById('t-torque-note').textContent = note.join(' ');
-
-    if (T.axis_residual_deg_after_datum_fit) {
-      document.getElementById('kin-grp').style.display = '';
-      const box = document.getElementById('kin');
-      const res = T.axis_residual_deg_after_datum_fit;
-      const perp = T.anchor_perp_mm_after_datum_fit || [];
-      T.joints.forEach((name, j) => {
-        box.appendChild(dataRow(name,
-          'axis ' + res[j].toFixed(1) + '° · anchor ' + (perp[j] !== undefined ? perp[j].toFixed(0) + ' mm' : 'n/a')));
-      });
-      const note = mk('div', 'hint',
-        'axis residual after removing the best-fit datum rotation, searched over all 64 sense ' +
-        'combinations (a revolute axis has no natural sense). Axes agree within ' +
-        Math.max(...res).toFixed(1) + ' degrees, so the difference is in where the joints are, ' +
-        'not which way they turn: the perpendicular anchor offsets are real.');
-      box.appendChild(note);
-    }
-  })();
-
-  // ---- identification rungs: what the method can and cannot recover, in order ----
-  (function identPanel(){
-    const D = window.SO101_IDENT;
-    if (!D) return;
-    const S = window.SO101_SUMMARY || {};
-    const CAL = S.calibration || {};
-    const box = document.getElementById('ident');
-    // One row per rung number. The payload carries two rung-5 scenarios, one per joint; printing
-    // "rung 5" twice reads as a duplicated measurement rather than as two joints tested.
-    const byRung = new Map();
-    // The summary's rungs when it carries them: its text is the one the voice speaks, so the page
-    // must not render a sentence from a different bake that says the same thing with other figures.
-    const rungRows = (CAL.rungs && CAL.rungs.length) ? CAL.rungs : (D.rungs || []);
-    (rungRows || []).forEach(r => {
-      if (!byRung.has(r.rung)) byRung.set(r.rung, []);
-      byRung.get(r.rung).push(r);
-    });
-    const numbers = Array.from(byRung.keys()).sort((a, b) => a - b);
-    numbers.forEach(n => {
-      const rows = byRung.get(n);
-      const reached = rows.every(r => r.reached);
-      const joints = rows.map(r => String(r.name || '').split(',').pop().trim()).filter(Boolean);
-      const title = joints.length > 1 ? joints.join(', ') : (rows[0].name || '');
-      const row = mk('div', 'check');
-      row.appendChild(mk('span', null, 'rung ' + n + (title ? ' · ' + title : '')));
-      row.appendChild(mk('span', reached ? 'st st-pass' : 'st st-fail',
-                         reached ? 'recovered' : 'blocked'));
-      box.appendChild(row);
-      rows.filter(r => !r.reached && r.note).forEach(r => {
-        box.appendChild(mk('div', 'check-detail', r.note));
-      });
-      // The preview's count belongs under the rung that blocked it, beside the reason. In its own
-      // panel, "0 of 19 identified" appeared with nothing to explain it and no data named.
-      if (!reached) {
-        const P = CAL.twin_preview || {};
-        if (P.total != null) {
-          box.appendChild(mk('div', 'check-detail',
-            P.identified + ' of ' + P.total + ' parameters identified from ' + (P.data ||
-            'the synthetic logs') + ': planted parameters were not recovered, so each is reported ' +
-            'as not identifiable.'));
-        }
-      }
-    });
-    const totalRungs = CAL.rungs_total != null ? CAL.rungs_total : numbers.length;
-    const recovered = CAL.rungs_recovered != null ? CAL.rungs_recovered
-      : numbers.filter(n => byRung.get(n).every(r => r.reached)).length;
-    const stoppedAt = CAL.stopped_at_rung != null ? CAL.stopped_at_rung : D.stopped_at;
-    box.appendChild(mk('div', 'hint',
-      'Method validation, not a robot result: ' + recovered + ' of ' + totalRungs +
-      ' rungs recovered, stopped at rung ' + stoppedAt + '.'));
-    // The "what would identify friction" sentence, every figure read from the summary's scenario
-    // table by name. The old copy had 0.10, 4.48, 25.1 and 0.39 typed into the HTML.
-    const table = CAL.scenarios || [];
-    const snrWhere = re => {
-      const hit = table.find(s => re.test(String(s.scenario || '')));
-      return hit ? hit.snr : null;
+  // ---------------------------------------------------------------------------------------------
+  // drawer: every long sentence lives here, so no card has to scroll to hold one
+  // ---------------------------------------------------------------------------------------------
+  var entries = {};
+  function entry(key, sub, build){ entries[key] = { sub: sub, build: build }; }
+  entry("masses", "01 · mass and its assumptions", function(){
+    return {
+      kvs: [
+        ["solid", fixed(DATA.masses.solid,3) + " kg (" + DATA.masses.solidKind + ")"],
+        ["print", fixed(DATA.masses.print,3) + " kg (" + DATA.masses.printKind + ")"],
+        ["published", fixed(DATA.masses.published,3) + " kg (" + DATA.masses.publishedKind + ")"],
+        ["delta, print vs published", "+" + fixed(DATA.masses.deltaPercent,1) + " %"],
+        ["infill saving", fixed(DATA.masses.infillSaving,0) + " % of solid"],
+        ["assumptions", fixed(DATA.masses.wall,2) + " mm wall, " + fixed(DATA.masses.infill,2) +
+          " infill, " + fixed(DATA.masses.density,0) + " kg/m³, servo " + fixed(DATA.masses.servoG,0) + " g"]
+      ],
+      paras: [
+        "The print figure is a model with stated assumptions, not a measurement. The solid figure is " +
+        "the CAD volume at the assumed density, so it is the upper bound a print can approach and " +
+        "never exceed.",
+        DATA.bodies.filter(function(b){ return b.assumed; }).length + " of " + DATA.bodies.length +
+        " links rest on an assumed density; servos use datasheet mass through their CAD envelope."
+      ]
     };
-    const statusQuo = snrWhere(/12-bit encoder, 62 Hz/i);
-    // Anchored on the channel only: the summary names it "torque or current logged, 1 percent of
-    // rated noise", and a `$` anchor here matched nothing and sent the panel to its no-table
-    // fallback even though the table was in the summary.
-    const currentChannel = snrWhere(/torque or current logged, 1 percent/i);
-    const twentyBit = snrWhere(/20-bit encoder, 62 Hz/i);
-    const averaged = snrWhere(/averaged over 16 samples at 1 kHz/i);
-    if (statusQuo != null && currentChannel != null && twentyBit != null && averaged != null) {
-      box.appendChild(mk('div', 'check-detail',
-        'What would identify friction: signal to noise is ' + statusQuo.toFixed(2) + ' with the ' +
-        'status-quo log. A torque or current channel at 1 percent noise reaches ' +
-        currentChannel.toFixed(2) + '; a 20-bit encoder reaches ' + twentyBit.toFixed(1) +
-        ' at 62 Hz; averaging 16 samples at 1 kHz alone only reaches ' + averaged.toFixed(2) +
-        '. See docs/twin/so101/identifiability.md.'));
-    } else {
-      box.appendChild(mk('div', 'check-detail',
-        'This bundle does not carry the identifiability scenario table, so this panel states no ' +
-        'signal-to-noise figures. See docs/twin/so101/identifiability.md.'));
+  });
+  entry("torque", "02 · what the mass difference does to the motors", function(){
+    var paras = [];
+    paras.push(DATA.torque.dynamicComparable
+      ? "Same joint-space trajectory on both models, inverse dynamics with contacts disabled."
+      : "Static inverse dynamics at matched poses, contacts and limits disabled. A moving-arm " +
+        "comparison is not one: " + DATA.torque.dynamicReason + ".");
+    var first = DATA.torque.poses[0];
+    if (first && DATA.revision.effortBefore != null) {
+      paras.push(fixed(DATA.revision.effortBefore,3) + " N·m is the effort check's demand at its " +
+        "sampled poses; " + fixed(first.compiled,3) + " N·m is the static load at the resting pose. " +
+        "Same joint, two measurements: a load case and a pose.");
     }
-    box.appendChild(mk('div', 'check-detail',
-      'With the same 62 Hz log plus a motor-current channel: Coulomb friction recovered within ' +
-      'tolerance on both joints tested, and viscous damping attenuated because velocity built from ' +
-      'a quantised encoder shrinks its own coefficient. Bench routine: docs/twin/so101/BENCH_PROTOCOL.md.'));
-  })();
+    paras.push("Stall " + fixed(DATA.torque.stall,2) + " N·m and rated " + fixed(DATA.torque.rated,2) +
+      " N·m are datasheet figures, each named for what it is. Calling stall \"rated\" overstated " +
+      "headroom three times over.");
+    if (DATA.torque.poseGate != null) {
+      paras.push("The pose gate is " + fixed(DATA.torque.poseGate,2) + " mm, the jaw frame " +
+        "difference at the worst of " + DATA.torque.poseSamples.length + " sampled poses (" +
+        DATA.torque.poseSamples.map(function(v){ return Number(v).toFixed(2); }).join(", ") +
+        " mm). A constant offset cannot map a joint vector to a matching tip, so the moving-arm " +
+        "curves are not comparable and the card shows static rows.");
+    }
+    if (DATA.torque.basis) paras.push("Basis: " + DATA.torque.basis);
+    return { paras: paras };
+  });
+  entry("joints", "03 · joint angles during the baked replay", function(){
+    return { paras: [
+      "Each row is one hinge, its current angle from the baked MuJoCo replay, and a marker for where " +
+      "that angle sits inside the adopted limit range.",
+      "Limits are adopted from the SO-ARM100 URDF, not measured on a robot. Provenance is in the " +
+      "bundle's robot.joints.yaml."
+    ]};
+  });
+  entry("checks", "04 · the seven checks and what each measured", function(){
+    var paras = DATA.checks.filter(function(c){ return c.explanation; })
+      .map(function(c){ return c.id + ": " + c.explanation; });
+    var sc = DATA.selfCollision;
+    if (sc.deepestMm != null) {
+      paras.push("Self-collision: convex hulls of " + sc.hulls.join(", ") + " overlap by " +
+        sc.deepestMm.toFixed(1) + " mm at rest, while the B-rep solids " +
+        (sc.solidMm3 == null ? "were not intersected"
+         : "intersect by only " + sc.solidMm3.toFixed(2) + " mm³, which is contact scale, not a joint") +
+        ". MuJoCo will act on a contact the CAD does not have.");
+    }
+    return { kvs: DATA.checks.map(function(c){ return [c.id, c.status]; }), paras: paras };
+  });
+  entry("links", "05 · per-link mass, from the compiled report", function(){
+    return {
+      kvs: DATA.bodies.map(function(b){
+        return [b.name, fixed(b.mass,4) + " kg" + (b.assumed ? " · assumed" : "") +
+          (b.hulls != null ? " · " + b.hulls + " hulls" : "")];
+      }),
+      paras: ["Clicking a link isolates it in the 3D view. Masses come from the compiled report, not " +
+        "from the published model the meshes came from."]
+    };
+  });
+  entry("display", "06 · what the toggles do", function(){
+    return { paras: [
+      "LABELS shows the self-collision callout anchored on the wrist. EXPLODED offsets each link " +
+      "along its parent-to-child direction. TURNTABLE orbits slowly until someone touches the view. " +
+      "CoM draws one marker per body origin. SELF-COLLISION tints the two bodies whose hulls overlap.",
+      "Two toggles from the review are not here: collision HULLS and an OFFICIAL GHOST. The package " +
+      "carries visual meshes only, no hull meshes and no published-model meshes, so either control " +
+      "would be a button with nothing behind it. The numbers for both are in the cards and this " +
+      "drawer; the geometry is not in this bundle."
+    ]};
+  });
+  entry("twin", "07 · calibration, and the data it would need", function(){
+    var kvs = [["signal to noise", fixed(DATA.twin.snr.value,2) + " · " + DATA.twin.snr.label]];
+    if (DATA.twin.snr.scenario) kvs.push(["scenario", DATA.twin.snr.scenario]);
+    if (DATA.twin.coulomb) {
+      kvs.push(["Coulomb, " + DATA.twin.coulomb.joint,
+        fixed(DATA.twin.coulomb.recovered,3) + " recovered vs " +
+        fixed(DATA.twin.coulomb.truth,3) + " planted"]);
+    }
+    kvs.push(["rungs recovered", (DATA.twin.rungsRecovered != null ? DATA.twin.rungsRecovered : "?") +
+      " of " + (DATA.twin.rungsTotal != null ? DATA.twin.rungsTotal : "?")]);
+    if (DATA.twin.rmseBefore != null) {
+      kvs.push(["preview RMSE", fixed(DATA.twin.rmseBefore,0) + " -> " +
+        fixed(DATA.twin.rmseAfter,0) + " mrad"]);
+    }
+    return { kvs: kvs, paras: [
+      "SYNTHETIC method validation. Parameters are planted in a simulation and recovered from " +
+      "simulated logs. No hardware was measured.",
+      "One signal-to-noise definition on this page: friction torque at the reference joint speed of " +
+      "1.9 rad/s divided by the torque error of one 12-bit encoder count. The ratio is speed " +
+      "dependent, so the speed is named wherever the ratio is quoted. This bundle's stored rung-3 " +
+      "sentence predates that definition and divided by one log's own peak speed; the card quotes " +
+      "the scenario table's number instead, and docs/twin/so101/identifiability.md carries the whole " +
+      "argument.",
+      "A blocked rung is the answer, not a failure: no estimator recovers a parameter buried ten " +
+      "times under noise."
+    ]};
+  });
+  entry("checks_kpi", "header · checks, mass, axis and origin agreement, package", function(){
+    return {
+      kvs: [
+        ["axis RMS", fixed(DATA.residuals.axisRms,2) + "°"],
+        ["axis worst", fixed(DATA.residuals.axisWorst,2) + "°"],
+        ["origin median", fixed(DATA.residuals.originMedian,2) + " mm"],
+        ["origin p90", fixed(DATA.residuals.originP90,2) + " mm"],
+        ["origin max", fixed(DATA.residuals.originMax,2) + " mm"],
+        ["origin before conventions", fixed(DATA.residuals.originNoConv,2) + " mm"],
+        ["link length", fixed(DATA.residuals.linkLength,2) + " mm"]
+      ],
+      paras: [
+        "Residuals compare the compiled chain against the published SO-ARM100 URDF after the " +
+        "zero-pose conventions are applied. Without them the joint origins look " +
+        fixed(DATA.residuals.originNoConv,0) + " mm apart; with them, " +
+        fixed(DATA.residuals.originMedian,2) + " mm median and " +
+        fixed(DATA.residuals.originMax,2) + " mm worst.",
+        DATA.tag
+          ? "Package: manifest.json records tag " + DATA.tag + "."
+          : "Package: manifest.json records no tag for this bundle, so the tile says so rather than " +
+            "naming one. The package digest is verified at start-up by the voice shell, not by this page."
+      ]
+    };
+  });
+  entry("timeline", "footer · replay and the two bakes", function(){
+    var r = DATA.revision;
+    var paras = [];
+    if (DATA.torque.poseGate != null) {
+      paras.push("The amber tick at the end of the scrubber marks the worst pose-gate sample, " +
+        fixed(DATA.torque.poseGate,2) + " mm. The samples are poses, not frames of this replay, so " +
+        "the tick sits at the end of the bar rather than pretending to map onto a frame.");
+    }
+    paras.push("The infill switch swaps the two bakes: printed mass, and the effort demand the " +
+      "revision moved. Nothing else on the page changes.");
+    return {
+      kvs: [
+        ["infill", fixed(r.before,2) + " -> " + fixed(r.after,2)],
+        ["printed mass", fixed(r.massBefore,3) + " -> " + fixed(r.massAfter,3) + " kg"],
+        ["delta", "+" + fixed(r.deltaPercent,1) + " %"],
+        ["links changed", r.linksChanged != null ? r.linksChanged : "not in the bundle"],
+        ["effort", fixed(r.effortBefore,3) + " -> " + fixed(r.effortAfter,3) + " N·m"]
+      ],
+      paras: paras
+    };
+  });
 
-  // ---- synthetic twin panel: measured versus uncalibrated versus calibrated, labelled ----
-  (function twinPanel(){
-    const D = window.SO101_SYNTHETIC;
-    if (!D || !D.measured || !D.measured.length) return;
-    const frames = D.frames, nq = D.joints.length;
-    const measured = D.measured, uncal = D.uncalibrated, cal = D.calibrated;
-    const joint = 1 % nq; // second joint reads best: it moves most under gravity
-    const series = [measured, uncal, cal].map(arr => {
-      const out = [];
-      for (let f=0; f<Math.min(frames, arr.length); f++) out.push(arr[f][joint]);
-      return out;
+  var drawer = el("drawer"), scrim = el("scrim"), lastFocus = null;
+  function openDrawer(key){
+    var e = entries[key]; if (!e) return;
+    el("dtitle").textContent = e.sub.split(" · ")[1] || e.sub;
+    el("dsub").textContent = e.sub;
+    var body = el("dbody"); body.textContent = "";
+    var built = e.build();
+    (built.kvs || []).forEach(function(pair){
+      var p = mk("div","kv");
+      p.appendChild(mk("b", null, pair[0] + ": "));
+      p.appendChild(document.createTextNode(pair[1]));
+      body.appendChild(p);
     });
-    const c = document.getElementById('twin-chart');
-    const ctx = c.getContext('2d');
-    const lo = Math.min(...series.flat()), hi = Math.max(...series.flat());
-    const pad = 6, w = c.width, h = c.height;
-    ctx.clearRect(0,0,w,h);
-    const colours = ['#e6ebf2', '#8b97a8', '#57d3a0'];
-    series.forEach((s, i) => {
-      ctx.beginPath(); ctx.strokeStyle = colours[i]; ctx.lineWidth = i === 0 ? 2 : 1.4;
-      s.forEach((v, f) => {
-        const x = pad + (w-2*pad) * f / Math.max(1, s.length-1);
-        const y = h - pad - (h-2*pad) * ((v-lo)/(hi-lo || 1));
-        f ? ctx.lineTo(x,y) : ctx.moveTo(x,y);
-      });
-      ctx.stroke();
-    });
-    ctx.fillStyle = 'rgba(242,180,92,0.9)';
-    ctx.font = '10px ui-monospace, monospace';
-    ctx.fillText('SYNTHETIC', w-74, 14);
-    // The error figures come from the summary's preview block, which is generated from the same
-    // synthetic file the curves are drawn from. The count of identified parameters is printed under
-    // the rung that blocked it, in the rungs panel, because that is where its reason lives.
-    const S = window.SO101_SUMMARY || {};
-    const P = (S.calibration || {}).twin_preview || {};
-    const un = (P.rmse_uncalibrated_mrad || {}).value,
-          ca = (P.rmse_calibrated_mrad || {}).value;
-    document.getElementById('t-rmse').textContent = (un != null && ca != null)
-      ? un.toFixed(0) + ' -> ' + ca.toFixed(0) + ' mrad'
-      : 'not in the bundle';
-    document.getElementById('t-note').textContent =
-      'SYNTHETIC: planted parameters were not recovered, so each is reported as not identifiable. ' +
-      'The curves are a fit, not a calibration. See the rungs above for where the method stops.';
-  })();
+    (built.paras || []).forEach(function(t){ body.appendChild(mk("p", null, t)); });
+    drawer.classList.add("open"); scrim.classList.add("on");
+    drawer.setAttribute("aria-hidden","false");
+    lastFocus = document.activeElement;
+    el("dclose").focus();
+  }
+  function closeDrawer(){
+    drawer.classList.remove("open"); scrim.classList.remove("on");
+    drawer.setAttribute("aria-hidden","true");
+    if (lastFocus && lastFocus.focus) lastFocus.focus();
+  }
+  Array.prototype.forEach.call(document.querySelectorAll("button.i"), function(b){
+    b.addEventListener("click", function(){ openDrawer(b.dataset.drawer); });
+  });
+  el("dclose").addEventListener("click", closeDrawer);
+  scrim.addEventListener("click", closeDrawer);
+  addEventListener("keydown", function(e){ if (e.key === "Escape") closeDrawer(); });
 
-  // expose a tiny hook so the film recorder and the verifier can drive frames deterministically
+  // ---------------------------------------------------------------------------------------------
+  // voice contract: sections.js flashes the element a section maps to and dispatches
+  // `robocad:section`. In presenter mode the matching drawer entry opens too, so "show me the
+  // checks" lands on the paragraph as well as the card.
+  // ---------------------------------------------------------------------------------------------
+  var presenterMode = /(?:^|[?&])presenter(?:=1|=true|&|$)/.test(location.search || "");
+  var drawerFor = { overview: "checks_kpi", comparison: "checks_kpi", masses: "masses",
+                    checks: "checks", torque: "torque", revision: "timeline", twin: "twin" };
+  document.addEventListener("robocad:section", function(ev){
+    if (!presenterMode) return;
+    var section = ev && ev.detail ? ev.detail.section : null;
+    if (section && drawerFor[section]) openDrawer(drawerFor[section]);
+  });
+
+  // hook the film recorder and the verifier drive: frames deterministic, state inspectable
   window.SO101_PAGE = {
-    setFrame: f => { frame = ((f % frames) + frames) % frames; applyFrame(frame); renderer.render(scene, camera); },
-    frames, hz: META.hz, meta: META,
-    pause: () => { playing = false; playBtn.textContent='Play'; playBtn.setAttribute('aria-pressed','false'); },
-    // verifier hook: world position of the first vertex of the Nth mesh geom, for cross-checking
-    meshWorldSample: (geomIndex) => {
-      let m = null;
-      scene.traverse(o => { if (o.isMesh && o.userData.geomIndex === geomIndex) m = o; });
+    data: DATA,
+    setFrame: function(f){
+      frame = ((f % frames) + frames) % frames;
+      applyFrame(frame);
+      renderer.render(scene, camera);
+    },
+    frames: frames, hz: META.hz || 100, meta: META, presenter: presenterMode,
+    pause: function(){
+      playing = false;
+      var b = el("b-play"); b.textContent = "play"; b.setAttribute("aria-pressed","false");
+    },
+    openDrawer: openDrawer, closeDrawer: closeDrawer, setRevision: setRevision,
+    triangulate: function(){ return triTotal; },
+    state: state,
+    meshWorldSample: function(geomIndex){
+      var m = null;
+      scene.traverse(function(o){ if (o.isMesh && o.userData.geomIndex === geomIndex) m = o; });
       if (!m) return null;
       m.updateWorldMatrix(true, false);
-      const v = new THREE.Vector3().fromBufferAttribute(m.geometry.attributes.position, 0);
+      var v = new THREE.Vector3().fromBufferAttribute(m.geometry.attributes.position, 0);
       return v.applyMatrix4(m.matrixWorld).toArray();
     },
-    fps: () => new Promise(res => {
-      let n = 0; const start = performance.now();
-      const tick = () => { n++; if (performance.now()-start < 1000) requestAnimationFrame(tick); else res(n); };
-      requestAnimationFrame(tick);
-    })
+    fps: function(){
+      return new Promise(function(res){
+        var n = 0, start = performance.now();
+        function tick(){
+          n++;
+          if (performance.now() - start < 1000) requestAnimationFrame(tick); else res(n);
+        }
+        requestAnimationFrame(tick);
+      });
+    }
   };
+
+  if (window.ROBOCAD_SECTIONS) window.ROBOCAD_SECTIONS.wire();
 })();
-</script>
-<script>
-// Wired after the panels above have rendered, so a `#torque` link on load has a filled panel to
-// scroll to rather than a hidden one that refuses the jump.
-if (window.ROBOCAD_SECTIONS) window.ROBOCAD_SECTIONS.wire();
 </script>
 </body>
 </html>

@@ -1027,3 +1027,70 @@ torque-grp 15   cmp 17   checks 16   twin-grp 41   figures, all matched to the s
 ```
 
 Two passes, because the tree test alone would have been the wrong evidence.
+
+## B5 and U1 — one SNR definition, and the page rebuilt as a cockpit
+
+Assigned from review after the v1.3 freeze. No rebuild of v1.2, no tag, no force-push.
+
+**B5.** Two numbers for one ratio: the twin panel said 0.04, `identifiability.md` said 0.10. The
+generator had divided friction torque by the peak speed of one log; the document divides it by a
+stated reference speed. Fixed at the root: `REFERENCE_SPEED_RAD_S = 1.9` in
+`ai_cad/twin/identification.py`, `rung3_note` computes `damping * 1.9 / (kp * quant)` and says
+"1.9 rad/s" in the sentence, so redoing the division is possible from the text alone. The page quotes
+`summary.calibration.position_only.snr` once, labelled with what it measures.
+
+```
+$ python -m pytest tests/test_identification_snr.py -m "" -q
+6 passed
+```
+
+The frozen artifacts were not rebaked, so they still carry the old sentence:
+
+```
+$ for f in docs/demo/so101_demo/identification.json docs/demo/twin/identification.json \
+           docs/twin/so101/bundle/identification.json docs/demo/robocad_summary.v1.json; do
+    grep -o "signal to noise ratio of [0-9.]*" "$f" | sort -u; done
+signal to noise ratio of 0.04.   (x4)
+```
+
+`[verified-ran]` on both commands. Recorded in FINAL_STATUS so the next bake fixes the four files.
+
+**U1, cockpit rebuild.** `docs/demo/page/index.html` replaced: fixed grid, no page scroll, numbered
+cards, drawer, footer timeline with the revision switch. One `DATA` adapter over the existing
+payloads so no figure is typed by hand. `sections.js` gained a `robocad:section` dispatch and its map
+now points at the cockpit ids; the presenter integration opens the matching drawer entry.
+
+Gates, all `[verified-ran]`:
+
+```
+$ python -m pytest tests/test_page_cockpit_layout.py -m "" -q
+5 passed
+   one screen at 1280x720 / 1440x900 / 1920x1080, no card overflow, no console errors,
+   no request outside file:, every section flashes its card
+
+$ node --test docs/demo/page/sections.test.mjs
+11 passed
+
+$ python scripts/check_page_numbers.py
+32 numeric tokens across torque-grp, cmp, checks, twin-grp all trace to the summary
+
+$ python -m pytest tests/test_page_text_matches_summary.py -m "" -q
+2 passed
+
+$ python -m pytest -q
+859 passed, 314 deselected, 3 warnings in 442.12s
+```
+
+The fps probe is worth keeping. Headless Chromium defaults to SwiftShader on this machine and
+reports 7 fps on a 533,262-triangle payload; with `--use-angle=d3d11` against the Intel UHD the same
+payload reports 61 fps headless and 145 fps headed. The test launches with the GPU flags and names
+the renderer in its failure message, so the 7 fps is on record as a harness property rather than
+being quietly averaged away.
+
+Screenshots written to `docs/demo/screens/v1.4/` at all three viewports.
+
+Deviations recorded in FINAL_STATUS: no package sha or tag exists in the page payload (tile says so
+instead of inventing one); `HULLS` and `OFFICIAL GHOST` were dropped because the payload carries
+visual meshes only, and `SELF-COLLISION` and `CoM` took their place with the reason in the drawer;
+the 70.69 mm marker sits at the end of the scrubber because samples are poses, not frames; the
+package page stays v1.3 so tree and package diverge on purpose.
