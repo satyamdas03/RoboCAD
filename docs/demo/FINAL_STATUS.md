@@ -154,6 +154,35 @@ audio device and the speaker are Satyam's to test. The earlier pre-merge run by 
 (`[claimed: peer report, Hi-EV docs/SPRINT_LOG.md]`) logged 89.3 ms for "walk me through it"; the
 merged-head run is faster, and both are far inside budget.
 
+**What "offline" means in that run, exactly.** The network interface was up; `start_demo.ps1 -Offline`
+was not used, because that flag fails the launch when the internet is reachable and this machine was
+online. What was removed is every API key, so no utterance can reach a provider, and the phrase table
+resolves all eleven. A true network-off rehearsal is the mic rehearsal and is Satyam's.
+
+### The page text equals the summary, inside the package [verified: ran]
+
+The packaged page is not the working-tree page. Measured on the merged tree:
+
+| File | Bytes | sha256 (first 16) |
+|---|---|---|
+| `docs/demo/page/index.html` (working tree) | 49,222 | `b6d301fdbe54628c` |
+| `so101_demo/index.html` (inside `so101_demo.zip`) | 49,764 | `6380af6904913a0d` |
+
+So the equality check was run against the **extracted package** (`docs/demo/so101_demo.zip`, digest
+`f86c28f7…`, 33 entries, 32 matching `FILES.sha256`), not the tree: `render_texts` on the extracted
+`index.html`, every numeric token matched against the extracted `summary.js`.
+
+```
+torque-grp  figures=15     cmp  figures=17     checks  figures=16     twin-grp  figures=41
+pose gate: 70.69 mm on page: True | 'tens of mm' present: False
+OK packaged page matches packaged summary
+```
+
+89 figures across four panels, none without a source in the summary. The in-repo test
+`tests/test_page_text_matches_summary.py` also passes on the tree (2 passed in 11.06 s, run with
+`-m ""` to defeat the heavy deselect), but that is the tree page, which is why the package was checked
+separately.
+
 ### E5 — both PRs merged, both heads tagged, the merged head starts [verified: ran]
 
 | Step | Result |

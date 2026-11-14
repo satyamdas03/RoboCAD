@@ -1007,3 +1007,23 @@ show me the torque 7.8 ms    what failed 10.4 ms   how heavy 8.9 ms   live 14.6 
 
 Worst case 25.7 ms against a 1.5 s budget. Microphone and speaker remain Satyam's to test; this is
 the shell path only.
+
+## The page gate, run against the package and not the tree
+
+The packaged page and the working-tree page are not the same file:
+
+```
+docs/demo/page/index.html        49,222 bytes  b6d301fdbe54628c
+so101_demo/index.html in the zip 49,764 bytes  6380af6904913a0d
+```
+
+`tests/test_page_text_matches_summary.py` reads the tree path, so passing it says nothing about the
+artifact. The gate was therefore run on the extracted package (33 entries, 32 matching `FILES.sha256`,
+zip digest `f86c28f7…`) with the same checker functions:
+
+```
+torque-grp 15   cmp 17   checks 16   twin-grp 41   figures, all matched to the summary
+70.69 mm quoted on the page; "tens of mm" absent
+```
+
+Two passes, because the tree test alone would have been the wrong evidence.
