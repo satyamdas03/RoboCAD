@@ -686,3 +686,26 @@ refuses the alternative. The improvement is `actuator_mass_kg` and its source re
 `bundle.json` at compile time, so `revise` can read them from `--before` instead of asking, and a
 revision cannot be run without the assumption the frozen bundle actually made. Not done now: adding a
 field changes what the next package's bundle records, and v1.3 is frozen and re-derivable.
+
+## E5: merge commits, tags at the merged heads, and the correction that lands after the tag
+
+**Decision.** Both demo branches land through PRs with real merge commits — RoboCAD `feat/v1.1` →
+`master` (`1ac923c`), Hi-EV `feat/robocad-shell` → `main` (`c76fd47`) — and `demo-v1.0` is an
+annotated tag at each merged head.
+
+**Why merge commits and not squash.** A squash would collapse 29 commits of evidence (E4's revise
+path, E2's four clean-machine defects and their fixes) into one opaque commit. The tag is supposed to
+be certifiable: each fix commit named in FINAL_STATUS must still exist in the merged history for the
+claim to be checkable.
+
+**Why the tag goes on the merge commit and not on a later docs commit.** The rule is to tag the merged
+heads, so that is what is tagged. The cost is visible and recorded: the FINAL_STATUS blob inside
+`demo-v1.0` still contains the line "`demo-v1.0` does not exist yet", because that line was written
+before the tag existed. Re-tagging is forbidden this sprint, so the correction is a post-tag commit
+and the tag keeps the older sentence. Anyone reading the tag reads the older sentence; anyone reading
+`master` reads the correction.
+
+**Why the merged head was cloned instead of trusting the working checkout.** A merge can be clean in
+git and broken in practice. The gate ran `start_demo.ps1` from fresh clones of `origin/master` and
+`origin/main` with a fresh venv, so what was proven is exactly what a person would get from the
+remote.

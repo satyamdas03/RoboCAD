@@ -943,3 +943,53 @@ The packaging tests earned their keep here: they refused a dependency with no li
 
 Commits, each on `feat/v1.1`: `0b63ab0` (MuJoCo sentence), `043b06f` (pyyaml), `9f15a15`
 (defusedxml), `4f56da0` (notice rows and setuptools).
+
+## E5 — both branches merged, both heads tagged, the merged head proven to start
+
+Order: RoboCAD first, then Hi-EV, merge commits only, tags at the merged heads.
+
+RoboCAD `feat/v1.1` was 29 commits ahead of `origin/master` (`df95d33`) and MERGEABLE. The first
+`gh pr create` ate a backticked command in `--title`, so the title came out as
+`RoboCAD Twin: v1.3 demo package +  (E4) + clean-machine hardening (E2)`. Fixed with
+`gh pr edit 1 --title`, then `gh pr merge 1 --merge`. Verified the result is a merge commit, not a
+squash:
+
+```
+$ git show -s --format='%H %P %s' 1ac923c
+1ac923c... df95d33... dca41f4... Merge pull request #1 from satyamdas03/feat/v1.1
+```
+
+Hi-EV `feat/robocad-shell` was 30 ahead of `origin/main` (`e2bf4cb`). PR #1, merged, merge commit
+`c76fd47`, two parents.
+
+Tags, both annotated, both pushed, both peeling to the merged heads:
+
+```
+RoboCAD  demo-v1.0  2b51da8...   1ac923c...
+Hi-EV    demo-v1.0  c90cc71...   c76fd47...
+```
+
+`demo-bundle-v1.3` untouched by all of this: object `dfcb119`, peels to `7b37d90`, and
+`git show demo-bundle-v1.3:docs/demo/so101_demo.zip | sha256sum` still prints
+`f86c28f703f84ccfcb3269233ad7a0ef88e2843172387728f5af7c01b6b569f3`.
+
+The gate, on the merged heads in fresh clones, fresh venv, both installs exit 0:
+
+```
+pwsh -File scripts/start_demo.ps1 -RoboCadRoot .\RoboCAD -Port 7361 -Fresh
+PASS  python 3.14
+PASS  both repos import
+PASS  package digest f86c28f703f84ccf matches verify.json
+PASS  ROBOCAD_BUNDLE_DIR=...\Hi-EV\demo-bundle\so101_demo     (33 files, 32 match FILES.sha256)
+PASS  EV_PROFILE=demo
+PASS  package digest / summary loads 6 sections / demo profile / tool allowlist / fast path offline
+PASS  daemon up (pid 33984), health ok
+PASS  page served  http://127.0.0.1:7361/robocad/page/
+```
+
+Daemon stopped: `Stop-Process -Id 33984`. The HUD (`cd web && npm run dev`) was not started in that
+clone; the fast-path check is what proves the six-phrase table offline.
+
+One thing this cannot fix: the `demo-v1.0` tag points at the merge commit, so the FINAL_STATUS blob
+inside the tag is the pre-tag one, and it still reads "`demo-v1.0` does not exist yet". Re-tagging is
+forbidden, so the correction is a commit after the tag and the tag carries the older sentence.
