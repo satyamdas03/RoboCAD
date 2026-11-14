@@ -20,6 +20,7 @@ from pathlib import Path
 from ai_cad.compiler import compare, revision
 from ai_cad.compiler.actuators import ActuatorSpec
 from ai_cad.compiler.compile import compile_bundle, render_html
+from ai_cad.compiler.conventions import SO101 as SO101_CONVENTIONS
 from ai_cad.compiler.print_model import PrintModel
 
 # Which of our bodies is which of theirs. This is a judgement from the two naming schemes, not a
@@ -167,6 +168,9 @@ def main(argv: list[str] | None = None) -> int:
             source=SERVO_TORQUE_SOURCE,
         ),
         visual=args.visual,
+        # Measured by P0-a on this robot, carried into the bundle so a consumer reads the offsets
+        # from the artifact rather than from a constant in its own source.
+        conventions=SO101_CONVENTIONS,
     )
 
     bundle = json.loads((Path(args.out) / "bundle.json").read_text(encoding="utf-8"))

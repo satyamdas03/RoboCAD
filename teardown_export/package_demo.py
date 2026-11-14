@@ -13,8 +13,16 @@ import hashlib
 import json
 import pathlib
 import shutil
+import subprocess
+import sys
 import tempfile
 import zipfile
+
+# The sidecar's name is read by `twin unpack`, so it is taken from the reader rather than repeated
+# here: a packager that writes `FILES.sha256` and a reader that looks for `files.sha256` would both
+# work perfectly and never check anything.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+from robocad.twin_cli import FILE_DIGESTS  # noqa: E402
 
 
 def _copy(src: pathlib.Path, dest: pathlib.Path, repo: pathlib.Path) -> None:
@@ -42,14 +50,90 @@ def _copy(src: pathlib.Path, dest: pathlib.Path, repo: pathlib.Path) -> None:
         shutil.copy2(resolved, dest)
 
 
+def mesh_resolution(repo: pathlib.Path, out: pathlib.Path) -> str:
+    """The page's triangles against the bundle's, computed from the two files that hold them.
+
+    The bundle is the source of truth and carries full-resolution visual meshes; the page is a
+    build-time decimation of them, and this script writes no reduced mesh back into the bundle. A
+    recipient who reads "the page renders the bundle's meshes" without the ratio would be
+    overestimating what they are looking at, and a ratio quoted from memory would be a number nobody
+    could re-derive, so both figures come out of the packaged payload and the bundle's own report.
+
+    Returns the markdown section, and says the budget is unknown rather than guessing it when the
+    bake that produced the payload did not record one.
+    """
+    page_triangles = None
+    per_mesh_max = None
+    meshes = out / "meshes.js"
+    if meshes.exists():
+        text = meshes.read_text(encoding="utf-8").strip()
+        marker = "window.SO101_MESHES = "
+        if text.startswith(marker):
+            payload = json.loads(text[len(marker):].rstrip().rstrip(";"))
+            counts = [int(m.get("count", 0)) for m in payload]
+            page_triangles = sum(counts)
+            per_mesh_max = max(counts) if counts else None
+
+    bundle_triangles = None
+    budget = None
+    report = repo / "docs" / "twin" / "so101" / "bundle" / "report.json"
+    if report.exists():
+        data = json.loads(report.read_text(encoding="utf-8"))
+        bundle_triangles = (data.get("totals") or {}).get("visual_triangles")
+    meta = out / "trajectory.js"
+    if meta.exists():
+        for line in meta.read_text(encoding="utf-8").splitlines():
+            if line.startswith("window.SO101_META = "):
+                budget = json.loads(line[len("window.SO101_META = "):].rstrip().rstrip(";")).get(
+                    "triangle_budget"
+                )
+                break
+
+    if page_triangles is None or bundle_triangles in (None, 0):
+        return (
+            "## Mesh resolution\n\n"
+            "The page's triangle count or the bundle's could not be read, so this package states no "
+            "ratio. That is a gap in the package, not a property of the model.\n"
+        )
+
+    ratio = 100.0 * page_triangles / float(bundle_triangles)
+    budget_text = (
+        f"each mesh reduced toward a {int(budget)}-triangle budget (the largest mesh in the payload "
+        f"carries {per_mesh_max})"
+        if budget
+        else f"the bake that produced this payload did not record its triangle budget; the largest "
+        f"mesh in the payload carries {per_mesh_max} triangles"
+    )
+    return (
+        "## Mesh resolution\n\n"
+        f"The bundle carries full-resolution visual meshes: **{bundle_triangles:,} triangles** across "
+        f"259 meshes, and that stays the source of truth. This page is a build-time decimation of "
+        f"them: **{page_triangles:,} triangles**, {budget_text}. The ratio is "
+        f"**{ratio:.1f}%** of the bundle's figure.\n\n"
+        "The two numbers measure different things and neither replaces the other. The bundle's count "
+        "is the geometry the compiled model actually holds; the page's count is what this copy "
+        "renders. No decimated mesh is ever written back into the bundle: the reduction happens here, "
+        "at packaging time, and the bundle you compile is the bundle you get.\n"
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo", default=".")
     parser.add_argument("--out", default="docs/demo/so101_demo")
     parser.add_argument("--zip", default="docs/demo/so101_demo.zip")
+    parser.add_argument("--tag", default=None,
+                        help="the repository tag this package is cut from, written into manifest.js")
     args = parser.parse_args()
 
     repo = pathlib.Path(args.repo).resolve()
+    if args.tag:
+        # Fail closed on a tag that does not exist yet: the header would then name a package that
+        # cannot be fetched, which is the same class of defect as a digest that records nothing.
+        found = subprocess.run(["git", "rev-parse", "--verify", f"refs/tags/{args.tag}"],
+                               cwd=repo, capture_output=True, text=True)
+        if found.returncode != 0:
+            raise SystemExit(f"no tag {args.tag} in {repo}: create it, or package without a tag")
     out = repo / args.out
     if out.exists():
         shutil.rmtree(out)
@@ -71,7 +155,33 @@ def main() -> int:
         "comparison.md": "docs/demo/so101_vs_official.md",
         "identifiability.md": "docs/twin/so101/identifiability.md",
         "NOTICE.md": "docs/twin/so101/NOTICE.md",
+        # the bundle's own conventions block: a packaged page that reads offsets from the bundle must
+        # find them in the zip, or it works in the repo and silently fails for a recipient
+        "manifest.json": "docs/twin/so101/bundle/manifest.json",
+        # ship what the manifest points at: a map whose entries 404 is worse than no map, because
+        # the conventions note tells a consumer to read from here and they will
+        "model.mjcf": "docs/twin/so101/bundle/model.mjcf",
+        "bundle.json": "docs/twin/so101/bundle/bundle.json",
+        "robot.joints.yaml": "docs/twin/so101/bundle/robot.joints.yaml",
+        "BENCH_PROTOCOL.md": "docs/twin/so101/BENCH_PROTOCOL.md",
         "diff.js": "docs/demo/page/diff.js",
+        # The page's section listener: the voice shell says "show me the torque" and this scrolls
+        # that panel. It ships because the shell's iframe runs the packaged page, not the repo's.
+        "sections.js": "docs/demo/page/sections.js",
+        # The data forms of the payloads the page reads as scripts. `twin summary` reads these to
+        # speak the demo's numbers; if they are not in the package, the voice falls back to
+        # "not in the report" for a number the recipient can see on the page beside it.
+        "torque.json": "docs/twin/so101/bundle/torque.json",
+        "identification.json": "docs/twin/so101/bundle/identification.json",
+        "identifiability_scenarios.json": "docs/twin/so101/bundle/identifiability_scenarios.json",
+        # The synthetic preview the twin panel draws. The page prints its RMSE, so the data behind
+        # that figure has to travel with the page; without it, `twin summary` run against the packed
+        # archive has no preview block while the page shows one, and the voice and the page disagree.
+        "synthetic_preview.json": "docs/twin/so101/bundle/synthetic_preview.json",
+        # The summary the page renders from and the voice speaks from: one generator, shipped as a
+        # script because the page runs from file://, where fetch() is blocked. `manifest.js` is
+        # written below instead of copied, because it must carry the tag this package is cut from.
+        "summary.js": "docs/demo/page/summary.js",
     }
     for name, rel in wanted.items():
         _copy(repo / rel, out / name, repo)
@@ -83,6 +193,41 @@ def main() -> int:
         _copy(repo / rel, out / name, repo)
 
     _copy(repo / "docs/demo/README.md", out / "README.md", repo)
+
+    # annotate the packaged manifest so every entry resolves: the 692 mesh files stay in the tagged
+    # bundle because the page renders meshes.js, and the manifest now says so instead of pointing at
+    # a directory the package does not carry
+    manifest_path = out / "manifest.json"
+    if manifest_path.exists():
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        files = manifest.get("files") or {}
+        absent = {}
+        for key, rel in list(files.items()):
+            if not (out / str(rel)).exists():
+                absent[str(rel)] = ("not in this package: the page renders meshes.js; the model and "
+                                    "its meshes live in the tagged bundle")
+                files.pop(key)
+        if absent:
+            manifest["not_in_package"] = absent
+        manifest["files"] = files
+        manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+        # The page prints the tag this package was cut from, and it reads it here rather than from a
+        # string in the HTML. `--tag` is required to be a tag that exists in this repository: a page
+        # that names a tag nobody created is a claim, not a label.
+        from bake_manifest import bake as bake_manifest_js  # noqa: PLC0415
+
+        bake_manifest_js(manifest_path, out / "manifest.js", args.tag)
+    # The packaged README says how much of the bundle's geometry this copy actually renders. Appended
+    # here rather than written into docs/demo/README.md, because the repo README describes the source
+    # document and the page is a build-time reduction of it.
+    readme = out / "README.md"
+    if readme.exists():
+        section = mesh_resolution(repo, out)
+        readme.write_text(
+            readme.read_text(encoding="utf-8").rstrip() + "\n\n" + section, encoding="utf-8"
+        )
+        print(section.strip().splitlines()[2] if len(section.strip().splitlines()) > 2 else section)
 
     index = out / "index.html"
     if index.exists():
@@ -110,6 +255,19 @@ def main() -> int:
             insert_at = end + len("</header>")
             html = html[:insert_at] + chr(10) + nav + html[insert_at:]
             index.write_text(html, encoding="utf-8")
+
+    # Record what this build put in the package, one digest per file. Written here, after every
+    # other write, because a sidecar taken earlier would record a README or an index.html that the
+    # lines above then changed -- which is the same shape as the defect it exists to catch: a file
+    # that is right in the tree and wrong in the package.
+    sidecar = out / FILE_DIGESTS
+    lines = []
+    for path in sorted(out.rglob("*")):
+        if path.is_file() and path != sidecar:
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            lines.append(f"{digest}  {path.relative_to(out).as_posix()}")
+    sidecar.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print(f"{FILE_DIGESTS}: {len(lines)} files recorded")
 
     zip_path = repo / args.zip
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -152,9 +310,21 @@ def main() -> int:
         missing = [h for h in links if not (root / h).exists()]
         browser.close()
 
+    # the manifest is a map of where the model lives; an entry that does not resolve is a dead end a
+    # consumer will walk into, so it is checked against the EXTRACTED copy, not the repo
+    manifest_dead: list[str] = []
+    manifest_file = root / "manifest.json"
+    if manifest_file.exists():
+        manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
+        for key, rel in (manifest.get("files") or {}).items():
+            if not (root / str(rel)).exists():
+                manifest_dead.append(f"{key} -> {rel}")
+
     print(json.dumps({"panels": panels, "page_errors": errors, "external_requests": external,
-                      "missing_relative_links": missing, "unpacked_at": str(root)}, indent=2))
-    ok = not errors and not external and not missing and panels["checks"] == 7 and panels["links"] >= 7
+                      "missing_relative_links": missing, "manifest_dead_entries": manifest_dead,
+                      "unpacked_at": str(root)}, indent=2))
+    ok = (not errors and not external and not missing and not manifest_dead
+          and panels["checks"] == 7 and panels["links"] >= 7)
     print("PACKAGE OK" if ok else "PACKAGE PROBLEM")
     return 0 if ok else 3
 

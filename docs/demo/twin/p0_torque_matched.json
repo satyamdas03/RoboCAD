@@ -1,0 +1,152 @@
+{
+  "conventions": {
+    "zero_pose_offsets_deg": [
+      -88.17,
+      90.29,
+      -90.31,
+      -0.15,
+      0.0,
+      0.0
+    ],
+    "base_translation_mm": [
+      38.74,
+      6.64,
+      -2.86
+    ],
+    "applied_to": "compiled model"
+  },
+  "pose_gate": {
+    "tip_check_mm": [
+      8.6,
+      24.87,
+      56.65,
+      56.57,
+      70.69
+    ],
+    "worst_mm": 70.69,
+    "documented_residual_mm": 11.25,
+    "passes": false,
+    "method": "jaw-tip centroid at five timesteps, after applying the documented offsets"
+  },
+  "peak_torque_nm": {
+    "official": 1.26,
+    "compiled": 1.027
+  },
+  "rms_torque_nm": {
+    "official": 0.581,
+    "compiled": 0.369
+  },
+  "per_joint": [
+    {
+      "joint": "shoulder_pan",
+      "official_peak_nm": 0.45,
+      "compiled_peak_nm": 0.03,
+      "official_rms_nm": 0.333,
+      "compiled_rms_nm": 0.014
+    },
+    {
+      "joint": "shoulder_lift",
+      "official_peak_nm": 1.111,
+      "compiled_peak_nm": 1.027,
+      "official_rms_nm": 0.595,
+      "compiled_rms_nm": 0.736
+    },
+    {
+      "joint": "elbow_flex",
+      "official_peak_nm": 1.03,
+      "compiled_peak_nm": 0.628,
+      "official_rms_nm": 0.611,
+      "compiled_rms_nm": 0.513
+    },
+    {
+      "joint": "wrist_flex",
+      "official_peak_nm": 0.771,
+      "compiled_peak_nm": 0.147,
+      "official_rms_nm": 0.498,
+      "compiled_rms_nm": 0.113
+    },
+    {
+      "joint": "wrist_roll",
+      "official_peak_nm": 1.26,
+      "compiled_peak_nm": 0.002,
+      "official_rms_nm": 0.889,
+      "compiled_rms_nm": 0.001
+    },
+    {
+      "joint": "gripper",
+      "official_peak_nm": 0.525,
+      "compiled_peak_nm": 0.005,
+      "official_rms_nm": 0.384,
+      "compiled_rms_nm": 0.003
+    }
+  ],
+  "static_gravity": [
+    {
+      "pose": "rest",
+      "official_peak_nm": 0.538,
+      "compiled_peak_nm": 0.767,
+      "per_joint_official": [
+        -0.0,
+        -0.538,
+        -0.452,
+        -0.116,
+        -0.0,
+        0.003
+      ],
+      "per_joint_compiled": [
+        -0.009,
+        -0.767,
+        -0.631,
+        -0.144,
+        -0.001,
+        -0.003
+      ]
+    },
+    {
+      "pose": "quarter span",
+      "official_peak_nm": 0.514,
+      "compiled_peak_nm": 0.727,
+      "per_joint_official": [
+        -0.0,
+        -0.514,
+        -0.266,
+        -0.038,
+        -0.001,
+        0.003
+      ],
+      "per_joint_compiled": [
+        -0.007,
+        -0.727,
+        -0.359,
+        -0.042,
+        -0.0,
+        -0.003
+      ]
+    },
+    {
+      "pose": "half span",
+      "official_peak_nm": 0.232,
+      "compiled_peak_nm": 0.335,
+      "per_joint_official": [
+        0.0,
+        -0.232,
+        0.131,
+        0.095,
+        0.005,
+        0.002
+      ],
+      "per_joint_compiled": [
+        -0.003,
+        -0.335,
+        0.195,
+        0.121,
+        -0.001,
+        -0.0
+      ]
+    }
+  ],
+  "masses_kg": {
+    "official": 0.632,
+    "compiled": 0.9017
+  }
+}

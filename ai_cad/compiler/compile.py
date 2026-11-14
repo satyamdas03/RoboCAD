@@ -15,6 +15,7 @@ from __future__ import annotations
 import html
 import json
 from collections import Counter
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -23,6 +24,7 @@ from pydantic import BaseModel, Field
 from ai_cad.compiler import bundle_checks
 from ai_cad.compiler.actuators import ActuatorSpec
 from ai_cad.compiler.collision import MAX_FILL_RATIO
+from ai_cad.compiler.conventions import Conventions, write_manifest
 from ai_cad.compiler.kinematics import apply_limits, derive_skeleton, write_skeleton
 from ai_cad.compiler.materials import MATERIALS, Density, datasheet_density
 from ai_cad.compiler.print_model import PrintModel
@@ -160,6 +162,8 @@ def compile_bundle(
     actuator_mass_source: str | None = None,
     actuator: ActuatorSpec | None = None,
     visual: bool = False,
+    conventions: Conventions | None = None,
+    progress: Callable[[str, int, str], None] | None = None,
 ) -> Report:
     """Run every stage and write the bundle. Raises rather than emitting a partial report.
 
@@ -175,16 +179,30 @@ def compile_bundle(
     applied to every part the name classifier calls an actuator: those parts are bought, not printed,
     and their CAD solids are envelopes rather than material. An explicit ``density_by_part`` entry
     wins over both.
+
+    ``conventions`` is the measured zero-pose offset and base translation that make this bundle
+    comparable with another model of the same robot. It is written twice, from one object: a comment
+    block in ``model.mjcf`` (what a simulator opens) and the ``conventions`` block of
+    ``manifest.json`` (what a consumer reads). Omitted, the bundle states that no convention was
+    measured rather than shipping a zero vector that reads like a finding.
     """
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     chain = chain or SO101_CHAIN
+    # ``progress`` is a status sink, not a hook that changes what runs: the stages it names are the
+    # stages this function already executes in order, and the percentages are emitted after each one
+    # finishes. A caller that reports progress therefore cannot report a stage as done that was not.
+    def emit(stage: str, pct: int, msg: str) -> None:
+        if progress is not None:
+            progress(stage, pct, msg)
+
     if notice is None:
         notice = read_notice(out)
     if (limits is None) != (limits_source is None):
         raise ValueError("limits and limits_source must be supplied together, or neither")
 
     assembly = import_step(str(step_path))
+    emit("import", 10, f"{assembly.part_count} parts, {assembly.instance_count} instances")
     part_of = {instance.instance_id: instance.part_id for instance in assembly.instances}
     if (actuator_mass_kg is None) != (actuator_mass_source is None):
         raise ValueError(
@@ -205,6 +223,7 @@ def compile_bundle(
     if limits:
         skeleton = apply_limits(skeleton, limits, limits_source)
     write_skeleton(skeleton, out / "robot.joints.yaml", notice=notice)
+    emit("joints", 25, f"{len(skeleton.joints)} joints, {len(skeleton.bodies)} bodies")
 
     visuals: dict[str, object] = {}
     visual_warnings: list[str] = []
@@ -228,6 +247,11 @@ def compile_bundle(
         actuator=actuator,
         visual=visuals or None,
     )
+    emit(
+        "properties",
+        45,
+        f"{len(model.bodies)} bodies, {model.total_mass_kg:.3f} kg modelled",
+    )
     mesh_dir = write_meshes(model, assembly, meshes, out / "meshes")
     if visuals:
         # Same directory as the hulls: MuJoCo joins every mesh file to one meshdir, and a second
@@ -236,7 +260,13 @@ def compile_bundle(
     visual_bytes = (
         sum(p.stat().st_size for p in mesh_dir.glob("*_vis.obj")) if visuals else 0
     )
-    mjcf_path = write_mjcf(model, out / "model.mjcf")
+    emit(
+        "collision",
+        70,
+        f"{sum(len(b.hull_files) for b in model.bodies)} hulls, "
+        f"{sum(len(b.visual_files) for b in model.bodies)} visual meshes",
+    )
+    mjcf_path = write_mjcf(model, out / "model.mjcf", conventions=conventions)
     urdf_path = write_urdf(model, out / "model.urdf")
     assumed = [b.body_id for b in model.bodies if b.rests_on_an_assumed_density]
     body_rows = [
@@ -311,6 +341,13 @@ def compile_bundle(
         encoding="utf-8",
     )
 
+    # What the bundle is and how to read it, in one file a consumer can open without this repo. The
+    # conventions block is the point of it: a comparison that reads the offsets out of its own source
+    # instead of out of here keeps working after this bundle is recompiled with a different
+    # convention, and is wrong without saying so.
+    write_manifest(out, model.name, conventions or Conventions())
+    emit("bundle", 85, "bundle.json, model.mjcf, model.urdf and manifest.json written")
+
     limits = {j.joint_id: j.limits for j in skeleton.joints}
     # Collision volume over solid volume per body. When the self-collision check finds an overlap,
     # this is what lets it say whether the offending hulls are a loose approximation or a faithful
@@ -350,6 +387,11 @@ def compile_bundle(
         ),
         bundle_checks.check_free_base_stand(),
     ]
+
+    worst = "fail" if any(c.status == "fail" for c in checks) else (
+        "warn" if any(c.status == "warn" for c in checks) else "pass"
+    )
+    emit("checks", 97, f"{len(checks)} checks, worst {worst}")
 
     # One PLA density over every part of the assembly produces a total that means nothing in
     # particular, because a servo is not a solid block of plastic and a screw is not printed. The
@@ -446,6 +488,7 @@ def compile_bundle(
     )
     (out / "report.json").write_text(report.model_dump_json(indent=2), encoding="utf-8")
     (out / "report.html").write_text(render_html(report), encoding="utf-8")
+    emit("done", 100, f"bundle written to {out}")
     return report
 
 
@@ -501,20 +544,18 @@ def _brep_note(measured: dict[str, dict]) -> str:
     # the first version of the effort check reported 1,110 N*m against a 2.94 N*m limit. The check
     # now disables contacts for the measurement, so the sentence has to say what is actually done
     # rather than warn about what used to happen.
+    #
+    # The claim is stated once. A separate "the status stays fail either way: MuJoCo collides the
+    # hulls" sentence used to follow this one, saying the same thing in different words; read aloud
+    # it was the same fact twice, which is what a listener notices and a reader skims past.
     torque = (
         " MuJoCo collides the convex hulls, and this overlap is an overlap of those hulls, so a "
-        "rollout on this model will see the solver push them apart. The effort check therefore "
-        "measures with contact forces disabled, which is why its torque is the load the gearing must "
-        "hold rather than this overlap's contact forces; a torque read from inverse dynamics with "
-        "contacts enabled would be neither."
+        "rollout on this model will see the solver push them apart; the status stays fail whatever "
+        "the B-rep says. The effort check therefore measures with contact forces disabled, which is "
+        "why its torque is the load the gearing must hold rather than this overlap's contact forces; "
+        "a torque read from inverse dynamics with contacts enabled would be neither."
     )
-    return (
-        " "
-        + " ".join(parts)
-        + " The status stays fail either way: MuJoCo collides the hulls, so the simulator will act "
-        "on the overlap whatever the B-rep says."
-        + torque
-    )
+    return " " + " ".join(parts) + torque
 
 
 # ------------------------------------------------------------------------------------------------

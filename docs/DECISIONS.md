@@ -478,3 +478,211 @@ slicer default; the wall thickness is three perimeters at a nozzle size nobody s
 The bundle now carries `solid_mass_kg` and `printed_mass_kg` side by side, and the comparison carries
 both columns and says they move with the infill setting, so the range is visible rather than the
 midpoint. Nothing in this entry makes a link mass a measurement, and only a scale does.
+
+## v1.1, 2026-11-14: the hold fails on collision geometry, and replay ships instead
+
+The question v1.1 asked was whether the live hold fails on gains or on limits. It fails on neither,
+and the answer came out of a measurement rather than a reading of the numbers.
+
+At the commanded pose the gravity torque is at most 0.254 N·m against a 2.942 N·m actuator limit, so
+the servo is not short of torque to hold the arm up. The force the position servo asks for is
+`kp * error` = 11.46 N·m on joint_1, which it cannot supply, so it saturates — and what is eating the
+difference is the collision solver: 64 contacts active at the last step, `qfrc_constraint` up to
+3.29 N·m on joint_1, above the actuator's own limit. This is the bundle's `self_collision` check
+(reported **fail**, deepest overlap −7.939e−03 m) reproduced under a controller. The hold is not a
+control question at all; it is a geometry question wearing one.
+
+**Decision: replay only for the demo, hold retained as a diagnostic.** The alternative — raising gains
+or torque until the arm appears to hold — would buy a shivering model that spends its whole torque
+budget pushing its own hulls apart, in front of an audience. The honest fix is better collision
+geometry (per-part groups, adjacent pairs disabled, tighter hulls), which is a compile-side change that
+changes the bundle, and the demo sprint is frozen: `demo-bundle-v1` stays as it is and v1.1 adds none
+of that.
+
+**Decision: the diagnostic prints its own reason, and is tested.** Three different causes produce the
+same steady error and have three different fixes, so the run now measures all three — `qfrc_bias` at
+rest for the load, `kp * error` for the demand, `qfrc_constraint` and the live contact count for the
+solver — and names the binding one. Two earlier versions of that measurement printed confident wrong
+answers (the actuator forcerange on every joint; then exactly zero), which is worse than printing
+nothing, so `tests/test_demo_static_load.py` pins that the reported load equals the real gravity term,
+does not scale with the forcerange, does not pick up a limit force at a pose outside the joint range,
+and goes to zero when gravity is off.
+
+**One caveat on the residual.** None of this changes R1's other half: the dynamic torque comparison is
+not comparable at the jaw tip, because the jaw frame is a separate known-unknown (5.74 mm off at rest,
+and no constant gripper offset fixes a translation). The 11.25 mm figure is the anchor residual over
+100 poses, not a jaw-tip residual, and a tip gate cannot be met with the offsets this bundle carries.
+
+## v1.1, 2026-11-14: the CLI contract, and fail-closed provenance
+
+**Decision: Hi-EV calls a subprocess, never an import.** The two repos stay separate, so the contract
+is `python -m robocad twin …` and JSON on stdout. The cost is a process spawn per call; the benefit is
+that a renamed field is a visible schema failure instead of an import that still resolves and silently
+returns something else.
+
+**Decision: every figure in a summary carries a provenance label, and an unanticipated one defaults to
+`synthetic`.** The summary's job is to be readable by a consumer that will render it in a panel, and
+the panel is where an assumption gets read as a measurement. So `provenance` covers every key of
+`totals` — with a fallback entry for any figure no rule anticipates — and the `synthetic` flag is
+computed from `kind` rather than written by hand, so a new figure cannot arrive unflagged and an entry
+cannot disagree with its own label. Nine of thirty-one figures on this bundle come out `derived`, which
+is the honest count: the two masses are a CAD volume at an assumed density.
+
+**Decision: the progress stream has a fixed stage set and a JSON error line.** A GUI that scrapes text
+breaks when the text changes; a GUI that waits on a stream hangs when the process dies. So the stages
+are a closed list (`import|joints|properties|collision|bundle|checks|done`), an unknown stage is
+refused rather than passed through, a failure is emitted through the same sink as the stages, and the
+exit code distinguishes built (0) from built-and-red (3) from failed (2).
+
+**Decision: `twin page` says which payloads it rebuilt and which it copied.** The torque comparison
+needs the published model as well as the compiled one, so a bundle alone cannot regenerate it. Copying
+it silently would put last week's number beside this week's bundle; refusing to build without it would
+make the command useless offline. It copies, names what it copied, and checks that every local `src`
+the page links exists before calling the page complete.
+
+**Decision: the blade treats its own iframe as untrusted.** It is a local page on a local port, but it
+is a separate document, so `src` is restricted to the `/robocad/page/` mount (no `..`, backslashes,
+schemes or control characters), the frame is sandboxed `allow-scripts` without `allow-same-origin`,
+and messages from it are accepted only from that frame's window at the expected origin in the expected
+shape. All three checks are tested; any one alone would be enough to be fooled.
+
+**Decision: the twin CLI rides on `feat/v1.1` rather than opening `feat/twin-cli`.** The order names
+two branches, but Lane B is already pulling `feat/v1.1` for the blade handoff, and a second branch
+from the same commit would mean two histories carrying the same files, with the risk that her
+integration lands on one and my fixes on the other. One branch, linear, pushed, is the smaller risk
+while two lanes share the tree. If Satyam wants the split for review, `feat/twin-cli` can be created
+at `84fd2bf` afterwards without rewriting anything, because nothing has been rebased or forced.
+
+**Decision: `twin unpack` is the only way a consumer obtains a shipped demo, and it fails closed.**
+The v1.2 review found three artifacts claiming to be the demo: the zip, a working-tree page the blade
+served, and a bundle directory. Two of them disagreed, one injected `<div>` apart. Rather than tell a
+consumer which copy to trust, the CLI now produces the copy: it checks the archive's sha256 before
+writing anything, refuses an archive whose member names would escape the target, refuses a populated
+target instead of merging two packages into one directory, and reports the `bundle` path (the
+directory holding the shipped `report.json`) so `ROBOCAD_BUNDLE_DIR` has one obvious value. A refused
+unpack leaves the target untouched, because a half-populated directory reads as a partial success.
+
+**Decision: torque in the summary is one number per pose, not a per-joint array, plus name-keyed
+detail.** The page reads a peak per pose and the narration speaks a peak per pose. An array indexed
+by joint position is only meaningful if both sides agree on joint order, and nothing in the bundle
+makes that ordering checkable, so an array would invite a consumer to read the wrong joint. `torque`
+therefore carries `static_poses[].compiled_nm`/`published_nm` as scalars (the peak over joints, stated
+as such), with per-joint values, if present, keyed by joint name. Lane B proposed this from the
+consumer side; the joint-index argument is the reason it is adopted.
+
+**Decision: the cross-repo fixture is exported from the archive `verify.json` names, and its digest
+travels beside it.** A test fixture written by hand tests what the reader wanted, not what the
+package says. `scripts/export_summary_fixture.py` unpacks the shipped zip with its digest, runs the
+same `build_summary` the CLI runs, and writes the JSON unmodified, plus a `sha256sum`-format sidecar
+naming the archive. A consumer whose zip has been replaced is detectable rather than silently stale.
+The fixture is not reshaped for a test: if a test needs a different shape, the reader is wrong.
+
+**Decision: the page accepts exactly one message, from its own origin, naming one of six sections.**
+The voice shell has to be able to say "show me the torque" and have the page answer. The narrow
+contract is `{type: "robocad.section", section}` posted to the frame, valid only when `event.origin`
+equals the page's own origin, and only for `overview|checks|comparison|torque|revision|twin`.
+Anything else is ignored without a reply, because an error message is also a map of what to try
+next. From `file://` (opaque origin) the listener accepts nothing; the page stays usable standalone
+and `#torque` in the URL still scrolls, which is what a README link does.
+
+**Decision: `synthetic_count` stays scoped to the provenance block and a second count names the
+calibration block.** A security review read one zero and called it fail-open: the summary said "0 of
+31" while 18 calibration figures beside it come from simulated logs. The zero is true and the
+reading was fair, so `synthetic_figures` now reports `{provenance, calibration,
+calibration_is_synthetic}` and the printed line says both. `synthetic_count` is kept unchanged
+because a consumer already reads it; the schema stays `/1` because nothing was removed or
+reinterpreted, only added beside it.
+
+**Decision: build123d is pinned below 0.13, and the STEP importer names the import that failed.**
+A clean venv resolved `build123d 0.13.0`, whose OCP no longer exposes `TDF_LabelSequence`; the
+importer caught the `ImportError` and told the user to install the runtime dependencies, which they
+had. Two changes: `build123d>=0.9.0,<0.13` in `requirements.txt` and `pyproject.toml` so a fresh
+install lands on a kernel the importer supports, and the error message now carries the failing
+import, because "moved between releases" and "never installed" look identical from the outside.
+
+**Decision: `calibration.current_channel.params` lists Coulomb friction before viscous damping.**
+The current channel resolves Coulomb (0.1466 recovered against 0.15 true); the viscous estimate
+beside it is attenuated (0.0436 against 0.08) and reads like a failure when it leads. The order is
+the only change: both parameters stay, both carry `true`, `recovered`, `lo`, `hi`, and the block
+still says `synthetic: true`. Lane B proposed this from the consumer side and drops her
+preference-scan workaround now that the producer orders it.
+
+**Decision: nothing on this branch goes to LFS.** The largest file the branch touches is the demo
+zip at 3.76 MB, and the 23 files it adds together are 0.3 MB. The 5 MB line is where a repository
+starts paying for binaries it cannot review; nothing here is close, so the zip stays in git, the
+tag stays checkable with `git show`, and no history was rewritten to move it.
+
+**Decision: a package records a digest per file, and unpack checks it.** A zip digest answers "is
+this the archive a caller verified?", not "does this archive hold the files the build produced?".
+Twice in two rounds a file has been right in the tree and stale in the package, and both times the
+only detector was a person diffing copies. `teardown_export/package_demo.py` now writes
+`FILES.sha256` after its final write, taking the sidecar's name from `robocad.twin_cli` rather than
+repeating it, and `twin unpack` recomputes each line and refuses on a mismatch, a recorded-but-missing
+file, or a file no line records. The check is optional for a zip that has no sidecar, because a
+consumer's package is theirs; when it is present it is binding.
+
+**Decision: a figure on the page must exist in the summary, and a checker enforces it.** The page
+and the voice are meant to read one generator, `build_summary`, but only the voice was held to it.
+The torque panel printed "tens of mm" where the summary carried 70.69 mm, because it read `torque.js`,
+baked against an older `torque.json`. Prose in place of a number is the mild version of the defect;
+the real cost is two sources of truth about one measurement. The panels now read `summary.js` for
+every figure, and `scripts/check_page_numbers.py` renders the page and fails on any numeric token in
+the torque, comparison, checks or twin panels that does not trace to the summary JSON, allowing only
+the precision the page prints and the unit scales it legitimately applies.
+
+**Decision: the synthetic preview block lives inside `calibration`, not beside it, and ships.** Two
+consequences settled together. The summary reserves the `synthetic` kind for the calibration block, so
+a preview block outside it either broke that rule or taught a reader there are two; it is simulated
+data with planted parameters, so it belongs inside. And the archive has to carry
+`synthetic_preview.json`: the page prints 270 → 224 mrad, and a summary built from a zip without that
+file had no preview at all, so the page and the voice would describe the same demo differently. The
+packager copies it for the same reason it copies `torque.json`.
+
+**Decision: the page payload is decimated at a 3,000-triangle budget, not 2,500.** Measured, not
+chosen by feel: 2,500 produced 128,073 triangles because the reducer overshoots below the budget and
+leaves roughly 500 per mesh; 3,000 produced 533,262 of the bundle's 620,093 (86.0%) with a largest
+mesh of 3,370; 5,000 produced no reduction at all at 14.8 MB. The budget and ratio travel in
+`trajectory.js` and the packaged README, so a recipient can re-derive both.
+
+**Decision: `demo-bundle-v1.3` was recreated once, before publication.** The tag was first placed on
+the code commit, before the zip it names existed in the tree, which would have made
+`git show demo-bundle-v1.3:docs/demo/so101_demo.zip` fail. Nothing was pushed or handed out. The tag
+was deleted and recreated at the final commit. The rule against re-tagging protects artifacts someone
+may already hold; an unpublished tag that cannot resolve its own package protects nothing.
+
+**Decision: `twin revise` refuses a diff whose solid bound moved.** Wall thickness and infill cannot
+change the solid mass: the solid is the CAD volume at a stated density. A diff between two compiles
+that disagree about it is therefore not a revision of one assumption, and the printed mass it reports
+is that disagreement plus the revision. Measured while building this: a compile of the same STEP file
+without the frozen bundle's servo mass produced a solid of 1.0413 kg against 1.3320 kg and a printed
+mass of 0.6485 kg against 0.9017 kg — a 28% "reduction" at *higher* infill, which is the shape of the
+defect. `revise` now exits 3 with that reason and still writes `diff.md` carrying it, and
+`--servo-mass-kg`/`--servo-source` exist so the caller can hold the rest of the compile fixed.
+
+**Decision: the print model is bounded by the CLI, not by `PrintModel`.** `PrintModel` accepts any
+infill from 0 to 1 and any positive wall, which is right for a model and wrong for an instruction a
+person speaks. `twin compile --infill` and `twin revise --infill` accept 0.1 to 1.0, and
+`--wall-mm` 0.8 to 3.0; outside that, exit code 2 before the compiler starts. Zero infill is a
+number, not a part, and a mass computed from it would be reported with the same confidence as one
+from a printable assumption.
+
+**Decision: "Try it yourself" is written outside the packaged README.** `README.md` is copied into
+`so101_demo.zip`, so editing it after the v1.3 tag would mean the tagged package can no longer be
+re-derived from the tree it names. The commands live in `docs/demo/TRY_IT_YOURSELF.md`, which is not
+in the packager's file list, and the packaged README is untouched.
+
+**Decision: a mass-only change is `changed` in a revision diff.** `diff_links` measured change in
+quantity and volume, so the first real print-model revision printed `0 changed` beside a 6% mass rise
+and `unchanged` beside `+11.35 g` on all seven rows. Geometry and mass are two different axes and a
+revision can move one without the other; the status column now means "anything in this row moved".
+Re-rendering the same two bundles costs nothing and the table now reads `7 changed`, volumes `+0.00%`,
+masses positive.
+
+**Decision: `twin revise` gets no baked-in servo mass; the fix is provenance in the bundle.** The
+frozen compile used a datasheet figure for one servo (Feetech STS3215, 55 +/- 1 g). A CLI default
+would stamp that actuator on every bundle the tool is ever run against, and the mass it produced would
+read exactly as confidently as a measured one. The flag pair stays explicit and the solid-bound guard
+refuses the alternative. The improvement is `actuator_mass_kg` and its source recorded in
+`bundle.json` at compile time, so `revise` can read them from `--before` instead of asking, and a
+revision cannot be run without the assumption the frozen bundle actually made. Not done now: adding a
+field changes what the next package's bundle records, and v1.3 is frozen and re-derivable.

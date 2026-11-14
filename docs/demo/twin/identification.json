@@ -74,6 +74,62 @@
       "note": "condition number 6.3, tolerance 25%. Position quantisation is 1.53 mrad and the servo stiffness is 998 N m per rad, so one count of position error is about 1.53 N m of actuator torque, against a friction signal of roughly 0.05 N m. The method cannot separate them at this rate, and no amount of fitting fixes a signal to noise ratio of 0.04. A partner's bench log with a real torque channel escapes this; a 62 Hz position log does not."
     },
     {
+      "rung": 5,
+      "name": "62 Hz with a current channel, shoulder_lift",
+      "reached": true,
+      "recovered": {
+        "damping": 0.043576314705297235,
+        "coulomb": 0.1466117889924351
+      },
+      "truth": {
+        "damping": 0.08,
+        "coulomb": 0.15
+      },
+      "error_percent": {
+        "damping": 45.52960661837846,
+        "coulomb": 2.258807338376597
+      },
+      "note": "intervals viscous (0.0432, 0.0439), coulomb (0.1465, 0.1467). Coulomb recovered within tolerance; viscous damping attenuated by encoder-quantised velocity, an errors-in-variables bias, not a missing signal.",
+      "intervals": {
+        "damping": [
+          0.0432,
+          0.0439
+        ],
+        "coulomb": [
+          0.1465,
+          0.1467
+        ]
+      }
+    },
+    {
+      "rung": 5,
+      "name": "62 Hz with a current channel, elbow_flex",
+      "reached": true,
+      "recovered": {
+        "damping": 0.06011353672442974,
+        "coulomb": 0.13297107629162733
+      },
+      "truth": {
+        "damping": 0.08,
+        "coulomb": 0.15
+      },
+      "error_percent": {
+        "damping": 24.858079094462827,
+        "coulomb": 11.352615805581777
+      },
+      "note": "intervals viscous (0.0598, 0.0605), coulomb (0.1326, 0.1333). Coulomb recovered within tolerance; viscous damping attenuated by encoder-quantised velocity, an errors-in-variables bias, not a missing signal.",
+      "intervals": {
+        "damping": [
+          0.0598,
+          0.0605
+        ],
+        "coulomb": [
+          0.1326,
+          0.1333
+        ]
+      }
+    },
+    {
       "rung": 4,
       "name": "second joint elbow_flex, noise free, 1 kHz",
       "reached": true,

@@ -1,4 +1,5 @@
 <mujoco model="so101">
+  <!-- conventions: comparing joint origins without these offsets gives misleading errors of several cm. Zero-pose offsets, applied to THIS (compiled) model, in joint order, degrees: joint_1 -88.17 deg, joint_2 +90.29 deg, joint_3 -90.31 deg, joint_4 -0.15 deg, joint_5 +0.00 deg; jaw +0.00 deg (fixed, its frame is excluded). Base translation of this model in world coordinates: (38.74, 6.64, -2.86) mm at identity rotation (base rotation 0.000 deg, fitted and rejected: identity is the better model of the frame). Residual at the five joint origins over 100 sampled poses: median 2.50 mm / p90 5.95 mm / max 11.25 mm. These offsets align joint ORIGINS, not the jaw tip; a tip residual carries the jaw frame and is not a convention error. Applying them can put joints outside this model's jnt_range, so a dynamics run must disable contact AND limit constraints. Measured values live in manifest.json; read them there, not from a local constant. -->
   <compiler angle="radian" meshdir="meshes"/>
   <asset>
     <mesh name="base_so101_000_h0" file="base_so101_000_h0.obj"/>

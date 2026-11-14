@@ -18,7 +18,7 @@ classifiers = [
   "Topic :: Scientific/Engineering",
 ]
 dependencies = [
-  "build123d>=0.9.0",
+  "build123d>=0.9.0,<0.13",
   "pydantic>=2.0.0",
   "numpy>=1.26.0",
   "trimesh>=4.0.0",
@@ -26,6 +26,12 @@ dependencies = [
   "rtree>=1.2.0",
   "httpx>=0.27.0",
   "coacd>=1.0.14",
+  # ai_cad/compiler/revision.py imports this at module scope, so `twin revise` needs it installed.
+  # Undeclared, a clean `.[dev]` install compiled for 26 minutes and then crashed on the import.
+  "pyyaml>=6.0",
+  # ai_cad/compiler/compare.py imports this at module scope to parse a URDF that arrived from
+  # outside the repo with a parser that refuses entity expansion.
+  "defusedxml>=0.7.1",
 ]
 
 [project.optional-dependencies]
@@ -41,7 +47,14 @@ ai = ["anthropic>=0.30.0"]
 voice = ["livekit-agents>=0.12.0", "livekit-api>=0.8.0"]
 # Physics. Required for every check that loads a bundle.
 sim = ["mujoco>=3.1.0"]
-dev = ["pytest>=8.0.0", "pytest-timeout>=2.3.0", "playwright>=1.40.0"]
+dev = [
+  "pytest>=8.0.0",
+  "pytest-timeout>=2.3.0",
+  "playwright>=1.40.0",
+  # tests/test_packaging_docs.py imports setuptools to assert the proprietary package is excluded
+  # from the wheel; Python 3.12+ venvs no longer install it, so a clean `.[dev]` failed that test.
+  "setuptools>=69",
+]
 
 [project.scripts]
 robocad = "robocad.__main__:main"

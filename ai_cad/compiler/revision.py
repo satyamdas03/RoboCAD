@@ -209,8 +209,13 @@ def diff_links(
             if mass_delta is None or not old.mass_kg
             else 100.0 * mass_delta / old.mass_kg
         )
-        changed = bool(old.quantity != new.quantity) or bool(
-            volume_change is not None and volume_change[0] > 1e-9
+        changed = (
+            bool(old.quantity != new.quantity)
+            or bool(volume_change is not None and volume_change[0] > 1e-9)
+            # A print-model revision moves mass without moving a single vertex. Calling that
+            # "unchanged" in the status column while the mass column shows +11 g on every row is a
+            # table that contradicts itself.
+            or bool(mass_delta is not None and abs(mass_delta) > 1e-9)
         )
         deltas.append(
             LinkDelta(

@@ -17,8 +17,11 @@ def _dispatch(argv: list[str]) -> int:
     if argv[0] == "joints":
         from robocad.joints_cli import main as joints_main
         return joints_main(argv[1:])
+    if argv[0] == "twin":
+        from robocad.twin_cli import main as twin_main
+        return twin_main(argv[1:])
     print(f"Unknown robocad command: {argv[0]}")
-    print("Usage: python -m robocad [start|health|joints|demo]")
+    print("Usage: python -m robocad [start|health|joints|demo|twin]")
     return 1
 
 

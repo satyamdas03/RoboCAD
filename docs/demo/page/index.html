@@ -21,19 +21,30 @@
   aside{border-left:1px solid var(--line);background:var(--panel);overflow:auto;padding:12px}
   .grp{margin-bottom:16px}
   .grp h2{font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--dim);margin:0 0 8px}
-  .row{display:flex;justify-content:space-between;gap:8px;padding:4px 0;font-family:var(--mono);font-size:13px}
-  .row span:last-child{color:var(--accent)}
+  /* the flash a spoken "show me the torque" leaves behind: a section the voice asked for says so */
+  .nav-flash{outline:2px solid var(--accent);outline-offset:4px;border-radius:4px;background:rgba(87,211,160,.07);transition:background .25s,outline-color .25s}
+  /* 2px of right inset: the value column is right-aligned and was sitting exactly on the panel
+     edge, so its last glyph touched the boundary and read as clipped in a panel screenshot. */
+  .row{display:flex;justify-content:space-between;gap:8px;padding:4px 2px 4px 0;font-family:var(--mono);font-size:13px}
+  .row span:first-child{min-width:0;overflow-wrap:anywhere}
+  /* Right-aligned but able to wrap. The revision row carries
+     "0.652 N·m -> 0.687 N·m (22% -> 23% of limit)", which is wider than the 320px column and was
+     being clipped at the right edge rather than wrapping at one of its spaces. */
+  .row span:last-child{color:var(--accent);text-align:right;overflow-wrap:anywhere;flex:0 1 auto}
   .bar{height:3px;background:#1b2431;margin-top:2px}
   .bar i{display:block;height:100%;background:var(--accent)}
   button{background:#18212e;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 11px;font-size:13px;cursor:pointer}
   button:hover{border-color:#2f3d51} button[aria-pressed="true"]{background:#1f3a2f;border-color:#2f6a53;color:#bff3dc}
   .btns{display:flex;flex-wrap:wrap;gap:6px}
   .hint{color:var(--dim);font-size:12px;margin-top:8px}
-  .check{display:flex;justify-content:space-between;gap:8px;padding:3px 0;font-family:var(--mono);font-size:12px}
+  /* Same 2px value inset as `.row`: the status label is right-aligned and was touching the edge. */
+  .check{display:flex;justify-content:space-between;gap:8px;padding:3px 2px 3px 0;font-family:var(--mono);font-size:12px}
+  .check span:first-child{min-width:0;overflow-wrap:anywhere}
+  .check span:last-child{white-space:nowrap}
   .check .st{font-weight:600}
   .st-pass{color:#57d3a0} .st-warn{color:#f2b45c} .st-fail{color:#ef6b6b} .st-skipped{color:#8b97a8}
-  .check-detail{color:var(--dim);font-size:11px;padding:0 0 6px}
-  .synth{background:#3a2a12;color:#f2b45c;border:1px solid #6b4a1c;border-radius:4px;padding:1px 5px;font-size:10px;letter-spacing:.08em}
+  .check-detail{color:var(--dim);font-size:11px;padding:0 0 6px;overflow-wrap:anywhere}
+  .synth{background:#3a2a12;color:#f2b45c;border:1px solid #6b4a1c;border-radius:4px;padding:1px 5px;font-size:11px;letter-spacing:.06em}
   #torque-chart{width:100%;height:auto;background:#0d1219;border:1px solid var(--line);border-radius:6px;margin-bottom:8px}
   #twin-chart{width:100%;height:auto;background:#0d1219;border:1px solid var(--line);border-radius:6px;margin-bottom:8px}
   #hud{position:absolute;left:14px;bottom:12px;font-family:var(--mono);font-size:12px;color:var(--dim)}
@@ -89,8 +100,10 @@
       <h2>Required torque</h2>
       <canvas id="torque-chart" width="296" height="126"></canvas>
       <div class="row"><span>joint</span><span id="t-joint">–</span></div>
+      <div id="t-static"></div>
       <div class="row"><span>peak official</span><span id="t-off">–</span></div>
       <div class="row"><span>peak compiled</span><span id="t-comp">–</span></div>
+      <div class="row"><span>stall (servo)</span><span id="t-stall">–</span></div>
       <div class="row"><span>rated (servo)</span><span id="t-rated">–</span></div>
       <div class="hint" id="t-torque-note"></div>
     </div>
@@ -103,7 +116,6 @@
       <div id="ident"></div>
       <h2 style="margin-top:12px">Twin preview <span class="synth">SYNTHETIC</span></h2>
       <canvas id="twin-chart" width="296" height="118"></canvas>
-      <div class="row"><span>params identified</span><span id="t-ident">–</span></div>
       <div class="row"><span>joint 1 RMSE</span><span id="t-rmse">–</span></div>
       <div class="hint" id="t-note"></div>
     </div>
@@ -122,8 +134,11 @@
 <script src="twin.js"></script>
 <script src="identification.js"></script>
 <script src="report.js"></script>
+<script src="summary.js"></script>
+<script src="manifest.js"></script>
 <script src="torque.js"></script>
 <script src="diff.js"></script>
+<script src="sections.js"></script>
 <script>
 (function(){
   "use strict";
@@ -156,12 +171,7 @@
   const bodyPos = f32(TRAJ.body_pos), bodyMat = f32(TRAJ.body_mat);
   const frames = META.frames, nq = META.nq, nbody = META.nbody;
 
-  (function(){ const line = document.getElementById('srcline');
-    line.textContent = 'source: ';
-    line.appendChild(mk('b', null, META.source || 'unknown'));
-    line.appendChild(document.createTextNode(window.SO101_REPORT
-      ? ' · compiled bundle at docs/twin/so101/bundle (tag demo-bundle-v1); 3D shapes from the published meshes'
-      : ' · official SO-101 model')); })();
+  (function(){ /* the source line is written below, once the payloads that feed it are loaded */ })();
   document.getElementById('p-source').textContent = META.source || 'unknown';
   document.getElementById('p-synth').textContent = META.synthetic ? 'yes' : 'no';
   document.getElementById('m-total').textContent = META.total_mass_kg.toFixed(3) + ' kg';
@@ -180,8 +190,12 @@
   scene.add(new THREE.HemisphereLight(0xdff0ff, 0x22303d, 1.15));
   const key = new THREE.DirectionalLight(0xffffff, 1.5); key.position.set(0.4, 0.9, 0.7); scene.add(key);
   const rim = new THREE.DirectionalLight(0x7fb6ff, 0.7); rim.position.set(-0.7, 0.4, -0.6); scene.add(rim);
+  // The grid is the floor, and it is moved to the model's own floor after the bounds are known.
+  // Left at y=0 it cuts straight through a robot whose base sits below the origin, which is what
+  // those horizontal lines across the arm were: the grid drawn through the body.
   const grid = new THREE.GridHelper(1.2, 24, 0x24303f, 0x18212c);
-  grid.position.y = 0; scene.add(grid);
+  grid.material.transparent = true; grid.material.opacity = 0.45;
+  scene.add(grid);
 
   const bodyGroups = [];
   for (let b=0;b<nbody;b++){
@@ -288,8 +302,40 @@
 
   document.getElementById('m-tris').textContent = triTotal.toLocaleString();
 
+  // The header's provenance line. Every figure in it comes from a payload: the tag from manifest.js,
+  // which the packager writes from manifest.json and checks against a real tag ref; the triangle
+  // counts from the meshes this page loaded and from the bundle's own report. A hard-coded
+  // "128k of 620k" kept saying that after the payload changed, and "demo-bundle-v1" kept naming a
+  // tag the package was not cut from.
+  function setSourceLine(){
+    const R = window.SO101_REPORT, M = window.SO101_MANIFEST;
+    const line = document.getElementById('srcline');
+    line.textContent = 'source: ';
+    line.appendChild(mk('b', null, (M && M.name) || META.source || 'unknown'));
+    const tag = M && M.package ? M.package.tag : null;
+    line.appendChild(document.createTextNode(
+      ' · packaged ' + (tag || 'tag not recorded in manifest.json')));
+    const bundleTris = R && R.totals ? R.totals.visual_triangles : null;
+    if (bundleTris) {
+      line.appendChild(document.createTextNode(
+        ' · ' + Math.round(triTotal / 1000) + 'k of ' + Math.round(bundleTris / 1000) +
+        'k triangles'));
+    }
+    if (R) {
+      line.appendChild(document.createTextNode(
+        ' · checks: ' + R.worst_check + ' (' + R.checks.filter(c => c.status === 'pass').length +
+        ' of ' + R.checks.length + ' pass)'));
+    }
+  }
+  setSourceLine();
+
   // interaction
   let az = 0.9, el = 0.35, dist = 0.75, target = new THREE.Vector3(0.0, 0.16, 0.0);
+  // The opening shot orbits slowly until someone touches it, and stays still after that: the page
+  // is left open in front of a person or on a recording, and a still edge-on view of a folded arm
+  // reads as a lump. `orbit` is cleared for good on the first pointer or wheel event.
+  let orbit = true;
+  const ORBIT_RADIANS_PER_SECOND = 0.12;
   function placeCamera(){
     camera.position.set(
       target.x + dist*Math.cos(el)*Math.cos(az),
@@ -298,7 +344,7 @@
     camera.lookAt(target);
   }
   let drag=false, lx=0, ly=0;
-  renderer.domElement.addEventListener('pointerdown', e=>{drag=true;lx=e.clientX;ly=e.clientY;});
+  renderer.domElement.addEventListener('pointerdown', e=>{drag=true;orbit=false;lx=e.clientX;ly=e.clientY;});
   addEventListener('pointerup', ()=>drag=false);
   addEventListener('pointermove', e=>{
     if(!drag) return;
@@ -306,7 +352,7 @@
     lx=e.clientX; ly=e.clientY; placeCamera();
   });
   renderer.domElement.addEventListener('wheel', e=>{
-    e.preventDefault();
+    e.preventDefault(); orbit=false;
     dist = Math.max(0.18, Math.min(3.0, dist * (1 + Math.sign(e.deltaY)*0.08)));
     placeCamera();
   }, {passive:false});
@@ -353,14 +399,42 @@
   addEventListener('resize', resize);
 
   const hudEl = document.getElementById('hud');
-  // frame the model from its own bounds instead of a guessed camera distance
+  // The opening pose: the frame whose body origins span the largest box, which is the most extended
+  // and so the most readable shape the trajectory contains. The old choice (frames/2) opened on a
+  // folded arm seen down its own axis: a lump, not a robot.
+  (function pickReadableFrame(){
+    let best = frame, bestSpan = -1;
+    const step = Math.max(1, Math.round(frames / 150));
+    for (let f = 0; f < frames; f += step){
+      const base = f*nbody*3;
+      let minX=Infinity, minY=Infinity, minZ=Infinity, maxX=-Infinity, maxY=-Infinity, maxZ=-Infinity;
+      for (let b=0;b<nbody;b++){
+        const x=bodyPos[base+b*3], y=bodyPos[base+b*3+1], z=bodyPos[base+b*3+2];
+        if (x<minX) minX=x; if (x>maxX) maxX=x;
+        if (y<minY) minY=y; if (y>maxY) maxY=y;
+        if (z<minZ) minZ=z; if (z>maxZ) maxZ=z;
+      }
+      const span = Math.hypot(maxX-minX, maxY-minY, maxZ-minZ);
+      if (span > bestSpan){ bestSpan = span; best = f; }
+    }
+    frame = best;
+  })();
   applyFrame(frame);
+  // frame the model from its own bounds instead of a guessed camera distance
   (function frameModel(){
     const box = new THREE.Box3();
     bodyGroups.forEach(g => { g.updateMatrixWorld(true); box.expandByObject(g); });
     if (!box.isEmpty()){
       box.getCenter(target);
-      dist = Math.max(0.25, box.getSize(new THREE.Vector3()).length() * 1.15);
+      const size = box.getSize(new THREE.Vector3());
+      dist = Math.max(0.25, size.length() * 1.45);
+      // the grid is the floor: put it under the model and size it to the model's footprint, so it
+      // does not draw lines through the body
+      grid.position.y = box.min.y - size.y * 0.02;
+      grid.scale.setScalar(Math.max(0.5, Math.max(size.x, size.z) / 1.2));
+      // a 3/4 view, 45 degrees off the model's longest horizontal axis rather than down it
+      az = Math.atan2(size.z, size.x) + Math.PI * 0.25;
+      el = 0.30;
     }
   })();
   placeCamera(); resize();
@@ -369,8 +443,12 @@
   let t0 = performance.now(), last = 0;
   function loop(now){
     requestAnimationFrame(loop);
+    const dt = (now - t0)/1000; t0 = now;
+    if (orbit && !drag){
+      az += ORBIT_RADIANS_PER_SECOND * Math.min(dt, 0.1);
+      placeCamera();
+    }
     if (playing){
-      const dt = (now - t0)/1000; t0 = now;
       frame = (frame + Math.round(dt*META.hz)) % frames;
       applyFrame(frame);
       if (exploded){
@@ -381,7 +459,7 @@
           bodyGroups[b].matrix.premultiply(off);
         }
       }
-    } else { t0 = now; }
+    }
     renderer.render(scene, camera);
   }
   applyFrame(frame);
@@ -435,14 +513,19 @@
       // solid upper bound, print model estimate, published figure, and the gap between the last two.
       // A single "ours" number would hide that the printed mass is a model, not a measurement.
       const rows = [];
-      if (cmp.ours_solid_total_kg) rows.push(['solid upper bound', cmp.ours_solid_total_kg.toFixed(3) + ' kg']);
-      if (cmp.ours_print_total_kg) rows.push(['print model', cmp.ours_print_total_kg.toFixed(3) + ' kg']);
-      rows.push(['published', cmp.theirs_total_kg.toFixed(3) + ' kg']);
-      rows.push(['delta, print vs published', (cmp.delta_percent >= 0 ? '+' : '') + cmp.delta_percent.toFixed(1) + ' %']);
-      if (cmp.ours_solid_total_kg && cmp.ours_print_total_kg) {
-        const saving = 100 * (1 - cmp.ours_print_total_kg / cmp.ours_solid_total_kg);
-        rows.push(['infill saves', saving.toFixed(0) + ' % of solid']);
+      const S = window.SO101_SUMMARY || {};
+      const MASS = S.masses || {};
+      const val0 = node => (node && node.value != null ? node.value : null);
+      const solidKg = val0(MASS.solid_kg), printKg = val0(MASS.print_kg);
+      const publishedKg = val0(MASS.published_kg);
+      const deltaPct = val0(MASS.delta_percent), savingPct = val0(MASS.infill_saving_percent);
+      if (solidKg != null) rows.push(['solid upper bound', solidKg.toFixed(3) + ' kg']);
+      if (printKg != null) rows.push(['print model', printKg.toFixed(3) + ' kg']);
+      if (publishedKg != null) rows.push(['published', publishedKg.toFixed(3) + ' kg']);
+      if (deltaPct != null) {
+        rows.push(['delta, print vs published', (deltaPct >= 0 ? '+' : '') + deltaPct.toFixed(1) + ' %']);
       }
+      if (savingPct != null) rows.push(['infill saves', savingPct.toFixed(0) + ' % of solid']);
       rows.forEach(([k, v]) => el.appendChild(dataRow(k, v)));
       const note = document.createElement('div'); note.className = 'hint';
       const flagged = (cmp.bodies || []).filter(b => b.assumed_density).length;
@@ -451,31 +534,57 @@
         ' bodies rest on an assumed density. Servos use datasheet mass through their CAD envelope.';
       const al = cmp.alignment;
       if (al) {
-        const conv = mk('div', 'check-detail',
-          'conventions applied: ' + al.method + '. Joint axes agree within ' +
-          (al.rms_axis_deg || 0).toFixed(2) + ' degrees rms, worst ' + (al.worst_axis_deg || 0).toFixed(2) +
-          '. Without the zero-pose offsets and base translation, joint origins look wrong by ' +
-          ((al.worst_point_m || 0) * 1000).toFixed(0) + ' mm; with them, 2.50 mm median. See docs/twin/so101/CONVENTIONS.md, which also records the ' +
-          'rejected 10.30 degree ICP rotation and why identity beats it.');
-        el.appendChild(conv);
+        // Every figure in this paragraph comes from the summary section, which reads the same
+        // files. "2.50 mm median" was typed in here before, and a typed number is one edit away
+        // from contradicting the JSON that the voice quotes.
+        const S = window.SO101_SUMMARY || {};
+        const RES = S.residuals || {};
+        const val = node => (node && node.value != null ? node.value : null);
+        const rms = val(RES.axis_rms_deg), worstAxis = val(RES.axis_worst_deg);
+        const beforeConv = val(RES.origin_worst_no_conventions_mm);
+        const medianMm = val(RES.origin_median_mm), worstMm = val(RES.origin_max_mm);
+        const bits = ['conventions applied: ' + al.method + '.'];
+        if (rms != null && worstAxis != null) {
+          bits.push('Joint axes agree within ' + rms.toFixed(2) + ' degrees rms, worst ' +
+            worstAxis.toFixed(2) + '.');
+        }
+        if (beforeConv != null && medianMm != null && worstMm != null) {
+          bits.push('Without the zero-pose conventions the joint origins look ' +
+            beforeConv.toFixed(0) + ' mm apart; with them, ' + medianMm.toFixed(2) +
+            ' mm median and ' + worstMm.toFixed(2) + ' mm worst.');
+        }
+        bits.push('See docs/twin/so101/CONVENTIONS.md, which also records the rejected ICP ' +
+          'rotation and why identity beats it.');
+        el.appendChild(mk('div', 'check-detail', bits.join(' ')));
       }
       if ((cmp.link_spacings || []).length) {
         const worst = cmp.link_spacings.reduce((a, b) => Math.abs(b.delta_m) > Math.abs(a.delta_m) ? b : a);
+        const S = window.SO101_SUMMARY || {};
+        const lengthMm = ((S.residuals || {}).link_length_mm || {}).value;
         el.appendChild(mk('div', 'check-detail',
-          'frame-free link lengths agree to ' + (Math.abs(worst.delta_m) * 1000).toFixed(2) +
+          'frame-free link lengths agree to ' +
+          (lengthMm != null ? lengthMm.toFixed(2) : (Math.abs(worst.delta_m) * 1000).toFixed(2)) +
           ' mm worst case, which no registration can fake.'));
       }
+      // The same two numbers the torque panel explains, stated here too: a reader who arrives at
+      // this panel only must not think 0.652 is a contradiction of the 0.767 N·m beside it.
+      (function effortLine(){
+        const S = window.SO101_SUMMARY || {};
+        const val = node => (node && node.value != null ? node.value : null);
+        const effort = val((S.revision || {}).effort_before_nm);
+        const poses = (S.torque || {}).static_poses || [];
+        const rest = poses.length ? val(poses[0].compiled_nm) : null;
+        if (effort == null || rest == null) return;
+        el.appendChild(mk('div', 'check-detail',
+          'Two torque figures, two definitions: ' + effort.toFixed(3) + ' N·m is the effort check\'s ' +
+          'demand at its sampled poses with contacts disabled, ' + rest.toFixed(3) + ' N·m is the ' +
+          'static load at the resting pose. They measure the same joint, not the same thing.'));
+      })();
       el.appendChild(note);
     }
 
     // provenance: the page must not imply this is the official model once a compiled bundle is bound
-    (function(){ const line = document.getElementById('srcline');
-      line.textContent = 'source: ';
-      line.appendChild(mk('b', null, R.name || 'compiled bundle'));
-      line.appendChild(document.createTextNode(
-        ' · compiled bundle demo-bundle-v1, its visual meshes decimated to 128k of 620k triangles · checks: ' +
-        R.worst_check + ' (' + R.checks.filter(c=>c.status==='pass').length + ' of ' +
-        R.checks.length + ' pass)')); })();
+    setSourceLine();
     document.getElementById('p-source').textContent = 'compiled bundle (masses, checks)';
     const totals = R.totals || {};
     if (totals.total_mass_kg) {
@@ -585,16 +694,73 @@
     ctx.strokeStyle = '#57d3a0'; ctx.lineWidth = 1.6; ctx.beginPath();
     comp.forEach((v,i) => { i ? ctx.lineTo(x(i), y(v)) : ctx.moveTo(x(i), y(v)); }); ctx.stroke();
 
-    document.getElementById('t-joint').textContent = (T.joints[joint] || ('joint ' + (joint+1)));
-    document.getElementById('t-off').textContent = Math.max(...off.map(Math.abs)).toFixed(2) + ' N·m';
-    document.getElementById('t-comp').textContent = Math.max(...comp.map(Math.abs)).toFixed(2) + ' N·m';
-    document.getElementById('t-rated').textContent = T.rated_nm.toFixed(2) + ' N·m';
-    document.getElementById('t-torque-note').textContent =
-      'same joint-space trajectory on both models, inverse dynamics, contacts disabled. ' +
-      'grey is the published model, green is the compiled bundle. Joint axes agree within 2.1 ' +
-      'degrees, but joint origins differ by up to 110 mm perpendicular, so this compares mass and ' +
-      'geometry, not an identical pose' +
-      (T.saturated ? '. WARNING: the published servo saturates, so part of this is a limit artefact.' : '.');
+    // When the two models are not in the same pose the trajectory curves are not comparable, so the
+    // panel shows the static comparison, which is. A chart that looks authoritative while measuring
+    // two different configurations is the failure this replaces.
+    const staticRows = T.static_by_pose || [];
+    if (staticRows.length) {
+      const box = document.getElementById('t-static');
+      box.innerHTML = '';
+      staticRows.forEach(r => {
+        box.appendChild(dataRow(r.pose, r.compiled_nm.toFixed(3) + ' vs ' + r.published_nm.toFixed(3) + ' N·m'));
+      });
+    }
+    document.getElementById('t-joint').textContent =
+      (T.dynamic_comparable === false) ? 'static poses (matched)' : (T.joints[joint] || ('joint ' + (joint+1)));
+    // the moving-arm peaks are meaningless while the poses differ, so they are not printed beside
+    // the static numbers where a reader would assume they belong to them
+    const showDynamic = T.dynamic_comparable !== false;
+    document.getElementById('t-off').textContent =
+      showDynamic ? Math.max(...off.map(Math.abs)).toFixed(2) + ' N·m' : 'not comparable';
+    document.getElementById('t-comp').textContent =
+      showDynamic ? Math.max(...comp.map(Math.abs)).toFixed(2) + ' N·m' : 'not comparable';
+
+    // Two datasheet figures, each named for what it is. The single row this replaces said
+    // "rated (servo) 2.94 N·m", and 2.94 N·m is the STALL torque: the servo's continuous rating is
+    // 0.98 N·m, so calling the stall figure "rated" overstated the headroom three times over.
+    const S = window.SO101_SUMMARY || {};
+    const TQ = S.torque || {};
+    const RES = S.residuals || {};
+    const value = node => (node && node.value != null ? node.value : null);
+    const asNm = node => (value(node) == null ? 'not in the bundle' : value(node).toFixed(2) + ' N·m');
+    document.getElementById('t-stall').textContent = asNm(TQ.limit_stall_nm);
+    document.getElementById('t-rated').textContent = asNm(TQ.rated_nm);
+
+    // The note reads its numbers from the summary: the pose gate that invalidates the moving-arm
+    // comparison, the two ways the same joint load was measured, and the origin residuals. Every
+    // figure here is in robocad_summary.v1.json; none is typed into this file.
+    const poses = TQ.static_poses || [];
+    const rest = poses.length ? poses[0] : null;
+    const effort = (S.revision || {}).effort_before_nm;
+    const axisWorst = value(RES.axis_worst_deg);
+    const beforeConventions = value(RES.origin_worst_no_conventions_mm);
+    const medianMm = value(RES.origin_median_mm);
+    const worstMm = value(RES.origin_max_mm);
+    const note = [];
+    // The reason comes from the summary, not from torque.js: the two are baked at different times and
+    // the page once printed "tens of mm" there while the summary carried 70.69 mm.
+    note.push(TQ.dynamic_comparable === false
+      ? 'Static inverse dynamics at matched poses, contacts and limits disabled. A moving-arm ' +
+        'comparison is not one: ' + (TQ.dynamic_reason || '') + '.'
+      : 'Same joint-space trajectory on both models, inverse dynamics, contacts disabled.');
+    if (value(effort) != null && rest && value(rest.compiled_nm) != null) {
+      note.push(value(effort).toFixed(3) + ' N·m is the effort check\'s demand at its sampled poses; ' +
+        value(rest.compiled_nm).toFixed(3) + ' N·m is the static load at the resting pose. The same ' +
+        'joint measured two ways, a load case against a pose.');
+    }
+    if (axisWorst != null && beforeConventions != null && medianMm != null && worstMm != null) {
+      note.push('Joint axes agree within ' + axisWorst.toFixed(1) + ' degrees worst. Without the ' +
+        'zero-pose conventions the joint origins look ' + beforeConventions.toFixed(0) + ' mm apart; ' +
+        'with them, ' + medianMm.toFixed(2) + ' mm median and ' + worstMm.toFixed(2) + ' mm worst.');
+    } else {
+      note.push('This bundle does not carry the axis and origin residuals, so this panel states no ' +
+        'agreement figure.');
+    }
+    note.push('Grey is the published model, green is the compiled bundle.');
+    if (TQ.saturated) {
+      note.push('WARNING: the published servo saturates, so part of this is a limit artefact.');
+    }
+    document.getElementById('t-torque-note').textContent = note.join(' ');
 
     if (T.axis_residual_deg_after_datum_fit) {
       document.getElementById('kin-grp').style.display = '';
@@ -618,27 +784,82 @@
   (function identPanel(){
     const D = window.SO101_IDENT;
     if (!D) return;
+    const S = window.SO101_SUMMARY || {};
+    const CAL = S.calibration || {};
     const box = document.getElementById('ident');
-    D.rungs.forEach(r => {
+    // One row per rung number. The payload carries two rung-5 scenarios, one per joint; printing
+    // "rung 5" twice reads as a duplicated measurement rather than as two joints tested.
+    const byRung = new Map();
+    // The summary's rungs when it carries them: its text is the one the voice speaks, so the page
+    // must not render a sentence from a different bake that says the same thing with other figures.
+    const rungRows = (CAL.rungs && CAL.rungs.length) ? CAL.rungs : (D.rungs || []);
+    (rungRows || []).forEach(r => {
+      if (!byRung.has(r.rung)) byRung.set(r.rung, []);
+      byRung.get(r.rung).push(r);
+    });
+    const numbers = Array.from(byRung.keys()).sort((a, b) => a - b);
+    numbers.forEach(n => {
+      const rows = byRung.get(n);
+      const reached = rows.every(r => r.reached);
+      const joints = rows.map(r => String(r.name || '').split(',').pop().trim()).filter(Boolean);
+      const title = joints.length > 1 ? joints.join(', ') : (rows[0].name || '');
       const row = mk('div', 'check');
-      row.appendChild(mk('span', null, 'rung ' + r.rung));
-      row.appendChild(mk('span', r.reached ? 'st st-pass' : 'st st-fail',
-                         r.reached ? 'recovered' : 'blocked'));
+      row.appendChild(mk('span', null, 'rung ' + n + (title ? ' · ' + title : '')));
+      row.appendChild(mk('span', reached ? 'st st-pass' : 'st st-fail',
+                         reached ? 'recovered' : 'blocked'));
       box.appendChild(row);
-      if (!r.reached && r.note) {
-        const n = mk('div', 'check-detail', r.note.slice(0, 220));
-        box.appendChild(n);
+      rows.filter(r => !r.reached && r.note).forEach(r => {
+        box.appendChild(mk('div', 'check-detail', r.note));
+      });
+      // The preview's count belongs under the rung that blocked it, beside the reason. In its own
+      // panel, "0 of 19 identified" appeared with nothing to explain it and no data named.
+      if (!reached) {
+        const P = CAL.twin_preview || {};
+        if (P.total != null) {
+          box.appendChild(mk('div', 'check-detail',
+            P.identified + ' of ' + P.total + ' parameters identified from ' + (P.data ||
+            'the synthetic logs') + ': planted parameters were not recovered, so each is reported ' +
+            'as not identifiable.'));
+        }
       }
     });
-    const summary = mk('div', 'hint',
-      'method validation, not a robot result: ' + D.rungs.filter(r=>r.reached).length +
-      ' of ' + D.rungs.length + ' rungs recovered, stopped at rung ' + D.stopped_at + '.');
-    box.appendChild(summary);
-    const need = mk('div', 'check-detail',
-      'What would identify friction: signal to noise is 0.10 with 62 Hz position logs. A torque or ' +
-      'current channel at 1 percent noise reaches 4.48; a 20-bit encoder reaches 25.1 at 62 Hz; ' +
-      'raising the rate to 1 kHz alone only reaches 0.39. See docs/twin/so101/identifiability.md.');
-    box.appendChild(summary);
+    const totalRungs = CAL.rungs_total != null ? CAL.rungs_total : numbers.length;
+    const recovered = CAL.rungs_recovered != null ? CAL.rungs_recovered
+      : numbers.filter(n => byRung.get(n).every(r => r.reached)).length;
+    const stoppedAt = CAL.stopped_at_rung != null ? CAL.stopped_at_rung : D.stopped_at;
+    box.appendChild(mk('div', 'hint',
+      'Method validation, not a robot result: ' + recovered + ' of ' + totalRungs +
+      ' rungs recovered, stopped at rung ' + stoppedAt + '.'));
+    // The "what would identify friction" sentence, every figure read from the summary's scenario
+    // table by name. The old copy had 0.10, 4.48, 25.1 and 0.39 typed into the HTML.
+    const table = CAL.scenarios || [];
+    const snrWhere = re => {
+      const hit = table.find(s => re.test(String(s.scenario || '')));
+      return hit ? hit.snr : null;
+    };
+    const statusQuo = snrWhere(/12-bit encoder, 62 Hz/i);
+    // Anchored on the channel only: the summary names it "torque or current logged, 1 percent of
+    // rated noise", and a `$` anchor here matched nothing and sent the panel to its no-table
+    // fallback even though the table was in the summary.
+    const currentChannel = snrWhere(/torque or current logged, 1 percent/i);
+    const twentyBit = snrWhere(/20-bit encoder, 62 Hz/i);
+    const averaged = snrWhere(/averaged over 16 samples at 1 kHz/i);
+    if (statusQuo != null && currentChannel != null && twentyBit != null && averaged != null) {
+      box.appendChild(mk('div', 'check-detail',
+        'What would identify friction: signal to noise is ' + statusQuo.toFixed(2) + ' with the ' +
+        'status-quo log. A torque or current channel at 1 percent noise reaches ' +
+        currentChannel.toFixed(2) + '; a 20-bit encoder reaches ' + twentyBit.toFixed(1) +
+        ' at 62 Hz; averaging 16 samples at 1 kHz alone only reaches ' + averaged.toFixed(2) +
+        '. See docs/twin/so101/identifiability.md.'));
+    } else {
+      box.appendChild(mk('div', 'check-detail',
+        'This bundle does not carry the identifiability scenario table, so this panel states no ' +
+        'signal-to-noise figures. See docs/twin/so101/identifiability.md.'));
+    }
+    box.appendChild(mk('div', 'check-detail',
+      'With the same 62 Hz log plus a motor-current channel: Coulomb friction recovered within ' +
+      'tolerance on both joints tested, and viscous damping attenuated because velocity built from ' +
+      'a quantised encoder shrinks its own coefficient. Bench routine: docs/twin/so101/BENCH_PROTOCOL.md.'));
   })();
 
   // ---- synthetic twin panel: measured versus uncalibrated versus calibrated, labelled ----
@@ -671,12 +892,19 @@
     ctx.fillStyle = 'rgba(242,180,92,0.9)';
     ctx.font = '10px ui-monospace, monospace';
     ctx.fillText('SYNTHETIC', w-74, 14);
-    document.getElementById('t-ident').textContent = D.identified + ' of ' + D.total;
-    const un = D.trajectory_rmse_mrad_uncalibrated, ca = D.trajectory_rmse_mrad_calibrated;
-    document.getElementById('t-rmse').textContent = un.toFixed(0) + ' -> ' + ca.toFixed(0) + ' mrad';
+    // The error figures come from the summary's preview block, which is generated from the same
+    // synthetic file the curves are drawn from. The count of identified parameters is printed under
+    // the rung that blocked it, in the rungs panel, because that is where its reason lives.
+    const S = window.SO101_SUMMARY || {};
+    const P = (S.calibration || {}).twin_preview || {};
+    const un = (P.rmse_uncalibrated_mrad || {}).value,
+          ca = (P.rmse_calibrated_mrad || {}).value;
+    document.getElementById('t-rmse').textContent = (un != null && ca != null)
+      ? un.toFixed(0) + ' -> ' + ca.toFixed(0) + ' mrad'
+      : 'not in the bundle';
     document.getElementById('t-note').textContent =
-      'planted parameters were not recovered, so each is reported as not identifiable. ' +
-      'the curves are a fit, not a calibration.';
+      'SYNTHETIC: planted parameters were not recovered, so each is reported as not identifiable. ' +
+      'The curves are a fit, not a calibration. See the rungs above for where the method stops.';
   })();
 
   // expose a tiny hook so the film recorder and the verifier can drive frames deterministically
@@ -700,6 +928,11 @@
     })
   };
 })();
+</script>
+<script>
+// Wired after the panels above have rendered, so a `#torque` link on load has a filled panel to
+// scroll to rather than a hidden one that refuses the jump.
+if (window.ROBOCAD_SECTIONS) window.ROBOCAD_SECTIONS.wire();
 </script>
 </body>
 </html>
