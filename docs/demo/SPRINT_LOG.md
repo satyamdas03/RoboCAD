@@ -372,3 +372,41 @@ the shell ships more than one port configuration. `panel.ts` is unchanged and it
 verification stay with Lane B, because she is still editing `docs/demo/page/index.html` and
 `torque.js`; a zip built mid-edit is worse than one built last. I own the `FINAL_STATUS.md` wording and
 will state the package's status as hers, with her evidence, plus the three-number check she runs.
+
+### 2026-11-14 12:55 AUSEDT (01:55 UTC), v1.1 session, Lane A, the suite, and the package read from inside
+
+**Default tier, green.** `python -m pytest -q -p no:cacheprovider` →
+**798 passed, 308 deselected, 3 warnings in 957.27 s, exit 0**, `verified-ran`. Three warnings, all the
+long-standing `InsecureKeyLengthWarning`s from the LiveKit token tests. 46 more tests than the freeze
+run, which is the four v1.1 files. The tree moved under the run: Lane B's `teardown_export` changes
+landed after it started, so the tests covering exactly those files were re-run on the moved tree —
+**17 passed** for `-k "package or bake or mesh_resolution or torque"` and **8 passed** for the
+MuJoCo-marked tests in `test_demo_static_load.py` and `test_twin_cli.py`. Stated that way in
+`FINAL_STATUS.md` rather than claiming the sixteen-minute run covered code that landed after it began.
+
+**The v1.1 package, read from inside rather than around.** Two defects, both now fixed by Lane B and
+both re-verified here at sha256 `46b848e9…`, 25 files:
+
+- `manifest.json` named five files the package did not carry (`robot.joints.yaml`, `model.mjcf`,
+  `model.urdf`, `bundle.json`, `meshes/`). Fixed: the three real artifacts now ship, `meshes/` is
+  declared absent under `not_in_package` with a reason, and the package test now **fails the build** on
+  a manifest entry that does not resolve in the extracted copy. `verified-ran`.
+- The spoken "jaw frame differs by 70.7 mm" was nowhere in the package while its torque payload said
+  "tens of mm". Fixed: `torque.js` now carries `pose_gate_worst_mm` 70.69 with the five samples. Her
+  first version of that gate read 97.37 mm because it omitted the base translation; both harnesses
+  agree at 70.69 after the fix. `verified-ran`.
+- `scripts/verify_demo_zip.py` passed 4 of 4 on the **defective** build too, which is the point worth
+  keeping: the manifest is not a page link, so a link checker cannot see it. The fix that lasts is
+  hers (a check), not mine (a read). `verify.json` regenerated against `46b848e9…`; the tracked zip at
+  `2f2920c` hashes to the same digest, so the verified artifact is the committed one.
+
+**Blade, two more fixes, both with the same shape as the manifest one — a guard that disagreed with
+the thing it guards against.** `safeSrc` accepted `%2e%2e`, `.%2e` and `%2E%2E`, none of which
+contains the literal `..` the check looked for and all of which a browser decodes into one; the guard
+is now a flat refusal of `%`, with seven encoded variants pinned (`a7ee645`). And `Blade.tsx` imported
+`'../../robocad/panel'` from `web/src/ui/`, one level too high; Lane B corrected it on integration and
+the file and `INTEGRATION.md` now agree (`aa5566b`). Blade tests 10 of 10 after both.
+
+**Not done, and said so.** The heavy/slow tier was not run in full. Only the MuJoCo-marked tests in
+the two files v1.1 changed were run, because the rest of the heavy tier's cost is unrelated to this
+change and the freeze already records that tier as stopped by instruction.

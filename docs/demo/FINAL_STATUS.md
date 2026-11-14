@@ -95,6 +95,19 @@ Collision geometry has to be fixed before this robot can be driven, and that is 
   warnings, 367.27 s, exit 0**, collected 752 of 1052, on the tree at `4af81f5`. This is the row that
   covers the seven artifact tests the earlier post-tag run missed. `verified-ran`, in
   `docs/BASELINE.md` under "The freeze commit".
+- **v1.1 default tier: 798 passed, 308 deselected, 3 warnings, 957.27 s, exit 0.** That is 46 more
+  tests than the freeze run, which is the four v1.1 test files (`tests/test_twin_cli.py` 15,
+  `tests/test_conventions.py`, `tests/test_mesh_resolution.py`, `tests/test_demo_static_load.py` 6 of
+  which are MuJoCo-marked). The three warnings are the same pre-existing `InsecureKeyLengthWarning`s.
+  `verified-ran`, command `python -m pytest -q -p no:cacheprovider`.
+- **The tree moved under that run, and the moved parts were re-run.** Lane B landed
+  `teardown_export/bake_torque.py`, `package_demo.py` and `torque_matched.py` changes after the run
+  started, so the python that ran is not the python at `HEAD`. Rather than re-run sixteen minutes of
+  suite, the tests that cover the moved files were run on the moved tree:
+  `python -m pytest tests -k "package or bake or mesh_resolution or torque"` → **17 passed**, and the
+  MuJoCo-marked tests in the two files v1.1 changed → `tests/test_demo_static_load.py`,
+  `tests/test_twin_cli.py` with `-m mujoco` → **8 passed**. Everything else in the suite is untouched
+  by those three files. `verified-ran`
 
 ## Cross-verification of Lane A's published bundle
 
