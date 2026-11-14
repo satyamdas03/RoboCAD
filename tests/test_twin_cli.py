@@ -41,27 +41,27 @@ def test_every_totals_figure_carries_a_provenance_entry():
     labelled = {k.split(".", 1)[1] for k in document["provenance"] if k.startswith("totals.")}
     assert set(document["totals"]) <= labelled
     for key, entry in document["provenance"].items():
-        assert entry["kind"], key
-        assert isinstance(entry["synthetic"], bool), key
+        assert entry["kind"] in twin_cli.KINDS, key
         assert entry["basis"].strip(), key
 
 
 @pytest.mark.skipif(not (BUNDLE / "report.json").exists(), reason="no published bundle checked out")
-def test_synthetic_is_exactly_the_kinds_that_are_model_outputs():
-    """The flag is derived from the kind, so the two cannot disagree in a hand-written entry."""
+def test_the_provenance_kind_is_the_only_label_and_synthetic_is_one_value_of_it():
+    """There is no boolean beside the kind, so a hand-written flag cannot disagree with it."""
     document = twin_cli.build_summary(BUNDLE)
     for key, entry in document["provenance"].items():
-        assert entry["synthetic"] == (entry["kind"] in SYNTHETIC_KINDS), (key, entry)
+        assert "synthetic" not in entry, key
+        assert entry["kind"] in twin_cli.KINDS, (key, entry)
 
 
 @pytest.mark.skipif(not (BUNDLE / "report.json").exists(), reason="no published bundle checked out")
-def test_the_masses_are_flagged_synthetic_because_no_scale_touched_them():
+def test_the_masses_are_modelled_not_synthetic_because_no_scale_touched_them():
+    """A mass is a model output over real CAD, not generated data: the two words mean different things."""
     document = twin_cli.build_summary(BUNDLE)
     for key in ("totals.total_mass_kg", "totals.total_solid_mass_kg"):
-        assert document["provenance"][key]["synthetic"] is True
-        assert document["provenance"][key]["kind"] == "derived"
+        assert document["provenance"][key]["kind"] == "modelled"
     assert document["synthetic_count"] == sum(
-        1 for v in document["provenance"].values() if v["synthetic"]
+        1 for v in document["provenance"].values() if v["kind"] in SYNTHETIC_KINDS
     )
 
 
@@ -74,7 +74,6 @@ def test_the_conventions_are_reported_as_measured_and_match_the_manifest():
         k: v for k, v in manifest["conventions"]["zero_pose_offsets_deg"].items()
     }
     assert document["provenance"]["conventions.zero_pose_offsets_deg"]["kind"] == "measured"
-    assert document["provenance"]["conventions.zero_pose_offsets_deg"]["synthetic"] is False
 
 
 def test_an_unmeasured_bundle_says_so_rather_than_reporting_zero_offsets(tmp_path):
@@ -368,3 +367,173 @@ def test_unpack_on_the_shipped_zip_reproduces_the_digest_the_tag_claims(tmp_path
     bundle = Path(payload["bundle"])
     for name in ("report.json", "index.html", "manifest.json"):
         assert (bundle / name).exists(), name
+
+
+def test_unpack_refuses_a_component_windows_would_strip_back_to_parent(tmp_path):
+    """`".. "` is not `".."` to the name check but is `..` to Windows, so it is refused."""
+    archive = _make_zip(tmp_path / "demo.zip", {
+        "so101_demo/report.json": "{}",
+        ".. /escaped.json": "{}",
+    })
+    with pytest.raises(twin_cli.ArchiveError, match="parent-directory escape"):
+        twin_cli.unpack_zip(archive, tmp_path / "out")
+    assert not (tmp_path / "out").exists()
+
+
+def test_unpack_refuses_an_archive_that_expands_past_the_cap(tmp_path, monkeypatch):
+    archive = _make_zip(tmp_path / "demo.zip", {"so101_demo/report.json": "x" * 4096})
+    monkeypatch.setattr(twin_cli, "MAX_EXPANDED_BYTES", 1024)
+    with pytest.raises(twin_cli.ArchiveError, match="expands to"):
+        twin_cli.unpack_zip(archive, tmp_path / "out")
+
+
+def test_unpack_refuses_more_members_than_a_demo_can_have(tmp_path, monkeypatch):
+    archive = _make_zip(
+        tmp_path / "demo.zip",
+        {f"so101_demo/{i}.json": "{}" for i in range(5)},
+    )
+    monkeypatch.setattr(twin_cli, "MAX_MEMBERS", 3)
+    with pytest.raises(twin_cli.ArchiveError, match="past the 3 cap"):
+        twin_cli.unpack_zip(archive, tmp_path / "out")
+
+
+# ------------------------------------------------------------------------------------------------
+# the demo's own numbers: the summary must carry them, not the consumer's defaults
+# ------------------------------------------------------------------------------------------------
+def _leaves(document, prefix=""):
+    """Every leaf in the document, with its path, unwrapping the {value, kind} nodes as it goes."""
+    out = []
+    if isinstance(document, dict):
+        if "value" in document and "kind" in document:
+            out.append((prefix, document["value"], document["kind"]))
+            return out
+        for key, value in document.items():
+            out.extend(_leaves(value, f"{prefix}.{key}" if prefix else key))
+    elif isinstance(document, list):
+        for index, value in enumerate(document):
+            out.extend(_leaves(value, f"{prefix}[{index}]"))
+    elif isinstance(document, (int, float)):
+        out.append((prefix, document, None))
+    return out
+
+
+@pytest.mark.skipif(not (BUNDLE / "report.json").exists(), reason="no published bundle checked out")
+@pytest.mark.skipif(not (BUNDLE / "torque.json").exists(), reason="no shipped torque payload")
+def test_every_number_in_the_three_minute_script_appears_in_the_summary():
+    """The script's figures are the acceptance test: a voice that cannot say them has not read the
+    package."""
+    document = twin_cli.build_summary(BUNDLE)
+    values = [value for _, value, _ in _leaves(document) if isinstance(value, (int, float))]
+    wanted = {
+        "published total mass 0.632": 0.632,
+        "axis worst 2.14": 2.140753227309615,
+        "origin median 2.50": 2.5,
+        "origin worst 11.25": 11.25,
+        "link lengths 1.69": 1.69,
+        "solid bound 1.332": 1.332012393,
+        "print model 0.902": 0.901658836,
+        "rest compiled torque 0.767": 0.7668,
+        "rest published torque 0.538": 0.5377,
+        "pose gate 70.69": 70.69,
+        "stall limit 2.94": 2.941995,
+        "revision mass after 0.955": 0.9554530302470398,
+        "published base link 0.147": 0.147,
+        "infill before 0.20": 0.2,
+        "infill after 0.30": 0.3,
+        "position-only SNR 0.10": 0.1,
+    }
+    missing = [
+        name for name, number in wanted.items()
+        if not any(abs(value - number) <= max(0.005, abs(number) * 1e-6) for value in values)
+    ]
+    assert not missing, f"the summary cannot say: {missing}"
+
+
+@pytest.mark.skipif(not (BUNDLE / "report.json").exists(), reason="no published bundle checked out")
+def test_synthetic_is_used_only_where_the_underlying_data_was_generated():
+    """No figure outside `calibration` may be labelled synthetic: a modelled mass is not one."""
+    document = twin_cli.build_summary(BUNDLE)
+    offenders = [
+        path for path, _, kind in _leaves(document)
+        if kind == "synthetic" and not path.startswith("calibration")
+    ]
+    assert not offenders, offenders
+    assert document["calibration"]["synthetic"] is True
+
+
+@pytest.mark.skipif(not (BUNDLE / "report.json").exists(), reason="no published bundle checked out")
+def test_masses_are_modelled_and_carry_the_assumptions_they_rest_on():
+    document = twin_cli.build_summary(BUNDLE)
+    masses = document["masses"]
+    assert masses["solid_kg"]["kind"] == "modelled"
+    assert masses["print_kg"]["kind"] == "modelled"
+    assert masses["published_kg"]["kind"] == "stated"
+    assumptions = masses["assumptions"]
+    assert assumptions["wall_mm"]["value"] == 1.2
+    assert assumptions["infill"]["value"] == 0.2
+    assert assumptions["density_kg_m3"]["value"] > 0
+    assert assumptions["servo_g"]["value"] == 55.0
+
+
+@pytest.mark.skipif(not (BUNDLE / "report.json").exists(), reason="no published bundle checked out")
+def test_the_torque_reason_names_the_pose_gate_in_millimetres_not_tens_of_mm():
+    document = twin_cli.build_summary(BUNDLE)
+    torque = document["torque"]
+    gate = torque["pose_gate_mm"]["value"]
+    assert f"{gate:.2f} mm" in torque["dynamic_reason"]
+    assert "tens of mm" not in torque["dynamic_reason"]
+    assert torque["dynamic_comparable"] is False
+    # one scalar per pose, not an array a consumer could index into the wrong joint
+    for row in torque["static_poses"]:
+        assert isinstance(row["compiled_nm"]["value"], float)
+        assert isinstance(row["published_nm"]["value"], float)
+
+
+@pytest.mark.skipif(not (BUNDLE / "report.json").exists(), reason="no published bundle checked out")
+def test_check_counts_are_the_report_s_own_statuses_and_each_check_carries_a_reason():
+    document = twin_cli.build_summary(BUNDLE)
+    statuses = [check["status"] for check in document["checks"]]
+    assert document["check_counts"] == {
+        status: statuses.count(status) for status in ("pass", "fail", "skipped")
+    }
+    for check in document["checks"]:
+        assert check["reason"], check["id"]
+        assert check["reason"] == check["explanation"]
+
+
+@pytest.mark.skipif(not (BUNDLE / "report.json").exists(), reason="no published bundle checked out")
+def test_the_revision_is_the_diff_s_own_numbers_and_has_no_default():
+    document = twin_cli.build_summary(BUNDLE)
+    revision = document["revision"]
+    assert revision["infill_before"]["value"] == 0.2
+    assert revision["infill_after"]["value"] == 0.3
+    assert revision["infill_before"]["kind"] == "assumed"
+    assert revision["mass_before_kg"]["value"] == pytest.approx(0.9016588355893798)
+    assert revision["mass_after_kg"]["value"] == pytest.approx(0.9554530302470398)
+    assert revision["links_changed"] == 7
+    assert revision["added"] == []
+    assert revision["removed"] == []
+
+
+def test_a_bundle_without_the_demo_payloads_has_no_invented_sections(tmp_path):
+    """No file, no section. A zero-filled revision would be a default, which is what F2 removes."""
+    (tmp_path / "report.json").write_text(json.dumps({
+        "name": "bare", "totals": {"bodies": 1}, "checks": [],
+    }), encoding="utf-8")
+    document = twin_cli.build_summary(tmp_path)
+    for key in ("masses", "residuals", "torque", "revision", "calibration"):
+        assert key not in document, key
+    assert document["check_counts"] == {"pass": 0, "fail": 0, "skipped": 0}
+
+
+@pytest.mark.skipif(not (BUNDLE / "report.json").exists(), reason="no published bundle checked out")
+def test_calibration_carries_an_interval_for_every_recovered_parameter():
+    """'Every identified parameter carries uncertainty' only holds if the interval is in the data."""
+    document = twin_cli.build_summary(BUNDLE)
+    params = document["calibration"]["current_channel"]["params"]
+    assert params
+    for param in params:
+        assert param["lo"] <= param["recovered"] <= param["hi"], param
+        assert param["true"] is not None
+    assert document["calibration"]["position_only"]["snr"] == 0.1
+    assert document["calibration"]["position_only"]["status"] == "insufficient"

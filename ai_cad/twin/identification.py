@@ -45,6 +45,10 @@ class RungResult:
     truth: dict
     error_percent: dict
     note: str = ""
+    # Confidence intervals per recovered parameter, as data. The note already quotes them in prose;
+    # a consumer that has to parse prose to get an interval will eventually parse it wrong, and the
+    # interval is the whole point of this block ("every identified parameter carries uncertainty").
+    intervals: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -238,10 +242,11 @@ def run(mujoco, xml_path: str, *, joint_name: str = "shoulder_lift", base_hz: in
     damping_truth, friction_truth = 0.08, 0.15
     report = Report(model=pathlib.Path(xml_path).name)
 
-    def add(rung, name, reached, truth, recovered, note=""):
+    def add(rung, name, reached, truth, recovered, note="", intervals=None):
         err = {k: (abs(recovered[k] - truth[k]) / truth[k] * 100.0 if truth[k] else float("inf"))
                for k in truth}
-        report.rungs.append(RungResult(rung, name, reached, recovered, truth, err, note))
+        report.rungs.append(RungResult(rung, name, reached, recovered, truth, err, note,
+                                       intervals or {}))
         if not reached and report.stopped_at is None:
             report.stopped_at = rung
             report.stop_reason = note or "recovery outside tolerance"
@@ -333,7 +338,9 @@ def run(mujoco, xml_path: str, *, joint_name: str = "shoulder_lift", base_hz: in
             f"intervals viscous {tuple(round(v, 4) for v in current_intervals[name]['viscous'])}, "
             f"coulomb {tuple(round(v, 4) for v in current_intervals[name]['coulomb'])}. Coulomb "
             f"recovered within tolerance; viscous damping attenuated by encoder-quantised velocity, "
-            f"an errors-in-variables bias, not a missing signal.")
+            f"an errors-in-variables bias, not a missing signal.",
+            intervals={key: [float(round(value, 5)) for value in pair]
+                       for key, pair in current_intervals[name].items()})
 
     # rung 4: a second joint
     second = "elbow_flex" if "elbow_flex" in names else names[-1]

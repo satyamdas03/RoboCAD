@@ -14,8 +14,9 @@ Commands::
 
 ``summary`` describes a bundle as JSON. Its contract is ``robocad.twin.summary/1`` and its point is
 the ``provenance`` block: every figure the bundle reports is labelled with what kind of claim it is,
-and anything produced by a model rather than observed on the robot is flagged ``synthetic: true``. A
-consumer that renders "mass: 0.9017 kg" without that label is quoting a density assumption.
+and anything produced by a model rather than observed on the robot is labelled ``modelled``. A
+consumer that renders "mass: 0.9017 kg" without that label is quoting a density assumption. Only
+data generated in simulation is labelled ``synthetic``, and only ``calibration`` is.
 
 ``page`` builds the offline living page from a bundle. ``compile`` runs the compiler and, with
 ``--json-progress``, writes one JSON object per line so a GUI can show progress without scraping text.
@@ -36,6 +37,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import shutil
 import sys
 import zipfile
@@ -48,10 +50,16 @@ UNPACK_SCHEMA = "robocad.twin.unpack/1"
 # produced, and "done" is only ever the last line of a successful run.
 STAGES = ("import", "joints", "properties", "collision", "bundle", "checks", "done")
 
-# Kinds a figure can be, and whether that kind is a measurement of the thing it names. The two that
-# are not are `derived` (a model output over assumed inputs) and `synthetic` (generated data), and
-# they are the ones a reader is allowed to be misled by if they go unlabelled.
-SYNTHETIC_KINDS = frozenset({"derived", "synthetic"})
+# What kind of claim a figure is. `counted`, `measured`, `stated` and `adopted` are observations of
+# something that exists; `assumed` is an input a person chose; `modelled` is a model output over those
+# inputs; `synthetic` is data generated in simulation with no hardware behind it. `unknown` is not a
+# claim at all -- it is the absence of one, and it is the only label allowed to stand beside no value.
+#
+# The distinction that matters to a listener: a mass from a CAD volume at an assumed density is
+# `modelled`, not `synthetic` and not a measurement, so a voice that says "weighed" or "synthetic"
+# about it is wrong in opposite directions.
+KINDS = frozenset({"counted", "measured", "stated", "adopted", "assumed", "modelled", "synthetic"})
+SYNTHETIC_KINDS = frozenset({"synthetic"})
 
 
 def _read_json(path: Path):
@@ -75,14 +83,30 @@ def _read_yaml(path: Path):
 
 
 def _entry(kind: str, basis: str) -> dict:
-    return {"kind": kind, "synthetic": kind in SYNTHETIC_KINDS, "basis": basis}
+    """A provenance entry: what kind of claim a figure is, and what the claim rests on."""
+    return {"kind": kind, "basis": basis}
+
+
+def _node(value, kind: str) -> dict:
+    """A figure and its kind, in one place, so a consumer cannot read the number without the label.
+
+    Flat sections whose numbers are bare and whose labels live in a parallel map are how a figure gets
+    quoted without its provenance: one `dict.get` on the wrong map and the label is gone. Here the
+    label travels with the value.
+    """
+    return {"value": value, "kind": kind}
+
+
+def _value_of(node):
+    """The bare value of a node, for a caller that wants the number and already has the kind."""
+    return node.get("value") if isinstance(node, dict) and "value" in node else node
 
 
 def provenance(bundle_dir: Path, report: dict, manifest: dict, data: dict) -> dict:
     """What kind of claim each figure is, with the basis spelled out.
 
     Every key of ``totals`` gets an entry, including ones this function has no rule for: an unknown
-    figure defaults to ``derived`` and says so, because the alternative -- leaving it out of the block
+    figure defaults to ``modelled`` and says so, because the alternative -- leaving it out of the block
     -- would let an unlabelled model output sit in a summary a consumer reads as measurement.
 
     The rules are deliberately coarse. The honest distinctions on this bundle are few: counts are
@@ -118,10 +142,10 @@ def provenance(bundle_dir: Path, report: dict, manifest: dict, data: dict) -> di
                 else _entry("unknown", "no datasheet torque was supplied for this bundle")
             )
         elif key in ("total_mass_kg", "total_solid_mass_kg"):
-            out[f"totals.{key}"] = _entry("derived", mass_basis)
+            out[f"totals.{key}"] = _entry("modelled", mass_basis)
         elif key.startswith("printed_") or key.endswith("_volume_m3") or key == "volume_by_role_m3":
             out[f"totals.{key}"] = _entry(
-                "derived", "CAD solid volume split by part name, at an assumed material density"
+                "modelled", "CAD solid volume split by part name, at an assumed material density"
             )
         elif key.endswith("_source"):
             # The citation itself. Not a measurement, and not a model output either: it is the
@@ -134,12 +158,12 @@ def provenance(bundle_dir: Path, report: dict, manifest: dict, data: dict) -> di
         elif key in ("actuator_kp", "actuator_kv"):
             out[f"totals.{key}"] = _entry("assumed", "a controller gain chosen for this bundle, not measured")
         elif key in ("assumed_density_bodies", "print_model"):
-            out[f"totals.{key}"] = _entry("derived", "the assumption set this bundle was compiled with")
+            out[f"totals.{key}"] = _entry("modelled", "the assumption set this bundle was compiled with")
         elif key.endswith("_bytes") or key == "visual_budget_bytes":
             out[f"totals.{key}"] = _entry("counted", "file sizes on disk")
         else:
             out[f"totals.{key}"] = _entry(
-                "derived",
+                "modelled",
                 "no provenance rule for this figure: treat it as a model output, not a measurement",
             )
 
@@ -170,8 +194,195 @@ def provenance(bundle_dir: Path, report: dict, manifest: dict, data: dict) -> di
         out["joints.limits"] = _entry(
             "unknown", "the CAD carries no travel limits and none were adopted for this bundle"
         )
-    out["checks"] = _entry("computed", "each check ran against the written artifacts")
+    out["checks"] = _entry("measured", "each check ran against the written artifacts")
     return out
+
+
+_PRINT_MODEL = re.compile(r"([\d.]+)\s*mm wall over\s*([\d.]+)\s*%\s*infill")
+_INTERVALS = re.compile(
+    r"intervals viscous \(([-\d.]+),\s*([-\d.]+)\), coulomb \(([-\d.]+),\s*([-\d.]+)\)"
+)
+
+
+def _print_assumptions(text) -> tuple[float | None, float | None]:
+    """Wall thickness in mm and infill as a fraction, read from the bundle's own print model string."""
+    match = _PRINT_MODEL.search(str(text or ""))
+    if not match:
+        return None, None
+    return float(match.group(1)), round(float(match.group(2)) / 100.0, 4)
+
+
+def _intervals(note: str) -> dict[str, list[float]]:
+    """The current-channel confidence intervals, which the run writes into its own note.
+
+    ``ai_cad/twin/identification.py`` writes structured ``intervals`` now, and the shipped
+    ``identification.json`` predates that field, so its intervals are recovered from the note it
+    generated in a fixed format rather than re-estimated. Nothing is recomputed here: a missing
+    interval stays missing and the caller says so.
+    """
+    match = _INTERVALS.search(str(note or ""))
+    if not match:
+        return {}
+    return {
+        "damping": [float(match.group(1)), float(match.group(2))],
+        "coulomb": [float(match.group(3)), float(match.group(4))],
+    }
+
+
+def _sections(bundle_dir: Path, report: dict) -> dict:
+    """The demo's own numbers, each copied from the bundle's files and labelled with what it is.
+
+    Every section is additive and optional: the file that carries it is read if it exists, and the
+    section is absent rather than zero-filled when it does not. A bundle compiled from CAD alone has
+    no revision to show, and a summary that invented one would be the defect this whole sprint is
+    fixing. The shipped package carries all six files.
+    """
+    section: dict = {}
+    totals = report.get("totals") or {}
+    comparison = _read_json(bundle_dir / "comparison.json") or {}
+
+    # counts: a count is a count. There is no kind that could make 5 checks pass mean anything else.
+    statuses = [c.get("status") for c in report.get("checks") or []]
+    section["check_counts"] = {
+        status: statuses.count(status) for status in ("pass", "fail", "skipped")
+    }
+
+    masses: dict = {}
+    if "total_solid_mass_kg" in totals:
+        masses["solid_kg"] = _node(totals["total_solid_mass_kg"], "modelled")
+    if "total_mass_kg" in totals:
+        masses["print_kg"] = _node(totals["total_mass_kg"], "modelled")
+    if comparison.get("theirs_total_kg") is not None:
+        masses["published_kg"] = _node(comparison["theirs_total_kg"], "stated")
+    wall_mm, infill = _print_assumptions(totals.get("print_model"))
+    assumptions: dict = {}
+    if wall_mm is not None:
+        assumptions["wall_mm"] = _node(wall_mm, "assumed")
+        assumptions["infill"] = _node(infill, "assumed")
+    try:
+        from ai_cad.compiler.materials import DEFAULT_DENSITY_KG_M3  # noqa: PLC0415
+
+        assumptions["density_kg_m3"] = _node(
+            DEFAULT_DENSITY_KG_M3, "assumed"
+        )
+    except Exception:  # noqa: BLE001 - a missing constant must not remove the other assumptions
+        pass
+    if totals.get("actuator_mass_kg") is not None:
+        assumptions["servo_g"] = _node(round(totals["actuator_mass_kg"] * 1000.0, 1), "stated")
+    # Assumptions belong to a mass; with no mass in the bundle they would be a section describing
+    # nothing, which reads as a mass that is merely missing its number.
+    if assumptions and any(k in masses for k in ("solid_kg", "print_kg", "published_kg")):
+        masses["assumptions"] = assumptions
+    bodies = {
+        b.get("ours"): _node(b.get("theirs_kg"), "stated")
+        for b in comparison.get("bodies") or []
+        if b.get("theirs_kg") is not None
+    }
+    if bodies:
+        # The published model's per-link masses, which is where a figure like the base link's
+        # 0.147 kg comes from. Without this the summary has the total and the voice needs the link.
+        masses["published_bodies_kg"] = bodies
+    if masses:
+        section["masses"] = masses
+
+    residuals: dict = {}
+    alignment = comparison.get("alignment") or {}
+    if alignment.get("rms_axis_deg") is not None:
+        residuals["axis_rms_deg"] = _node(alignment["rms_axis_deg"], "measured")
+        residuals["axis_worst_deg"] = _node(alignment.get("worst_axis_deg"), "measured")
+    conventions = _read_json(bundle_dir / "manifest.json") or {}
+    residual_mm = (conventions.get("conventions") or {}).get("residual_mm") or {}
+    if residual_mm:
+        residuals["origin_median_mm"] = _node(residual_mm.get("median"), "measured")
+        residuals["origin_p90_mm"] = _node(residual_mm.get("p90"), "measured")
+        residuals["origin_max_mm"] = _node(residual_mm.get("max"), "measured")
+    spacings = comparison.get("link_spacings") or []
+    deltas = [abs(float(s["delta_m"])) for s in spacings if s.get("delta_m") is not None]
+    if deltas:
+        # The worst of the bundle's own spacing deltas, which is the "1.69 mm" the script quotes.
+        residuals["link_length_mm"] = _node(round(max(deltas) * 1000.0, 2), "measured")
+    if residuals:
+        section["residuals"] = residuals
+
+    torque = _read_json(bundle_dir / "torque.json")
+    if torque:
+        poses = [
+            {
+                "pose": row.get("pose"),
+                # One number per pose, the peak over joints, which is what the page draws and the
+                # voice says. Per-joint arrays are keyed by name if the payload ever carries them.
+                "compiled_nm": _node(row.get("compiled_nm"), "modelled"),
+                "published_nm": _node(row.get("published_nm"), "modelled"),
+            }
+            for row in torque.get("static_by_pose") or []
+        ]
+        section["torque"] = {
+            "static_poses": poses,
+            "limit_stall_nm": _node(totals.get("actuator_torque_nm"), "stated"),
+            "rated_nm": _node(totals.get("actuator_rated_torque_nm"), "stated"),
+            "dynamic_comparable": torque.get("dynamic_comparable"),
+            "dynamic_reason": torque.get("dynamic_reason"),
+            "pose_gate_mm": _node(torque.get("pose_gate_worst_mm"), "modelled"),
+            "pose_gate_samples_mm": torque.get("pose_gate_samples_mm"),
+            "basis": "same joint-space trajectory, contacts disabled; static rows are qfrc_bias at rest",
+        }
+
+    diff = _read_json(bundle_dir / "diff.json")
+    if diff:
+        before = (diff.get("totals") or {}).get("print_model_before")
+        after = (diff.get("totals") or {}).get("print_model_after")
+        infill_before, infill_after = _print_assumptions(before)[1], _print_assumptions(after)[1]
+        section["revision"] = {
+            "infill_before": _node(infill_before, "assumed"),
+            "infill_after": _node(infill_after, "assumed"),
+            "mass_before_kg": _node((diff.get("totals") or {}).get("mass_before_kg"), "modelled"),
+            "mass_after_kg": _node((diff.get("totals") or {}).get("mass_after_kg"), "modelled"),
+            "links_changed": sum(
+                1 for link in diff.get("links") or []
+                if (link.get("mass_delta_kg") or 0.0) != 0.0
+            ),
+            "added": list(diff.get("added") or []),
+            "removed": list(diff.get("removed") or []),
+        }
+
+    identification = _read_json(bundle_dir / "identification.json")
+    scenarios = _read_json(bundle_dir / "identifiability_scenarios.json")
+    if identification or scenarios:
+        calibration: dict = {}
+        if identification:
+            params = []
+            for rung in identification.get("rungs") or []:
+                if rung.get("rung") != 5:
+                    continue
+                joint = str(rung.get("name") or "").split(",")[-1].strip()
+                intervals = rung.get("intervals") or _intervals(rung.get("note"))
+                for key, name in (("damping", "viscous_damping"), ("coulomb", "coulomb_friction")):
+                    if key not in (rung.get("recovered") or {}):
+                        continue
+                    lo_hi = intervals.get(key) or [None, None]
+                    params.append({
+                        "joint": joint,
+                        "name": name,
+                        "true": (rung.get("truth") or {}).get(key),
+                        "recovered": (rung.get("recovered") or {}).get(key),
+                        "lo": lo_hi[0],
+                        "hi": lo_hi[1],
+                    })
+            calibration["current_channel"] = {"params": params}
+            calibration["stopped_at_rung"] = identification.get("stopped_at")
+        if scenarios:
+            base = scenarios[0]
+            calibration["position_only"] = {
+                "snr": base.get("snr"),
+                "status": "sufficient" if base.get("crosses_snr_3") else "insufficient",
+                "scenario": base.get("scenario"),
+            }
+        # Every number in this block came out of simulated logs with planted parameters. That is the
+        # one place in the summary where `synthetic` is the true kind, and it says so here.
+        calibration["synthetic"] = True
+        section["calibration"] = calibration
+
+    return section
 
 
 def build_summary(bundle_dir: Path) -> dict:
@@ -194,6 +405,9 @@ def build_summary(bundle_dir: Path) -> dict:
             "id": c.get("id"),
             "status": c.get("status"),
             "explanation": c.get("explanation", ""),
+            # The same sentence under the name a consumer speaks it by. `explanation` stays because
+            # the page and the report use it; `reason` exists so a voice does not have to learn that.
+            "reason": c.get("explanation", ""),
             "measured": c.get("measured", {}),
         }
         for c in report.get("checks") or []
@@ -203,7 +417,7 @@ def build_summary(bundle_dir: Path) -> dict:
 
     conventions = (manifest or {}).get("conventions") or {}
     prov = provenance(bundle_dir, report, manifest or {}, data)
-    return {
+    document = {
         "schema_version": SUMMARY_SCHEMA,
         "name": report.get("name") or data.get("name") or bundle_dir.name,
         "bundle": {
@@ -227,12 +441,17 @@ def build_summary(bundle_dir: Path) -> dict:
             "residual_mm": conventions.get("residual_mm") or {},
         },
         "provenance": prov,
-        # Counted here rather than left for the consumer to derive, so a GUI can say "12 figures in
-        # this panel are model outputs" without re-implementing the rule.
-        "synthetic_count": sum(1 for v in prov.values() if v["synthetic"]),
+        # Counted here rather than left for the consumer to derive, so a GUI can say "3 figures in
+        # this panel were generated in simulation" without re-implementing the rule. Only `synthetic`
+        # counts: a modelled mass is a model output over real inputs, not generated data.
+        "synthetic_count": sum(1 for v in prov.values() if v["kind"] in SYNTHETIC_KINDS),
         "warnings": report.get("warnings") or [],
         "notes": report.get("notes") or [],
     }
+    # The demo's numbers travel beside the report-derived ones. A section is present only when the
+    # file that carries it is, so a bare compiled bundle gets no invented revision.
+    document.update(_sections(bundle_dir, report))
+    return document
 
 
 def _print_summary(summary: dict) -> None:
@@ -251,10 +470,37 @@ def _print_summary(summary: dict) -> None:
         f"measured, {conventions['source']}" if conventions["measured"]
         else "none measured; the bundle says so rather than shipping zeros"
     ))
+    counts = summary.get("check_counts") or {}
+    if counts:
+        print(f"  checks {counts.get('pass', 0)} pass  {counts.get('fail', 0)} fail  "
+              f"{counts.get('skipped', 0)} skipped")
+    if "masses" in summary:
+        masses = summary["masses"]
+        parts = [
+            f"{name} {masses[key]['value']:.4g} [{masses[key]['kind']}]"
+            for key, name in (("solid_kg", "solid"), ("print_kg", "print"),
+                              ("published_kg", "published"))
+            if key in masses
+        ]
+        print("  masses: " + ", ".join(parts))
+    if "torque" in summary and summary["torque"].get("static_poses"):
+        rest = summary["torque"]["static_poses"][0]
+        print(f"  torque at {rest['pose']}: {rest['compiled_nm']['value']} compiled vs "
+              f"{rest['published_nm']['value']} published N m, "
+              f"limit {summary['torque']['limit_stall_nm']['value']}")
+    if "revision" in summary:
+        revision = summary["revision"]
+        print(f"  revision infill {revision['infill_before']['value']} -> "
+              f"{revision['infill_after']['value']}: mass {revision['mass_before_kg']['value']:.4g}"
+              f" -> {revision['mass_after_kg']['value']:.4g} kg, "
+              f"{revision['links_changed']} links changed")
     print(f"  synthetic figures: {summary['synthetic_count']} of {len(summary['provenance'])}")
     for key, entry in summary["provenance"].items():
-        if entry["synthetic"]:
+        if entry["kind"] in SYNTHETIC_KINDS:
             print(f"    {key:34s} {entry['kind']:10s} {entry['basis']}")
+    for key, entry in summary["provenance"].items():
+        if entry["kind"] == "modelled":
+            print(f"  modelled  {key:34s} {entry['basis'][:88]}")
 
 
 def build_page(bundle_dir: Path, out: Path, seconds: float, hz: int, triangles: int,
@@ -344,22 +590,34 @@ class ArchiveError(ValueError):
     """An archive that cannot be extracted as given: a bad digest, a bad path, a dirty target."""
 
 
+# A zip can lie about how much it expands to. The demo is 4 MB and expands to 7 MB; anything past
+# this is not the demo, and an archive of 20 000 entries is not a page and a report.
+MAX_EXPANDED_BYTES = 512 * 1024 * 1024
+MAX_MEMBERS = 20_000
+
+
 def _member_problem(name: str) -> str | None:
     """Why this archive member would be written outside the target, or None if it is safe.
 
-    An archive is untrusted input even when this project made it: the name is attacker-controlled in
-    general, and `zipfile.extractall` honours absolute paths and `..` on some platforms. The check is
-    on the member name as written, not on the resolved path, so it cannot be defeated by a symlink
-    that exists at extraction time.
+    Two independent checks, because either alone has a hole. The name check refuses absolute,
+    drive-qualified and parent-directory components -- including `.. ` and `..` spelled with trailing
+    dots or spaces, which Windows strips before resolving, and which is how a literal `".. "` part
+    becomes traversal after the last check has finished agreeing it is not `".."`. The containment
+    check on the resolved path then catches anything the name rules did not anticipate. Extraction
+    also passes `filter="data"` on interpreters that have it, which is the third layer.
     """
     normalised = name.replace("\\", "/")
     if normalised.startswith("/"):
         return "absolute path"
     if len(normalised) > 1 and normalised[1] == ":":
         return "drive-qualified path"
-    parts = [part for part in normalised.split("/") if part not in ("", ".")]
-    if ".." in parts:
-        return "parent-directory escape"
+    for part in normalised.split("/"):
+        if part in ("", "."):
+            continue
+        # Windows ignores trailing dots and spaces in a component, so `".. "` resolves to `..`.
+        stripped = part.rstrip(" .")
+        if stripped in ("", "..") or ":" in part:
+            return "parent-directory escape"
     return None
 
 
@@ -386,21 +644,48 @@ def unpack_zip(zip_path: Path, out: Path, verify_sha: str | None = None) -> dict
 
     with zipfile.ZipFile(zip_path) as archive:
         infos = [info for info in archive.infolist() if not info.is_dir()]
+        names = [info.filename for info in infos]
+
+        # Resource checks before any write: a declared expansion past the cap, or an entry count no
+        # demo plausibly has, is refused rather than attempted. Declared sizes can lie low, so the
+        # resolved-path containment check below remains the guarantee about *where* bytes land.
+        if len(infos) > MAX_MEMBERS:
+            raise ArchiveError(f"{zip_path} has {len(infos)} entries: past the {MAX_MEMBERS} cap")
+        expanded = sum(info.file_size for info in infos)
+        if expanded > MAX_EXPANDED_BYTES:
+            raise ArchiveError(
+                f"{zip_path} expands to {expanded} bytes: past the {MAX_EXPANDED_BYTES} cap"
+            )
+
         problems = [(info.filename, _member_problem(info.filename)) for info in infos]
         unsafe = [(name, why) for name, why in problems if why]
+        for info in infos:
+            if info.external_attr >> 16 & 0o170000 == 0o120000:
+                unsafe.append((info.filename, "symlink"))
         if unsafe:
             raise ArchiveError(
-                "refusing to extract: unsafe member path(s) "
+                "refusing to extract: unsafe member(s) "
                 + ", ".join(f"{name!r} ({why})" for name, why in unsafe[:5])
             )
-        names = [info.filename for info in infos]
+
+        # The name rules are a fast path; containment on the resolved path is the actual promise. A
+        # member whose resolved target leaves `out` is refused even if every name rule passed.
+        root = out.resolve()
+        for info in infos:
+            target = (out / info.filename).resolve()
+            if not target.is_relative_to(root):
+                raise ArchiveError(f"refusing to extract {info.filename!r}: it resolves outside {out}")
 
         # A populated target is refused rather than merged. Extraction over yesterday's files leaves
         # a directory holding both packages, and the next reader cannot tell which report.json it got.
         if out.exists() and any(out.iterdir()):
             raise ArchiveError(f"{out} already has files in it: unpack into a new directory")
         out.mkdir(parents=True, exist_ok=True)
-        archive.extractall(out)
+        try:
+            # Python 3.12+: the stdlib's own data filter rejects the same traps this code names.
+            archive.extractall(out, filter="data")
+        except TypeError:  # older interpreter, no filter argument
+            archive.extractall(out)
 
     # The zip may carry one top-level folder (`so101_demo/`) or its files at the root. Both are
     # normal; the caller wants the directory with the bundle in it, not a path to guess at.

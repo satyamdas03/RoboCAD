@@ -148,6 +148,12 @@ def main() -> int:
         "robot.joints.yaml": "docs/twin/so101/bundle/robot.joints.yaml",
         "BENCH_PROTOCOL.md": "docs/twin/so101/BENCH_PROTOCOL.md",
         "diff.js": "docs/demo/page/diff.js",
+        # The data forms of the payloads the page reads as scripts. `twin summary` reads these to
+        # speak the demo's numbers; if they are not in the package, the voice falls back to
+        # "not in the report" for a number the recipient can see on the page beside it.
+        "torque.json": "docs/twin/so101/bundle/torque.json",
+        "identification.json": "docs/twin/so101/bundle/identification.json",
+        "identifiability_scenarios.json": "docs/twin/so101/bundle/identifiability_scenarios.json",
     }
     for name, rel in wanted.items():
         _copy(repo / rel, out / name, repo)

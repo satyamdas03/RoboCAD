@@ -89,7 +89,17 @@
         "damping": 45.52960661837846,
         "coulomb": 2.258807338376597
       },
-      "note": "intervals viscous (0.0432, 0.0439), coulomb (0.1465, 0.1467). Coulomb recovered within tolerance; viscous damping attenuated by encoder-quantised velocity, an errors-in-variables bias, not a missing signal."
+      "note": "intervals viscous (0.0432, 0.0439), coulomb (0.1465, 0.1467). Coulomb recovered within tolerance; viscous damping attenuated by encoder-quantised velocity, an errors-in-variables bias, not a missing signal.",
+      "intervals": {
+        "damping": [
+          0.0432,
+          0.0439
+        ],
+        "coulomb": [
+          0.1465,
+          0.1467
+        ]
+      }
     },
     {
       "rung": 5,
@@ -107,7 +117,17 @@
         "damping": 24.858079094462827,
         "coulomb": 11.352615805581777
       },
-      "note": "intervals viscous (0.0598, 0.0605), coulomb (0.1326, 0.1333). Coulomb recovered within tolerance; viscous damping attenuated by encoder-quantised velocity, an errors-in-variables bias, not a missing signal."
+      "note": "intervals viscous (0.0598, 0.0605), coulomb (0.1326, 0.1333). Coulomb recovered within tolerance; viscous damping attenuated by encoder-quantised velocity, an errors-in-variables bias, not a missing signal.",
+      "intervals": {
+        "damping": [
+          0.0598,
+          0.0605
+        ],
+        "coulomb": [
+          0.1326,
+          0.1333
+        ]
+      }
     },
     {
       "rung": 4,

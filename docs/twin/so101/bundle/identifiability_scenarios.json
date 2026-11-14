@@ -1,0 +1,37 @@
+[
+  {
+    "scenario": "position only, 12-bit encoder, 62 Hz (status quo)",
+    "snr": 0.1,
+    "crosses_snr_3": false
+  },
+  {
+    "scenario": "position only, 12-bit, averaged over 16 samples at 1 kHz",
+    "snr": 0.39,
+    "crosses_snr_3": false
+  },
+  {
+    "scenario": "position only, 16-bit encoder, 62 Hz",
+    "snr": 1.57,
+    "crosses_snr_3": false
+  },
+  {
+    "scenario": "position only, 16-bit, averaged over 16 samples at 1 kHz",
+    "snr": 6.27,
+    "crosses_snr_3": true
+  },
+  {
+    "scenario": "position only, 20-bit encoder, 62 Hz",
+    "snr": 25.08,
+    "crosses_snr_3": true
+  },
+  {
+    "scenario": "torque or current logged, 1 percent of rated noise",
+    "snr": 4.48,
+    "crosses_snr_3": true
+  },
+  {
+    "scenario": "torque or current logged, 1 percent, averaged over 4",
+    "snr": 8.96,
+    "crosses_snr_3": true
+  }
+]

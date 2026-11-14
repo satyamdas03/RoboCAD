@@ -242,8 +242,10 @@ def main() -> int:
         "dynamic_comparable": False,
         "pose_gate_worst_mm": pose_gate_worst_mm,
         "pose_gate_samples_mm": [round(v, 2) for v in gate],
-        "dynamic_reason": "jaw frame differs by tens of mm; a constant offset cannot map a joint "
-                          "vector to a matching tip",
+        # The number, not "tens of mm": a spoken summary that has to hedge a figure the payload
+        # already holds is a summary that has not read its own input.
+        "dynamic_reason": f"jaw frame differs by {pose_gate_worst_mm:.2f} mm at the worst sampled "
+                          "pose; a constant offset cannot map a joint vector to a matching tip",
         "axis_angle_deg": [round(v, 1) for v in axis_angle_deg],
         "anchor_delta_mm": [round(v, 1) for v in anchor_delta_mm],
         "axis_residual_deg_after_datum_fit": [round(v, 2) for v in axis_residual_deg],
@@ -259,6 +261,9 @@ def main() -> int:
     }
     out = pathlib.Path(args.out)
     out.write_text("window.SO101_TORQUE = " + json.dumps(payload) + ";\n", encoding="utf-8")
+    # The same payload as data, beside the script, so `twin summary` reads these numbers from this
+    # bundle's JSON rather than restating them. One bake, two consumers, no second copy to drift.
+    out.with_suffix(".json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
     ratio = peak_compiled / peak_official if peak_official else float("nan")
     print(f"{out} {out.stat().st_size} bytes, {payload['frames']} frames, {len(names)} joints")
