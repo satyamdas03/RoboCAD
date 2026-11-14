@@ -130,8 +130,10 @@ A1 to A6 done, `verified-ran` unless tagged otherwise.
   `docs/twin/so101/live_hold.md`.
 - **A6 package verification.** `scripts/verify_demo_zip.py` names three numbers before computing
   them, extracts the zip to a fresh directory and re-derives each from the zip's own baked JSON.
-  Final package sha256 `5977d7f4e50d87edc5d904fad39401a3e383d14403c0f91e38b4d749e5050b69`,
-  3,892,620 bytes, 20 files: **four passes, exit 0, VERIFIED**, in `docs/demo/verify.json`.
+  Final package sha256 `fff730639bc40ca7e4f7efc924a092fed0bebae4f01ec659291da1ea8920c26f`,
+  3,892,730 bytes, 20 files, built from `430c77e` per the packager: **four passes, exit 0,
+  VERIFIED**, in `docs/demo/verify.json` with the built-from commit recorded as a claim rather than a
+  verified fact.
 
 Two defects the verifier caught rather than a reader:
 
@@ -169,3 +171,28 @@ does.
 
 Open, and deliberately not closed today: the repo page and the packaged page are two bakes of the
 same content, and only the packaged one is verified. If the repo copy drifts, nothing catches it.
+
+### 2026-11-14 freeze, Lane B final
+
+Shipped artifact, verified twice over, the second time after two repacks:
+
+    docs/demo/so101_demo.zip
+    sha256 fff730639bc40ca7e4f7efc924a092fed0bebae4f01ec659291da1ea8920c26f
+    3,892,730 bytes, 20 files, built from commit 430c77e
+
+Verification, written to `docs/demo/verify.json` rather than to a message:
+
+    [PASS] 1  printed mass  sum(bodies) 0.901658836 kg, totals 0.901658836 kg
+    [PASS] 2  revision       0.901658836 -> 0.955453030 kg over 7 link(s)
+    [PASS] 3  check rows     {'pass': 5, 'fail': 1, 'skipped': 1}
+    [PASS] 4  page opens    7 check rows, 7 link rows, revision panel 470 chars over 7 rows,
+                             0 page error(s), 0 non-file request(s), 0 missing relative link(s)
+
+Two repacks after the first verification, both for defects the verifier found and neither about
+numbers: a shipped document named its paths in Windows separators, and the revision document carried
+no synthetic label while every other surface did. Both were worth their cost, and both are the class
+of defect a repo-side test cannot see.
+
+`verify.json` records the build commit under the key `built_from_claimed`, which is the honest name:
+a zip is not a git object and re-running the packager would not reproduce its bytes, so the verifier
+records what the packager asserted and labels it as an assertion.
