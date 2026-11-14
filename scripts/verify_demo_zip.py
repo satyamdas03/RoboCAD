@@ -25,6 +25,7 @@ import argparse
 import hashlib
 import json
 import pathlib
+import subprocess
 import sys
 import tempfile
 import zipfile
@@ -97,6 +98,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("zip", help="packaged demo zip")
     parser.add_argument("--out", default=None, help="where to write verify.json")
+    parser.add_argument(
+        "--tag",
+        default=None,
+        help="the bundle tag this zip is published under; proves the tag points at these bytes and "
+             "that the zip's own manifest.js records the same name",
+    )
     parser.add_argument(
         "--built-from",
         default=None,
@@ -180,12 +187,18 @@ def main(argv: list[str] | None = None) -> int:
         )
         page.goto((root / "index.html").as_uri(), wait_until="load")
         page.wait_for_function("window.SO101_PAGE !== undefined", timeout=30000)
-        checks = page.evaluate("document.querySelectorAll('#checks .check').length")
-        links = page.evaluate("document.querySelectorAll('#links .row').length")
-        revision_text = page.evaluate("document.getElementById('rev').innerText")
+        checks = page.evaluate("document.querySelectorAll('#checks .crow').length")
+        links = page.evaluate("document.querySelectorAll('#link-list .chip').length")
+        # The cockpit states the revision in the mass card, which only carries it once the switch is
+        # moved, so the switch is moved. Reading the card untouched would report a panel that is
+        # empty because nobody asked it a question.
+        page.evaluate("document.getElementById('rev-after').click()")
+        page.wait_for_timeout(250)
+        revision_text = page.evaluate("document.getElementById('cmp').innerText")
         revision_rows = page.evaluate(
             "(window.SO101_REVISION && window.SO101_REVISION.links || []).length"
         )
+        tag_on_page = page.evaluate("((window.SO101_MANIFEST||{}).package||{}).tag")
         missing = page.evaluate(
             "Array.from(document.querySelectorAll('header a')).map(a=>a.getAttribute('href'))"
         )
@@ -219,6 +232,43 @@ def main(argv: list[str] | None = None) -> int:
     if not ok:
         failures.append("page: did not open clean from file:// or a panel did not render")
 
+    # 5. If a tag is named, it has to be the tag of these bytes: the tag's committed zip digests to
+    #    what this run just read, and the zip's own manifest.js names the same tag. Either half alone
+    #    is a label; together they are a package a stranger can fetch and check.
+    tag_claim: dict = {}
+    if args.tag:
+        digest = hashlib.sha256(zip_path.read_bytes()).hexdigest()
+        head = subprocess.run(["git", "rev-parse", "--verify", f"refs/tags/{args.tag}"],
+                              capture_output=True, text=True)
+        if head.returncode != 0:
+            print(f"[FAIL] 5  tag            no tag {args.tag} in this repository")
+            failures.append(f"tag: {args.tag} does not exist")
+        else:
+            commit = subprocess.run(["git", "rev-list", "-n", "1", args.tag],
+                                    capture_output=True, text=True).stdout.strip()
+            rel = subprocess.run(["git", "ls-tree", "-r", "--name-only", args.tag],
+                                 capture_output=True, text=True).stdout.split("\n")
+            zip_rel = next((p for p in rel if p.endswith(".zip") and "so101_demo" in p), None)
+            blob = b""
+            if zip_rel:
+                blob = subprocess.run(["git", "show", f"{args.tag}:{zip_rel}"],
+                                      capture_output=True).stdout
+            tagged_digest = hashlib.sha256(blob).hexdigest() if blob else ""
+            manifest_js = (root / "manifest.js").read_text(encoding="utf-8")
+            recorded = json.loads(
+                manifest_js[len("window.SO101_MANIFEST = "):].rstrip().rstrip(";")
+            ).get("package", {}).get("tag")
+            ok = tagged_digest == digest and recorded == args.tag
+            print(f"[{'PASS' if ok else 'FAIL'}] 5  tag            {args.tag} -> {commit[:8]}, "
+                  f"zip in tag {'matches' if tagged_digest == digest else 'differs from'} these "
+                  f"bytes, manifest.js records {recorded!r}")
+            if tagged_digest != digest:
+                failures.append(f"tag: {args.tag}'s zip is not the zip that was verified")
+            if recorded != args.tag:
+                failures.append(f"tag: the zip's manifest.js records {recorded!r}, not {args.tag}")
+            tag_claim = {"tag": args.tag, "commit": commit, "zip_in_tag": zip_rel,
+                         "manifest_records": recorded, "tagged_sha256": tagged_digest}
+
     result = {
         "zip": str(zip_path),
         "sha256": hashlib.sha256(zip_path.read_bytes()).hexdigest(),
@@ -226,6 +276,9 @@ def main(argv: list[str] | None = None) -> int:
         # the zip is not a git object, and re-running the compiler to compare would produce different
         # bytes. It is recorded so the claim has a home rather than living in a chat message.
         "built_from_claimed": args.built_from,
+        # Proven rather than claimed: the tag resolves, its committed zip is these bytes, and the
+        # zip's own manifest.js names the same tag. Empty when no tag was named.
+        "tag": tag_claim,
         "named": {
             "printed_kg": EXPECTED_PRINTED_KG,
             "revision_kg": list(EXPECTED_REVISION_KG),

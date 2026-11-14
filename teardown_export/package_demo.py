@@ -124,16 +124,30 @@ def main() -> int:
     parser.add_argument("--zip", default="docs/demo/so101_demo.zip")
     parser.add_argument("--tag", default=None,
                         help="the repository tag this package is cut from, written into manifest.js")
+    parser.add_argument("--tag-pending", action="store_true",
+                        help="the tag does not exist yet: it will be created on the commit that "
+                             "carries this zip. Use only for a release build; "
+                             "verify_demo_zip.py --tag proves the tag and the zip agree afterwards")
     args = parser.parse_args()
 
     repo = pathlib.Path(args.repo).resolve()
-    if args.tag:
+    if args.tag and not args.tag_pending:
         # Fail closed on a tag that does not exist yet: the header would then name a package that
         # cannot be fetched, which is the same class of defect as a digest that records nothing.
         found = subprocess.run(["git", "rev-parse", "--verify", f"refs/tags/{args.tag}"],
                                cwd=repo, capture_output=True, text=True)
         if found.returncode != 0:
             raise SystemExit(f"no tag {args.tag} in {repo}: create it, or package without a tag")
+    if args.tag_pending and not args.tag:
+        raise SystemExit("--tag-pending needs --tag: a pending tag still has to have a name")
+    if args.tag_pending:
+        # A tag can only point at a commit that already exists, and this zip carries the tag's own
+        # name inside manifest.js, so the two cannot be built in that order. The release therefore
+        # builds the zip naming the tag, commits it, creates the tag once on that commit, and then
+        # runs verify_demo_zip.py --tag, which fails unless the tag resolves to this exact zip and
+        # the zip's own manifest.js records the same tag. Nothing is moved or re-created afterwards.
+        print(f"tag {args.tag} is pending: create it on the commit that carries this zip, then run "
+              f"scripts/verify_demo_zip.py --tag {args.tag}")
     out = repo / args.out
     if out.exists():
         shutil.rmtree(out)
@@ -232,29 +246,36 @@ def main() -> int:
     index = out / "index.html"
     if index.exists():
         html = index.read_text(encoding="utf-8")
-        html = html.replace("<h1>SO-101 living page</h1>", "<h1>SO-101 living page</h1>")
-        # a visible index of the packaged documents, so a recipient is not left guessing
-        # append the document links AFTER the existing header: replacing it once removed the
-        # provenance element the page's own script reads, and the page then failed to initialise in
-        # the unpacked copy while working perfectly in the repo. That is exactly what the package
-        # test exists to catch.
-        nav = (
-            '<div style="grid-column:1/-1;display:flex;gap:14px;flex-wrap:wrap;padding:6px 16px 8px;'
-            'border-bottom:1px solid #1e2633;font-size:12px;color:#8b97a8">'
-            '<span>packaged demo:</span>'
-            '<a href="README.md" style="color:#57d3a0">3 minute script</a>'
-            '<a href="film.mp4" style="color:#57d3a0">film</a>'
-            '<a href="report.html" style="color:#57d3a0">7 check report</a>'
-            '<a href="comparison.md" style="color:#57d3a0">vs official</a>'
-            '<a href="identifiability.md" style="color:#57d3a0">what data we need</a>'
-            '<a href="NOTICE.md" style="color:#57d3a0">notices</a>'
-            '</div>'
-        )
-        end = html.find("</header>")
-        if end != -1:
-            insert_at = end + len("</header>")
-            html = html[:insert_at] + chr(10) + nav + html[insert_at:]
-            index.write_text(html, encoding="utf-8")
+        if 'id="stage"' in html:
+            # The cockpit is a fixed grid -- header, two columns, stage, footer -- with one row for
+            # each and no spare track. The document bar the older page needs would become a fourth
+            # grid row and be clipped by the page's own overflow rule, so for this page the packaged
+            # documents are listed in the provenance card and in its drawer instead.
+            print("cockpit page: document bar not injected, documents listed in the page itself")
+        else:
+            html = html.replace("<h1>SO-101 living page</h1>", "<h1>SO-101 living page</h1>")
+            # a visible index of the packaged documents, so a recipient is not left guessing
+            # append the document links AFTER the existing header: replacing it once removed the
+            # provenance element the page's own script reads, and the page then failed to initialise
+            # in the unpacked copy while working perfectly in the repo. That is exactly what the
+            # package test exists to catch.
+            nav = (
+                '<div style="grid-column:1/-1;display:flex;gap:14px;flex-wrap:wrap;'
+                'padding:6px 16px 8px;border-bottom:1px solid #1e2633;font-size:12px;color:#8b97a8">'
+                '<span>packaged demo:</span>'
+                '<a href="README.md" style="color:#57d3a0">3 minute script</a>'
+                '<a href="film.mp4" style="color:#57d3a0">film</a>'
+                '<a href="report.html" style="color:#57d3a0">7 check report</a>'
+                '<a href="comparison.md" style="color:#57d3a0">vs official</a>'
+                '<a href="identifiability.md" style="color:#57d3a0">what data we need</a>'
+                '<a href="NOTICE.md" style="color:#57d3a0">notices</a>'
+                '</div>'
+            )
+            end = html.find("</header>")
+            if end != -1:
+                insert_at = end + len("</header>")
+                html = html[:insert_at] + chr(10) + nav + html[insert_at:]
+                index.write_text(html, encoding="utf-8")
 
     # Record what this build put in the package, one digest per file. Written here, after every
     # other write, because a sidecar taken earlier would record a README or an index.html that the
@@ -300,11 +321,11 @@ def main() -> int:
         page.goto((root / "index.html").as_uri(), wait_until="load")
         page.wait_for_function("window.SO101_PAGE !== undefined", timeout=30000)
         panels = page.evaluate(
-            "({checks: document.querySelectorAll('#checks .check').length,"
-            " links: document.querySelectorAll('#links .row').length,"
+            "({checks: document.querySelectorAll('#checks .crow').length,"
+            " links: document.querySelectorAll('#link-list .chip').length,"
             " cmp: document.getElementById('cmp').innerText.length,"
             " torque: document.getElementById('torque-grp').innerText.length,"
-            " ident: document.querySelectorAll('#ident .check').length})")
+            " ident: document.getElementById('twin-grp').innerText.length})")
         links = page.evaluate(
             "Array.from(document.querySelectorAll('header a')).map(a=>a.getAttribute('href'))")
         missing = [h for h in links if not (root / h).exists()]
@@ -324,7 +345,8 @@ def main() -> int:
                       "missing_relative_links": missing, "manifest_dead_entries": manifest_dead,
                       "unpacked_at": str(root)}, indent=2))
     ok = (not errors and not external and not missing and not manifest_dead
-          and panels["checks"] == 7 and panels["links"] >= 7)
+          and panels["checks"] == 7 and panels["links"] >= 7
+          and panels["cmp"] > 0 and panels["torque"] > 0 and panels["ident"] > 0)
     print("PACKAGE OK" if ok else "PACKAGE PROBLEM")
     return 0 if ok else 3
 
