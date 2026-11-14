@@ -28,10 +28,15 @@ import pathlib
 
 import numpy as np
 
-# the conventions from docs/twin/so101/CONVENTIONS.md, base-first, applied to the compiled model
-ZERO_POSE_OFFSETS_DEG = [-88.17, 90.29, -90.31, -0.15, 0.00]
-GRIPPER_OFFSET_DEG = 0.0
-BASE_TRANSLATION_MM = [38.74, 6.64, -2.86]
+# Conventions are read FROM THE BUNDLE, never from a constant here. A harness with its own copy can
+# disagree with the bundle and neither reader would notice; the directive's acceptance test is that
+# this module reads the file. It raises rather than falling back, because a fallback is how the two
+# readers drift apart.
+def _conventions_from_bundle(bundle_dir: str):
+    from ai_cad.compiler.conventions import from_bundle
+
+    conv = from_bundle(bundle_dir)
+    return conv
 
 
 def _load(path: pathlib.Path):
@@ -126,8 +131,9 @@ def main() -> int:
     if official.njnt != compiled.njnt:
         raise SystemExit("joint counts differ; nothing here is comparable")
 
-    offsets = np.radians(np.array(ZERO_POSE_OFFSETS_DEG + [GRIPPER_OFFSET_DEG]))
-    translation = np.array(BASE_TRANSLATION_MM) / 1000.0
+    conv = _conventions_from_bundle(str(pathlib.Path(args.compiled).resolve().parent))
+    offsets = np.asarray(conv.offset_vector_rad([f"joint_{i+1}" for i in range(compiled.njnt)]))
+    translation = np.asarray(conv.base_translation_mm) / 1000.0
 
     q_o, qd_o, qdd_o = _trajectory(official, args.hz, args.seconds)
     # the SAME physical motion: our joint vector is theirs plus the documented zero-pose offset
@@ -185,8 +191,9 @@ def main() -> int:
 
     payload = {
         "conventions": {
-            "zero_pose_offsets_deg": ZERO_POSE_OFFSETS_DEG + [GRIPPER_OFFSET_DEG],
-            "base_translation_mm": BASE_TRANSLATION_MM,
+            "source": "read from the bundle manifest, not from this harness",
+            "zero_pose_offsets_deg": [round(float(v), 4) for v in np.degrees(offsets)],
+            "base_translation_mm": [round(float(v), 4) for v in translation * 1000.0],
             "applied_to": "compiled model",
         },
         "pose_gate": {

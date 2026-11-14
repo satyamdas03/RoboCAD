@@ -77,6 +77,8 @@ def main() -> int:
 
     import mujoco
 
+    from ai_cad.compiler.conventions import from_bundle
+
     official = mujoco.MjModel.from_xml_path(args.official)
     qpos, qvel, qacc = _trajectory(mujoco, official, args.seconds, args.hz)
     # keep the excitation inside the servo's authority: a trajectory that saturates the published
@@ -168,6 +170,30 @@ def main() -> int:
     # joint axes and anchors must be compared in the WORLD frame at rest: axes are expressed in each
     # model's own body frame, and the two models do not share body orientations
     anchor_delta_mm = [float(v) for v in np.linalg.norm(anchors_c - anchors_o, axis=1) * 1000.0]
+    # static comparison at matched poses, which is the part that is physically valid. The trajectory
+    # comparison is NOT comparable and the payload says so, because the jaw frame differs by tens of
+    # millimetres and that difference is not a mass effect.
+    def _static(m, shift):
+        d = mujoco.MjData(m)
+        rows = []
+        for label, frac in (("rest", 0.0), ("quarter span", 0.25), ("half span", 0.5)):
+            q = np.array([((m.jnt_range[j][0] + m.jnt_range[j][1]) / 2.0
+                           + frac * (m.jnt_range[j][1] - m.jnt_range[j][0]) / 2.0)
+                          if m.jnt_range[j][1] > m.jnt_range[j][0] else frac
+                          for j in range(m.njnt)])
+            d.qpos[:] = q + shift
+            d.qvel[:] = 0.0
+            mujoco.mj_forward(m, d)
+            rows.append({"pose": label, "peak_nm": round(float(np.abs(d.qfrc_bias).max()), 4)})
+        return rows
+
+    from ai_cad.compiler.conventions import from_bundle
+
+    conv = from_bundle(str(compiled_path.parent))
+    offsets = np.asarray(conv.offset_vector_rad([f"joint_{i+1}" for i in range(compiled.njnt)]))
+    static_compiled = _static(compiled, offsets)
+    static_official = _static(official, np.zeros(official.njnt))
+
     payload = {
         "hz": args.hz,
         "frames": int(len(qpos)),
@@ -180,6 +206,11 @@ def main() -> int:
         "compiled": np.round(tau_compiled, 4).tolist(),
         "label": "same joint-space trajectory, different bodies",
         "saturated": saturated,
+        "static_by_pose": [{"pose": a["pose"], "compiled_nm": a["peak_nm"], "published_nm": b["peak_nm"]}
+                           for a, b in zip(static_compiled, static_official)],
+        "dynamic_comparable": False,
+        "dynamic_reason": "jaw frame differs by tens of mm; a constant offset cannot map a joint "
+                          "vector to a matching tip",
         "axis_angle_deg": [round(v, 1) for v in axis_angle_deg],
         "anchor_delta_mm": [round(v, 1) for v in anchor_delta_mm],
         "axis_residual_deg_after_datum_fit": [round(v, 2) for v in axis_residual_deg],

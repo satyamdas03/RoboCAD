@@ -89,6 +89,7 @@
       <h2>Required torque</h2>
       <canvas id="torque-chart" width="296" height="126"></canvas>
       <div class="row"><span>joint</span><span id="t-joint">–</span></div>
+      <div id="t-static"></div>
       <div class="row"><span>peak official</span><span id="t-off">–</span></div>
       <div class="row"><span>peak compiled</span><span id="t-comp">–</span></div>
       <div class="row"><span>rated (servo)</span><span id="t-rated">–</span></div>
@@ -585,12 +586,32 @@
     ctx.strokeStyle = '#57d3a0'; ctx.lineWidth = 1.6; ctx.beginPath();
     comp.forEach((v,i) => { i ? ctx.lineTo(x(i), y(v)) : ctx.moveTo(x(i), y(v)); }); ctx.stroke();
 
-    document.getElementById('t-joint').textContent = (T.joints[joint] || ('joint ' + (joint+1)));
-    document.getElementById('t-off').textContent = Math.max(...off.map(Math.abs)).toFixed(2) + ' N·m';
-    document.getElementById('t-comp').textContent = Math.max(...comp.map(Math.abs)).toFixed(2) + ' N·m';
+    // When the two models are not in the same pose the trajectory curves are not comparable, so the
+    // panel shows the static comparison, which is. A chart that looks authoritative while measuring
+    // two different configurations is the failure this replaces.
+    const staticRows = T.static_by_pose || [];
+    if (staticRows.length) {
+      const box = document.getElementById('t-static');
+      box.innerHTML = '';
+      staticRows.forEach(r => {
+        box.appendChild(dataRow(r.pose, r.compiled_nm.toFixed(3) + ' vs ' + r.published_nm.toFixed(3) + ' N·m'));
+      });
+    }
+    document.getElementById('t-joint').textContent =
+      (T.dynamic_comparable === false) ? 'static poses (matched)' : (T.joints[joint] || ('joint ' + (joint+1)));
+    // the moving-arm peaks are meaningless while the poses differ, so they are not printed beside
+    // the static numbers where a reader would assume they belong to them
+    const showDynamic = T.dynamic_comparable !== false;
+    document.getElementById('t-off').textContent =
+      showDynamic ? Math.max(...off.map(Math.abs)).toFixed(2) + ' N·m' : 'not comparable';
+    document.getElementById('t-comp').textContent =
+      showDynamic ? Math.max(...comp.map(Math.abs)).toFixed(2) + ' N·m' : 'not comparable';
     document.getElementById('t-rated').textContent = T.rated_nm.toFixed(2) + ' N·m';
     document.getElementById('t-torque-note').textContent =
-      'same joint-space trajectory on both models, inverse dynamics, contacts disabled. ' +
+      (T.dynamic_comparable === false
+        ? 'static inverse dynamics at matched poses, contacts and limits disabled. The moving-arm ' +
+          'comparison is NOT comparable: ' + (T.dynamic_reason || '') + '. '
+        : 'same joint-space trajectory on both models, inverse dynamics, contacts disabled. ') +
       'grey is the published model, green is the compiled bundle. Joint axes agree within 2.1 ' +
       'degrees, but joint origins differ by up to 110 mm perpendicular, so this compares mass and ' +
       'geometry, not an identical pose' +
