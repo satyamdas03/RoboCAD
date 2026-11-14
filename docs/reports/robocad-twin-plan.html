@@ -1,0 +1,736 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RoboCAD Twin Plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js" integrity="sha384-g4NTh/Iv5PPU4xPyhEWqPcwtNXOvdaDI8LLnyYfyNZOjKJeYQyjzQ9X5275eBjpt" crossorigin="anonymous" defer></script>
+<style>
+  :root {
+    --ground: #0a0b0c;
+    --panel: #121315;
+    --panel-2: #17181a;
+    --line: #26282c;
+    --line-soft: #1d1f22;
+    --text: #e8eaec;
+    --muted: #98a0a8;
+    --faint: #7d858d;
+    --cyan: #00e5ff;
+    --cyan-dim: #0b6b78;
+    --amber: #feb300;
+    --green: #45d483;
+    --red: #ff5d5d;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --measure: 68ch;
+    --rail: 232px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  a { color: var(--cyan); text-decoration: none; border-bottom: 1px solid var(--cyan-dim); }
+  a:hover { border-bottom-color: var(--cyan); }
+  a:focus-visible, button:focus-visible, input:focus-visible + .box {
+    outline: 2px solid var(--cyan);
+    outline-offset: 3px;
+  }
+
+  .shell {
+    display: grid;
+    grid-template-columns: var(--rail) minmax(0, 1fr);
+    gap: 56px;
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 0 28px 120px;
+  }
+
+  /* ---------- rail ---------- */
+  .rail {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    padding: 36px 0 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    border-right: 1px solid var(--line-soft);
+  }
+  .rail .mark {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.03em;
+    color: var(--muted);
+  }
+  .rail .mark strong { color: var(--text); font-weight: 600; }
+  .rail nav { display: flex; flex-direction: column; gap: 2px; }
+  .rail nav a {
+    font-size: 13px;
+    color: var(--muted);
+    border: 0;
+    padding: 5px 12px 5px 0;
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+  }
+  .rail nav a:hover { color: var(--text); }
+  .rail nav a .n { font-family: var(--mono); font-size: 11px; color: var(--faint); width: 18px; }
+
+  .progress { margin-top: auto; display: flex; flex-direction: column; gap: 10px; }
+  .progress .row { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .bar { height: 2px; background: var(--line); position: relative; overflow: hidden; }
+  .bar i { position: absolute; inset: 0 auto 0 0; width: 0%; background: var(--cyan); transition: width 320ms ease; }
+
+  /* ---------- main ---------- */
+  main { padding-top: 36px; min-width: 0; }
+
+  .masthead { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: baseline; padding-bottom: 22px; border-bottom: 1px solid var(--line); }
+  .masthead h1 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+  .masthead .meta { font-family: var(--mono); font-size: 11px; color: var(--faint); }
+  .pill {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em;
+    color: var(--amber); border: 1px solid #4a3a10; background: #1c1708;
+    padding: 4px 10px; border-radius: 2px;
+  }
+
+  .hero { padding: 64px 0 56px; display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 56px; align-items: center; }
+  .hero h2 {
+    margin: 0 0 18px;
+    font-size: clamp(30px, 4.2vw, 52px);
+    line-height: 1.04;
+    letter-spacing: -0.035em;
+    font-weight: 600;
+    max-width: 16ch;
+  }
+  .hero p { margin: 0; color: var(--muted); max-width: 46ch; font-size: 16px; }
+  .hero .kicker { font-family: var(--mono); font-size: 11px; color: var(--cyan); letter-spacing: 0.08em; margin-bottom: 16px; }
+
+  .figure { min-width: 0; }
+  .figure svg { width: 100%; height: auto; display: block; overflow: visible; }
+  .figure figcaption { font-family: var(--mono); font-size: 11px; color: var(--faint); margin-top: 14px; line-height: 1.7; }
+
+  /* ---------- sections ---------- */
+  section { padding: 56px 0; border-top: 1px solid var(--line-soft); }
+  .sec-head { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 16px; margin-bottom: 30px; }
+  .sec-head .idx { font-family: var(--mono); font-size: 11px; color: var(--faint); padding-top: 6px; }
+  .sec-head h3 { margin: 0 0 8px; font-size: 24px; letter-spacing: -0.02em; font-weight: 600; }
+  .sec-head p { margin: 0; color: var(--muted); max-width: var(--measure); }
+
+  .phase { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; border: 1px solid var(--line); }
+  .phase > div { padding: 26px 28px; }
+  .phase > div + div { border-left: 1px solid var(--line); }
+  .phase h4 { margin: 0 0 6px; font-size: 15px; font-weight: 600; }
+  .phase .tag { font-family: var(--mono); font-size: 11px; color: var(--faint); }
+  .phase p { margin: 10px 0 0; color: var(--muted); font-size: 14px; }
+
+  /* ---------- tables ---------- */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 720px; }
+  thead th {
+    text-align: left; font-family: var(--mono); font-weight: 500; font-size: 11px;
+    letter-spacing: 0.06em; color: var(--faint); padding: 12px 14px;
+    border-bottom: 1px solid var(--line); background: var(--panel); white-space: nowrap;
+  }
+  tbody td { padding: 13px 14px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr:hover { background: #101113; }
+  td.id { font-family: var(--mono); font-size: 12px; color: var(--cyan); white-space: nowrap; }
+  td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.dim, .dim { color: var(--muted); }
+
+  /* checkbox cell */
+  td.chk { width: 44px; padding: 12px 14px; }
+  .chk-label { display: block; position: relative; width: 20px; height: 20px; cursor: pointer; }
+  .chk-label input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+  .box {
+    position: absolute; inset: 0; border: 1px solid #3a3d42; background: #0d0e0f;
+    pointer-events: none;
+    display: grid; place-items: center; transition: border-color 140ms ease, background 140ms ease;
+  }
+  .box::after {
+    content: ""; width: 10px; height: 10px; background: var(--cyan);
+    transform: scale(0); transition: transform 140ms cubic-bezier(.2,.8,.3,1);
+  }
+  .chk-label input:checked + .box { border-color: var(--cyan); background: #062226; }
+  .chk-label input:checked + .box::after { transform: scale(1); }
+  tr.is-done td:not(.chk) { opacity: 0.45; }
+
+  /* ---------- done grid ---------- */
+  .done-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
+  .done-grid > div { padding: 22px 24px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .done-grid > div:last-child { grid-column: 1 / -1; }
+  .done-grid h4 { margin: 0 0 8px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; color: var(--faint); font-weight: 500; }
+  .done-grid p { margin: 0; font-size: 14px; }
+  .done-grid .big { font-size: 15px; font-weight: 500; }
+  .mono-sm { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+
+  /* ---------- callout ---------- */
+  .callout { border-left: 2px solid var(--amber); background: #141208; padding: 18px 22px; margin-top: 28px; }
+  .callout p { margin: 0; color: #d8cfae; font-size: 14px; max-width: var(--measure); }
+  .callout strong { color: var(--amber); font-weight: 600; }
+
+  .rule-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 0; border-top: 1px solid var(--line); }
+  .rule-list li { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 24px; padding: 14px 0; border-bottom: 1px solid var(--line-soft); font-size: 14px; }
+  .rule-list .k { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+
+  footer { border-top: 1px solid var(--line); padding-top: 24px; color: var(--faint); font-family: var(--mono); font-size: 11px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+
+  /* reveal */
+  .reveal { opacity: 0; transform: translateY(14px); }
+  .reveal.in { opacity: 1; transform: none; transition: opacity 520ms ease, transform 520ms cubic-bezier(.2,.7,.2,1); }
+
+  @media (max-width: 1040px) {
+    .shell { grid-template-columns: 1fr; gap: 0; padding: 0 20px 80px; }
+    .rail { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line-soft); flex-direction: row; flex-wrap: wrap; align-items: center; gap: 16px; padding: 20px 0; }
+    .rail nav { flex-direction: row; flex-wrap: wrap; gap: 14px; }
+    .progress { margin: 0; width: 100%; }
+    .hero { grid-template-columns: 1fr; gap: 36px; padding: 44px 0 40px; }
+    .phase { grid-template-columns: 1fr; }
+    .phase > div + div { border-left: 0; border-top: 1px solid var(--line); }
+    .done-grid { grid-template-columns: 1fr; }
+    .rule-list li { grid-template-columns: 1fr; gap: 4px; }
+  }
+
+  @media (max-width: 760px) {
+    .table-wrap { border: 0; overflow: visible; }
+    .table-wrap table { min-width: 0; display: block; }
+    .table-wrap thead { display: none; }
+    .table-wrap tbody { display: block; }
+    .table-wrap tr { display: block; padding: 16px 0; border-top: 1px solid var(--line); }
+    .table-wrap tr:first-child { border-top: 0; }
+    .table-wrap td { display: block; border: 0; padding: 2px 0; }
+    .table-wrap td::before {
+      display: block; font-family: var(--mono); font-size: 11px;
+      letter-spacing: 0.06em; color: var(--faint); margin: 10px 0 1px;
+    }
+    .table-wrap td.chk::before, .table-wrap td.id::before { display: none; }
+
+    /* tracker rows: checkbox, id, then stacked fields */
+    table[data-phase] tr { display: grid; grid-template-columns: 24px minmax(0, 1fr); column-gap: 12px; }
+    table[data-phase] td.chk { grid-column: 1; grid-row: 1; width: 20px; }
+    table[data-phase] td.id { grid-column: 2; grid-row: 1; }
+    table[data-phase] td:nth-child(n+3) { grid-column: 2; }
+    table[data-phase] td:nth-child(n+3)::before { content: "Milestone"; }
+    table[data-phase] td:nth-child(4)::before { content: "Deliverable"; }
+    table[data-phase] td:nth-child(5)::before { content: "Evidence that closes it"; }
+    table[data-phase="p3"] td:nth-child(3)::before { content: "Partner lane"; }
+
+    .t-pipe td:nth-child(1)::before { content: "Stage"; }
+    .t-pipe td:nth-child(2)::before { content: "Module"; }
+    .t-pipe td:nth-child(3)::before { content: "Input"; }
+    .t-pipe td:nth-child(4)::before { content: "Output"; }
+    .t-pipe td:nth-child(5)::before { content: "Status today"; }
+    .t-cmp td:nth-child(1)::before { content: "Metric"; }
+    .t-cmp td:nth-child(2)::before { content: "Today"; }
+    .t-cmp td:nth-child(3)::before { content: "Target"; }
+    .t-cmp td:nth-child(4)::before { content: "How it is measured"; }
+    .t-risk td:nth-child(1)::before { content: "Risk"; }
+    .t-risk td:nth-child(2)::before { content: "Likelihood"; }
+    .t-risk td:nth-child(3)::before { content: "Impact"; }
+    .t-risk td:nth-child(4)::before { content: "Mitigation in the plan"; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .reveal, .reveal.in { opacity: 1; transform: none; transition: none; }
+    .box::after, .bar i { transition: none; }
+  }
+
+  /* no-JS fallback */
+  .js-off .reveal { opacity: 1; transform: none; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <aside class="rail">
+    <div class="mark"><strong>ROBOCAD TWIN</strong><br>plan · v1 · 13 nov 2026</div>
+    <nav>
+      <a href="#shift"><span class="n">01</span> The shift</a>
+      <a href="#build"><span class="n">02</span> What we build</a>
+      <a href="#pipeline"><span class="n">03</span> Pipeline</a>
+      <a href="#milestones"><span class="n">04</span> Tracker</a>
+      <a href="#done"><span class="n">05</span> Done</a>
+      <a href="#compare"><span class="n">06</span> Compare against</a>
+      <a href="#risks"><span class="n">07</span> Risks</a>
+      <a href="#open"><span class="n">08</span> Open calls</a>
+    </nav>
+    <div class="progress">
+      <div class="row"><span>phase 1</span><span id="p1-count">0 / 8</span></div>
+      <div class="bar"><i id="p1-bar"></i></div>
+      <div class="row"><span>twin</span><span id="p2-count">0 / 5</span></div>
+      <div class="bar"><i id="p2-bar"></i></div>
+      <div class="row"><span>partner</span><span id="p3-count">0 / 4</span></div>
+      <div class="bar"><i id="p3-bar"></i></div>
+      <div class="row"><span>done defs</span><span id="p4-count">0 / 7</span></div>
+      <div class="bar"><i id="p4-bar"></i></div>
+    </div>
+  </aside>
+
+  <main>
+
+    <header class="masthead">
+      <h1>RoboCAD Twin</h1>
+      <span class="pill">DRAFT FOR APPROVAL</span>
+      <span class="meta">source: docs/designs/robocad-twin-deep-plan.md</span>
+    </header>
+
+    <div class="hero">
+      <div>
+        <div class="kicker">THE ONE SENTENCE</div>
+        <h2>The simulation model your hardware actually behaves like.</h2>
+        <p>Kept true on every revision. Compile the CAD into a checked MuJoCo and URDF bundle, then identify the parameters that make sim match the bench, and report what changed when the hardware changes.</p>
+      </div>
+
+      <figure class="figure">
+        <svg id="pipeline" viewBox="0 0 420 340" role="img" aria-label="Pipeline: CAD in, verified bundle out, then calibration and regression">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#3a3d42"></path>
+            </marker>
+          </defs>
+          <g id="edges" stroke="#3a3d42" stroke-width="1" fill="none" marker-end="url(#arrow)">
+            <path class="draw" d="M 60 40 L 60 74"></path>
+            <path class="draw" d="M 60 106 L 60 140"></path>
+            <path class="draw" d="M 60 172 L 60 206"></path>
+            <path class="draw" d="M 60 238 L 60 272"></path>
+            <path class="draw" d="M 96 288 L 272 288" marker-end="none"></path>
+            <path class="draw" d="M 272 288 L 272 238" marker-end="none"></path>
+          </g>
+          <g font-family="JetBrains Mono, monospace" font-size="9" fill="#98a0a8">
+            <g>
+              <rect x="14" y="8" width="92" height="32" fill="#121315" stroke="#26282c"></rect>
+              <text x="26" y="22" fill="#e8eaec">STEP</text><text x="26" y="33" fill="#6b737b">any CAD</text>
+            </g>
+            <g>
+              <rect x="14" y="74" width="92" height="32" fill="#121315" stroke="#26282c"></rect>
+              <text x="26" y="88" fill="#e8eaec">import</text>
+              <text x="26" y="99" fill="#6b737b">XCAF tree</text>
+            </g>
+            <g>
+              <rect x="14" y="140" width="92" height="32" fill="#121315" stroke="#26282c"></rect>
+              <text x="26" y="154" fill="#e8eaec">joints.yaml</text>
+              <text x="26" y="165" fill="#6b737b">human truth</text>
+            </g>
+            <g>
+              <rect x="14" y="206" width="92" height="32" fill="#121315" stroke="#00e5ff"></rect>
+              <text x="26" y="220" fill="#e8eaec">compiler</text>
+              <text x="26" y="231" fill="#00e5ff">mass · inertia</text>
+            </g>
+            <g>
+              <rect x="14" y="272" width="92" height="32" fill="#121315" stroke="#26282c"></rect>
+              <text x="26" y="286" fill="#e8eaec">bundle</text>
+              <text x="26" y="297" fill="#6b737b">MJCF · URDF</text>
+            </g>
+            <g>
+              <rect x="112" y="272" width="118" height="32" fill="#121315" stroke="#26282c"></rect>
+              <text x="124" y="286" fill="#e8eaec">checks</text>
+              <text x="124" y="297" fill="#6b737b">7 gates · diff</text>
+            </g>
+            <g>
+              <rect x="238" y="206" width="120" height="32" fill="#121315" stroke="#26282c"></rect>
+              <text x="250" y="220" fill="#e8eaec">twin</text>
+              <text x="250" y="231" fill="#6b737b">calibrate</text>
+            </g>
+            <g>
+              <rect x="238" y="140" width="120" height="32" fill="#121315" stroke="#26282c"></rect>
+              <text x="250" y="154" fill="#e8eaec">gap metrics</text>
+              <text x="250" y="165" fill="#6b737b">rev regression</text>
+            </g>
+            <g>
+              <rect x="238" y="74" width="120" height="32" fill="#121315" stroke="#26282c"></rect>
+              <text x="250" y="88" fill="#e8eaec">living page</text>
+              <text x="250" y="99" fill="#6b737b">offline · shareable</text>
+            </g>
+          </g>
+          <path d="M 272 238 L 272 172" stroke="#3a3d42" stroke-width="1" fill="none" marker-end="url(#arrow)"></path>
+          <path d="M 272 140 L 272 106" stroke="#3a3d42" stroke-width="1" fill="none" marker-end="url(#arrow)"></path>
+          <text x="14" y="330" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#6b737b">phase 1: 14 → 112</text>
+          <text x="238" y="330" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#6b737b">phase 2: 238 → 358</text>
+        </svg>
+        <figcaption>Solid arrow: data path. The compiler is the only new stage in phase 1. Twin stages sit on top of the bundle, never inside it.</figcaption>
+      </figure>
+    </div>
+
+    <section id="shift">
+      <div class="sec-head">
+        <div class="idx">01</div>
+        <div>
+          <h3>What changed and why</h3>
+          <p>Plain CAD to sim export is crowded and mostly free. The paid problem sits one level up: keeping the sim true after the hardware, payload, or firmware changes.</p>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div>
+          <div class="tag">WAS</div>
+          <h4>RoboCAD Compile</h4>
+          <p>CAD in, verified MJCF and URDF out. Useful, defensible only on check quality, and competing with free publishers and validators.</p>
+        </div>
+        <div>
+          <div class="tag">IS</div>
+          <h4>RoboCAD Twin</h4>
+          <p>Same compile layer, then calibration with honest intervals, gap metrics, and a revision regression report. The compile layer becomes the foundation, not the product.</p>
+        </div>
+      </div>
+
+      <div class="callout">
+        <p><strong>Honest position today:</strong> zero customer interviews, zero letters of intent, no hardware partner. Every market statement in this plan is a hypothesis until interviews happen. The plan is built so the software does not silently depend on the unproven half.</p>
+      </div>
+    </section>
+
+    <section id="build">
+      <div class="sec-head">
+        <div class="idx">02</div>
+        <div>
+          <h3>What we are actually building</h3>
+          <p>Two halves. Phase 1 is required and shippable on its own. Phase 2 is the reason anyone pays, and it needs one real robot.</p>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div>
+          <div class="tag">PHASE 1 · M0 TO M7 · 6 TO 8 WEEKS</div>
+          <h4>Compile layer</h4>
+          <p>A STEP exported by hand from any CAD, Onshape included, comes in. Link grouping and joint inference with a human-editable YAML. Exact mass and inertia from B-rep geometry. Collision hulls. A verified bundle, a report with seven checks, a version diff, a living page, a CLI, and CI.</p>
+        </div>
+        <div>
+          <div class="tag">PHASE 2 · M8 TO M12 · 6 TO 8 WEEKS</div>
+          <h4>Twin layer</h4>
+          <p>A data contract a non-programmer can follow. Printed test protocols. Parameter identification with bootstrap and conformal intervals. Sim-to-real gap metrics per joint. Revision regression. Multi-simulator export. A page that overlays sim and real.</p>
+        </div>
+      </div>
+
+      <ul class="rule-list" style="margin-top:28px">
+        <li><span class="k">frozen</span><span class="dim">Aero, thermal, electronics, morphology, gait, brain, HERMES, marketplace, Isaac JSON. Behind a Labs flag, off by default. Tests stay green in the slow tier.</span></li>
+        <li><span class="k">not in scope</span><span class="dim">New physics solvers, new robot templates, new LLM features, cloud backend, accounts, billing.</span></li>
+        <li><span class="k">hard constraint</span><span class="dim">Identified mass positive, inertia positive-definite with valid principal moments, friction non-negative. A model that violates this is never written.</span></li>
+        <li><span class="k">hard constraint</span><span class="dim">No synthetic result is ever labelled real. No command is ever sent to real hardware. Protocols only, human supervised, with limits and a stop condition.</span></li>
+      </ul>
+    </section>
+
+    <section id="pipeline">
+      <div class="sec-head">
+        <div class="idx">03</div>
+        <div>
+          <h3>Pipeline and data models</h3>
+          <p>Each stage takes one typed model and returns the next. No stage reaches backwards. That is what makes milestone-by-milestone testing real.</p>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="t-pipe">
+          <thead>
+            <tr><th>Stage</th><th>Module</th><th>Input</th><th>Output</th><th>Status today</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="id">import</td><td class="mono-sm">ai_cad/importers/</td><td class="dim">STEP (hand export), FeatureTree</td><td class="dim">ImportedAssembly</td><td>does not exist</td></tr>
+            <tr><td class="id">compile</td><td class="mono-sm">ai_cad/compiler/</td><td class="dim">ImportedAssembly + YAML</td><td class="dim">RobotModel</td><td>does not exist</td></tr>
+            <tr><td class="id">export</td><td class="mono-sm">ai_cad/geda_bridge/</td><td class="dim">RobotModel</td><td class="dim">MJCF, URDF, meshes, manifest</td><td>exists, FeatureTree-only input</td></tr>
+            <tr><td class="id">check</td><td class="mono-sm">ai_cad/checks/</td><td class="dim">bundle</td><td class="dim">report.json, report.html</td><td>partially, via verifier</td></tr>
+            <tr><td class="id">diff</td><td class="mono-sm">ai_cad/checks/diff.py</td><td class="dim">two bundles</td><td class="dim">regression report</td><td>does not exist</td></tr>
+            <tr><td class="id">twin</td><td class="mono-sm">ai_cad/twin/</td><td class="dim">bundle + logs</td><td class="dim">calibration.yaml, gap metrics</td><td>does not exist</td></tr>
+            <tr><td class="id">page</td><td class="mono-sm">teardown_export/</td><td class="dim">bundle + trajectory</td><td class="dim">offline HTML, film</td><td>does not exist</td></tr>
+            <tr><td class="id">cli</td><td class="mono-sm">robocad/</td><td class="dim">commands</td><td class="dim">bundles, reports, pages</td><td>only start and health today, no packaging</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="milestones">
+      <div class="sec-head">
+        <div class="idx">04</div>
+        <div>
+          <h3>Tracker, end to end</h3>
+          <p>Every row is one acceptance gate. A row is checked only when its evidence exists and was run, not when the code is written. Ticks save in this browser only.</p>
+        </div>
+      </div>
+
+      <div class="table-wrap" style="margin-bottom:26px">
+        <table data-phase="p1">
+          <thead>
+            <tr><th></th><th>ID</th><th>Milestone</th><th>Deliverable</th><th>Evidence that closes it</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="chk"><label class="chk-label"><input type="checkbox" data-id="M0"><span class="box"></span></label></td><td class="id">M0</td><td>Baseline and focus</td><td class="dim">BASELINE.md, LICENSE, pyproject, DECISIONS.md, Labs toggle</td><td class="dim">all tiers recorded or each failure explained; README matches reality</td></tr>
+            <tr><td class="chk"><label class="chk-label"><input type="checkbox" data-id="M1"><span class="box"></span></label></td><td class="id">M1</td><td>STEP assembly import</td><td class="dim">importers/step_import.py, ImportedAssembly</td><td class="dim">3 assemblies, 3 CAD sources, correct counts, transforms, units</td></tr>
+            <tr><td class="chk"><label class="chk-label"><input type="checkbox" data-id="M2"><span class="box"></span></label></td><td class="id">M2</td><td>Link and joint inference</td><td class="dim">link_grouper, joint_infer, robot.joints.yaml</td><td class="dim">80%+ of ground-truth joints, correct axes; 10-minute human fix pass</td></tr>
+            <tr><td class="chk"><label class="chk-label"><input type="checkbox" data-id="M3"><span class="box"></span></label></td><td class="id">M3</td><td>Properties and collision</td><td class="dim">properties.py, meshing.py, materials.yaml</td><td class="dim">mass within 0.1%; inertia valid; MuJoCo loads with zero warnings</td></tr>
+            <tr><td class="chk"><label class="chk-label"><input type="checkbox" data-id="M4"><span class="box"></span></label></td><td class="id">M4</td><td>Compile, check, diff</td><td class="dim">checks/, report.json, report.html, diff</td><td class="dim">7 checks on 3 robots; 4 broken bundles fail the right check</td></tr>
+            <tr><td class="chk"><label class="chk-label"><input type="checkbox" data-id="M5"><span class="box"></span></label></td><td class="id">M5</td><td>Outside robots</td><td class="dim">case studies</td><td class="dim">3 external robots compile, checks pass, gaps documented</td></tr>
+            <tr><td class="chk"><label class="chk-label"><input type="checkbox" data-id="M6"><span class="box"></span></label></td><td class="id">M6</td><td>Living page and film</td><td class="dim">teardown_export/, page, film</td><td class="dim">offline pages under 1 MB, 30+ fps, values match report.json</td></tr>
+            <tr><td class="chk"><label class="chk-label"><input type="checkbox" data-id="M7"><span class="box"></span></label></td><td class="id">M7</td><td>CLI, CI, launch</td><td class="dim">PyPI package, action, demo</td><td class="dim">clean machine: STEP to page in under 15 minutes from README alone</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="table-wrap" style="margin-bottom:26px">
+        <table data-phase="p2">
+          <thead>
+            <tr><th></th><th>ID</th><th>Twin milestone</th><th>Deliverable</th><th>Evidence that closes it</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="chk"><label class="chk-label"><input type="checkbox" data-id="M8"><span class="box"></span></label></td><td class="id">M8</td><td>Data contract and protocols</td><td class="dim">DATA_CONTRACT.md, protocols/, logs validate</td><td class="dim">synthetic run passes, one real run passes, partner runs it unaided</td></tr>
+            <tr><td class="chk"><label class="chk-label"><input type="checkbox" data-id="M9"><span class="box"></span></label></td><td class="id">M9</td><td>Calibration engine</td><td class="dim">twin/identification.py, calibration.yaml</td><td class="dim">synthetic recovery in tolerance; real held-out error improves</td></tr>
+            <tr><td class="chk"><label class="chk-label"><input type="checkbox" data-id="M10"><span class="box"></span></label></td><td class="id">M10</td><td>Gap metrics, revision diff</td><td class="dim">twin diff, CI mode</td><td class="dim">two revisions produce a readable regression report</td></tr>
+            <tr><td class="chk"><label class="chk-label"><input type="checkbox" data-id="M11"><span class="box"></span></label></td><td class="id">M11</td><td>Multi-simulator export</td><td class="dim">MJCF real, URDF structural</td><td class="dim">MuJoCo replay within calibration error; URDF FK within 1e-6 m; Gazebo and USD documented unverified</td></tr>
+            <tr><td class="chk"><label class="chk-label"><input type="checkbox" data-id="M12"><span class="box"></span></label></td><td class="id">M12</td><td>Twin page, partner package</td><td class="dim">sim/real overlay, case study</td><td class="dim">offline page, numbers match, partner signs off</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="table-wrap">
+        <table data-phase="p3">
+          <thead>
+            <tr><th></th><th>ID</th><th>Partner lane</th><th>Why it is a milestone</th><th>Evidence that closes it</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="chk"><label class="chk-label"><input type="checkbox" data-id="P0"><span class="box"></span></label></td><td class="id">P0</td><td>20-candidate list</td><td class="dim">no partner exists today</td><td class="dim">robot, CAD, licence, and the exact one-hour ask per candidate</td></tr>
+            <tr><td class="chk"><label class="chk-label"><input type="checkbox" data-id="P1"><span class="box"></span></label></td><td class="id">P1</td><td>Outreach with a demo</td><td class="dim">a deck is not evidence, a compiled robot is</td><td class="dim">first conversations booked</td></tr>
+            <tr><td class="chk"><label class="chk-label"><input type="checkbox" data-id="P2"><span class="box"></span></label></td><td class="id">P2</td><td>Bench session agreed</td><td class="dim">M8 to M12 need one real robot</td><td class="dim">named partner, robot, date</td></tr>
+            <tr><td class="chk"><label class="chk-label"><input type="checkbox" data-id="P3"><span class="box"></span></label></td><td class="id">P3</td><td>Fallback decision</td><td class="dim">outreach may stall</td><td class="dim">public-log feasibility decided and recorded</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="done">
+      <div class="sec-head">
+        <div class="idx">05</div>
+        <div>
+          <h3>What done looks like</h3>
+          <p>The end state in full. Each row is a claim that must be backed by an artifact someone else can open, not by a sentence in a README.</p>
+        </div>
+      </div>
+
+      <div class="done-grid" data-phase="p4">
+        <div>
+          <h4>PHASE 1 DONE</h4>
+          <p class="big">STEP robots from any CAD compile to MJCF and URDF with a check report and a version diff.</p>
+          <p class="mono-sm" style="margin-top:10px">Proof: three outside robots, three case studies, three living pages.</p>
+          <label class="chk-label" style="margin-top:14px"><input type="checkbox" data-id="D1"><span class="box"></span></label>
+        </div>
+        <div>
+          <h4>DISTRIBUTION DONE</h4>
+          <p class="big">CLI installable from PyPI, GitHub Action working on a sample repo.</p>
+          <p class="mono-sm" style="margin-top:10px">Proof: clean-machine run under 15 minutes following the README.</p>
+          <label class="chk-label" style="margin-top:14px"><input type="checkbox" data-id="D2"><span class="box"></span></label>
+        </div>
+        <div>
+          <h4>CONTRACT DONE</h4>
+          <p class="big">A non-programmer records data that validates on upload.</p>
+          <p class="mono-sm" style="margin-top:10px">Proof: one real run with a signed revision.yaml.</p>
+          <label class="chk-label" style="margin-top:14px"><input type="checkbox" data-id="D3"><span class="box"></span></label>
+        </div>
+        <div>
+          <h4>CALIBRATION DONE</h4>
+          <p class="big">Recovers known parameters on synthetic logs within stated tolerance.</p>
+          <p class="mono-sm" style="margin-top:10px">Proof: twin_synthetic benchmark passing, labelled synthetic.</p>
+          <label class="chk-label" style="margin-top:14px"><input type="checkbox" data-id="D4"><span class="box"></span></label>
+        </div>
+        <div>
+          <h4>SIM-TO-REAL DONE</h4>
+          <p class="big">Held-out torque or trajectory error drops versus the uncalibrated CAD model.</p>
+          <p class="mono-sm" style="margin-top:10px">Proof: improvement and its uncertainty reported on real logs.</p>
+          <label class="chk-label" style="margin-top:14px"><input type="checkbox" data-id="D5"><span class="box"></span></label>
+        </div>
+        <div>
+          <h4>REVISION DONE</h4>
+          <p class="big">Two real revisions produce a regression report a team would act on.</p>
+          <p class="mono-sm" style="margin-top:10px">Proof: twin diff output naming the joint and the percent change.</p>
+          <label class="chk-label" style="margin-top:14px"><input type="checkbox" data-id="D6"><span class="box"></span></label>
+        </div>
+        <div>
+          <h4>TWIN PAGE DONE</h4>
+          <p class="big">Sim and real overlaid per joint, per revision, offline.</p>
+          <p class="mono-sm" style="margin-top:10px">Proof: every number matches report.json and calibration.yaml.</p>
+          <label class="chk-label" style="margin-top:14px"><input type="checkbox" data-id="D7"><span class="box"></span></label>
+        </div>
+      </div>
+    </section>
+
+    <section id="compare">
+      <div class="sec-head">
+        <div class="idx">06</div>
+        <div>
+          <h3>What to compare against</h3>
+          <p>Baseline measured on this machine on 13 November 2026. Targets are the thresholds that decide whether a milestone is actually done. Anything not measured says so.</p>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="t-cmp">
+          <thead>
+            <tr><th>Metric</th><th>Today</th><th>Target</th><th>How it is measured</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Default test tier</td><td class="num">424 pass, 6 skip, 190 s</td><td class="num">&lt; 300 s, green</td><td class="dim">pytest default markers</td></tr>
+            <tr><td>Heavy, slow, mujoco tier</td><td class="num dim">unverified, run killed</td><td class="num">green or explained</td><td class="dim">pytest -m "heavy or slow or mujoco"</td></tr>
+            <tr><td>STEP import</td><td class="num dim">none</td><td class="num">3 sources correct</td><td class="dim">part and instance counts vs source</td></tr>
+            <tr><td>Joint inference accuracy</td><td class="num dim">none</td><td class="num">80% of truth</td><td class="dim">diff against hand-written YAML</td></tr>
+            <tr><td>Mass accuracy</td><td class="num dim">mesh-derived</td><td class="num">0.1% vs analytic</td><td class="dim">cube and cylinder unit tests</td></tr>
+            <tr><td>URDF vs MJCF poses</td><td class="num dim">claimed sub-micron</td><td class="num">1e-6 m</td><td class="dim">forward kinematics at random configs</td></tr>
+            <tr><td>Compile time, 20-link robot</td><td class="num dim">no importer</td><td class="num">&lt; 120 s</td><td class="dim">timed on the laptop, cache warm</td></tr>
+            <tr><td>Living page weight</td><td class="num dim">none</td><td class="num">&lt; 1 MB</td><td class="dim">file size, meshes external</td></tr>
+            <tr><td>Page frame rate</td><td class="num dim">none</td><td class="num">30+ fps</td><td class="dim">on integrated GPU tier</td></tr>
+            <tr><td>Synthetic parameter recovery</td><td class="num dim">none</td><td class="num">inside stated tolerance</td><td class="dim">twin_synthetic with known truth</td></tr>
+            <tr><td>Real sim-to-real error</td><td class="num dim">no data</td><td class="num">lower than uncalibrated</td><td class="dim">held-out runs, with intervals</td></tr>
+            <tr><td>CI</td><td class="num">cannot pass, exit 5</td><td class="num">green on push</td><td class="dim">default tier plus frontend build</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="risks">
+      <div class="sec-head">
+        <div class="idx">07</div>
+        <div>
+          <h3>What can go wrong</h3>
+          <p>Ordered by how much of the plan each one can invalidate.</p>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="t-risk">
+          <thead><tr><th>Risk</th><th>Likelihood</th><th>Impact</th><th>Mitigation already in the plan</th></tr></thead>
+          <tbody>
+            <tr><td>No hardware partner</td><td class="num" style="color:#ff5d5d">high, current reality</td><td class="dim">Twin real-data claims blocked</td><td class="dim">Partner lane from week 1; public-log fallback; README states what is unproven</td></tr>
+            <tr><td>STEP variance across CAD vendors</td><td class="num" style="color:#feb300">high</td><td class="dim">M1 slips, schedule slips</td><td class="dim">One real assembly first, vendor spread timeboxed, structured errors</td></tr>
+            <tr><td>Collision backend will not install on Python 3.14</td><td class="num" style="color:#feb300">medium</td><td class="dim">M3 blocked</td><td class="dim">Install test in week 1; primitive-fit fallback still loads in MuJoCo</td></tr>
+            <tr><td>Calibration overfits synthetic noise</td><td class="num" style="color:#feb300">medium</td><td class="dim">Benchmark looks great, real gain absent</td><td class="dim">Held-out runs, conformal intervals, unidentifiable flags, separate claims</td></tr>
+            <tr><td>Frozen Labs rot</td><td class="num" style="color:#feb300">medium</td><td class="dim">CI time grows, unrelated failures</td><td class="dim">Labs flag, slow tier, no new features, quarterly prune</td></tr>
+            <tr><td>Solo founder single point of failure</td><td class="num" style="color:#ff5d5d">high</td><td class="dim">everything stops</td><td class="dim">Milestone reports and DECISIONS.md keep state recoverable, small commits</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="open">
+      <div class="sec-head">
+        <div class="idx">08</div>
+        <div>
+          <h3>Calls still open</h3>
+          <p>These are not decided by the plan. Each one blocks a specific milestone.</p>
+        </div>
+      </div>
+      <ul class="rule-list">
+        <li><span class="k">decided</span><span>Review round 1 settled three scope questions: hand-exported STEP only, CLI first with the web flow deferred past M7, and MuJoCo as the only measured simulator claim. Recorded in the plan.</span></li>
+        <li><span class="k">licence</span><span>Apache-2.0 for the compiler core is the recommendation. Satyam decides. Blocks M0.</span></li>
+        <li><span class="k">collision backend</span><span>CoACD versus vhacdx. Neither is installed. Needs an install test on Python 3.14 before M3 commits.</span></li>
+        <li><span class="k">outside robots</span><span>Which three. Licences confirmed by Satyam before any derived model is published. Blocks M5.</span></li>
+        <li><span class="k">fallback track</span><span>Whether usable public robot logs exist. One-day search scheduled week 5, before the week-8 decision.</span></li>
+        <li><span class="k">onboarding demo</span><span>Whether the generated biped stays as the demo, given it stands but does not walk. Blocks M6 framing.</span></li>
+        <li><span class="k">partner</span><span>Identity and robot. Nothing downstream of M8 can be called real until answered.</span></li>
+      </ul>
+
+      <div class="callout" style="border-left-color:var(--cyan);background:#081418">
+        <p><strong style="color:var(--cyan)">The assignment this week:</strong> run the heavy tier once and record the real number, then write the 20-candidate partner list with the exact one-hour ask. The second one is the only item in this plan software cannot do for you.</p>
+      </div>
+    </section>
+
+    <footer>
+      <span>roboCAD twin · plan v1 · 2026-11-13</span>
+      <span>ticks saved in this browser only · source: docs/designs/robocad-twin-deep-plan.md</span>
+    </footer>
+
+  </main>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Checkbox persistence (per-browser convenience only).
+  var STORE = 'robocad-twin-tracker-v1';
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(STORE) || '{}') || {}; } catch (e) { saved = {}; }
+
+  var boxes = Array.prototype.slice.call(document.querySelectorAll('input[type="checkbox"][data-id]'));
+
+  function persist() {
+    var next = {};
+    boxes.forEach(function (b) { if (b.checked) next[b.dataset.id] = 1; });
+    try { localStorage.setItem(STORE, JSON.stringify(next)); } catch (e) {}
+  }
+
+  function paintRow(box) {
+    var tr = box.closest('tr');
+    if (tr) tr.classList.toggle('is-done', box.checked);
+  }
+
+  function counts(selector) {
+    var all = Array.prototype.slice.call(document.querySelectorAll(selector));
+    var done = all.filter(function (b) { return b.checked; }).length;
+    return [done, all.length];
+  }
+
+  function setBar(id, done, total) {
+    var bar = document.getElementById(id + '-bar');
+    var label = document.getElementById(id + '-count');
+    if (bar) bar.style.width = (total ? (done / total) * 100 : 0) + '%';
+    if (label) label.textContent = done + ' / ' + total;
+  }
+
+  function refresh() {
+    var p1 = counts('table[data-phase="p1"] input[type="checkbox"]');
+    var p2 = counts('table[data-phase="p2"] input[type="checkbox"]');
+    var p3 = counts('table[data-phase="p3"] input[type="checkbox"]');
+    var p4 = counts('div[data-phase="p4"] input[type="checkbox"]');
+    setBar('p1', p1[0], p1[1]);
+    setBar('p2', p2[0], p2[1]);
+    setBar('p3', p3[0], p3[1]);
+    setBar('p4', p4[0], p4[1]);
+  }
+
+  boxes.forEach(function (b) {
+    if (saved[b.dataset.id]) b.checked = true;
+    paintRow(b);
+    b.addEventListener('change', function () { paintRow(b); persist(); refresh(); });
+  });
+  refresh();
+
+  // No scroll reveal: reference content stays visible when printed, captured, or read with a broken observer.
+
+  // One orchestrated moment: draw the pipeline edges on load.
+  function drawPipeline() {
+    var paths = document.querySelectorAll('#edges .draw');
+    paths.forEach(function (p, i) {
+      var len = 0;
+      try { len = p.getTotalLength(); } catch (e) { len = 0; }
+      if (!len) return;
+      p.style.strokeDasharray = len;
+      p.style.strokeDashoffset = len;
+      p.style.transition = 'stroke-dashoffset 700ms cubic-bezier(.2,.7,.2,1) ' + (i * 90) + 'ms';
+      requestAnimationFrame(function () { p.style.strokeDashoffset = '0'; });
+    });
+  }
+
+  if (reduced) {
+    // leave edges fully drawn
+  } else if (window.gsap) {
+    gsap.from('.hero h2, .hero p, .hero .kicker', {
+      y: 18, autoAlpha: 0, duration: 0.7, stagger: 0.08, ease: 'power3.out',
+      onStart: drawPipeline
+    });
+  } else {
+    requestAnimationFrame(drawPipeline);
+  }
+});
+</script>
+</body>
+</html>
