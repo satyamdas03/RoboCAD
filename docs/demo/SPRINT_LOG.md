@@ -610,3 +610,18 @@ blade's element pointers and the section map are unaffected. Nothing else on the
 
 *Suite.* Full default tier on the tree before these last three changes: **829 passed, 307 deselected,
 3 warnings in 1015.77s**.
+
+### 2026-11-14, F7 (4) cross-checked against Lane B's measurement [verified: ran]
+
+Both lanes measured the same thing and the two figures only looked different because of units.
+Mine: `git diff --name-status $(git merge-base master HEAD) HEAD`, then `git show HEAD:<path> | wc -c`
+per file -> **23 files added, 0.3 MB together, largest added 0.12 MiB (`torque.json`), largest file
+touched 3.76 MiB (the demo zip)**, nothing over 5 MB. Lane B: same 23 files, largest 0.13 MB, and
+against the `demo-bundle-v1` tag the diff is 514 files with the 3.94 MB package. 3,943,593 bytes is
+3.94 MB decimal and 3.76 MiB; neither of us is wrong and the decision (no LFS, no history rewrite)
+holds under both readings.
+
+The order's figure of "1,266 files and 1.07M lines" is not reproducible from either base here. It is
+not mine: it came in with the review that opened this sprint, and I have no command that produces it.
+Recorded as unreproduced rather than adopted, per the rule that an unverified number does not become
+a premise. Anyone planning a merge should use the measured pair above.
