@@ -2,10 +2,52 @@
 
 Owner of this file: build session (Lane A, `robocad-61`), with the show-path rows contributed by the
 monitor session (Lane B) and every one of them re-derived before it was written here. Updated
-2026-11-14, 13:35, for **v1.2**. Every claim carries a tag:
+2026-11-14, 15:40, for **v1.3**. Every claim carries a tag:
 `verified-ran`, `verified-read`, `claimed`. Deadline: hard freeze Sat 14 Nov 2026, 13:15 Sydney.
 
-## v1.2: the artifact of record, and why it replaces v1.1's package
+## v1.3: the artifact of record
+
+Updated 2026-11-14, 15:40 Sydney, for **v1.3**. `demo-bundle-v1.3` replaces v1.2 as the package to
+hand anyone. Nothing about the robot changed: the masses, the seven check rows, the failing live hold
+and the revision are v1.2's numbers. What changed is what the page says about them, and that every
+one of those statements now comes from the summary the voice also speaks from.
+
+| What | v1.3 state | Evidence |
+|---|---|---|
+| Tag | `demo-bundle-v1.3`, at the commit holding this exact zip | `verified-ran`, `git show demo-bundle-v1.3:docs/demo/so101_demo.zip \| sha256sum` equals the sha in `docs/demo/verify.json` |
+| Package | `docs/demo/so101_demo.zip`, 8,135,673 bytes, sha256 `f86c28f703f84ccfcb3269233ad7a0ef88e2843172387728f5af7c01b6b569f3`, 32 files recorded in `FILES.sha256` | `verified-ran`, `scripts/verify_demo_zip.py --built-from demo-bundle-v1.3 --out docs/demo/verify.json`: four PASS rows, `VERIFIED` |
+| The tag names itself | the page header reads `packaged demo-bundle-v1.3` from `manifest.js`, which `package_demo.py --tag` writes after checking `refs/tags/demo-bundle-v1.3` exists; no tag in the HTML | `verified-ran`, packaged `manifest.js` `package.tag = "demo-bundle-v1.3"`; a `--tag` that does not exist exits rather than printing a claim |
+| One generator for page and voice | the page's torque, comparison, checks, twin and link numbers all come from `summary.js`; `scripts/check_page_numbers.py` renders the page and requires every numeric token in those panels to trace to the summary JSON | `verified-ran`, `80 numeric tokens across torque-grp, cmp, checks, twin-grp all trace to the summary`; `tests/test_page_text_matches_summary.py` 2 passed in the `heavy` tier |
+| The pose gate is quoted, not hedged | torque note: "jaw frame differs by **70.69 mm** at the worst sampled pose"; the panel had printed "tens of mm" from a `torque.js` baked against an older `torque.json` than the summary read | `verified-ran`, packaged page text; `test_the_torque_reason_names_the_pose_gate_in_millimetres_not_tens_of_mm` and `test_torque_note_quotes_the_pose_gate` |
+| Two datasheet figures, named | `stall (servo) 2.94 N·m` and `rated (servo) 0.98 N·m` as separate rows; the single row that said "rated (servo) 2.94 N·m" was the stall figure | `verified-ran`, `docs/demo/screens/torque.png` |
+| Both panels explain 0.652 vs 0.767 | one line each: 0.652 N·m is the effort check's demand at its sampled poses, 0.767 N·m the static load at rest, "the same joint, not the same thing" | `verified-ran`, `screens/torque.png`, `screens/comparison.png` |
+| Rungs, no duplicates | rungs 0, 1, 2, 3, 4, 5 once each, rung 5 naming both joints; the blocked rung carries its full reason and the preview count (`0 of 19 parameters identified from 3 synthetic runs at 62 Hz, position logs only`) directly under it; one summary line | `verified-ran`, `screens/twin.png` |
+| The friction sentences have figures | the scenario table reaches the panel: `signal to noise is 0.10 … 4.48 … 25.1 … 0.39`; a `$` anchor in the pattern matched nothing and had been sending the panel to its no-table fallback | `verified-ran`, packaged page text |
+| Page payload | 533,262 triangles of the bundle's 620,093, **86.0%**, at a 3,000-triangle budget (largest mesh 3,370); raised from 2,500, where the reducer overshot and left ~500 per mesh | `verified-ran`, packaged README "Mesh resolution", `trajectory.js` `triangle_budget` |
+| The synthetic preview ships | `synthetic_preview.json` is in the package, so a summary built from the archive carries the preview block the page prints; without it the page showed 270 → 224 mrad while `twin summary` on the same archive had no preview at all | `verified-ran`, fixture `calibration.twin_preview`, `synthetic figures … calibration 40` |
+| Both repos read one summary | `docs/demo/robocad_summary.v1.json` (57,755 bytes, zip sha256 `f86c28f703f8` in its sidecar) and `Hi-EV/tests/fixtures/robocad_summary.v1.json` are the same bytes | `verified-ran`, `python -m pytest tests/test_robocad_tool.py -q` in Hi-EV: **8 passed** |
+| Screenshots | every panel captured from the packaged page: `docs/demo/screens/{hero,checks,comparison,torque,twin,links}.png` | `verified-ran`, header in each capture reads `packaged demo-bundle-v1.3`, 0 page errors |
+
+### Corrections made while cutting v1.3
+
+- The tag was first created on the code commit, before the zip it names existed in the tree, so
+  `git show demo-bundle-v1.3:docs/demo/so101_demo.zip` would have failed. It was deleted and recreated
+  at the final commit **before anything was pushed or handed out**; no published tag was moved.
+- Three packaging runs were spent on panel defects the screenshots caught, not on content: a
+  right-aligned value column overflowing the 320 px side panel, and the value and status columns
+  touching the panel edge so the last glyph read as clipped. Each fix is `padding` in `index.html`,
+  not a change to a number.
+
+### Not done, stated plainly
+
+- No frame of `film.mp4` was re-rendered for v1.3; the film is v1.2's.
+- `docs/twin/so101/comparison.md` in the working tree is still the pre-S3 render (it repeats the hull
+  sentence). It is **not in the package**; the packaged copy is `so101_vs_official.md`. Regenerating
+  it needs a bundle re-render, which this sprint did not spend.
+- The live hold still fails for contact geometry. Nothing in v1.3 changes that, and no panel claims
+  otherwise.
+
+## v1.2: superseded, kept for the record
 
 Read this paragraph before handing anyone a zip. **The tag `demo-bundle-v1.1` points at a defective
 package.** Its zip (sha256 `46b848e9…`, 25 files) carries a page that disagrees with the tree it was

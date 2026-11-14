@@ -620,3 +620,32 @@ only detector was a person diffing copies. `teardown_export/package_demo.py` now
 repeating it, and `twin unpack` recomputes each line and refuses on a mismatch, a recorded-but-missing
 file, or a file no line records. The check is optional for a zip that has no sidecar, because a
 consumer's package is theirs; when it is present it is binding.
+
+**Decision: a figure on the page must exist in the summary, and a checker enforces it.** The page
+and the voice are meant to read one generator, `build_summary`, but only the voice was held to it.
+The torque panel printed "tens of mm" where the summary carried 70.69 mm, because it read `torque.js`,
+baked against an older `torque.json`. Prose in place of a number is the mild version of the defect;
+the real cost is two sources of truth about one measurement. The panels now read `summary.js` for
+every figure, and `scripts/check_page_numbers.py` renders the page and fails on any numeric token in
+the torque, comparison, checks or twin panels that does not trace to the summary JSON, allowing only
+the precision the page prints and the unit scales it legitimately applies.
+
+**Decision: the synthetic preview block lives inside `calibration`, not beside it, and ships.** Two
+consequences settled together. The summary reserves the `synthetic` kind for the calibration block, so
+a preview block outside it either broke that rule or taught a reader there are two; it is simulated
+data with planted parameters, so it belongs inside. And the archive has to carry
+`synthetic_preview.json`: the page prints 270 → 224 mrad, and a summary built from a zip without that
+file had no preview at all, so the page and the voice would describe the same demo differently. The
+packager copies it for the same reason it copies `torque.json`.
+
+**Decision: the page payload is decimated at a 3,000-triangle budget, not 2,500.** Measured, not
+chosen by feel: 2,500 produced 128,073 triangles because the reducer overshoots below the budget and
+leaves roughly 500 per mesh; 3,000 produced 533,262 of the bundle's 620,093 (86.0%) with a largest
+mesh of 3,370; 5,000 produced no reduction at all at 14.8 MB. The budget and ratio travel in
+`trajectory.js` and the packaged README, so a recipient can re-derive both.
+
+**Decision: `demo-bundle-v1.3` was recreated once, before publication.** The tag was first placed on
+the code commit, before the zip it names existed in the tree, which would have made
+`git show demo-bundle-v1.3:docs/demo/so101_demo.zip` fail. Nothing was pushed or handed out. The tag
+was deleted and recreated at the final commit. The rule against re-tagging protects artifacts someone
+may already hold; an unpublished tag that cannot resolve its own package protects nothing.

@@ -666,3 +666,71 @@ $ python -m pytest -q -p no:cacheprovider tests/test_twin_bundle.py -k "Explanat
 
 **v1.2 unchanged.** No rebake, no re-tag, `demo-bundle-v1.2` stays the artifact of record. The fix
 ships in the next bundle; logged in FINAL_STATUS under "Fixed in source, ships in the next bundle".
+
+## S5 — v1.3: the page and the voice read one summary [verified: ran]
+
+The page printed figures its own summary did not hold. The clearest one: the torque panel said the jaw
+frame "differs by tens of mm" while the summary carried **70.69 mm**, because the panel read
+`torque.js`, baked against an older `torque.json` than the one `build_summary` read. A recipient could
+not reach the number the panel was hedging.
+
+Fixed at the root rather than in the sentence: the page's torque, comparison, checks and twin panels
+now read `summary.js` for every figure, and a checker enforces it.
+
+```
+$ python scripts/check_page_numbers.py
+80 numeric tokens across torque-grp, cmp, checks, twin-grp all trace to the summary
+
+$ python -m pytest tests/test_page_text_matches_summary.py -q -m heavy
+2 passed in 10.18s
+```
+
+`scripts/check_page_numbers.py` renders the page from `file://`, takes the numeric tokens in those
+four panels, and requires each to match a number in the summary JSON at the precision printed
+(rounding allowed, metre↔millimetre and fraction↔percent allowed, hex digests ignored). "tens of mm"
+fails it; so would any number typed into the HTML.
+
+Other figures that moved onto the summary's account:
+
+- stall 2.94 N·m and rated 0.98 N·m are now two rows; the old single row called the stall figure
+  "rated", a threefold overstatement of headroom (`[verified: ran]`, `screens/torque.png`).
+- the rung rows travel in `calibration.rungs`, so the blocked rung's reason (1.53 mrad, 998 N·m/rad,
+  4096 counts) has one source; rung 5 prints once with both joints (`[verified: ran]`, `screens/twin.png`).
+- the "what would identify friction" sentence prints again: a `$` anchor in `/torque or current
+  logged, 1 percent$/i` matched nothing in the summary's scenario names and had silently sent the
+  panel to its no-table fallback.
+- `synthetic_preview.json` is now **in the package**: the page printed 270 → 224 mrad while a summary
+  built from the archive had no preview block at all (`[verified: ran]`, fixture `calibration.twin_preview`).
+- the header names the tag it was cut from, read from `manifest.js`, which the packager writes with
+  `--tag` after checking the tag exists (`[verified: ran]`, `packaged demo-bundle-v1.3` in the page).
+
+Page payload, rebuilt and measured rather than guessed:
+
+```
+budget 2500 -> 128,073 tris (pathological: the reducer overshoots and leaves ~500 per mesh)
+budget 3000 -> 533,262 tris of 620,093 = 86.0%, largest mesh 3,370
+budget 5000 -> 100% (14.8 MB, no reduction)
+```
+
+Chosen: 3,000. Recorded in the packaged README's "Mesh resolution" section and in `docs/demo/README.md`.
+
+Package and tag:
+
+```
+$ python -m robocad twin unpack --zip docs/demo/so101_demo.zip --out <fresh dir>
+32 files match the FILES.sha256 the package ships
+$ python scripts/verify_demo_zip.py docs/demo/so101_demo.zip --built-from demo-bundle-v1.3 --out docs/demo/verify.json
+[PASS] 1..4  VERIFIED
+zip sha256 f86c28f703f84ccfcb3269233ad7a0ef88e2843172387728f5af7c01b6b569f3, 8,135,673 bytes
+```
+
+Hi-EV contract test on the refreshed fixture: `python -m pytest tests/test_robocad_tool.py -q` → **8
+passed**.
+
+**Tag correction, before publication:** `demo-bundle-v1.3` was first created on the code commit,
+before the zip it names was in the tree, so `git show demo-bundle-v1.3:docs/demo/so101_demo.zip` would
+have failed. Nothing had been pushed or handed out. The tag was deleted and recreated at the final
+commit; no published artifact was moved.
+
+**Not done:** `film.mp4` is still v1.2's; `docs/twin/so101/comparison.md` in the tree is still the
+pre-S3 render and is not in the package. Both are in FINAL_STATUS under "Not done, stated plainly".

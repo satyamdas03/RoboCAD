@@ -2,7 +2,7 @@
   "schema_version": "robocad.twin.summary/1",
   "name": "so101",
   "bundle": {
-    "path": "C:/Users/point/AppData/Local/Temp/robocad-fixture-1p3s7u52/demo/so101_demo",
+    "path": "C:/Users/point/AppData/Local/Temp/robocad-fixture-2sxdi5s_/demo/so101_demo",
     "generated_at": "2026-11-14T00:52:14+00:00",
     "source": {
       "file": "so101.step",
@@ -698,6 +698,14 @@
       "value": 0.6320060009999999,
       "kind": "stated"
     },
+    "delta_percent": {
+      "value": 42.66618262527856,
+      "kind": "modelled"
+    },
+    "infill_saving_percent": {
+      "value": 32.3,
+      "kind": "modelled"
+    },
     "assumptions": {
       "wall_mm": {
         "value": 1.2,
@@ -768,6 +776,10 @@
       "value": 11.25,
       "kind": "measured"
     },
+    "origin_worst_no_conventions_mm": {
+      "value": 110.34,
+      "kind": "measured"
+    },
     "link_length_mm": {
       "value": 1.69,
       "kind": "measured"
@@ -819,6 +831,7 @@
     },
     "dynamic_comparable": false,
     "dynamic_reason": "jaw frame differs by 70.69 mm at the worst sampled pose; a constant offset cannot map a joint vector to a matching tip",
+    "saturated": false,
     "pose_gate_mm": {
       "value": 70.69,
       "kind": "modelled"
@@ -829,6 +842,22 @@
       56.65,
       56.57,
       70.69
+    ],
+    "axis_residual_deg": [
+      0.16,
+      0.34,
+      0.72,
+      1.17,
+      0.2,
+      2.14
+    ],
+    "anchor_perp_mm": [
+      94.2,
+      110.3,
+      54.0,
+      54.7,
+      27.7,
+      54.5
     ],
     "basis": "same joint-space trajectory, contacts disabled; static rows are qfrc_bias at rest"
   },
@@ -851,7 +880,17 @@
     },
     "links_changed": 7,
     "added": [],
-    "removed": []
+    "removed": [],
+    "effort_before_nm": {
+      "value": 0.652,
+      "kind": "modelled"
+    },
+    "effort_before_percent": 22,
+    "effort_after_nm": {
+      "value": 0.687,
+      "kind": "modelled"
+    },
+    "effort_after_percent": 23
   },
   "calibration": {
     "current_channel": {
@@ -891,16 +930,116 @@
       ]
     },
     "stopped_at_rung": 3,
+    "rungs_total": 6,
+    "rungs_recovered": 5,
+    "rungs": [
+      {
+        "rung": 0,
+        "name": "damping only, noise free, 1 kHz",
+        "reached": true,
+        "note": "condition number 1.00"
+      },
+      {
+        "rung": 1,
+        "name": "damping and Coulomb, noise free, 1 kHz",
+        "reached": true,
+        "note": "condition number 4.80"
+      },
+      {
+        "rung": 2,
+        "name": "plus 3 sample latency at 1 kHz",
+        "reached": true,
+        "note": "latency identified as an integer number of samples"
+      },
+      {
+        "rung": 3,
+        "name": "62 Hz with noise and 4096 count quantisation",
+        "reached": false,
+        "note": "condition number 6.3, tolerance 25%. Position quantisation is 1.53 mrad and the servo stiffness is 998 N m per rad, so one count of position error is about 1.53 N m of actuator torque, against a friction signal of roughly 0.05 N m. The method cannot separate them at this rate, and no amount of fitting fixes a signal to noise ratio of 0.04. A partner's bench log with a real torque channel escapes this; a 62 Hz position log does not."
+      },
+      {
+        "rung": 5,
+        "name": "62 Hz with a current channel, shoulder_lift",
+        "reached": true,
+        "note": "intervals viscous (0.0432, 0.0439), coulomb (0.1465, 0.1467). Coulomb recovered within tolerance; viscous damping attenuated by encoder-quantised velocity, an errors-in-variables bias, not a missing signal."
+      },
+      {
+        "rung": 5,
+        "name": "62 Hz with a current channel, elbow_flex",
+        "reached": true,
+        "note": "intervals viscous (0.0598, 0.0605), coulomb (0.1326, 0.1333). Coulomb recovered within tolerance; viscous damping attenuated by encoder-quantised velocity, an errors-in-variables bias, not a missing signal."
+      },
+      {
+        "rung": 4,
+        "name": "second joint elbow_flex, noise free, 1 kHz",
+        "reached": true,
+        "note": ""
+      }
+    ],
     "position_only": {
       "snr": 0.1,
       "status": "insufficient",
       "scenario": "position only, 12-bit encoder, 62 Hz (status quo)"
     },
-    "synthetic": true
+    "scenarios": [
+      {
+        "scenario": "position only, 12-bit encoder, 62 Hz (status quo)",
+        "snr": 0.1,
+        "crosses": false
+      },
+      {
+        "scenario": "position only, 12-bit, averaged over 16 samples at 1 kHz",
+        "snr": 0.39,
+        "crosses": false
+      },
+      {
+        "scenario": "position only, 16-bit encoder, 62 Hz",
+        "snr": 1.57,
+        "crosses": false
+      },
+      {
+        "scenario": "position only, 16-bit, averaged over 16 samples at 1 kHz",
+        "snr": 6.27,
+        "crosses": true
+      },
+      {
+        "scenario": "position only, 20-bit encoder, 62 Hz",
+        "snr": 25.08,
+        "crosses": true
+      },
+      {
+        "scenario": "torque or current logged, 1 percent of rated noise",
+        "snr": 4.48,
+        "crosses": true
+      },
+      {
+        "scenario": "torque or current logged, 1 percent, averaged over 4",
+        "snr": 8.96,
+        "crosses": true
+      }
+    ],
+    "synthetic": true,
+    "twin_preview": {
+      "identified": 0,
+      "total": 19,
+      "hz": 62,
+      "runs": 3,
+      "rmse_uncalibrated_mrad": {
+        "value": 269.7768429979249,
+        "kind": "synthetic"
+      },
+      "rmse_calibrated_mrad": {
+        "value": 223.76264017594585,
+        "kind": "synthetic"
+      },
+      "data": "3 synthetic runs at 62 Hz, position logs only",
+      "source": "synthetic_preview.json",
+      "synthetic": true
+    }
   },
   "synthetic_figures": {
     "provenance": 0,
-    "calibration": 18,
+    "calibration": 40,
     "calibration_is_synthetic": true
   }
 }

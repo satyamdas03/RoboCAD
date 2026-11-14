@@ -174,6 +174,10 @@ def main() -> int:
         "torque.json": "docs/twin/so101/bundle/torque.json",
         "identification.json": "docs/twin/so101/bundle/identification.json",
         "identifiability_scenarios.json": "docs/twin/so101/bundle/identifiability_scenarios.json",
+        # The synthetic preview the twin panel draws. The page prints its RMSE, so the data behind
+        # that figure has to travel with the page; without it, `twin summary` run against the packed
+        # archive has no preview block while the page shows one, and the voice and the page disagree.
+        "synthetic_preview.json": "docs/twin/so101/bundle/synthetic_preview.json",
         # The summary the page renders from and the voice speaks from: one generator, shipped as a
         # script because the page runs from file://, where fetch() is blocked. `manifest.js` is
         # written below instead of copied, because it must carry the tag this package is cut from.
